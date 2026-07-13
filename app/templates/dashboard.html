@@ -1,0 +1,416 @@
+{% extends 'base.html' %}
+{% block title %}Citizen Portal - SmartGarbage{% endblock %}
+{% block content %}
+<!-- Leaflet Map CSS/JS Dependencies -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="row g-4">
+    <!-- Left Column: Wallet & Leaderboard & Forms -->
+    <div class="col-lg-5 col-sm-12">
+        <!-- Gamified Eco-Reward Wallet Card -->
+        <div class="card p-4 border-0 shadow-sm bg-white mb-4" style="background: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%) !important; color: white;">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-uppercase small fw-bold" style="opacity: 0.85;">Eco-Reward Wallet Balance</span>
+                    <h2 class="display-5 fw-extrabold mt-1 mb-0"><span id="greenPointsDisplay">{{ green_points }}</span> GP</h2>
+                    <small class="d-block mt-2" style="opacity: 0.9;">Earn points by reporting overflows or using smart recycling hubs.</small>
+                </div>
+                <span class="fs-1">🌱</span>
+            </div>
+            
+            <div class="mt-4 pt-3 border-top border-white border-opacity-20">
+                <h6 class="fw-bold mb-2">Redeem Coupons & Tax Discounts:</h6>
+                <div class="d-flex flex-column gap-2">
+                    <button class="btn btn-sm btn-light fw-bold text-success text-start d-flex justify-content-between align-items-center" onclick="redeemReward('Local Supermarket 10% Off', 50)">
+                        <span>🛒 Supermarket Voucher</span>
+                        <span class="badge bg-success">50 GP</span>
+                    </button>
+                    <button class="btn btn-sm btn-light fw-bold text-success text-start d-flex justify-content-between align-items-center" onclick="redeemReward('Municipal Property Tax 5% Discount', 100)">
+                        <span>🏠 Property Tax Discount</span>
+                        <span class="badge bg-success">100 GP</span>
+                    </button>
+                    <button class="btn btn-sm btn-light fw-bold text-success text-start d-flex justify-content-between align-items-center" onclick="redeemReward('Free Premium Beverage at Bistro', 30)">
+                        <span>☕ Coffee Shop Voucher</span>
+                        <span class="badge bg-success">30 GP</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Community Cleanliness Leaderboard -->
+        <div class="card p-4 border-0 shadow-sm bg-white mb-4">
+            <h5 class="fw-bold text-dark mb-3">🏆 Cleanliness Leaderboard</h5>
+            <p class="text-muted small">Neighborhood ranks based on average trash levels (higher is cleaner).</p>
+            <div class="list-group gap-1">
+                {% for r in leaderboard %}
+                <div class="list-group-item border-0 bg-light rounded-3 d-flex justify-content-between align-items-center p-2.5">
+                    <div>
+                        <span class="fw-bold me-2">#{{ loop.index }}</span>
+                        <span class="text-dark fw-medium">{{ r.ward.split(' - ')[1] if ' - ' in r.ward else r.ward }}</span>
+                    </div>
+                    <span class="badge bg-success p-2">{{ r.score }} pts</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- "Report Overflowing Trash" Form -->
+        <div class="card p-4 border-0 shadow-sm bg-white">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="fs-4">🚨</span>
+                <h5 class="fw-bold text-danger mb-0">Emergency Cleanup Request</h5>
+            </div>
+            <p class="text-muted small">Spot overflowing trash? Take a photo, capture GPS, and dispatch municipal sanitation trucks instantly (Earn 15 Green Points!).</p>
+            
+            <form method="POST" action="/report" enctype="multipart/form-data">
+                <input type="hidden" name="name" value="{{ session.get('username') }}">
+                <input type="hidden" name="phone" value="+919999999999">
+                
+                <!-- GPS Autolocator widget -->
+                <div class="p-3 bg-light rounded-3 mb-3 border border-dashed">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-bold text-secondary">📍 Device Coordinates</span>
+                        <button type="button" class="btn btn-xs btn-outline-success py-0.5 px-2 rounded-pill" style="font-size:0.75rem;" onclick="captureGPS()">Sync GPS</button>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <input type="text" id="latitude" name="latitude" class="form-control form-control-sm" readonly placeholder="Lat" required>
+                        </div>
+                        <div class="col-6">
+                            <input type="text" id="longitude" name="longitude" class="form-control form-control-sm" readonly placeholder="Lon" required>
+                        </div>
+                    </div>
+                    <input type="datetime-local" id="report_time" name="report_time" class="form-control form-control-sm d-none" required>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary">Select Ward Area</label>
+                    <select name="ward" id="dashWard" class="form-select form-select-sm" required>
+                        <option value="" disabled selected>-- Choose Ward --</option>
+                    </select>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary">Landmark/Street Address</label>
+                    <input name="address" class="form-control form-control-sm" placeholder="e.g. Near Market Square" required>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary">Describe Issue</label>
+                    <textarea name="description" class="form-control form-control-sm" rows="2" placeholder="e.g. Bin overflowing, bad odor..." required></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">Upload Photo Proof</label>
+                    <input type="file" name="photo" class="form-control form-control-sm" accept="image/*">
+                </div>
+
+                <button type="submit" class="btn btn-danger w-100 fw-bold py-2 shadow-sm rounded-pill">
+                    🚀 Dispatch Cleanup Request
+                </button>
+            </form>
+        </div>
+
+        <!-- 4-Stream Waste Segregation Declaration Form -->
+        <div class="card p-4 border-0 shadow-sm bg-white mt-4 border-start border-3 border-success">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="fs-4">🌿</span>
+                <h5 class="fw-bold text-success mb-0">4-Stream Waste Declaration</h5>
+            </div>
+            <p class="text-muted small">Declare your daily waste segregation at source. Earn Green Points based on weight!</p>
+            <form method="POST" action="/dashboard/declare-waste">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">Select Ward Area</label>
+                    <select name="ward" id="segWard" class="form-select form-select-sm" required>
+                        <option value="" disabled selected>-- Choose Ward --</option>
+                    </select>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">🌿 Wet (Organic) waste</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="wet_kg" step="0.1" min="0" value="0.0" class="form-control">
+                            <span class="input-group-text">kg</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">♻️ Dry (Recyclables)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="dry_kg" step="0.1" min="0" value="0.0" class="form-control">
+                            <span class="input-group-text">kg</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">🩹 Sanitary Waste</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="sanitary_kg" step="0.1" min="0" value="0.0" class="form-control">
+                            <span class="input-group-text">kg</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">☢️ Domestic Hazardous</label>
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="hazardous_kg" step="0.1" min="0" value="0.0" class="form-control">
+                            <span class="input-group-text">kg</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-success w-100 fw-bold py-2 shadow-sm rounded-pill">
+                    📤 Declare Segregated Waste
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Interactive Locator Map & Tickets History -->
+    <div class="col-lg-7 col-sm-12">
+        <!-- Smart Bin Public Locator Map -->
+        <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;">
+            <h5 class="fw-bold mb-3 text-dark">🗺️ Public Smart Bin Locator Map</h5>
+            <p class="text-muted small">Review active waste levels to find empty community bins nearby.</p>
+            
+            <div id="locatorMap" style="height: 380px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
+            
+            <!-- Map Legend -->
+            <div class="d-flex justify-content-center gap-4 mt-3 small">
+                <span><strong class="text-success">●</strong> Empty / Available (< 50%)</span>
+                <span><strong class="text-warning">●</strong> Filling Up (50% - 80%)</span>
+                <span><strong class="text-danger">●</strong> Full - Do Not Use (>= 80%)</span>
+            </div>
+        </div>
+
+        <!-- Pay-As-You-Throw (PAYT) Utility Invoices -->
+        <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0">💳 Pay-As-You-Throw (PAYT) Invoices</h5>
+                <span class="badge bg-primary rounded-pill" id="invoiceCount">Loading...</span>
+            </div>
+            <p class="text-muted small">Dynamic utility billing based on the exact weight of non-recyclable waste collected.</p>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="paytTable" style="font-size:0.9rem;">
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Weight (kg)</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paytInvoiceList">
+                        <tr>
+                            <td colspan="4" class="text-center py-3 text-muted">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <span class="ms-2">Loading billing ledger...</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Submitted Tickets History (Preserved Original) -->
+        <div class="card border-0 shadow-sm bg-white p-4">
+            <h4 class="mb-4 text-dark fw-bold">Your Submitted Tickets</h4>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date Filed</th>
+                            <th>Ticket Details</th>
+                            <th>Location Coordinates & Address</th>
+                            <th>Photo Proof</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in complaints %}
+                            <tr>
+                                <td>
+                                    <small class="text-muted d-block">{{ c.created_at.strftime('%Y-%m-%d') if c.created_at else 'N/A' }}</small>
+                                    <small class="text-muted d-block" style="font-size:0.8rem;">{{ c.created_at.strftime('%H:%M') if c.created_at else '' }}</small>
+                                </td>
+                                <td>
+                                    <strong class="text-dark">{{ c.ward }}</strong>
+                                    <p class="mb-0 text-muted small mt-1" style="max-width:300px;">{{ c.description }}</p>
+                                    {% if c.report_time %}
+                                        <span class="badge bg-light text-dark border small mt-2 d-inline-block">🕒 Occurred: {{ c.report_time.replace('T', ' ') }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="d-block small text-dark fw-medium">📍 {{ c.address }}</span>
+                                    {% if c.latitude and c.longitude %}
+                                        <div class="mt-2">
+                                            <code class="small text-secondary">{{ c.latitude }}, {{ c.longitude }}</code>
+                                            <a href="https://www.openstreetmap.org/?mlat={{ c.latitude }}&mlon={{ c.longitude }}#map=17/{{ c.latitude }}/{{ c.longitude }}" target="_blank" class="btn btn-sm btn-outline-success py-0.5 px-2 rounded-pill ms-2" style="font-size: 0.75rem;">
+                                                🗺️ View on Map
+                                            </a>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted small">No GPS coordinates recorded</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if c.photo %}
+                                        {% set file_path = c.photo.replace('static/', '').replace('app/static/', '') %}
+                                        <a href="{{ url_for('static', filename=file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3">
+                                            View Image
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted small">No photo uploaded</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if c.status == 'Pending' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                        {{ c.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <span class="fs-1 opacity-25 d-block mb-2">✔</span>
+                                    <p class="mb-0">You have not submitted any complaints yet. Everything is clean!</p>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script type="application/json" id="smart-bins-data">
+{{ bins_data|tojson }}
+</script>
+<script>
+    // Injected Smart Bins list for public locator map
+    const smartBins = JSON.parse(document.getElementById('smart-bins-data').textContent);
+
+    // Populate Ward selector dropdown
+    document.addEventListener("DOMContentLoaded", () => {
+        initializeWardDropdown("dashWard", "-- Choose Ward --");
+        initializeWardDropdown("segWard", "-- Choose Ward --");
+        
+        // Auto sync GPS coords & datetime-local
+        captureGPS();
+        loadPAYTInvoices();
+        
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById("report_time").value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    });
+
+    // Fetch and load PAYT invoices
+    async function loadPAYTInvoices() {
+        try {
+            const response = await fetch('/api/payt-invoice');
+            if (response.ok) {
+                const invoices = await response.json();
+                const tbody = document.getElementById('paytInvoiceList');
+                const badge = document.getElementById('invoiceCount');
+                badge.innerText = `${invoices.length} Bills`;
+                
+                if (invoices.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
+                    return;
+                }
+                
+                tbody.innerHTML = invoices.map(inv => `
+                    <tr>
+                        <td><strong>${inv.period}</strong></td>
+                        <td>${inv.weight_kg.toFixed(1)} kg</td>
+                        <td class="fw-bold">₹${inv.amount_rs.toFixed(2)}</td>
+                        <td>
+                            <span class="badge ${inv.status === 'Paid' ? 'bg-success' : 'bg-danger'} rounded-pill">
+                                ${inv.status}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        } catch (e) {
+            console.error("Error loading PAYT invoices:", e);
+        }
+    }
+
+    // Device coordinate synchronization
+    function captureGPS() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+                    document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+                },
+                (error) => {
+                    // Fallback to central Chintalavalasa
+                    document.getElementById('latitude').value = "18.067500";
+                    document.getElementById('longitude').value = "83.409400";
+                }
+            );
+        } else {
+            document.getElementById('latitude').value = "18.067500";
+            document.getElementById('longitude').value = "83.409400";
+        }
+    }
+
+    // Initialize Leaflet locator viewport
+    let map = L.map('locatorMap').setView([18.0675, 83.4094], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    function getBinColor(level) {
+        if (level >= 80) return '#E74C3C'; // Full Red
+        if (level >= 50) return '#F1C40F'; // Warning Yellow
+        return '#2ECC71'; // Safe Green
+    }
+
+    // Plot markers
+    smartBins.forEach(bin => {
+        L.circleMarker([bin.latitude, bin.longitude], {
+            radius: 8,
+            fillColor: getBinColor(bin.level),
+            color: '#FFFFFF',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).bindPopup(`<b>Smart Bin ID: ${bin.hardware_id}</b><br>Level: ${bin.level}% Full<br>Status: ${bin.level >= 80 ? 'Full' : (bin.level >= 50 ? 'Medium' : 'Empty')}`).addTo(map);
+    });
+
+    // Reward coupons redemption API trigger
+    async function redeemReward(rewardName, costPoints) {
+        const currentPoints = parseInt(document.getElementById('greenPointsDisplay').innerText);
+        if (currentPoints < costPoints) {
+            alert("❌ Insufficient Eco-Points balance. Keep recycling to earn more GP!");
+            return;
+        }
+
+        if (!confirm(`Redeem ${costPoints} GP for: ${rewardName}?`)) return;
+
+        const formData = new FormData();
+        formData.append('points', costPoints);
+        formData.append('reward_type', rewardName);
+
+        const response = await fetch('/api/redeem', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            alert(`🎉 Success! ${data.message}`);
+            document.getElementById('greenPointsDisplay').innerText = data.new_points;
+        } else {
+            alert("❌ Error completing points redemption. Try again.");
+        }
+    }
+</script>
+{% endblock %}

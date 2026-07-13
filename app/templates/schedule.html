@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-4 animate-fade-in">
+    <!-- Form Segment -->
+    <div class="col-lg-5">
+        <div class="card p-4 shadow-sm border-0">
+            <h3 class="mb-4 text-success fw-bold d-flex align-items-center gap-2">
+                <span>📅</span> Timetable Search
+            </h3>
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Select Your Ward / Area</label>
+                    <select name="ward" id="schedWard" class="form-select form-select-lg" required>
+                        <option value="" disabled selected>-- Choose Ward --</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm">
+                    🔍 View Ward Schedule
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Prediction & Timetable Segment -->
+    <div class="col-lg-7">
+        {% if selected_ward %}
+            <div class="card p-4 shadow-sm border-0 h-100 d-flex flex-column justify-content-between">
+                <div>
+                    <h3 class="mb-3 text-dark fw-bold">{{ selected_ward }}</h3>
+                    
+                    <!-- ML Route failure Prediction Indicator -->
+                    {% if prediction is not none %}
+                        <div class="card mb-4 border-0 shadow-sm">
+                            {% if prediction == 1 %}
+                                <div class="card-body bg-danger bg-opacity-10 border-start border-danger border-4 rounded-3 p-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="fs-1 text-danger">⚠️</span>
+                                        <div>
+                                            <h5 class="text-danger fw-bold mb-1">Missed Collection Risk: HIGH</h5>
+                                            <p class="mb-0 text-muted small">
+                                                Our Random Forest Classifier indicates a high likelihood of delays today due to weather indices or historical complaint patterns.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="card-body bg-success bg-opacity-10 border-start border-success border-4 rounded-3 p-3">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="fs-1 text-success">✅</span>
+                                        <div>
+                                            <h5 class="text-success fw-bold mb-1">Missed Collection Risk: LOW</h5>
+                                            <p class="mb-0 text-muted small">
+                                                Routes are running smoothly. Normal pickup probability expected.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <!-- Results rendering table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mt-2">
+                            <thead>
+                                <tr>
+                                    <th>Day of Week</th>
+                                    <th>Time Slot Window</th>
+                                    <th>Vehicle ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in schedules %}
+                                    <tr class="fw-medium">
+                                        <td>{{ s.day }}</td>
+                                        <td><span class="badge bg-light text-dark border">{{ s.time_slot }}</span></td>
+                                        <td><code>{{ s.vehicle_id }}</code></td>
+                                    </tr>
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-4">No active timetable records mapped to this sector.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="card p-4 shadow-sm border-0 h-100 bg-white d-flex align-items-center justify-content-center text-center py-5">
+                <div class="py-5">
+                    <span class="fs-1 text-muted opacity-50 d-block mb-3">📅</span>
+                    <h5 class="text-secondary fw-bold">No Ward Selected</h5>
+                    <p class="text-muted mb-0 small">Please select a Chintalavalasa residential sector on the left to review times and ML logs.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        initializeWardDropdown("schedWard", "-- Choose Ward --");
+
+        // Auto-select previously submitted ward if any
+        const selectedWard = JSON.parse(document.getElementById("selected-ward-data").textContent);
+        if (selectedWard) {
+            const selectEl = document.getElementById("schedWard");
+            if (selectEl) {
+                selectEl.value = selectedWard;
+            }
+        }
+    });
+</script>
+{% endblock %}

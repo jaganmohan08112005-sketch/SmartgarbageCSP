@@ -1,0 +1,400 @@
+{% extends 'base.html' %}
+{% block title %}Reports & Analytics - SmartGarbage{% endblock %}
+{% block content %}
+<!-- Leaflet & Heatmap Dependencies -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://leaflet.github.io/Leaflet.heat/dist/leaflet-heat.js"></script>
+
+<!-- Chart.js and jsPDF Dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<div class="row g-4 mb-5 animate-fade-in">
+    <!-- Header row -->
+    <div class="col-12">
+        <div class="card p-4 border-0 shadow-sm bg-white d-flex flex-row justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2 class="mb-1 fw-bold" style="color:var(--navy-color);">Analytics &amp; Compliance Hub</h2>
+                <p class="text-muted mb-0 small">Predictive heatmaps, ESG compliance audits, carbon footprint tracker, and circular economy reports.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-secondary rounded-pill px-4" onclick="exportCSRDReport()">
+                    📂 Export ESG/CSRD Report
+                </button>
+                <button class="btn btn-success fw-bold px-4 rounded-pill shadow-sm" onclick="exportPerformancePDF()">
+                    📥 Export Performance PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Predictive Waste Hotspots Heatmap -->
+    <div class="col-lg-7 col-sm-12">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100" style="z-index: 1;">
+            <h5 class="fw-bold mb-1 text-dark">🔥 Predictive Waste Hotspot Heatmap</h5>
+            <p class="text-muted small mb-3">Highlights geographic zones generating waste at accelerated speeds based on historical telemetry metrics.</p>
+            <div id="heatmapContainer" style="height: 380px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
+        </div>
+    </div>
+
+    <!-- KPI Summary widgets column -->
+    <div class="col-lg-5 col-sm-12">
+        <div class="card p-4 border-0 shadow-sm bg-white h-100 justify-content-between">
+            <h5 class="fw-bold text-dark mb-3">📊 Monthly Optimization Summary</h5>
+            <div class="d-flex flex-column gap-3 small">
+                <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3">
+                    <div>
+                        <span class="text-muted d-block">Collection Efficiency</span>
+                        <strong class="text-success fs-5">94.8%</strong>
+                    </div>
+                    <span class="fs-2">📈</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3">
+                    <div>
+                        <span class="text-muted d-block">Worker Hours Cleared</span>
+                        <strong class="text-dark fs-5">320 hrs</strong>
+                    </div>
+                    <span class="fs-2">⏰</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3">
+                    <div>
+                        <span class="text-muted d-block">Fuel Cost Reduction</span>
+                        <strong class="text-primary fs-5">22.4% Savings</strong>
+                    </div>
+                    <span class="fs-2">⛽</span>
+                </div>
+            </div>
+            <div class="mt-4 text-center">
+                <cite class="text-muted small italic d-block">Telemetry data syncing active. Heatmaps refresh hourly.</cite>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart row: Peak disposal times & Waste composition by type -->
+    <div class="col-md-6">
+        <div class="card p-3 border-0 shadow-sm bg-white">
+            <h5 class="fw-bold mb-3 text-dark">🕒 Peak Garbage Disposal Times</h5>
+            <canvas id="disposalTimesChart" height="220"></canvas>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card p-3 border-0 shadow-sm bg-white">
+            <h5 class="fw-bold mb-3 text-dark">♻️ Waste Generation By Type (Tons)</h5>
+            <canvas id="wasteTypeChart" height="220"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ══ NEW V2: Circular Economy + CO2 Tracker Row ══ -->
+<div class="row g-4 mb-4">
+    <!-- CO2 Carbon Footprint Tracker -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm p-4 h-100" style="background:linear-gradient(135deg,#1a3a2a,#2C3E50);color:white;">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span style="font-size:2rem;">🌿</span>
+                <div>
+                    <h5 class="fw-bold mb-0">CO₂ Footprint Tracker</h5>
+                    <small class="opacity-75">vs Traditional Fixed Routes</small>
+                </div>
+            </div>
+            <div class="text-center py-3">
+                <div class="fw-bold" style="font-size:3rem;">{{ carbon_data.co2_saved_tonnes }}</div>
+                <div class="opacity-75 mb-2">metric tons CO₂ saved this month</div>
+                <div class="d-flex justify-content-around">
+                    <div class="text-center">
+                        <div class="fw-bold" style="color:#F1C40F;">{{ carbon_data.traditional_km }} km</div>
+                        <div class="small opacity-75">Traditional routes</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="fw-bold" style="color:#2ECC71;">{{ carbon_data.optimized_km }} km</div>
+                        <div class="small opacity-75">AI-optimized routes</div>
+                    </div>
+                </div>
+                <div class="mt-3 rounded-3 p-2" style="background:rgba(255,255,255,0.1);">
+                    <div class="small">🌳 Equivalent to planting <strong>{{ carbon_data.trees_equivalent }}</strong> trees</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Circular Economy Donut Chart -->
+    <div class="col-lg-4 col-md-6">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h5 class="fw-bold mb-1">♻️ Circular Economy Auditor</h5>
+            <p class="text-muted small mb-3">Waste diversion from declared streams (SWM Rules 2016)</p>
+            <canvas id="circularEconomyChart" height="180"></canvas>
+            <div class="text-center mt-2">
+                <span class="badge bg-success rounded-pill">{{ circular_economy.recycling_rate }}% Recycling Rate</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4-Stream Breakdown -->
+    <div class="col-lg-4 col-md-12">
+        <div class="card border-0 shadow-sm p-4 h-100">
+            <h5 class="fw-bold mb-3">📊 4-Stream Waste Breakdown</h5>
+            <div class="d-flex flex-column gap-3">
+                <div id="streamBreakdown">
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>🌱 Wet / Organic</span>
+                            <strong class="stream-val" data-key="wet_kg">0 kg</strong>
+                        </div>
+                        <div class="progress" style="height:8px;border-radius:4px;">
+                            <div class="progress-bar" data-key="wet_kg" data-color="#2ECC71"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>♻️ Dry / Recyclables</span>
+                            <strong class="stream-val" data-key="dry_kg">0 kg</strong>
+                        </div>
+                        <div class="progress" style="height:8px;border-radius:4px;">
+                            <div class="progress-bar" data-key="dry_kg" data-color="#3498DB"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>🩹 Sanitary Waste</span>
+                            <strong class="stream-val" data-key="sanitary_kg">0 kg</strong>
+                        </div>
+                        <div class="progress" style="height:8px;border-radius:4px;">
+                            <div class="progress-bar" data-key="sanitary_kg" data-color="#E67E22"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>☢️ Hazardous / E-Waste</span>
+                            <strong class="stream-val" data-key="hazardous_kg">0 kg</strong>
+                        </div>
+                        <div class="progress" style="height:8px;border-radius:4px;">
+                            <div class="progress-bar" data-key="hazardous_kg" data-color="#E74C3C"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 p-2 rounded-3 text-center" style="background:#e8f8f5;">
+                <div class="small text-muted">Total Declared</div>
+                <div class="fw-bold">{{ (circular_economy.wet_kg + circular_economy.dry_kg + circular_economy.sanitary_kg + circular_economy.hazardous_kg)|round(1) }} kg</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Bin Estimator Info Banner -->
+<div class="alert border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#fef9e7,#fdebd0);border-left:4px solid #F1C40F!important;">
+    <div class="d-flex align-items-start gap-3">
+        <span style="font-size:1.8rem;">🚦</span>
+        <div>
+            <h6 class="fw-bold mb-1">AI Bin Fullness Traffic Light Estimator</h6>
+            <p class="mb-0 small">Based on historical bin telemetry patterns: <strong>BIN-201 (Chintalavalasa Junction)</strong> typically reaches overflow capacity by <strong>6:00 PM on weekdays</strong>. <strong>BIN-302 (RTC Colony)</strong> shows accelerated fill rates on weekends. Citizens are advised to dispose of waste before peak hours.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Analytics data is loaded from the API at runtime (no server-injected
+    // Jinja in the markup), so the template validates as plain JavaScript/HTML
+    let ANALYTICS, circularData, carbonData, heatBins, trendData;
+    fetch('/api/analytics-data')
+        .then(r => r.json())
+        .then(data => {
+            ANALYTICS = data;
+            circularData = data.circular;
+            carbonData = data.carbon;
+            heatBins = data.bins;
+            trendData = data.trends;
+            initAnalytics(); buildDonut(); buildStreams();
+        })
+        .catch(e => console.error('Analytics load failed:', e));
+
+    // 1. Heatmap + Peak/Waste charts (runs after data loads)
+    function initAnalytics() {
+
+    // 1. Initialize Leaflet Map for Heatmap
+    let heatMap = L.map('heatmapContainer').setView([18.0675, 83.4094], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(heatMap);
+
+    // Map the bins data points to Leaflet Heat [lat, lon, intensity/weight]
+    const heatPoints = heatBins.map(b => [b.lat, b.lon, b.level / 100.0]);
+
+    // Create and add heatmap layer
+    let heatLayer = L.heatLayer(heatPoints, {
+        radius: 35,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {0.4: 'blue', 0.6: 'cyan', 0.8: 'yellow', 1.0: 'red'}
+    }).addTo(heatMap);
+
+    // 2. Chart.js Peak Times Line Chart
+    const timesCtx = document.getElementById('disposalTimesChart').getContext('2d');
+    new Chart(timesCtx, {
+        type: 'line',
+        data: {
+            labels: trendData.labels,
+            datasets: [{
+                label: 'Waste Generation Rate (kg/hr)',
+                data: trendData.organic.map((o, idx) => o + trendData.plastic[idx] + trendData.metal[idx]),
+                borderColor: '#2ECC71',
+                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                tension: 0.4,
+                fill: true,
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // 3. Chart.js Waste Composition Bar Chart
+    const typeCtx = document.getElementById('wasteTypeChart').getContext('2d');
+    new Chart(typeCtx, {
+        type: 'bar',
+        data: {
+            labels: trendData.labels,
+            datasets: [
+                {
+                    label: 'Organic Waste',
+                    data: trendData.organic,
+                    backgroundColor: '#2C3E50',
+                },
+                {
+                    label: 'Plastic Waste',
+                    data: trendData.plastic,
+                    backgroundColor: '#2ECC71',
+                },
+                {
+                    label: 'Metal Waste',
+                    data: trendData.metal,
+                    backgroundColor: '#F1C40F',
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
+        }
+    });
+    }
+
+    // Circular Economy Donut Chart
+    function buildDonut() {
+        const ceCtx = document.getElementById('circularEconomyChart').getContext('2d');
+    new Chart(ceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['♻️ Recycled/Diverted', '🗑️ Landfill'],
+            datasets: [{
+                data: [circularData.recycled_kg || 42, circularData.landfill_kg || 58],
+                backgroundColor: ['#27AE60', '#E74C3C'],
+                borderColor: ['#ffffff', '#ffffff'],
+                borderWidth: 3
+            }]
+        },
+        options: {
+            cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ` ${ctx.label}: ${ctx.raw} kg`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    }
+
+    // CSRD ESG Compliance PDF Export
+    async function exportCSRDReport() {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.textContent = '⏳ Fetching audit data...';
+        try {
+            const res = await fetch('/analytics/csrd-export');
+            const data = await res.json();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Cover page
+            doc.setFillColor(44, 62, 80);
+            doc.rect(0, 0, 210, 45, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('ESG / CSRD Compliance Report', 15, 25);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Municipality: ${data.municipality}`, 15, 35);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 15, 42);
+
+            // CO2 section
+            doc.setTextColor(44, 62, 80);
+            doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+            doc.text('I. Carbon Footprint Reduction', 15, 60);
+            doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+            doc.text(`• CO2 Saved (AI vs Traditional Routes): ${carbonData.co2_saved_kg} kg (${carbonData.co2_saved_tonnes} metric tons)`, 20, 70);
+            doc.text(`• Optimized Route Distance: ${carbonData.optimized_km} km vs ${carbonData.traditional_km} km traditional`, 20, 78);
+            doc.text(`• Trees Equivalent: ${carbonData.trees_equivalent}`, 20, 86);
+
+            // Circular Economy
+            doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+            doc.text('II. Circular Economy & Waste Streams', 15, 100);
+            doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+            doc.text(`• Recycling Diversion Rate: ${circularData.recycling_rate}%`, 20, 110);
+            doc.text(`• Wet / Organic: ${circularData.wet_kg} kg`, 20, 118);
+            doc.text(`• Dry / Recyclables: ${circularData.dry_kg} kg`, 20, 126);
+            doc.text(`• Sanitary: ${circularData.sanitary_kg} kg`, 20, 134);
+            doc.text(`• Hazardous / E-Waste: ${circularData.hazardous_kg} kg`, 20, 142);
+
+            // Audit Trail sample
+            doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+            doc.text('III. Audit Trail (Recent Actions)', 15, 158);
+            doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+            let ay = 168;
+            (data.audit_trail_sample || []).slice(0, 15).forEach(entry => {
+                if (ay > 275) return;
+                doc.text(`• [${entry.timestamp.slice(0,16)}] ${entry.username} — ${entry.action} ${entry.target ? '→ ' + entry.target : ''}`, 20, ay);
+                ay += 7;
+            });
+
+            doc.save('SmartGarbage_CSRD_ESG_Report.pdf');
+        } catch(e) {
+            alert('CSRD export failed: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📂 Export ESG/CSRD Report';
+        }
+    }
+
+    // Apply 4-stream values, progress-bar widths/colors from data attributes
+    // (kept out of the inline `style` attribute so the markup stays valid)
+    function buildStreams() {
+        const streamKeys = ['wet_kg', 'dry_kg', 'sanitary_kg', 'hazardous_kg'];
+        const streamMax = Math.max(...streamKeys.map(k => circularData[k] || 0), 1);
+        document.querySelectorAll('.stream-val[data-key]').forEach(el => {
+            const key = el.getAttribute('data-key');
+            el.textContent = (circularData[key] || 0) + ' kg';
+        });
+        document.querySelectorAll('.progress-bar[data-key]').forEach(bar => {
+            const key = bar.getAttribute('data-key');
+            bar.style.width = ((circularData[key] || 0) / streamMax * 100) + '%';
+            bar.style.background = bar.getAttribute('data-color');
+        });
+    }
+</script>
+{% endblock %}

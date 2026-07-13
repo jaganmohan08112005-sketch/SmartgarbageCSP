@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}BWG Commercial Ledger — SmartGarbage{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex align-items-center gap-3 mb-5">
+    <div class="rounded-3 p-3 d-flex align-items-center justify-content-center" style="background:linear-gradient(135deg,#2C3E50,#34495E);width:60px;height:60px;">
+      <span style="font-size:1.8rem;">🏢</span>
+    </div>
+    <div>
+      <h1 class="fw-bold mb-0">Bulk Waste Generator Ledger</h1>
+      <p class="text-muted mb-0">For establishments generating <strong>&gt;100 kg/day</strong> — apartments, malls, hospitals &amp; institutions</p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Declaration Form -->
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm sticky-top" style="top:80px;">
+        <div class="card-header bg-transparent border-0 pt-4 px-4">
+          <h5 class="fw-bold mb-0">📋 Submit Daily Declaration</h5>
+          <p class="text-muted small mb-0">Legally required under SWM Rules 2016</p>
+        </div>
+        <div class="card-body p-4">
+          <form action="/bwg-ledger" method="POST">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">🏢 Entity Name</label>
+              <input type="text" class="form-control" name="entity_name" placeholder="e.g. Sunrise Apartments Block-C" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Type</label>
+              <select class="form-select" name="entity_type">
+                <option value="residential">🏠 Residential Complex</option>
+                <option value="commercial">🏪 Commercial / Retail</option>
+                <option value="institution">🏫 Educational Institution</option>
+                <option value="hospital">🏥 Hospital / Healthcare</option>
+                <option value="hotel">🏨 Hotel / Hospitality</option>
+              </select>
+            </div>
+            <hr class="my-3">
+            <p class="fw-semibold small mb-2">📊 Today's Waste Streams (kg)</p>
+            <div class="mb-3">
+              <label class="form-label small">🌿 On-site Composting</label>
+              <input type="number" class="form-control" name="composting_kg" step="0.1" min="0" value="0" id="compost_input" oninput="updateTotal()">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">♻️ Recyclables for Pickup</label>
+              <input type="number" class="form-control" name="recyclable_kg" step="0.1" min="0" value="0" id="recycle_input" oninput="updateTotal()">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">🗑️ Residual Landfill Waste</label>
+              <input type="number" class="form-control" name="landfill_kg" step="0.1" min="0" value="0" id="landfill_input" oninput="updateTotal()">
+            </div>
+            <div class="rounded-3 p-3 mb-3 text-center" style="background:#e8f8f5;">
+              <div class="small text-muted">Total Declared</div>
+              <div class="fw-bold fs-4" style="color:var(--primary-dark);" id="total_display">0 kg</div>
+              <div class="small" id="payt_notice" style="color:var(--danger-color);display:none;">⚠️ Exceeds 100kg — PAYT invoice will be auto-generated (₹1.5/kg)</div>
+            </div>
+            <div class="form-check mb-4">
+              <input class="form-check-input" type="checkbox" name="request_pickup" id="pickup_check">
+              <label class="form-check-label fw-semibold" for="pickup_check">
+                🚛 Request Bulk Municipal Pickup
+              </label>
+            </div>
+            <button type="submit" class="btn btn-success w-100 fw-bold">
+              📤 Submit Declaration
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Declaration History -->
+    <div class="col-lg-7">
+      <h5 class="fw-bold mb-3">📅 My Submission History</h5>
+      {% if declarations %}
+        {% for d in declarations %}
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h6 class="fw-bold mb-0">{{ d.entity_name }}</h6>
+                <small class="text-muted text-capitalize">{{ d.entity_type }} · {{ d.timestamp.strftime('%d %b %Y, %I:%M %p') }}</small>
+              </div>
+              <span class="badge {% if d.pickup_status == 'Approved' %}bg-success{% elif d.pickup_status == 'Pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %} rounded-pill">
+                {{ d.pickup_status }}
+              </span>
+            </div>
+            <div class="row g-2 text-center mb-3">
+              <div class="col-4">
+                <div class="rounded-3 p-2" style="background:#e8f8f5;">
+                  <div class="small text-muted">🌿 Compost</div>
+                  <div class="fw-bold">{{ d.composting_kg }} kg</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="rounded-3 p-2" style="background:#eaf4fb;">
+                  <div class="small text-muted">♻️ Recycle</div>
+                  <div class="fw-bold">{{ d.recyclable_kg }} kg</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="rounded-3 p-2" style="background:#fdedec;">
+                  <div class="small text-muted">🗑️ Landfill</div>
+                  <div class="fw-bold">{{ d.landfill_kg }} kg</div>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="small text-muted">
+                Total: <strong>{{ (d.composting_kg + d.recyclable_kg + d.landfill_kg)|round(1) }} kg</strong>
+                {% if d.request_bulk_pickup %} · 🚛 Pickup Requested{% endif %}
+              </div>
+              {% set total = d.composting_kg + d.recyclable_kg + d.landfill_kg %}
+              {% if total >= 100 %}
+              <span class="badge bg-danger rounded-pill">PAYT: ₹{{ (total * 1.5)|round(2) }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <div style="font-size:3rem;">📭</div>
+        <p>No declarations submitted yet. Use the form to submit your first daily log.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<script>
+function updateTotal(){
+  const c = parseFloat(document.getElementById('compost_input').value)||0;
+  const r = parseFloat(document.getElementById('recycle_input').value)||0;
+  const l = parseFloat(document.getElementById('landfill_input').value)||0;
+  const t = c+r+l;
+  document.getElementById('total_display').textContent = t.toFixed(1)+' kg';
+  document.getElementById('payt_notice').style.display = t >= 100 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

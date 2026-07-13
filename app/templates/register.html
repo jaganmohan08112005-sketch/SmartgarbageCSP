@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="card p-4 shadow border-0">
+            <div class="text-center mb-4">
+                <span class="fs-1 text-success">📝</span>
+                <h3 class="fw-bold mt-2 text-success">Create Account</h3>
+                <p class="text-muted small">Register to track and report sanitation issues</p>
+            </div>
+            
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">👤</span>
+                        <input name="username" class="form-control" placeholder="Choose a username" required autofocus>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">🔒</span>
+                        <input name="password" type="password" class="form-control" placeholder="Choose a password" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Account Role</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">🛡️</span>
+                        <select name="role" class="form-select" required>
+                            <option value="user" selected>Standard Citizen (User)</option>
+                            <option value="admin">Sanitation Officer (Admin)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
+                    Register Account
+                </button>
+                
+                <div class="text-center mt-3">
+                    <p class="mb-0 text-muted small">Already have an account? <a href="/login" class="text-success fw-bold text-decoration-none">Log In Here</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
