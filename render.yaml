@@ -12,7 +12,3 @@ services:
         value: "true"
       - key: PYTHON_VERSION
         value: "3.12"
-    disks:
-      - name: data
-        mountPoint: /data
-        sizeGB: 1
