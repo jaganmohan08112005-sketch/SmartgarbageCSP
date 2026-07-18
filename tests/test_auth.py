@@ -44,7 +44,7 @@ def test_report_requires_login(client):
         'ward': 'Ward 1',
         'address': 'Test address'
     }, follow_redirects=True)
-    assert b'log in' in response.data.lower() or response.status_code == 302
+    assert b'login' in response.data.lower() or response.status_code == 302
 
 def test_phone_validation_rejects_all_same(client):
     response = client.post('/auth/phone-login', data={

@@ -67,6 +67,15 @@
             </div>
         </div>
 
+        <!-- Green Points Leaderboard (Eco Champions) -->
+        <div class="card p-4 border-0 shadow-sm bg-white mb-4">
+            <h5 class="fw-bold text-dark mb-3">🌱 Eco Champions</h5>
+            <p class="text-muted small">Top citizens by Green Points earned this cycle. Segregate right, climb the board!</p>
+            <div class="list-group gap-1" id="ecoChampions">
+                <div class="text-muted small py-2">Loading champions…</div>
+            </div>
+        </div>
+
         <!-- Ward Segregation Leaderboard -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
             <h5 class="fw-bold text-dark mb-3">♻️ Ward Segregation Rate</h5>
@@ -446,7 +455,7 @@
         }
     }
 
-    // ── Real-time complaint-status notifications (SSE) ──
+    function showToast(msg) {
     if (typeof EventSource !== 'undefined') {
         const es = new EventSource('/api/notifications/stream');
         es.onmessage = (e) => {
@@ -471,5 +480,31 @@
         box.appendChild(t);
         setTimeout(() => t.remove(), 8000);
     }
+
+    // ── Eco Champions (Green Points leaderboard) ──
+    async function loadEcoChampions() {
+        const el = document.getElementById('ecoChampions');
+        if (!el) return;
+        try {
+            const res = await fetch('/api/leaderboard');
+            if (!res.ok) return;
+            const rows = await res.json();
+            if (!rows.length) {
+                el.innerHTML = '<div class="text-muted small py-2">No champions yet — be the first!</div>';
+                return;
+            }
+            el.innerHTML = rows.map(r => `
+                <div class="list-group-item border-0 bg-light rounded-3 d-flex justify-content-between align-items-center p-2.5">
+                    <div>
+                        <span class="fw-bold me-2">#${r.rank}</span>
+                        <span class="text-dark fw-medium">${r.username}</span>
+                    </div>
+                    <span class="badge bg-success p-2">${r.green_points} GP</span>
+                </div>`).join('');
+        } catch (e) {
+            console.error('Eco champions load failed:', e);
+        }
+    }
+    loadEcoChampions();
 </script>
 {% endblock %}

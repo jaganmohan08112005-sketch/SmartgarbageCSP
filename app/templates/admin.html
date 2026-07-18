@@ -3,7 +3,8 @@
 {% block content %}
 <!-- Leaflet Map CSS/JS Dependencies -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 
 <div class="row g-4">
     <!-- Left Navigation Sticky Sidebar (Dashboard controls) -->
@@ -276,6 +277,7 @@
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <h5 class="fw-bold mb-0 text-dark">🗺️ Live GIS Interactive Grid</h5>
                             <div class="d-flex gap-2">
+                                <span id="liveIndicator" class="badge bg-secondary" title="Live socket connection status">OFFLINE</span>
                                 <button class="btn btn-warning btn-sm fw-bold px-3 text-dark rounded-pill" onclick="simulateAnomalyTrigger()">⚠️ Fire Anomaly Simulator</button>
                                 <button class="btn btn-success btn-sm fw-bold px-3 rounded-pill" onclick="executeRoutingDispatch()">⚡ Dispatch Shortest Path</button>
                             </div>
@@ -857,6 +859,14 @@
         });
     }
 
+    // Update a single bin marker in place (used by live socket pushes).
+    function updateBinMarker(bin) {
+        const marker = binMarkers[bin.hardware_id];
+        if (!marker || !bin) return;
+        marker.setStyle({ fillColor: getMarkerColor(bin.status) });
+        marker.setLatLng([bin.latitude, bin.longitude]);
+    }
+
     // Toggle Solar Pre-Compaction for the bin shown in the modal
     async function toggleCompactor() {
         if (!currentBinHwId) return;
@@ -1059,5 +1069,31 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadReports);
+
+    // ── Live updates via Socket.IO (flask-socketio, default namespace) ──
+    // Pushes fresh bin telemetry + fleet positions without a manual refresh,
+    // turning the admin view from a dashboard into a live control room.
+    (function connectLive() {
+        if (typeof io === 'undefined') { console.warn('socket.io client not loaded'); return; }
+        const socket = io({ transports: ['websocket', 'polling'] });
+
+        const liveDot = document.getElementById('liveIndicator');
+        socket.on('connect', () => { if (liveDot) { liveDot.className = 'badge bg-success'; liveDot.textContent = 'LIVE'; } });
+        socket.on('disconnect', () => { if (liveDot) { liveDot.className = 'badge bg-secondary'; liveDot.textContent = 'OFFLINE'; } });
+        socket.on('connect_error', () => { if (liveDot) { liveDot.className = 'badge bg-warning text-dark'; liveDot.textContent = 'RECONNECT'; } });
+
+        socket.on('bin_update', (data) => {
+            const bin = smartBins.find(b => b.hardware_id === data.hardware_id);
+            if (bin) Object.assign(bin, data);
+            const marker = binMarkers[data.hardware_id];
+            if (marker) updateBinMarker(bin || data);
+        });
+
+        socket.on('fleet_update', (payload) => {
+            if (payload && payload.fleet) {
+                if (typeof fleetMap !== 'undefined' && fleetMap) loadFleetLocations();
+            }
+        });
+    })();
 </script>
 {% endblock %}

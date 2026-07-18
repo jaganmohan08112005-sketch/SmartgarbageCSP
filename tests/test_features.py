@@ -1,13 +1,14 @@
 from app.models import User, Complaint, BWGDeclaration, WorkerProfile, Notification
 from werkzeug.security import generate_password_hash
-from app import db
+from app import db, create_app, socketio
+import json as _json
 
-def _make_user(app, username, role='citizen', phone=None, password='testpass123'):
+def _make_user(app, username, role='citizen', phone=None, password='testpass123', green_points=0):
     if phone is None:
         phone = f'+91987654{hash(username) % 10000:04d}'
     with app.app_context():
         u = User(username=username, password_hash=generate_password_hash(password),
-                 role=role, phone=phone, is_approved=True)
+                 role=role, phone=phone, is_approved=True, green_points=green_points)
         db.session.add(u)
         db.session.commit()
         return u.id
@@ -153,3 +154,66 @@ def test_notifications_list_and_markread(client, app):
     assert r2.status_code == 200
     with app.app_context():
         assert Notification.query.filter_by(user_id=cid, read=False).count() == 0
+
+
+# ── Route optimizer upgrade (Haversine + networkx TSP) ──
+def test_route_optimize_tsp(client, app):
+    _make_user(app, 'tspadmin', role='admin')
+    with app.app_context():
+        from app.models import SmartBin
+        for hid, lat, lon in [('TSP-1', 18.05, 83.40), ('TSP-2', 18.06, 83.41), ('TSP-3', 18.07, 83.42)]:
+            if not SmartBin.query.filter_by(hardware_id=hid).first():
+                db.session.add(SmartBin(hardware_id=hid, latitude=lat, longitude=lon,
+                                     level=90, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    client.post('/login', data={'username': 'tspadmin', 'password': 'testpass123'})
+    r = client.get('/api/route-optimize', follow_redirects=False)
+    assert r.status_code in (200, 302)
+    if r.status_code == 200:
+        import json
+        d = json.loads(r.data)
+        assert 'route' in d and 'total_distance' in d
+        assert d['optimized_with'].startswith('networkx') or d['optimized_with'].startswith('greedy')
+
+# ── Green-Points leaderboard endpoint (Phase E) ──
+def test_green_points_leaderboard(client, app):
+    import json
+    _make_user(app, 'eco_champ', green_points=120)
+    _make_user(app, 'eco_low', green_points=40)
+    _make_user(app, 'eco_zero', green_points=0)
+    cid = _make_user(app, 'eco_login')
+    client.post('/login', data={'username': 'eco_login', 'password': 'testpass123'})
+    r = client.get('/api/leaderboard', follow_redirects=False)
+    assert r.status_code == 200
+    data = json.loads(r.data)
+    # Only users with >0 points are ranked, sorted descending.
+    assert [u['username'] for u in data] == ['eco_champ', 'eco_low']
+    assert data[0]['green_points'] == 120
+
+
+# ── Live WebSocket push on telemetry (Phase D) ──
+def test_bin_telemetry_emits_socket_event(app):
+    from app.models import SmartBin
+    with app.app_context():
+        if not SmartBin.query.filter_by(hardware_id='LIVE-1').first():
+            db.session.add(SmartBin(hardware_id='LIVE-1', latitude=18.06,
+                                    longitude=83.41, level=10, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+
+    # Connect a socket.io test client and ingest a telemetry frame via the
+    # flask test client; the handler must emit a `bin_update` event.
+    io_client = socketio.test_client(app)
+    try:
+        with app.test_client() as c:
+            r = c.post('/api/bin-telemetry', json={
+                "hardware_id": "LIVE-1", "level": 73, "temperature": 29.0,
+                "methane": 120, "battery_level": 90})
+            assert r.status_code == 200
+        received = io_client.get_received()
+        events = [e['name'] for e in received]
+        assert 'bin_update' in events
+        upd = next(e for e in received if e['name'] == 'bin_update')
+        assert upd['args'][0]['hardware_id'] == 'LIVE-1'
+        assert upd['args'][0]['level'] == 73
+    finally:
+        io_client.disconnect()

@@ -7,3 +7,7 @@ uploads/
 .vscode/
 .env
 *.db
+boot.log
+boot_err.log
+.pytest_cache/
+*.log

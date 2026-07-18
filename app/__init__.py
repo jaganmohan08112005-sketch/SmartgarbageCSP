@@ -6,11 +6,17 @@ from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
+from flask_socketio import SocketIO
 
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+
+# Live updates: socketio drives real-time bin/fleet pushes to the admin
+# control room. async_mode is chosen at init time in create_app() so it
+# can fall back gracefully when eventlet/gevent are unavailable locally.
+socketio = SocketIO()
 
 
 def create_app():
@@ -51,6 +57,21 @@ def create_app():
     migrate.init_app(app, db)
     csrf.init_app(app)
     limiter.init_app(app)
+
+    # WebSockets for live IoT/fleet updates. Prefer eventlet (needed for the
+    # async Gunicorn worker in production); fall back to threading for plain
+    # `flask run` local dev where eventlet isn't installed.
+    try:
+        socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+    except Exception:
+        socketio.init_app(app, cors_allowed_origins="*")
+    # Quiet the SQLAlchemy 1.x LegacyAPIWarning emitted by the app-wide
+    # use of `Model.query.get()` (deprecated in 2.0). Tracked separately
+    # from a real migration to Session.get().
+    import warnings
+    from sqlalchemy.exc import LegacyAPIWarning
+    warnings.filterwarnings("ignore", category=LegacyAPIWarning)
+
     # Security headers via after_request (Talisman handles HSTS/secure cookie;
     # CSP scoped to the CDNs actually used so Leaflet maps keep working)
     @app.after_request

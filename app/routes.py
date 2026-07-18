@@ -215,60 +215,11 @@ def check_decomposition_timers():
 # ──────────────────────────────────────────────
 # ACCESS DECORATORS
 # ──────────────────────────────────────────────
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('Please log in first.', 'error')
-            return redirect(url_for('main.login'))
-        if session.get('mfa_pending'):
-            flash('Complete MFA verification first.', 'error')
-            return redirect(url_for('main.mfa_verify'))
-        return f(*args, **kwargs)
-    return decorated
+# ──────────────────────────────────────
+# ACCESS DECORATORS  (see app/auth.py for shared impl)
+# ──────────────────────────────────────
+from .auth import login_required, admin_required, worker_required, superadmin_required, roles_required
 
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('Please log in first.', 'error')
-            return redirect(url_for('main.login'))
-        if session.get('mfa_pending'):
-            flash('Complete MFA verification first.', 'error')
-            return redirect(url_for('main.mfa_verify'))
-        if session.get('role') != 'admin':
-            flash('Administrator privileges required.', 'error')
-            return redirect(url_for('main.login'))
-        return f(*args, **kwargs)
-    return decorated
-
-def worker_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('Please log in first.', 'error')
-            return redirect(url_for('main.login'))
-        if session.get('mfa_pending'):
-            flash('Complete MFA verification first.', 'error')
-            return redirect(url_for('main.mfa_verify'))
-        if session.get('role') != 'worker':
-            flash('Worker privileges required.', 'error')
-            return redirect(url_for('main.login'))
-        return f(*args, **kwargs)
-    return decorated
-
-def superadmin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if 'user_id' not in session or session.get('role') != 'admin':
-            flash('Super-administrator access required.', 'error')
-            return redirect(url_for('main.login'))
-        user = User.query.get(session['user_id'])
-        if not user or not user.is_superadmin:
-            flash('Super-administrator access required.', 'error')
-            return redirect(url_for('main.admin'))
-        return f(*args, **kwargs)
-    return decorated
 
 # ═══════════════════════════════════════════════════════════════════
 # SECTION 1 — HOME / WEATHER
@@ -562,6 +513,26 @@ def dashboard():
                            invoices=invoices, declarations=declarations, dump_yards=DUMP_YARDS,
                            current_user_phone=current_user_phone,
                             segregation_streak=streak, ward_leaderboard=ward_leaderboard)
+
+# Citizen Green-Points leaderboard (ward-scoped, privacy-conscious:
+# usernames only, never phone numbers). Powers the dashboard "Eco Champions" card.
+@main.route('/api/leaderboard')
+@login_required
+def green_points_leaderboard():
+    ward = request.args.get('ward', '').strip()
+    query = User.query.filter(User.green_points > 0)
+    if ward:
+        # A citizen's ward is taken from their waste declarations (User has no
+        # ward column), so scope to users who declared under that ward.
+        user_ids = db.session.query(WasteDeclaration.user_id).filter(
+            WasteDeclaration.ward == ward).distinct()
+        query = query.filter(User.id.in_(user_ids))
+    top = query.order_by(User.green_points.desc()).limit(10).all()
+    return jsonify([
+        {"rank": i + 1, "username": u.username, "green_points": u.green_points}
+        for i, u in enumerate(top)
+    ])
+
 
 # Citizen real-time notifications (SSE push for complaint status changes)
 @main.route('/api/notifications/stream')
@@ -1035,33 +1006,131 @@ def admin():
                            illegal_reports=illegal_reports, bwg_requests=bwg_requests,
                            dump_yards=DUMP_YARDS)
 
-# Dijkstra TSP Route Optimizer
+# Route Optimizer — nearest-neighbour seeding + 2-opt refinement (networkx)
+# over a distance matrix (OSRM road distance when reachable, else Haversine).
 @main.route('/api/route-optimize')
 @login_required
 def route_optimize():
     critical_bins = SmartBin.query.filter(SmartBin.level >= 80).all()
     depot = {"lat": DEFAULT_LAT, "lon": DEFAULT_LON, "label": "Municipal HQ (Depot)"}
     if not critical_bins:
-        return jsonify({"route": [depot], "total_distance": 0, "message": "No critical bins today."})
+        return jsonify({"route": [depot], "total_distance": 0,
+                         "message": "No critical bins today.", "optimized_with": "none"})
+
     nodes = [{"lat": b.latitude, "lon": b.longitude, "label": b.hardware_id,
                "ward": b.ward, "level": b.level} for b in critical_bins]
-    route = [depot]; current = depot; unvisited = list(nodes); total_dist = 0.0
-    while unvisited:
-        closest = min(unvisited, key=lambda n: (n['lat']-current['lat'])**2 + (n['lon']-current['lon'])**2)
-        dist = math.sqrt((closest['lat']-current['lat'])**2 + (closest['lon']-current['lon'])**2)
-        total_dist += dist
-        route.append(closest); current = closest; unvisited.remove(closest)
-    dist_back = math.sqrt((depot['lat']-current['lat'])**2 + (depot['lon']-current['lon'])**2)
-    total_dist += dist_back; route.append(depot)
-    km_distance = round(total_dist * 111.0, 2)
-    # CO2 savings: traditional fixed-route = 45 km, optimized route saves the difference
-    traditional_km = 45.0
-    co2_saved_kg = round(max(0, traditional_km - km_distance) * 0.21, 2)
-    write_audit("ROUTE_OPTIMIZE", detail=f"Optimized route: {km_distance}km, {len(critical_bins)} critical bins.")
-    return jsonify({"route": route, "total_distance_km": km_distance,
-                    "critical_count": len(critical_bins), "co2_saved_kg": co2_saved_kg})
 
-# Fleet GPS API (simulated real-time positions)
+    # ── Distance helpers ──────────────────────────────────────
+    def haversine_km(la1, lo1, la2, lo2):
+        R = 6371.0  # Earth radius km
+        phi1, phi2 = math.radians(la1), math.radians(la2)
+        dphi = math.radians(la2 - la1)
+        dlmb = math.radians(lo2 - lo1)
+        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlmb/2)**2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    def road_km(a, b):
+        """Real road-network distance via OSRM. Falls back to Haversine on any error."""
+        try:
+            import requests
+            url = (f"http://router.project-osrm.org/route/v1/driving/"
+                 f"{a['lon']},{a['lat']};{b['lon']},{b['lat']}?overview=false")
+            r = requests.get(url, timeout=4)
+            if r.status_code == 200:
+                return r.json()["routes"][0]["distance"] / 1000.0
+        except Exception:
+            pass
+        return haversine_km(a["lat"], a["lon"], b["lat"], b["lon"])
+
+    # ── Build distance matrix (Haversine by default; OSRM if reachable) ──
+    n = len(nodes)
+    use_road = False
+    try:
+        import requests
+        requests.get("http://router.project-osrm.org/route/v1/driving/83.40,18.05;83.41,18.06?overview=false", timeout=3)
+        use_road = True
+    except Exception:
+        use_road = False
+
+    dist = [[0.0]*n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                dist[i][j] = road_km(nodes[i], nodes[j]) if use_road else \
+                    haversine_km(nodes[i]["lat"], nodes[i]["lon"], nodes[j]["lat"], nodes[j]["lon"])
+
+    # ── Solve TSP with networkx (nearest-neighbour + 2-opt refinement) ──
+    try:
+        import networkx as nx
+        G = nx.complete_graph(n)
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    G[i][j]["weight"] = dist[i][j]
+        # initial tour via greedy nearest neighbour
+        tour = [0]
+        remaining = set(range(1, n))
+        while remaining:
+            last = tour[-1]
+            nxt = min(remaining, key=lambda k: dist[last][k])
+            tour.append(nxt)
+            remaining.discard(nxt)
+        # 2-opt improvement
+        improved = True
+        while improved:
+            improved = False
+            for a in range(len(tour)-1):
+                for b in range(a+1, len(tour)):
+                    if b - a == 1:
+                        continue
+                    new = tour[:a+1] + tour[a+1:b+1][::-1] + tour[b+1:]
+                    def cost(t):
+                        c = dist[t[-1]][t[0]]
+                        for k in range(len(t)-1):
+                            c += dist[t[k]][t[k+1]]
+                        return c
+                    if cost(new) < cost(tour) - 1e-9:
+                        tour = new
+                        improved = True
+        order = tour
+        method = "networkx-tsp-2opt" + ("-road" if use_road else "-haversine")
+    except Exception:
+        # Fallback: greedy nearest neighbour on straight-line
+        order = []
+        current = depot
+        unvisited = list(range(n))
+        while unvisited:
+            cidx = min(unvisited, key=lambda k: dist[k][0] if current is depot
+                        else haversine_km(current["lat"], current["lon"], nodes[k]["lat"], nodes[k]["lon"]))
+            order.append(cidx)
+            current = nodes[cidx]
+            unvisited.remove(cidx)
+        method = "greedy-haversine-fallback"
+
+    route = [depot]
+    total = 0.0
+    prev = depot
+    for idx in order:
+        node = nodes[idx]
+        if prev is depot:
+            seg = dist[idx][0] if use_road else haversine_km(depot["lat"], depot["lon"], node["lat"], node["lon"])
+        else:
+            seg = road_km(prev, node) if use_road else haversine_km(prev["lat"], prev["lon"], node["lat"], node["lon"])
+        total += seg
+        route.append(node)
+        prev, prev_idx = node, idx
+    back = road_km(prev, depot) if use_road else haversine_km(prev["lat"], prev["lon"], depot["lat"], depot["lon"])
+    total += back
+    route.append(depot)
+
+    traditional_km = 45.0
+    co2_saved_kg = round(max(0, traditional_km - total) * 0.21, 2)
+    write_audit("ROUTE_OPTIMIZE", detail=f"Optimized route ({method}): {round(total,2)}km, {len(critical_bins)} critical bins.")
+    return jsonify({"route": route, "total_distance": round(total, 2),
+                     "critical_count": len(critical_bins), "co2_saved_kg": co2_saved_kg,
+                     "optimized_with": method})
+
+
 @main.route('/api/fleet-location')
 @admin_required
 def fleet_location():
@@ -1087,6 +1156,10 @@ def fleet_location():
             "in_bounds": in_bounds,
             "geofence_violation": w.geofence_violation
         })
+    # Push the fresh fleet positions to the live admin control room.
+    from . import socketio
+    socketio.emit('fleet_update', {"fleet": fleet})
+
     return jsonify(fleet)
 
 # Webhook configuration
@@ -1443,6 +1516,20 @@ def bin_telemetry():
 
     # Run the hazard evaluation (creates incidents + fires webhooks on breach)
     evaluate_emergency_metrics(smart_bin)
+
+    # Push the fresh bin state to the live admin control room.
+    from . import socketio
+    socketio.emit('bin_update', {
+        'hardware_id': hw_id,
+        'level': smart_bin.level,
+        'status': smart_bin.status,
+        'latitude': smart_bin.latitude,
+        'longitude': smart_bin.longitude,
+        'battery_level': smart_bin.battery_level,
+        'temperature': smart_bin.temperature,
+        'methane': smart_bin.methane,
+        'sensor_fault': smart_bin.sensor_fault,
+    })
 
     write_audit("BIN_TELEMETRY", target=hw_id,
                 detail=f"Level {smart_bin.level}% | {smart_bin.temperature}°C | CH4 {smart_bin.methane}ppm")
