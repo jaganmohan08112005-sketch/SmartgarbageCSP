@@ -117,5 +117,24 @@
 
     <!-- Bootstrap Core JS Delivery Pipeline Bundles -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Guarantee the navigation menu button (hamburger) opens the menu on click,
+        // on every screen size (not just relying on Bootstrap's default collapse).
+        document.addEventListener("DOMContentLoaded", () => {
+            const toggler = document.querySelector(".navbar-toggler");
+            const menu = document.getElementById("mainNavbarLayout");
+            if (toggler && menu) {
+                toggler.addEventListener("click", () => {
+                    const open = menu.classList.contains("show");
+                    if (open) {
+                        bootstrap.Collapse.getInstance(menu)?.hide() ||
+                            menu.classList.remove("show"), menu.classList.remove("collapsing");
+                    } else {
+                        (bootstrap.Collapse.getInstance(menu) || new bootstrap.Collapse(menu)).show();
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

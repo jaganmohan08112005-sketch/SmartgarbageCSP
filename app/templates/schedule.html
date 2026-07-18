@@ -104,13 +104,33 @@
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("schedWard", "-- Choose Ward --");
 
+        // Guarantee the ward <select> opens on click (all screen sizes),
+        // not relying solely on Bootstrap's native dropdown behavior.
+        const selectEl = document.getElementById("schedWard");
+        if (selectEl) {
+            selectEl.addEventListener("click", (e) => {
+                e.preventDefault();
+                selectEl.focus();
+                if (typeof selectEl.showPicker === "function") {
+                    try { selectEl.showPicker(); } catch (_) {}
+                }
+            });
+            selectEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    selectEl.focus();
+                    if (typeof selectEl.showPicker === "function") {
+                        try { selectEl.showPicker(); } catch (_) {}
+                    }
+                }
+            });
+        }
+
         // Auto-select previously submitted ward if any
         const selectedWard = JSON.parse(document.getElementById("selected-ward-data").textContent);
         if (selectedWard) {
-            const selectEl = document.getElementById("schedWard");
-            if (selectEl) {
-                selectEl.value = selectedWard;
-            }
+            const sel = document.getElementById("schedWard");
+            if (sel) sel.value = selectedWard;
         }
     });
 </script>
