@@ -148,10 +148,7 @@ erDiagram
 ## 🎯 Known Gaps
 
 1. **Single-worker rate limiting** — global limits, not per-user (Flask-Limiter uses in-memory store; move to Redis when running >1 worker)
-2. **State portal compliance export** — extend the existing CSRD export to a state-portal format
-3. **Citizen segregation streak/score** — data exists in `WasteDeclaration`, no citizen-facing view yet
-4. **Trend analytics** — segregation rate over time per ward, not just point-in-time
-5. **True route optimization** — beyond miss-risk prediction (traveling-salesman ordering)
+2. **True route optimization** — beyond miss-risk prediction (travelling-salesman ordering)
 
 ## ✅ Recently Closed
 
@@ -160,13 +157,14 @@ erDiagram
 - ✅ **Superadmin panel** — `/admin/super` (create admin, toggle super flag) gated by `superadmin_required`; `/admin/audit` now genuinely restricted to superadmins only.
 - ✅ **Ward Committee / Gram Sabha transparency view** — public read-only `/transparency` + `/ward/<name>` dashboard (fill %, open/resolved complaints, 30-day segregation rate).
 - ✅ **Informal waste-picker registration** — `/register/picker` creates a `worker` with `is_informal_picker=True`, separate from fleet drivers.
-- ✅ **Automated tests + CI** — `tests/` (14 pytest cases) + `.github/workflows/ci.yml` (pytest + flake8 on every push/PR).
+- ✅ **Automated tests + CI** — `tests/` (18 pytest cases) + `.github/workflows/ci.yml` (pytest + flake8 on every push/PR; staging deploy on `staging` branch).
+- ✅ **Citizen segregation streak + ward leaderboard** — `User.segregation_streak` computed in dashboard; ward segregation-rate leaderboard rendered.
+- ✅ **State-portal compliance export** — `/analytics/state-portal-export` (JSON + CSV) with SWM Rules 2026 mandated indicators.
+- ✅ **Trend-over-time analytics** — `/api/trend/segregation` returns monthly segregation % per ward.
+- ✅ **Real-time push notifications** — `Notification` model + SSE stream + resolve pushes status-change alerts to citizens.
 
 ## 🚀 Future Roadmap
 
 - [ ] Redis-backed per-user rate limiting
-- [ ] State portal compliance export
-- [ ] Citizen segregation streak/score + ward leaderboard
-- [ ] Trend analytics dashboard
 - [ ] Mobile app (PWA enhancement)
-- [ ] Real-time push notifications for complaint status changes
+- [ ] WhatsApp/SMS status-change delivery (beyond in-app SSE)

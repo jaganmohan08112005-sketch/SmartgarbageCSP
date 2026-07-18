@@ -17,6 +17,8 @@ class User(db.Model):
     is_approved = db.Column(db.Boolean, default=False, nullable=False)  # admin must approve new accounts
     failed_login_count = db.Column(db.Integer, default=0, nullable=False)
     locked_until = db.Column(db.DateTime, nullable=True)
+    # v2: Gamification — segregation streak (consecutive declarations with >0 segregated kg)
+    segregation_streak = db.Column(db.Integer, default=0, nullable=False)
 
 # ──────────────────────────────────────────────
 # COLLECTION SCHEDULE
@@ -241,3 +243,17 @@ class FirmwareRelease(db.Model):
     push_status = db.Column(db.String(20), default='Pending', nullable=False) # Pending / Pushed / Failed
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# ──────────────────────────────────────────────
+# v2: CITIZEN NOTIFICATION (real-time status push)
+# ──────────────────────────────────────────────
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    link = db.Column(db.String(200), nullable=True)
+    read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = db.relationship('User', backref=db.backref('notifications', lazy=True))

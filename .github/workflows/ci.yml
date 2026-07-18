@@ -38,3 +38,20 @@ jobs:
         run: |
           flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+  # Deploy to a separate Render STAGING service so changes are tested
+  # against a real deploy before going live. Trigger: push to `staging` branch.
+  deploy-staging:
+    if: github.ref == 'refs/heads/staging'
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render staging deploy
+        run: |
+          if [ -z "$RENDER_STAGING_HOOK" ]; then
+            echo "Set RENDER_STAGING_HOOK secret to your staging deploy hook URL"
+            exit 1
+          fi
+          curl -fsS -X POST "$RENDER_STAGING_HOOK"
+    env:
+      RENDER_STAGING_HOOK: ${{ secrets.RENDER_STAGING_HOOK }}

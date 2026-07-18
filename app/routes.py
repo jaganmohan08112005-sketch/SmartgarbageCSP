@@ -47,7 +47,8 @@ if sys.stdout.encoding != 'utf-8':
 from . import db, limiter
 from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, IncidentLog,
                      AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
-                     WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease)
+                     WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease,
+                     Notification)
 from .ml_model import predict_miss
 
 main = Blueprint('main', __name__)
@@ -526,14 +527,94 @@ def dashboard():
     bin_assets = SmartBin.query.all()
     invoices = PAYTInvoice.query.filter_by(user_id=session['user_id']).order_by(PAYTInvoice.issued_at.desc()).all()
     declarations = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(5).all()
+    # Segregation streak: count consecutive recent declarations (newest→oldest) with >0 segregated kg
+    all_user_decl = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).all()
+    streak = 0
+    for d in all_user_decl:
+        if (d.wet_kg + d.dry_kg) > 0:
+            streak += 1
+        else:
+            break
+    # Keep the computed streak in sync with the stored field
+    if user.segregation_streak != streak:
+        user.segregation_streak = streak
+        db.session.commit()
     bins_data = [{'hardware_id': b.hardware_id, 'latitude': b.latitude, 'longitude': b.longitude,
                   'level': b.level, 'status': b.status} for b in bin_assets]
+    # Ward segregation leaderboard: avg segregation % per ward from recent declarations
+    from datetime import timedelta as _td
+    cutoff = datetime.now(timezone.utc) - _td(days=30)
+    ward_seg = {}
+    for wd in WARD_COORDINATES:
+        wdecls = WasteDeclaration.query.filter(WasteDeclaration.ward == wd,
+                                                WasteDeclaration.timestamp >= cutoff).all()
+        if wdecls:
+            tot = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in wdecls) or 1
+            seg = sum(d.wet_kg + d.dry_kg for d in wdecls)
+            ward_seg[wd] = round((seg / tot) * 100, 1)
+        else:
+            ward_seg[wd] = 0.0
+    ward_leaderboard = sorted(ward_seg.items(), key=lambda kv: kv[1], reverse=True)
     # Pass the real registered phone so the report form pre-fills accurately
     current_user_phone = user.phone or ''
     return render_template('dashboard.html', complaints=complaints, green_points=user.green_points,
                            leaderboard=wards_scores, bins=bin_assets, bins_data=bins_data,
                            invoices=invoices, declarations=declarations, dump_yards=DUMP_YARDS,
-                           current_user_phone=current_user_phone)
+                           current_user_phone=current_user_phone,
+                            segregation_streak=streak, ward_leaderboard=ward_leaderboard)
+
+# Citizen real-time notifications (SSE push for complaint status changes)
+@main.route('/api/notifications/stream')
+@login_required
+def notifications_stream():
+    from flask import Response, stream_with_context
+    import time as _time
+    last_id = 0
+    MAX_EVENTS = 50
+    def event_stream():
+        nonlocal last_id, MAX_EVENTS, MAX_EVENTS
+        # Send current unread immediately
+        with current_app.app_context():
+            notes = Notification.query.filter_by(
+                user_id=session['user_id'], read=False).order_by(Notification.id.asc()).all()
+            last_id = notes[-1].id if notes else 0
+            for n in notes:
+                yield f"data: {n.message}\n\n"
+                MAX_EVENTS -= 1
+                if MAX_EVENTS <= 0:
+                    return
+        # Poll for new notifications (lightweight SSE)
+        while True:
+            _time.sleep(5)
+            with current_app.app_context():
+                new = Notification.query.filter(
+                    Notification.user_id == session['user_id'],
+                    Notification.id > last_id).order_by(Notification.id.asc()).all()
+                for n in new:
+                    last_id = n.id
+                    yield f"data: {n.message}\n\n"
+                    MAX_EVENTS -= 1
+                    if MAX_EVENTS <= 0:
+                        return
+    return Response(stream_with_context(event_stream()),
+                    mimetype='text/event-stream')
+
+@main.route('/api/notifications')
+@login_required
+def notifications_list():
+    notes = Notification.query.filter_by(user_id=session['user_id']).order_by(
+        Notification.id.desc()).limit(20).all()
+    return jsonify([{
+        "id": n.id, "message": n.message, "link": n.link,
+        "read": n.read, "created_at": n.created_at.isoformat() if n.created_at else None
+    } for n in notes])
+
+@main.route('/api/notifications/mark-read', methods=['POST'])
+@login_required
+def notifications_mark_read():
+    Notification.query.filter_by(user_id=session['user_id'], read=False).update({"read": True})
+    db.session.commit()
+    return jsonify({"ok": True})
 
 @main.route('/api/redeem', methods=['POST'])
 @login_required
@@ -1024,10 +1105,19 @@ def configure_webhooks():
 @admin_required
 def resolve_complaint(id):
     complaint = Complaint.query.get_or_404(id)
-    complaint.status = 'Resolved'
-    db.session.commit()
-    write_audit("RESOLVE_COMPLAINT", target=f"Complaint #{id}", detail=f"Ward: {complaint.ward}")
-    flash(f"Complaint #{id} resolved.", "success")
+    if complaint.status != 'Resolved':
+        complaint.status = 'Resolved'
+        # Push a real-time notification to the reporting citizen
+        if complaint.user_id:
+            note = Notification(
+                user_id=complaint.user_id,
+                message=f"Your complaint #{id} in {complaint.ward} has been resolved. Thank you!",
+                link='/dashboard'
+            )
+            db.session.add(note)
+        db.session.commit()
+        write_audit("RESOLVE_COMPLAINT", target=f"Complaint #{id}", detail=f"Ward: {complaint.ward}")
+        flash(f"Complaint #{id} resolved.", "success")
     return redirect(url_for('main.admin'))
 
 # Admin approves BWG pickup request
@@ -1431,6 +1521,77 @@ def analytics():
 @login_required
 def analytics_data():
     return jsonify(_compute_analytics())
+
+# State-Portal Compliance Export (SWM Rules 2026 mandated indicators)
+@main.route('/analytics/state-portal-export')
+@admin_required
+def state_portal_export():
+    from datetime import timedelta as _td
+    period_start = datetime.now(timezone.utc) - _td(days=30)
+    declarations = WasteDeclaration.query.filter(WasteDeclaration.timestamp >= period_start).all()
+    complaints = Complaint.query.all()
+    bins = SmartBin.query.all()
+    # Mandated SWM indicators
+    total_w = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in declarations) or 1
+    seg_w = sum(d.wet_kg + d.dry_kg for d in declarations)
+    indicators = {
+        "ulb_name": "Chintalavalasa Gram Panchayat",
+        "report_period": period_start.strftime("%Y-%m-%d") + " to " + datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "total_waste_kg_30d": round(total_w, 1),
+        "segregated_kg_30d": round(seg_w, 1),
+        "segregation_coverage_pct": round((seg_w / total_w) * 100, 1),
+        "total_complaints": len(complaints),
+        "resolved_complaints": len([c for c in complaints if c.status == 'Resolved']),
+        "active_smart_bins": len(bins),
+        "bins_above_80pct": len([b for b in bins if b.level >= 80]),
+        "bulk_waste_generators": BWGDeclaration.query.count(),
+        "informal_waste_pickers_registered": WorkerProfile.query.filter_by(is_informal_picker=True).count(),
+        "workers_with_insurance": WorkerProfile.query.filter_by(insurance_enrolled=True).count(),
+    }
+    fmt = request.args.get('format', 'json')
+    if fmt == 'csv':
+        import csv, io
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(["indicator", "value"])
+        for k, v in indicators.items():
+            w.writerow([k, v])
+        buf.seek(0)
+        return buf.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': 'attachment; filename=state_portal_compliance.csv'
+        }
+    return jsonify({
+        "report_title": "State Portal SWM Compliance Return",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "indicators": indicators
+    })
+
+# Trend-over-time analytics: monthly segregation % per ward
+@main.route('/api/trend/segregation')
+@admin_required
+def trend_segregation():
+    from collections import defaultdict
+    decls = WasteDeclaration.query.all()
+    # bucket by YYYY-MM and ward
+    buckets = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))  # [segregated, total]
+    for d in decls:
+        if not d.timestamp:
+            continue
+        key = d.timestamp.strftime("%Y-%m")
+        seg = d.wet_kg + d.dry_kg
+        tot = seg + d.sanitary_kg + d.hazardous_kg
+        buckets[key][d.ward][0] += seg
+        buckets[key][d.ward][1] += tot
+    months = sorted(buckets.keys())
+    series = {}
+    for wd in WARD_COORDINATES:
+        series[wd] = [
+            round((buckets[m][wd][0] / buckets[m][wd][1]) * 100, 1)
+            if buckets[m].get(wd, [0, 0])[1] else 0.0
+            for m in months
+        ]
+    return jsonify({"months": months, "series": series})
 
 # ESG/CSRD Compliance Export data endpoint (data for client-side jsPDF)
 @main.route('/analytics/csrd-export')
