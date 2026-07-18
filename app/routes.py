@@ -358,6 +358,45 @@ def register():
         return redirect(url_for('main.login'))
     return render_template('register.html')
 
+@main.route('/register/picker', methods=['GET', 'POST'])
+def register_picker():
+    """Lightweight informal waste-picker recognition registration
+    (SBM Grameen Phase II) — separate from formal fleet drivers."""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        raw_phone = request.form.get('phone', '').strip()
+        area = request.form.get('area', '').strip()
+        if not username or not password or not raw_phone:
+            flash('Name, password and phone are required.', 'error')
+            return redirect(url_for('main.register_picker'))
+        phone = validate_indian_phone(raw_phone)
+        if not phone:
+            flash('Enter a valid Indian mobile number.', 'error')
+            return redirect(url_for('main.register_picker'))
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return redirect(url_for('main.register_picker'))
+        if User.query.filter_by(username=username).first():
+            flash('Name already registered.', 'error')
+            return redirect(url_for('main.register_picker'))
+        if User.query.filter_by(phone=phone).first():
+            flash('This phone is already registered.', 'error')
+            return redirect(url_for('main.register_picker'))
+        picker = User(username=username, password_hash=generate_password_hash(password),
+                      role='worker', phone=phone)
+        db.session.add(picker)
+        db.session.commit()
+        wp = WorkerProfile(user_id=picker.id, status='Active',
+                           is_informal_picker=True, picker_area=area)
+        db.session.add(wp)
+        db.session.commit()
+        write_audit("PICKER_REGISTER", target=username,
+                    detail=f"Informal waste-picker recognised, area={area}")
+        flash('Waste-picker registered & recognised. Welcome!', 'success')
+        return redirect(url_for('main.login'))
+    return render_template('register_picker.html')
+
 @main.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10/minute")
 def login():
@@ -857,9 +896,35 @@ def report():
         return render_template('success.html')
     return render_template('report.html')
 
-# ═══════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════
+# SECTION 8b — WARD COMMITTEE / GRAM SABHA TRANSPARENCY VIEW
+# (Read-only, no login — civic accountability per waste-governance norms)
+# ═════════════════════════════════════════════════════════════════
+@main.route('/ward/<path:ward_name>')
+@main.route('/transparency')
+def ward_transparency(ward_name=None):
+    wards = list(WARD_COORDINATES.keys())
+    if ward_name is None:
+        ward_name = wards[0]
+    bins = SmartBin.query.filter_by(ward=ward_name).all()
+    complaints = Complaint.query.filter_by(ward=ward_name).all()
+    open_complaints = [c for c in complaints if c.status != 'Resolved']
+    resolved = [c for c in complaints if c.status == 'Resolved']
+    avg_fill = round(sum(b.level for b in bins) / len(bins), 1) if bins else 0
+    from datetime import timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    decls = WasteDeclaration.query.filter(WasteDeclaration.timestamp >= cutoff).all()
+    total_w = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in decls) or 1
+    segregated_w = sum(d.wet_kg + d.dry_kg for d in decls)
+    segregation_rate = round((segregated_w / total_w) * 100, 1)
+    return render_template('ward_transparency.html',
+                         ward_name=ward_name, wards=wards, bin_count=len(bins),
+                         avg_fill=avg_fill, open_complaints=len(open_complaints),
+                         resolved=len(resolved), segregation_rate=segregation_rate)
+
+# ═════════════════════════════════════════════════════════════════
 # SECTION 8 — ADMIN CONSOLE
-# ═══════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════
 @main.route('/admin')
 @admin_required
 def admin():
@@ -980,15 +1045,58 @@ def bwg_approve(id):
 # SECTION 9 — AUDIT TRAIL (Super-Admin)
 # ═══════════════════════════════════════════════════════════════════
 @main.route('/admin/audit')
-@admin_required
+@superadmin_required
 def audit_trail():
-    user = User.query.get(session['user_id'])
-    # All admins can see audit logs (super-admin sees everything, others see own)
-    if user and user.is_superadmin:
-        logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
-    else:
-        logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
-    return render_template('audit_log.html', logs=logs, is_superadmin=(user.is_superadmin if user else False))
+    # Super-admin only — the audit ledger is a privileged security view.
+    # (Regular admins cannot reach this; the decorator enforces it.)
+    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
+    return render_template('audit_log.html', logs=logs, is_superadmin=True)
+
+# ──────────────────────────────────────────────
+# SECTION 9b — SUPER-ADMIN CONSOLE
+# (Only reachable via @superadmin_required — the sanctioned way to
+#  create admin accounts now that public self-registration is citizen/worker only)
+# ──────────────────────────────────────────────
+@main.route('/admin/super', methods=['GET', 'POST'])
+@superadmin_required
+def super_admin():
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'create_admin':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            raw_phone = request.form.get('phone', '').strip()
+            if not username or not password or not raw_phone:
+                flash('Username, password and phone are all required.', 'error')
+            elif len(password) < 6:
+                flash('Admin password must be at least 6 characters.', 'error')
+            elif User.query.filter_by(username=username).first():
+                flash('Username already exists.', 'error')
+            else:
+                phone = validate_indian_phone(raw_phone)
+                if not phone:
+                    flash('Enter a valid Indian mobile number for the admin.', 'error')
+                else:
+                    new_admin = User(username=username,
+                                   password_hash=generate_password_hash(password),
+                                   role='admin', phone=phone, is_approved=True)
+                    db.session.add(new_admin)
+                    db.session.commit()
+                    write_audit("SUPER_CREATE_ADMIN", target=username,
+                                detail="Super-admin created new admin account.")
+                    flash(f"Admin account '{username}' created.", 'success')
+        elif action == 'toggle_super':
+            uid = request.form.get('user_id', type=int)
+            target = User.query.get(uid) if uid else None
+            if target and target.id != session['user_id']:
+                target.is_superadmin = not target.is_superadmin
+                db.session.commit()
+                write_audit("SUPER_TOGGLE", target=target.username,
+                            detail=f"is_superadmin set to {target.is_superadmin}")
+                flash(f"Updated super-admin flag for {target.username}.", 'success')
+        return redirect(url_for('main.super_admin'))
+    users = User.query.order_by(User.id).all()
+    return render_template('super_admin.html', users=users, session_user_id=session.get('user_id'))
 
 # ═══════════════════════════════════════════════════════════════════
 # SECTION 10 — OTA FIRMWARE HUB

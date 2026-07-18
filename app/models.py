@@ -94,6 +94,10 @@ class WorkerProfile(db.Model):
     insurance_policy_no = db.Column(db.String(50), nullable=True)              # Policy number
     last_training_date = db.Column(db.DateTime, nullable=True)                 # Last training date
     last_medical_checkup = db.Column(db.DateTime, nullable=True)               # Last medical checkup
+    # v2: Informal waste-picker recognition (SBM Grameen Phase II)
+    is_informal_picker = db.Column(db.Boolean, default=False, nullable=False)
+    picker_area = db.Column(db.String(100), nullable=True)           # ward/area they operate in
+    picker_id_card = db.Column(db.String(50), nullable=True)        # recognition ID
 
     user = db.relationship('User', backref=db.backref('worker_profile', uselist=False))
 

@@ -147,17 +147,26 @@ erDiagram
 
 ## 🎯 Known Gaps
 
-1. **No automated tests** — pytest coverage needed for auth, complaints, admin actions
-2. **Segregation penalty not wired into billing** — PAYT invoice should use compliance score
-3. **Single-worker rate limiting** — global limits, not per-user
-4. **No CI/CD pipeline** — GitHub Actions for tests/linting
-5. **Informal worker safety tracking** — PPE/insurance fields needed in `WorkerProfile`
+1. **Single-worker rate limiting** — global limits, not per-user (Flask-Limiter uses in-memory store; move to Redis when running >1 worker)
+2. **State portal compliance export** — extend the existing CSRD export to a state-portal format
+3. **Citizen segregation streak/score** — data exists in `WasteDeclaration`, no citizen-facing view yet
+4. **Trend analytics** — segregation rate over time per ward, not just point-in-time
+5. **True route optimization** — beyond miss-risk prediction (traveling-salesman ordering)
+
+## ✅ Recently Closed
+
+- ✅ **Segregation penalty wired into billing** — `bwg_ledger` computes compliance % + penalty multiplier (1.0×→2.0×) into `PAYTInvoice`.
+- ✅ **Worker safety tracking** — `WorkerProfile` now has `ppe_compliance`, `training_completed`, `insurance_enrolled`, `insurance_policy_no`, `last_training_date`, `last_medical_checkup`.
+- ✅ **Superadmin panel** — `/admin/super` (create admin, toggle super flag) gated by `superadmin_required`; `/admin/audit` now genuinely restricted to superadmins only.
+- ✅ **Ward Committee / Gram Sabha transparency view** — public read-only `/transparency` + `/ward/<name>` dashboard (fill %, open/resolved complaints, 30-day segregation rate).
+- ✅ **Informal waste-picker registration** — `/register/picker` creates a `worker` with `is_informal_picker=True`, separate from fleet drivers.
+- ✅ **Automated tests + CI** — `tests/` (14 pytest cases) + `.github/workflows/ci.yml` (pytest + flake8 on every push/PR).
 
 ## 🚀 Future Roadmap
 
-- [ ] Segregation compliance multiplier in PAYT billing
-- [ ] Worker safety/insurance tracking
+- [ ] Redis-backed per-user rate limiting
 - [ ] State portal compliance export
-- [ ] Citizen segregation streak/score
+- [ ] Citizen segregation streak/score + ward leaderboard
 - [ ] Trend analytics dashboard
 - [ ] Mobile app (PWA enhancement)
+- [ ] Real-time push notifications for complaint status changes
