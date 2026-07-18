@@ -1,7 +1,8 @@
-from app.models import User, Complaint, BWGDeclaration, WorkerProfile, Notification
+﻿from app.models import User, Complaint, BWGDeclaration, WorkerProfile, Notification
 from werkzeug.security import generate_password_hash
 from app import db, create_app, socketio
 import json as _json
+import os
 
 def _make_user(app, username, role='citizen', phone=None, password='testpass123', green_points=0):
     if phone is None:
@@ -217,3 +218,40 @@ def test_bin_telemetry_emits_socket_event(app):
         assert upd['args'][0]['level'] == 73
     finally:
         io_client.disconnect()
+
+
+# ── Spam protection: anonymous illegal-dump route is rate-limited ──
+def test_report_illegal_is_rate_limited(client, app):
+    # 10/hour limit; the 11th POST must be rejected with 429.
+    statuses = []
+    for _ in range(11):
+        r = client.post('/report-illegal', data={'category': 'e-waste'},
+                        content_type='multipart/form-data')
+        statuses.append(r.status_code)
+    assert 429 in statuses, f"expected 429 after limit, got {statuses}"
+
+
+# ── Uploaded photos are compressed (not saved raw) ──
+def test_illegal_report_compresses_photo(client, app):
+    from PIL import Image
+    import io
+    buf = io.BytesIO()
+    Image.new('RGBA', (4000, 3000), (200, 50, 10, 255)).save(buf, format='PNG')
+    buf.seek(0)
+    r = client.post('/report-illegal',
+                  data={'category': 'e-waste', 'photo': (buf, 'big.png')},
+                  content_type='multipart/form-data')
+    assert r.status_code in (200, 302)
+    with app.app_context():
+        from app.models import IllegalDumpReport
+        rep = IllegalDumpReport.query.order_by(IllegalDumpReport.id.desc()).first()
+        assert rep and rep.scrubbed_photo
+    # The saved file must be a small JPEG, not a multi-MB raw PNG.
+    from app import create_app
+    saved = rep.scrubbed_photo.split('/', 1)[-1]
+    path = os.path.join(create_app().config['UPLOAD_FOLDER'], saved)
+    assert os.path.exists(path), path
+    im = Image.open(path)
+    assert im.format == 'JPEG'
+    assert max(im.size) <= 1280
+    assert os.path.getsize(path) < 500 * 1024

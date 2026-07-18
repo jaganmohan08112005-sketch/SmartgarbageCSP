@@ -51,6 +51,40 @@ from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, Inciden
                      Notification)
 from .ml_model import predict_miss
 
+# ──────────────────────────────────────────────
+# PHOTO COMPRESSION HELPER
+# ──────────────────────────────────────────────
+MAX_IMAGE_DIM = 1280      # longest edge, px
+JPEG_QUALITY = 82         # good visual quality, ~5-10x smaller than phone photos
+
+def save_compressed_photo(file_storage, prefix):
+    """Save an uploaded photo compressed + EXIF-stripped.
+
+    Opens with Pillow, resizes to MAX_IMAGE_DIM on the longest edge,
+    and re-saves as JPEG at JPEG_QUALITY — turning typical 3-5MB phone
+    photos into ~200-400KB files. Strips all EXIF (GPS/metadata) as a
+    privacy side-effect. Falls back to the raw file if Pillow is missing.
+    Returns the relative path usable as a template src (e.g. 'uploads/foo.jpg').
+    """
+    filename = f"{prefix}_{random.randint(10000, 99999)}_{secure_filename(file_storage.filename)}"
+    upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(file_storage.stream if hasattr(file_storage, 'stream') else file_storage)
+        img = img.convert('RGB')  # drop alpha + any exotic modes
+        img.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM))
+        # Save straight to disk as JPEG (no EXIF survives the RGB re-encode).
+        img.save(upload_path, format='JPEG', quality=JPEG_QUALITY, optimize=True)
+    except ImportError:
+        file_storage.seek(0)
+        file_storage.save(upload_path)
+    except Exception as e:
+        current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
+        file_storage.seek(0)
+        file_storage.save(upload_path)
+    return f"uploads/{filename}"
+
 main = Blueprint('main', __name__)
 
 # ──────────────────────────────────────────────
@@ -638,6 +672,7 @@ def payt_invoice_list():
 # SECTION 4 — ANONYMOUS ILLEGAL DUMP REPORT
 # ═══════════════════════════════════════════════════════════════════
 @main.route('/report-illegal', methods=['GET', 'POST'])
+@limiter.limit("10/hour")
 def report_illegal():
     if request.method == 'POST':
         latitude = request.form.get('latitude')
@@ -648,28 +683,7 @@ def report_illegal():
         photo_filename = None
         file = request.files.get('photo')
         if file and file.filename != '':
-            filename = f"illegal_{random.randint(10000,99999)}_{secure_filename(file.filename)}"
-            upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-            # Strip EXIF metadata using Pillow if available
-            try:
-                from PIL import Image
-                import io
-                img = Image.open(file)
-                # Create a new clean image (strips all metadata)
-                clean_io = io.BytesIO()
-                img.save(clean_io, format=img.format or 'JPEG')
-                clean_io.seek(0)
-                with open(upload_path, 'wb') as f_out:
-                    f_out.write(clean_io.read())
-            except ImportError:
-                # Pillow not installed — save raw
-                file.seek(0)
-                file.save(upload_path)
-            except Exception as e:
-                print(f"EXIF strip error: {e}")
-                file.seek(0)
-                file.save(upload_path)
-            photo_filename = f"uploads/{filename}"
+            photo_filename = save_compressed_photo(file, 'illegal')
         report = IllegalDumpReport(
             latitude=float(latitude) if latitude else None,
             longitude=float(longitude) if longitude else None,
@@ -920,6 +934,7 @@ def schedule():
 # ═══════════════════════════════════════════════════════════════════
 @main.route('/report', methods=['GET', 'POST'])
 @login_required
+@limiter.limit("15/hour")
 def report():
     if request.method == 'POST':
         name = request.form.get('name')
@@ -933,9 +948,7 @@ def report():
         photo_filename = None
         file = request.files.get('photo')
         if file and file.filename != '':
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-            photo_filename = f"uploads/{filename}"
+            photo_filename = save_compressed_photo(file, 'complaint')
         new_complaint = Complaint(name=name, phone=phone, ward=ward,
                                   address=f"Chintalavalasa, {address}", description=description,
                                   photo=photo_filename, latitude=latitude, longitude=longitude,

@@ -46,8 +46,8 @@ class Complaint(db.Model):
     latitude = db.Column(db.String(50), nullable=True)
     longitude = db.Column(db.String(50), nullable=True)
     report_time = db.Column(db.String(100), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 # ──────────────────────────────────────────────
 # SMART BIN (IoT Telemetry)
@@ -62,8 +62,8 @@ class SmartBin(db.Model):
     temperature = db.Column(db.Float, default=25.0, nullable=False)   # °C
     methane = db.Column(db.Float, default=50.0, nullable=False)       # ppm
     status = db.Column(db.String(20), default='Safe', nullable=False) # Safe / Warning / Critical
-    ward = db.Column(db.String(100), nullable=False)
-    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    ward = db.Column(db.String(100), nullable=False, index=True)
+    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     # v2 additions
     overflow_eta_hours = db.Column(db.Float, nullable=True)           # AI estimator: hours until overflow
     waste_stream = db.Column(db.String(20), default='mixed')          # wet/dry/sanitary/hazardous/mixed
@@ -129,7 +129,7 @@ class AuditLog(db.Model):
     target = db.Column(db.String(100), nullable=True)         # e.g. "BIN-302", "Route #3"
     detail = db.Column(db.Text, nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     user = db.relationship('User', backref=db.backref('audit_logs', lazy=True))
 
@@ -174,16 +174,16 @@ class IllegalDumpReport(db.Model):
     category = db.Column(db.String(100), nullable=False)  # e-waste / chemical / medical / construction
     description = db.Column(db.Text, nullable=True)
     scrubbed_photo = db.Column(db.String(200), nullable=True)   # EXIF-stripped
-    ward = db.Column(db.String(100), nullable=True)
+    ward = db.Column(db.String(100), nullable=True, index=True)
     status = db.Column(db.String(20), default='Pending', nullable=False)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 # ──────────────────────────────────────────────
 # v2: 4-STREAM WASTE DECLARATION
 # ──────────────────────────────────────────────
 class WasteDeclaration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     wet_kg = db.Column(db.Float, default=0.0, nullable=False)           # Organic / Kitchen
     dry_kg = db.Column(db.Float, default=0.0, nullable=False)           # Plastics / Paper / Metals
     sanitary_kg = db.Column(db.Float, default=0.0, nullable=False)      # Securely wrapped items
