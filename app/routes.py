@@ -771,18 +771,33 @@ def bwg_ledger():
             pickup_status='Pending' if request_pickup else 'N/A'
         )
         db.session.add(decl)
-        # Generate PAYT invoice for this BWG entry
+        # Generate PAYT invoice with segregation-compliance penalty
+        # (SWM Rules 2026: landfill fees penalise mixed/unsegregated waste)
         total_kg = composting_kg + recyclable_kg + landfill_kg
+        segregated_kg = composting_kg + recyclable_kg  # exempt from landfill fee
+        if total_kg > 0:
+            compliance = round((segregated_kg / total_kg) * 100, 1)
+        else:
+            compliance = 100.0
+        # Penalty multiplier: full compliance (100%) = 1.0; 0% = up to 2.0x
+        penalty = round(1.0 + (100.0 - compliance) / 100.0, 2)
         if total_kg >= 100:
-            amount = round(total_kg * 1.5, 2)  # ₹1.5 per kg for bulk generators
+            base = round(total_kg * 1.5, 2)  # ₹1.5 per kg base rate
+            amount = round(base * penalty, 2)
             invoice = PAYTInvoice(
                 user_id=user.id,
                 period=datetime.now(timezone.utc).strftime("%B %Y"),
                 weight_kg=total_kg, bin_pickups=0,
-                amount_rs=amount, status='Unpaid'
+                segregation_kg=segregated_kg, landfill_kg=landfill_kg,
+                compliance_score=compliance, penalty_multiplier=penalty,
+                base_amount_rs=base, amount_rs=amount, status='Unpaid'
             )
             db.session.add(invoice)
-            flash(f"BWG Declaration recorded. PAYT Invoice of ₹{amount} generated for {total_kg:.0f}kg.", "success")
+            if penalty > 1.0:
+                flash(f"BWG Declaration recorded. PAYT Invoice of ₹{amount} generated "
+                      f"(compliance {compliance:.0f}% → {penalty:.2f}x penalty applied).", "warning")
+            else:
+                flash(f"BWG Declaration recorded. PAYT Invoice of ₹{amount} generated for {total_kg:.0f}kg.", "success")
         else:
             flash("BWG Declaration submitted successfully.", "success")
         db.session.commit()

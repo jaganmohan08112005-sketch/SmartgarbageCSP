@@ -87,6 +87,13 @@ class WorkerProfile(db.Model):
     current_lat = db.Column(db.Float, nullable=True)
     current_lon = db.Column(db.Float, nullable=True)
     geofence_violation = db.Column(db.Boolean, default=False, nullable=False)
+    # v2: Worker Safety & Compliance (SBM Grameen II)
+    ppe_compliance = db.Column(db.Boolean, default=False, nullable=False)     # PPE kit issued & used
+    training_completed = db.Column(db.Boolean, default=False, nullable=False) # Safety training completed
+    insurance_enrolled = db.Column(db.Boolean, default=False, nullable=False) # PMJAY/insurance enrolled
+    insurance_policy_no = db.Column(db.String(50), nullable=True)              # Policy number
+    last_training_date = db.Column(db.DateTime, nullable=True)                 # Last training date
+    last_medical_checkup = db.Column(db.DateTime, nullable=True)               # Last medical checkup
 
     user = db.relationship('User', backref=db.backref('worker_profile', uselist=False))
 
@@ -206,7 +213,12 @@ class PAYTInvoice(db.Model):
     period = db.Column(db.String(50), nullable=False)                   # e.g. "July 2025"
     weight_kg = db.Column(db.Float, default=0.0, nullable=False)
     bin_pickups = db.Column(db.Integer, default=0, nullable=False)
-    amount_rs = db.Column(db.Float, default=0.0, nullable=False)        # ₹ amount
+    segregation_kg = db.Column(db.Float, default=0.0, nullable=False)  # compostable+recyclable (exempt)
+    landfill_kg = db.Column(db.Float, default=0.0, nullable=False)    # residual (taxed)
+    compliance_score = db.Column(db.Float, default=100.0, nullable=False) # 0-100% segregated
+    penalty_multiplier = db.Column(db.Float, default=1.0, nullable=False) # 1.0 = full compliance
+    base_amount_rs = db.Column(db.Float, default=0.0, nullable=False)
+    amount_rs = db.Column(db.Float, default=0.0, nullable=False)        # ₹ amount (after penalty)
     status = db.Column(db.String(20), default='Unpaid', nullable=False) # Unpaid / Paid / Waived
     issued_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 

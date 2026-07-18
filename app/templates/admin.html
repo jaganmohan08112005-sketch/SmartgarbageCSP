@@ -339,15 +339,16 @@
             <!-- Worker & Fleet Management Registry -->
             <div class="card border-0 shadow-sm bg-white p-4 mb-4" id="worker-section">
                 <h4 class="mb-3 text-dark fw-bold">🚛 Worker & Fleet Management Registry</h4>
+                <p class="text-muted small">Safety & compliance per SBM Grameen II (PPE, training, PMJAY insurance).</p>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
                                 <th>Driver Name</th>
                                 <th>Assigned Truck</th>
-                                <th>Tracking Location</th>
                                 <th>Work Status</th>
-                                <th>Rating / Metrics</th>
+                                <th>Rating</th>
+                                <th>Safety / Compliance</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -364,16 +365,18 @@
                                 </td>
                                 <td><code>{{ w.vehicle_id }}</code></td>
                                 <td>
-                                    <span class="small text-secondary">📍 {{ w.latitude }}, {{ w.longitude }}</span>
-                                    <a href="https://www.openstreetmap.org/?mlat={{ w.latitude }}&mlon={{ w.longitude }}#map=17" target="_blank" class="badge bg-light text-success border border-success ms-2 text-decoration-none">Live GPS</a>
-                                </td>
-                                <td>
                                     <span class="badge {% if w.status == 'Active' %}bg-success{% elif w.status == 'Idle' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
                                         {{ w.status }}
                                     </span>
                                 </td>
                                 <td>
                                     <span class="text-warning">★</span> <strong>{{ w.performance_rating }}</strong> / 5.0
+                                </td>
+                                <td>
+                                    <span class="badge {% if w.ppe_compliance %}bg-success{% else %}bg-danger{% endif %}" title="PPE kit issued & used">🦺 PPE</span>
+                                    <span class="badge {% if w.training_completed %}bg-success{% else %}bg-danger{% endif %}" title="Safety training completed">🎓 Trn</span>
+                                    <span class="badge {% if w.insurance_enrolled %}bg-success{% else %}bg-danger{% endif %}" title="PMJAY / insurance enrolled">🛡️ Ins</span>
+                                    {% if w.insurance_policy_no %}<br><small class="text-muted">{{ w.insurance_policy_no }}</small>{% endif %}
                                 </td>
                             </tr>
                             {% else %}
