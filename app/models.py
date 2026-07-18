@@ -14,6 +14,9 @@ class User(db.Model):
     otp = db.Column(db.String(10), nullable=True)
     otp_expiry = db.Column(db.DateTime, nullable=True)
     is_superadmin = db.Column(db.Boolean, default=False, nullable=False)
+    is_approved = db.Column(db.Boolean, default=False, nullable=False)  # admin must approve new accounts
+    failed_login_count = db.Column(db.Integer, default=0, nullable=False)
+    locked_until = db.Column(db.DateTime, nullable=True)
 
 # ──────────────────────────────────────────────
 # COLLECTION SCHEDULE

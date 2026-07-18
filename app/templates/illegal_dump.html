@@ -16,6 +16,7 @@
   <div class="card border-0 shadow-sm">
     <div class="card-body p-4 p-lg-5">
       <form action="/report-illegal" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- Dump Category -->
         <div class="mb-4">

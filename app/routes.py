@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import random
@@ -11,11 +12,39 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 
+# ──────────────────────────────────────────────
+# PHONE VALIDATION HELPER
+# ──────────────────────────────────────────────
+def validate_indian_phone(phone):
+    """Validate an Indian mobile number.
+    Accepts: +91XXXXXXXXXX or 91XXXXXXXXXX or XXXXXXXXXX (10 digits starting 6-9).
+    Returns normalised +91XXXXXXXXXX on success, None on failure.
+    Rejects obviously fake sequences (all-same digit, sequential runs).
+    """
+    if not phone:
+        return None
+    # Strip spaces, dashes, parentheses
+    cleaned = re.sub(r'[\s\-().]+', '', phone)
+    # Accept optional +91 or 91 prefix
+    match = re.fullmatch(r'(?:\+91|91)?([6-9]\d{9})', cleaned)
+    if not match:
+        return None
+    digits = match.group(1)
+    # Reject all-same digit: 9999999999, 6666666666 …
+    if len(set(digits)) == 1:
+        return None
+    # Reject simple ascending/descending sequences: 1234567890, 9876543210
+    asc  = ''.join(str((int(digits[0]) + i) % 10) for i in range(10))
+    desc = ''.join(str((int(digits[0]) - i) % 10) for i in range(10))
+    if digits == asc or digits == desc:
+        return None
+    return f'+91{digits}'
+
 # Ensure UTF-8 stdout
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-from . import db
+from . import db, limiter
 from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, IncidentLog,
                      AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
                      WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease)
@@ -283,6 +312,7 @@ def home():
 # SECTION 2 — AUTHENTICATION
 # ═══════════════════════════════════════════════════════════════════
 @main.route('/register', methods=['GET', 'POST'])
+@limiter.limit("10/hour")
 def register():
     if 'user_id' in session and not session.get('mfa_pending'):
         return redirect(url_for('main.dashboard'))
@@ -290,12 +320,29 @@ def register():
         username = request.form.get('username', '').strip()
         password = request.form.get('password')
         role = request.form.get('role', 'citizen')
-        phone = request.form.get('phone', '').strip()
+        if role not in ['citizen', 'worker']:  # Only allow citizen/worker via public registration
+            role = 'citizen'
+        raw_phone = request.form.get('phone', '').strip()
+        # ── Phone Validation ──────────────────────────────────────────
+        if not raw_phone:
+            flash('Phone number is required.', 'error')
+            return redirect(url_for('main.register'))
+        phone = validate_indian_phone(raw_phone)
+        if not phone:
+            flash('Enter a valid Indian mobile number (10 digits starting with 6–9, e.g. +91 98765 43210). Fake or sequential numbers are not accepted.', 'error')
+            return redirect(url_for('main.register'))
+        # ─────────────────────────────────────────────────────────────
         if not username or not password:
             flash('Username and password are required.', 'error')
             return redirect(url_for('main.register'))
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return redirect(url_for('main.register'))
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
+            return redirect(url_for('main.register'))
+        if User.query.filter_by(phone=phone).first():
+            flash('This phone number is already registered with another account.', 'error')
             return redirect(url_for('main.register'))
         new_user = User(username=username, password_hash=generate_password_hash(password),
                         role=role, phone=phone)
@@ -306,12 +353,13 @@ def register():
                                status="Idle", performance_rating=5.0)
             db.session.add(wp)
             db.session.commit()
-        write_audit("REGISTER", target=username, detail=f"New {role} account created.")
+        write_audit("REGISTER", target=username, detail=f"New {role} account created. Phone: {phone}")
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html')
 
 @main.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10/minute")
 def login():
     if 'user_id' in session and not session.get('mfa_pending'):
         if session.get('role') == 'admin': return redirect(url_for('main.admin'))
@@ -343,6 +391,7 @@ def login():
     return render_template('login.html')
 
 @main.route('/mfa-verify', methods=['GET', 'POST'])
+@limiter.limit("10/minute")
 def mfa_verify():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
@@ -383,22 +432,33 @@ def auth_google():
 
 @main.route('/auth/phone-login', methods=['POST'])
 def auth_phone_login():
-    phone_number = request.form.get('phone_number', '').strip()
-    if not phone_number:
-        flash("Phone number required.", "error")
+    raw_phone = request.form.get('phone_number', '').strip()
+    if not raw_phone:
+        flash("Phone number is required.", "error")
         return redirect(url_for('main.login'))
+    # ── Validate real Indian mobile format ────────────────────────────
+    phone_number = validate_indian_phone(raw_phone)
+    if not phone_number:
+        flash("Enter a valid Indian mobile number (10 digits starting with 6–9). Fake or sequential numbers like 1234567890 are not accepted.", "error")
+        return redirect(url_for('main.login'))
+    # ─────────────────────────────────────────────────────────────────
     user = User.query.filter_by(phone=phone_number).first()
     if not user:
-        username = f"phone_{phone_number[-4:]}_{random.randint(10,99)}"
-        user = User(username=username, password_hash=generate_password_hash("phone_pass"),
+        # Auto-create a citizen account for the verified phone number
+        last4 = phone_number[-4:]
+        username = f"citizen_{last4}_{random.randint(10, 99)}"
+        # Ensure unique username
+        while User.query.filter_by(username=username).first():
+            username = f"citizen_{last4}_{random.randint(10, 99)}"
+        user = User(username=username, password_hash=generate_password_hash("phone_otp_user"),
                     role="citizen", phone=phone_number)
         db.session.add(user); db.session.commit()
     otp_val = str(random.randint(100000, 999999))
     user.otp = otp_val
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
-    print(f"\n🔑 [MFA SIMULATOR] Phone OTP: {otp_val}\n")
-    flash(f"Passwordless OTP (Simulated SMS): {otp_val}", "success")
+    print(f"\n🔑 [MFA SIMULATOR] Phone OTP for {phone_number}: {otp_val}\n")
+    flash(f"OTP sent to {phone_number} (Simulated): {otp_val}", "success")
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
     return redirect(url_for('main.mfa_verify'))
@@ -429,9 +489,12 @@ def dashboard():
     declarations = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(5).all()
     bins_data = [{'hardware_id': b.hardware_id, 'latitude': b.latitude, 'longitude': b.longitude,
                   'level': b.level, 'status': b.status} for b in bin_assets]
+    # Pass the real registered phone so the report form pre-fills accurately
+    current_user_phone = user.phone or ''
     return render_template('dashboard.html', complaints=complaints, green_points=user.green_points,
                            leaderboard=wards_scores, bins=bin_assets, bins_data=bins_data,
-                           invoices=invoices, declarations=declarations, dump_yards=DUMP_YARDS)
+                           invoices=invoices, declarations=declarations, dump_yards=DUMP_YARDS,
+                           current_user_phone=current_user_phone)
 
 @main.route('/api/redeem', methods=['POST'])
 @login_required

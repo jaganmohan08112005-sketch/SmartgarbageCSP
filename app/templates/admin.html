@@ -12,37 +12,37 @@
             <div class="card-body p-3">
                 <h6 class="text-uppercase text-secondary fw-bold mb-3 small px-3">Navigation Menu</h6>
                 <div class="nav flex-column nav-pills" id="admin-pills">
-                    <a href="#kpi-section" class="nav-link active py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#kpi-section" class="nav-link active py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="kpi-section">
                         <span>📊</span> Overview Metrics
                     </a>
-                    <a href="#gis-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#gis-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="gis-section">
                         <span>🗺️</span> GIS Telemetry Map
                     </a>
-                    <a href="#fleet-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#fleet-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="fleet-section">
                         <span>🛰️</span> Fleet Geo-Fencing
                         {% if kpis.geofence_violations > 0 %}<span class="badge bg-danger ms-auto">{{ kpis.geofence_violations }}</span>{% endif %}
                     </a>
-                    <a href="#maintenance-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#maintenance-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="maintenance-section">
                         <span>🛠️</span> Predictive Maintenance
                         {% if kpis.sensor_faults > 0 %}<span class="badge bg-warning text-dark ms-auto">{{ kpis.sensor_faults }}</span>{% endif %}
                     </a>
-                    <a href="#worker-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#worker-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="worker-section">
                         <span>🚛</span> Worker &amp; Fleet Registry
                     </a>
-                    <a href="#illegal-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#illegal-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="illegal-section">
                         <span>🚨</span> Illegal Dump Reports
                     </a>
-                    <a href="#bot-simulator-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#bot-simulator-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bot-simulator-section">
                         <span>🤖</span> Bot Simulator
                     </a>
-                    <a href="#bwg-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#bwg-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bwg-section">
                         <span>🏢</span> BWG Pickup Requests
                         {% if kpis.pending_pickups > 0 %}<span class="badge bg-warning text-dark ms-auto">{{ kpis.pending_pickups }}</span>{% endif %}
                     </a>
-                    <a href="#tickets-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#tickets-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="tickets-section">
                         <span>🎫</span> Citizen Complaints
                     </a>
-                    <a href="#webhooks-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                    <a href="#webhooks-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="webhooks-section">
                         <span>🔗</span> Webhook Config
                     </a>
                     <hr class="my-2">
@@ -56,6 +56,53 @@
             </div>
         </div>
     </div>
+
+    <script>
+    // ── Admin sidebar nav: scroll-to-section + active highlight on click ──
+    document.addEventListener('DOMContentLoaded', () => {
+        const navLinks = document.querySelectorAll('#admin-pills a[data-section]');
+
+        function setActive(sectionId) {
+            navLinks.forEach(link => {
+                if (link.dataset.section === sectionId) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.dataset.section;
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    // Smooth scroll with offset for sticky navbar
+                    const yOffset = -100;
+                    const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+                setActive(targetId);
+            });
+        });
+
+        // Scrollspy: update active link as user scrolls through sections
+        const sectionIds = Array.from(navLinks).map(l => l.dataset.section);
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    setActive(entry.target.id);
+                }
+            });
+        }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+
+        sectionIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) observer.observe(el);
+        });
+    });
+    </script>
 
     <!-- Main Canvas Content Grid -->
     <div class="col-lg-9 col-md-12">
@@ -426,6 +473,7 @@
                 <h4 class="mb-3 text-dark fw-bold">🔗 Automated Webhooks Configuration</h4>
                 <p class="text-muted small">Configure background text/email callback notification webhooks triggered immediately when hazardous methane or fire anomalies are caught by telemetry sensors.</p>
                 <form method="POST" action="/api/webhooks">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-2 align-items-center">
                         <div class="col-md-9 col-sm-8">
                             <input name="webhook_url" type="url" class="form-control" placeholder="https://api.emergency.org/v1/alert-receiver" required>
@@ -559,7 +607,7 @@
                             <h6 class="fw-bold mb-3">🟢 Simulate WhatsApp Message</h6>
                             <div class="mb-2">
                                 <label class="form-label small fw-bold">From (WhatsApp number)</label>
-                                <input class="form-control form-control-sm" id="wa_from" value="whatsapp:+919999888777">
+                                <input class="form-control form-control-sm" id="wa_from" value="whatsapp:+918985432107">
                             </div>
                             <div class="mb-2">
                                 <label class="form-label small fw-bold">Body (caption)</label>

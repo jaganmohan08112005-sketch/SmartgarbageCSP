@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=10000
 EXPOSE 10000
 
-CMD ["sh", "-c", "gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --workers 1"]
+CMD ["sh", "-c", "flask db upgrade && python seed_db.py && gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --workers 1"]

@@ -28,6 +28,7 @@
                 <!-- Tab 1: Password Login -->
                 <div class="tab-pane fade show active" id="password-login" role="tabpanel" aria-labelledby="password-tab">
                     <form method="POST" action="/login">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
                             <label class="form-label fw-bold text-secondary">Username</label>
                             <div class="input-group">
@@ -51,20 +52,42 @@
 
                 <!-- Tab 2: Passwordless Phone OTP Login -->
                 <div class="tab-pane fade" id="phone-login" role="tabpanel" aria-labelledby="phone-tab">
-                    <form method="POST" action="/auth/phone-login">
+                    <form method="POST" action="/auth/phone-login" id="phoneLoginForm" novalidate>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-4">
                             <label class="form-label fw-bold text-secondary">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted">📞</span>
-                                <input name="phone_number" type="tel" class="form-control" placeholder="e.g. +91 98765 43210" required>
+                                <input name="phone_number" id="otp_phone" type="tel" class="form-control"
+                                       placeholder="e.g. +91 98765 43210"
+                                       pattern="^(\+91|91)?[6-9]\d{9}$"
+                                       title="Enter a valid Indian mobile number (10 digits starting with 6–9)"
+                                       required>
                             </div>
-                            <small class="text-muted mt-1 d-block">We will simulate sending a 6-digit OTP code to verify your device.</small>
+                            <small class="text-muted mt-1 d-block">Indian mobile only (10 digits starting 6–9). A 6-digit OTP will be simulated.</small>
+                            <div id="phoneError" class="text-danger small mt-1 d-none">⚠️ Enter a valid Indian mobile (e.g. 9876543210). Fake numbers are rejected.</div>
                         </div>
                         
                         <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
                             Send Login OTP
                         </button>
                     </form>
+                    <script>
+                        document.getElementById('phoneLoginForm').addEventListener('submit', function(e) {
+                            const raw = document.getElementById('otp_phone').value.replace(/[\s\-().]/g, '');
+                            const match = raw.match(/^(?:\+91|91)?([6-9]\d{9})$/);
+                            const errDiv = document.getElementById('phoneError');
+                            if (!match) {
+                                e.preventDefault();
+                                errDiv.classList.remove('d-none');
+                                return;
+                            }
+                            errDiv.classList.add('d-none');
+                        });
+                        document.getElementById('otp_phone').addEventListener('input', function() {
+                            document.getElementById('phoneError').classList.add('d-none');
+                        });
+                    </script>
                 </div>
             </div>
 

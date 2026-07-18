@@ -64,8 +64,9 @@
             <p class="text-muted small">Spot overflowing trash? Take a photo, capture GPS, and dispatch municipal sanitation trucks instantly (Earn 15 Green Points!).</p>
             
             <form method="POST" action="/report" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="name" value="{{ session.get('username') }}">
-                <input type="hidden" name="phone" value="+919999999999">
+                <input type="hidden" name="phone" value="{{ current_user_phone }}">
                 
                 <!-- GPS Autolocator widget -->
                 <div class="p-3 bg-light rounded-3 mb-3 border border-dashed">
@@ -120,6 +121,7 @@
             </div>
             <p class="text-muted small">Declare your daily waste segregation at source. Earn Green Points based on weight!</p>
             <form method="POST" action="/dashboard/declare-waste">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-secondary">Select Ward Area</label>
                     <select name="ward" id="segWard" class="form-select form-select-sm" required>
