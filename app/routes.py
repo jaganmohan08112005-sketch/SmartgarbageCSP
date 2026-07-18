@@ -567,6 +567,25 @@ def green_points_leaderboard():
         for i, u in enumerate(top)
     ])
 
+# ══════════════════════════════════════════════════════════════════
+# PAYT / Razorpay-UPI payment endpoint (client-side button triggers this)
+# ════════════════════════════════════════════════
+@main.route('/payt/pay/<int:inv_id>')
+@login_required
+def payt_invoice_payment(inv_id):
+    """Render a UPI payment link for the given PAYT invoice.
+    In production we'd use Razorpay/UPI SDK for formal checkout flow.
+    """
+    invoice = PAYTInvoice.query.get_or_404(inv_id)
+    # Build a UPI deep-link that any UPI app can open.
+    # Amount in pais (Rupay paise) – Razorpay API expects integer.
+    amount_pais = int(invoice.amount_rs * 100)
+    # MoneyPey (JavaScript) example URI; routes work for any UPI app.
+    upi_url = f"upi://pay?pa={os.getenv('RAZOR_PAYER', 'smartgarbage@ybl')&amount={amount_pais}&prompt="
+
+    # Pass the UPI URL to the template so the front‑end can embed it in a button.
+    return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
+
 
 # Citizen real-time notifications (SSE push for complaint status changes)
 @main.route('/api/notifications/stream')
@@ -1732,3 +1751,15 @@ def serve_sw():
 def serve_manifest():
     return send_from_directory(os.path.join(current_app.root_path, 'static'),
                                 'manifest.json', mimetype='application/json')
+
+
+# Offline fallback page (served by the service worker when navigation fails).
+@main.route('/offline')
+def offline():
+    return render_template('offline.html')
+
+
+# Privacy policy (public, no login) — GDPR/SWM transparency requirement.
+@main.route('/privacy')
+def privacy_policy():
+    return render_template('privacy_policy.html', now=datetime.now(timezone.utc))

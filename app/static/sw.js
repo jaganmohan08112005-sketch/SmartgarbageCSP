@@ -1,8 +1,14 @@
-const CACHE_NAME = 'garbage-pwa-v2';
-// Offline pages and static assets to cache
-const assets = [
+const CACHE_NAME = 'smartgarbage-pwa-v3';
+// Core citizen + public pages precached on install so they work fully offline.
+// (Rural Andhra deployments hit spotty connectivity — offline-first matters here.)
+const PRECACHE = [
     '/',
-    '/worker',
+    '/login',
+    '/dashboard',
+    '/schedule',
+    '/report',
+    '/transparency',
+    '/offline',
     '/static/style.css',
     '/static/chintalavalasa_locations.js',
     '/static/manifest.json',
@@ -12,53 +18,67 @@ const assets = [
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
-// Install Event
+// Install: precache core assets + the offline fallback page.
 self.addEventListener('install', evt => {
     evt.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            console.log('Caching site assets...');
-            return cache.addAll(assets);
+            console.log('SmartGarbage SW: precaching assets');
+            return cache.addAll(PRECACHE);
         })
     );
+    self.skipWaiting();
 });
 
-// Activate Event - clean old caches
+// Activate: drop stale caches from previous versions.
 self.addEventListener('activate', evt => {
     evt.waitUntil(
-        caches.keys().then(keys => {
-            return Promise.all(
-                keys.filter(key => key !== CACHE_NAME)
-                    .map(key => caches.delete(key))
-            );
-        })
+        caches.keys().then(keys =>
+            Promise.all(
+                keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+            )
+        ).then(() => self.clients.claim())
     );
 });
 
-// Fetch Event - network-first or cache-fallback to ensure offline usability
+// Fetch:
+//  - Navigation requests (HTML pages): network-first, fall back to cached
+//    page, then to the dedicated /offline page when fully offline.
+//  - Static assets: cache-first with background refresh.
 self.addEventListener('fetch', evt => {
+    const req = evt.request;
+    if (req.method !== 'GET') return; // never cache POST/PUT/etc.
+
+    if (req.mode === 'navigate') {
+        evt.respondWith(
+            fetch(req).then(res => {
+                const copy = res.clone();
+                caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                return res;
+            }).catch(() =>
+                caches.match(req).then(cached =>
+                    cached || caches.match('/offline')
+                )
+            )
+        );
+        return;
+    }
+
     evt.respondWith(
-        fetch(evt.request).then(networkRes => {
-            // Put a copy of successfully fetched request in cache
-            if (evt.request.method === 'GET') {
-                const resClone = networkRes.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(evt.request, resClone);
-                });
+        caches.match(req).then(cached => {
+            if (cached) {
+                // Refresh in background.
+                fetch(req).then(res => {
+                    caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
+                }).catch(() => {});
+                return cached;
             }
-            return networkRes;
-        }).catch(() => {
-            // Network failure: fallback to cache
-            return caches.match(evt.request).then(cacheRes => {
-                if (cacheRes) {
-                    return cacheRes;
+            return fetch(req).then(res => {
+                if (res.ok && (res.type === 'basic' || res.type === 'cors')) {
+                    const copy = res.clone();
+                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
                 }
-                // If the worker is accessing /worker page offline, return the cached worker layout
-                if (evt.request.url.includes('/worker')) {
-                    return caches.match('/worker');
-                }
-                return caches.match('/');
+                return res;
             });
         })
     );
 });
-

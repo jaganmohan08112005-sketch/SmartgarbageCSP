@@ -14,3 +14,7 @@ services:
         value: "3.12"
       - key: SECRET_KEY
         sync: false
+      - key: RAZOR_PUBLIC_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

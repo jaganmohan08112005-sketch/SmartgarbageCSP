@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacy Policy — SmartGarbage Chintalavalasa</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .policy { max-width: 820px; margin: 2rem auto; background:#fff; border-radius:16px;
+                  padding:2.5rem; box-shadow:0 10px 40px rgba(0,0,0,.08); }
+        h2 { color:#0f5132; margin-top:2rem; }
+        body { font-family:'Outfit', sans-serif; background:#f4f7f6; color:#1d2b2b; line-height:1.6; }
+        .small { font-size:.85rem; color:#666; }
+    </style>
+</head>
+<body>
+<div class="policy">
+    <h1 class="fw-bold">Privacy Policy</h1>
+    <p class="small">Last updated: {{ now.strftime('%B %Y') if now else '2026-07' }}</p>
+
+    <p>SmartGarbage Chintalavalasa ("we", "us") respects your privacy. This policy explains
+       what data we collect, why, and how long we keep it.</p>
+
+    <h2>1. Data We Collect</h2>
+    <ul>
+        <li><strong>Account data:</strong> name, phone number (validated as Indian mobile), role.</li>
+        <li><strong>Waste declarations:</strong> weights of wet/dry/sanitary/hazardous waste, ward, timestamp.</li>
+        <li><strong>Reports & complaints:</strong> text, optional photo, GPS location you provide, status.</li>
+        <li><strong>Bin telemetry:</strong> fill level, temperature, methane, battery — sent by IoT sensors, not by you.</li>
+        <li><strong>Audit logs:</strong> administrative actions (who did what, when).</li>
+    </ul>
+
+    <h2>2. Why We Collect It</h2>
+    <p>To operate waste collection, generate PAYT invoices, display ward transparency dashboards,
+       comply with SWM Rules 2026 reporting, and keep the system secure.</p>
+
+    <h2>3. Anonymous Illegal-Dump Reporting</h2>
+    <p>Reports submitted via <em>/report-illegal</em> (and the WhatsApp/Telegram bots) are
+       stored <strong>without any user account linkage</strong>. We intentionally do not retain
+       the reporter's identity.</p>
+
+    <h2>4. Data Retention</h2>
+    <ul>
+        <li>Waste declarations & invoices: retained for the current financial year + 1 year.</li>
+        <li>Audit logs: 2 years (security & compliance).</li>
+        <li>Photos: compressed and retained only as long as the associated report is open or under review.</li>
+    </ul>
+
+    <h2>5. Your Rights</h2>
+    <p>You may request correction or deletion of your account data by contacting the Gram Panchayat
+       office. Anonymous reports cannot be linked to you and are therefore not retrievable.</p>
+
+    <h2>6. Contact</h2>
+    <p>Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh, India.</p>
+
+    <p class="small mt-4">This is a demonstration deployment. Treat all data as test data.</p>
+</div>
+</body>
+</html>

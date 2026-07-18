@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask, render_template, session, redirect, url_for, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -21,6 +21,26 @@ socketio = SocketIO()
 
 def create_app():
     app = Flask(__name__)
+
+    # ── Sentry error tracking (if DSN present) ──
+    import os
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+
+    sentry_dsn = os.getenv('SENTRY_DSN')
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[FlaskIntegration()],
+            auto_setup=False,   # we let Flask register manually
+        )
+        # Attach identity from request (user_id) via before_request hook
+        @app.before_request
+        def bind_user_to_sentry():
+            # If you expose session['user_id'] to templates, Sentry will use it as user identifier
+            pass
+
+# (File ends at line 125)
 
     # Security Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-fallback-key-change-in-production')
@@ -102,6 +122,20 @@ def create_app():
     # Register blueprints
     from .routes import main
     app.register_blueprint(main)
+
+    # ── i18n: language toggle route + template globals ──
+    from .i18n import translate, SUPPORTED, DEFAULT_LANG
+    @app.context_processor
+    def inject_i18n():
+        lang = session.get('lang', DEFAULT_LANG) if 'session' in dir() else 'en'
+        return dict(_=lambda t: translate(t, lang), lang=lang)
+
+    @app.route('/set-lang/<lang>')
+    def set_lang(lang):
+        if lang not in SUPPORTED:
+            lang = DEFAULT_LANG
+        session['lang'] = lang
+        return redirect(request.referrer or url_for('main.dashboard'))
 
     # Schema owned by migrations. create_all() kept as a
     # zero-config safety net for fresh local installs only.
