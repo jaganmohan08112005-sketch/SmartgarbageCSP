@@ -76,13 +76,13 @@
 
                 <div id="weatherLoading" class="text-muted small py-2 d-none">
                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                    Downloading weather metrics...
+                    Syncing live weather feeds...
                 </div>
 
                 <div id="weatherDisplay">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <div>
-                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">Detecting location...</span>
+                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">Chintalavalasa</span>
                             <span id="weatherDesc" class="text-muted text-capitalize small">Please wait</span>
                         </div>
                         <span id="weatherTemp" class="display-6 fw-bold" style="color:var(--sg-info);">--&deg;C</span>
@@ -172,32 +172,24 @@ function loadWardWeatherChange() {
     fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
 }
 
-// --- 5. GPS Locator ---
+// --- 5. GPS Locator (opt-in enhancement) ---
 function getPresentLocationWeather() {
-    const loader = document.getElementById("weatherLoading");
     const descEl = document.getElementById("weatherDesc");
-
     if (!navigator.geolocation) {
         if (descEl) descEl.textContent = "GPS hardware unsupported.";
-        fetchLiveWeatherFromServer('', 'Chintalavalasa');
         return;
     }
-
-    if (loader) loader.classList.remove("d-none");
     if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
-
     navigator.geolocation.getCurrentPosition(
         (position) => {
             const lat = position.coords.latitude.toFixed(4);
             const lon = position.coords.longitude.toFixed(4);
             fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
-
             const selector = document.getElementById("homeWardSelector");
             if (selector) selector.value = "";
         },
         (error) => {
-            console.warn("GPS access declined or timed out. Defaulting to Chintalavalasa.");
-            fetchLiveWeatherFromServer('', 'Chintalavalasa');
+            console.warn("GPS access declined or timed out.");
         },
         { timeout: 4000, enableHighAccuracy: true }
     );
@@ -206,7 +198,8 @@ function getPresentLocationWeather() {
 // --- Page Load Hook ---
 document.addEventListener("DOMContentLoaded", () => {
     populateHomeWardDropdown();
-    getPresentLocationWeather();
+    // Load weather immediately (no GPS gate) so the card is never stuck.
+    fetchLiveWeatherFromServer('', 'Chintalavalasa');
 });
 </script>
 {% endblock %}
