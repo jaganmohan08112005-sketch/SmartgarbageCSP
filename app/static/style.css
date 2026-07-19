@@ -439,3 +439,137 @@ a:hover { color: var(--sg-green-700); }
 }
 .sg-pill-red  { background: #DC3545; color: #fff; }
 .sg-pill-green { background: #1B4D3E; color: #fff; }
+
+/* ============================================================
+   Homepage dual-column grid (below notice board)
+   ============================================================ */
+.sg-dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;   /* 50% / 50% split */
+    gap: 1.5rem;
+    max-width: 980px;
+    margin-top: 2.5rem;
+    align-items: stretch;            /* matching card heights */
+}
+
+/* Column 1 — Community Quote (green border) */
+.sg-quote-card {
+    background: #fff;
+    border: 2px solid #1B4D3E;     /* medium green accent */
+    border-radius: 12px;
+    padding: 2.25rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: 220px;
+}
+.sg-quote-mark {
+    font-size: 3.5rem;
+    line-height: 1;
+    color: #1B4D3E;
+    opacity: .35;
+    display: block;
+    margin-bottom: .25rem;
+}
+.sg-quote-statement {
+    font-weight: 700;
+    font-style: italic;
+    font-size: 1.18rem;
+    line-height: 1.5;
+    color: var(--sg-navy-800);
+    margin: 0 0 .85rem;
+    max-width: 30ch;
+}
+.sg-quote-caption {
+    font-size: .9rem;
+    color: #9ca3af;
+    margin: 0;
+}
+
+/* Column 2 — Village Weather & Sanitation Monitor (blue border) */
+.sg-weather-card {
+    background: #fff;
+    border: 2px solid #2563eb;     /* medium blue accent */
+    border-radius: 12px;
+    padding: 1.5rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+}
+.sg-weather-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+.sg-weather-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--sg-navy-800);
+    margin: 0;
+}
+.sg-sync-btn {
+    flex: 0 0 auto;
+    background: #fff;
+    color: #2563eb;
+    border: 1.5px solid #93c5fd;
+    border-radius: 8px;
+    font-size: .82rem;
+    font-weight: 600;
+    padding: .35rem .85rem;
+    transition: background-color .15s var(--ease), transform .15s var(--ease);
+}
+.sg-sync-btn:hover { background: #eff6ff; transform: translateY(-1px); }
+
+.sg-weather-select {
+    border-radius: 8px;
+    padding: .55rem .8rem;
+    border: 1.5px solid var(--sg-line);
+    margin-bottom: 1.1rem;
+}
+
+.sg-weather-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    margin-bottom: .85rem;
+    border-bottom: 1px solid var(--sg-line);
+}
+.sg-weather-loc { display: flex; flex-direction: column; }
+.sg-weather-city {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--sg-navy-800);
+}
+.sg-weather-desc {
+    font-size: .85rem;
+    color: #6b7280;
+    text-transform: capitalize;
+}
+.sg-weather-temp {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #2563eb;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.sg-weather-metrics {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-size: .9rem;
+    color: #374151;
+}
+.sg-metric { display: inline-flex; align-items: center; }
+.sg-metric .fa-droplet,
+.sg-metric .fa-wind { color: #2563eb; }
+
+/* Responsive stack on small screens */
+@media (max-width: 768px) {
+    .sg-dual-grid { grid-template-columns: 1fr; gap: 1.25rem; }
+}

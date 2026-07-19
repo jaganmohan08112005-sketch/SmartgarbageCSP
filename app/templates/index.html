@@ -47,6 +47,99 @@
             </span>
         </div>
     </div>
+
+    <!-- Dual-column grid system -->
+    <div class="sg-dual-grid mx-auto">
+
+        <!-- Column 1: Community Quote Block (green border) -->
+        <section class="sg-quote-card">
+            <span class="sg-quote-mark">&ldquo;</span>
+            <p class="sg-quote-statement">Our village layout stays healthy when waste is tracked and cleared on time.</p>
+            <p class="sg-quote-caption">&mdash; Community Initiative</p>
+        </section>
+
+        <!-- Column 2: Village Weather & Sanitation Monitor (blue border) -->
+        <section class="sg-weather-card">
+            <div class="sg-weather-head">
+                <h5 class="sg-weather-title">Village Weather &amp; Sanitation Monitor</h5>
+                <button class="sg-sync-btn" type="button" onclick="fetchLiveWeatherFromServer('', 'Chintalavalasa')">
+                    Sync Weather
+                </button>
+            </div>
+
+            <select id="homeWardSelector" class="form-select sg-weather-select" onchange="loadWardWeatherChange()">
+                <option value="" disabled selected>-- Choose Ward / Area --</option>
+            </select>
+
+            <div class="sg-weather-status">
+                <div class="sg-weather-loc">
+                    <span id="weatherCity" class="sg-weather-city">Chintalavalasa Village</span>
+                    <span id="weatherDesc" class="sg-weather-desc">Please wait</span>
+                </div>
+                <span id="weatherTemp" class="sg-weather-temp">31&deg;C</span>
+            </div>
+
+            <div class="sg-weather-metrics">
+                <span class="sg-metric"><i class="fa-solid fa-droplet me-1"></i>Humidity: <strong id="weatherHumidity">--%</strong></span>
+                <span class="sg-metric"><i class="fa-solid fa-wind me-1"></i>Wind: <strong id="weatherWind">-- km/h</strong></span>
+            </div>
+        </section>
+
+    </div>
 </main>
 
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script>
+// --- Populate Ward dropdown (binds to template element) ---
+function populateHomeWardDropdown() {
+    if (typeof initializeWardDropdown === 'function') {
+        initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
+    }
+}
+
+// --- Weather fetcher (binds to weatherCity/Desc/Temp/Humidity/Wind) ---
+async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
+    const cityEl = document.getElementById("weatherCity");
+    const descEl = document.getElementById("weatherDesc");
+    const tempEl = document.getElementById("weatherTemp");
+    const humEl  = document.getElementById("weatherHumidity");
+    const windEl = document.getElementById("weatherWind");
+
+    try {
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
+        const contentType = response.headers.get("content-type");
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+            throw new Error("Weather api server connection loss");
+        }
+        const data = await response.json();
+        if (cityEl) cityEl.textContent = data.city;
+        if (tempEl) tempEl.textContent = data.temp;
+        if (humEl)  humEl.textContent  = data.humidity;
+        if (windEl) windEl.textContent = data.wind;
+        if (descEl) descEl.textContent = data.condition;
+    } catch (error) {
+        console.error("Weather Fetch Error:", error);
+        if (cityEl) cityEl.textContent = targetName + " Village";
+        if (tempEl) tempEl.textContent = "31°C";
+        if (humEl)  humEl.textContent  = "--%";
+        if (windEl) windEl.textContent = "-- km/h";
+        if (descEl) descEl.textContent = "Normal Seasonal Conditions";
+    }
+}
+
+function loadWardWeatherChange() {
+    const selector = document.getElementById("homeWardSelector");
+    if (!selector) return;
+    const wardName = selector.value;
+    if (!wardName) return;
+    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
+}
+
+// --- Page Load Hook ---
+document.addEventListener("DOMContentLoaded", () => {
+    populateHomeWardDropdown();
+    fetchLiveWeatherFromServer('', 'Chintalavalasa');
+});
+</script>
 {% endblock %}
