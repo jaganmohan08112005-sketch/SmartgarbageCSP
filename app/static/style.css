@@ -327,3 +327,115 @@ a:hover { color: var(--sg-green-700); }
 /* ---------- Utility helpers used by templates ---------- */
 .border-dashed { border: 1.5px dashed var(--sg-line) !important; }
 .bg-light { background-color: #f3f6f8 !important; }
+
+/* ============================================================
+   Homepage portal — flat, professional (per spec)
+   ============================================================ */
+/* Full-width header bar */
+.sg-header {
+    background: #1B4D3E;            /* deep forest green */
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(15, 25, 34, .12);
+}
+.sg-header-brand {
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: -.3px;
+    white-space: nowrap;
+}
+.sg-header-brand:hover { color: #fff; }
+.sg-header-nav { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.sg-header-nav a {
+    color: rgba(255, 255, 255, .88);
+    font-weight: 500;
+    font-size: .95rem;
+    padding: .25rem 0;
+    border-bottom: 2px solid transparent;
+    transition: color .15s var(--ease), border-color .15s var(--ease);
+}
+.sg-header-nav a:hover { color: #fff; border-bottom-color: rgba(255, 255, 255, .7); }
+
+/* Spacious centered workspace */
+.sg-workspace {
+    background: #fff;
+    padding: 4.5rem 1rem 5rem;
+    min-height: calc(100vh - 64px);
+}
+
+/* Large prominent dark-green page title */
+.sg-page-title {
+    font-size: clamp(1.9rem, 4vw, 2.75rem);
+    font-weight: 800;
+    color: #0A5C36;                /* dark green */
+    letter-spacing: -.6px;
+    margin-bottom: 1rem;
+}
+
+/* Light gray small summary */
+.sg-page-summary {
+    color: #6b7280;
+    font-size: .98rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+}
+
+/* Primary action buttons row */
+.sg-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 3rem;
+}
+.sg-btn-primary {
+    background: #0A5C36;            /* dark green solid */
+    color: #fff;
+    border: 1px solid #0A5C36;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: .7rem 1.6rem;
+    transition: background-color .15s var(--ease), transform .15s var(--ease);
+}
+.sg-btn-primary:hover { background: #084e2c; color: #fff; transform: translateY(-1px); }
+.sg-btn-danger-outline {
+    background: #fff;
+    color: #DC3545;                /* red text */
+    border: 1.5px solid #DC3545;  /* thin red outline */
+    border-radius: 8px;
+    font-weight: 600;
+    padding: .7rem 1.6rem;
+    transition: background-color .15s var(--ease), transform .15s var(--ease);
+}
+.sg-btn-danger-outline:hover { background: #fdecee; color: #DC3545; transform: translateY(-1px); }
+
+/* Consolidated notice board card */
+.sg-notice-card {
+    max-width: 760px;
+    background: #fff;
+    padding: 1.5rem 1.75rem;
+    border: 3px solid #FFC107;      /* bright sharp yellow */
+    border-radius: 10px;
+}
+.sg-notice-row {
+    display: flex;
+    align-items: flex-start;
+    gap: .9rem;
+    padding: .85rem 0;
+}
+.sg-notice-row + .sg-notice-row { border-top: 1px solid var(--sg-line); }
+.sg-notice-text { color: #374151; font-size: .95rem; line-height: 1.55; }
+
+/* Colored pill badges */
+.sg-pill {
+    flex: 0 0 auto;
+    display: inline-block;
+    padding: .3rem .8rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .2px;
+    white-space: nowrap;
+}
+.sg-pill-red  { background: #DC3545; color: #fff; }
+.sg-pill-green { background: #1B4D3E; color: #fff; }

@@ -1,205 +1,52 @@
 {% extends 'base.html' %}
 {% block content %}
-<!-- Welcome Hero Block -->
-<div class="sg-hero p-5 mb-4 animate-fade-in">
-    <div class="container-fluid py-4">
-        <span class="badge bg-light text-success mb-3 px-3 py-2 rounded-pill fw-semibold" style="color:var(--sg-green-700) !important;">
-            <i class="fa-solid fa-leaf me-1"></i> Chintalavalasa Smart City
-        </span>
-        <h1 class="display-5 fw-bold mb-3">Smarter Waste. Cleaner Chintalavalasa.</h1>
-        <p class="col-md-8 fs-5 mx-auto mb-4" style="color:rgba(255,255,255,.9);">
-            Track local collection schedules, verify pickups, predict route failures,
-            and report missed bins in real-time across every residential sector.
+
+<!-- Full-width professional header bar -->
+<header class="sg-header">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+        <a class="sg-header-brand" href="/">Chintalavalasa SmartGarbage Portal</a>
+        <nav class="sg-header-nav">
+            <a href="/schedule">Truck Schedule</a>
+            <a href="/report">Report Missed Pickup</a>
+            <a href="/admin">Panchayat Admin</a>
+        </nav>
+    </div>
+</header>
+
+<!-- Spacious, centered workspace -->
+<main class="sg-workspace">
+    <div class="text-center mx-auto" style="max-width: 760px;">
+        <h1 class="sg-page-title">Chintalavalasa SmartGarbage Portal</h1>
+        <p class="sg-page-summary">
+            A community initiative that tracks localized garbage disposal timetables, verifies
+            collection schedules, predicts route failures, and reports missed pickups in
+            real-time across Chintalavalasa's residential sectors.
         </p>
-        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-light btn-lg px-4 fw-bold shadow">
-                <i class="fa-solid fa-calendar-days me-2"></i>Check Schedule
-            </a>
-            <a href="/report" class="btn btn-outline-light btn-lg px-4 fw-bold rounded-pill" style="border-color:rgba(255,255,255,.7);">
-                <i class="fa-solid fa-triangle-exclamation me-2"></i>Report Issue
-            </a>
-        </div>
-    </div>
-</div>
 
-<!-- Dynamic Municipal Notice Board -->
-<div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay:0.1s;">
-    <div class="card-body">
-        <h5 class="fw-bold d-flex align-items-center gap-2 mb-3" style="color:var(--sg-amber-500);">
-            <i class="fa-solid fa-bullhorn"></i> Local Sanitation Notices &amp; Seasonal Advisories
-        </h5>
-        <div class="list-group list-group-flush small">
-            <div class="list-group-item bg-transparent px-0 py-2">
-                <span class="badge bg-danger me-2">Monsoon Alert</span>
-                <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
-            </div>
-            <div class="list-group-item bg-transparent px-0 py-2">
-                <span class="badge bg-success me-2">Community Update</span>
-                <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for MVGR campus surroundings this Saturday morning.
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Dashboard Widgets Row -->
-<div class="row g-4 mb-5 animate-fade-in" style="animation-delay:0.2s;">
-    <!-- 1. Nature Green Quotes Card -->
-    <div class="col-md-6">
-        <div class="sg-feature-card p-4 h-100 d-flex align-items-center justify-content-center">
-            <div class="card-body text-center">
-                <span class="fs-1 text-success opacity-25 d-block mb-1" style="line-height:1;">&ldquo;</span>
-                <p id="quoteText" class="fs-5 fw-medium text-dark italic mb-2">Loading inspiration...</p>
-                <cite id="quoteAuthor" class="text-muted small d-block">— Loading</cite>
-            </div>
+        <!-- Primary action buttons -->
+        <div class="sg-actions">
+            <a href="/schedule" class="btn sg-btn-primary">Check Truck Schedule</a>
+            <a href="/report" class="btn sg-btn-danger-outline">Report Missed Pickup</a>
         </div>
     </div>
 
-    <!-- 2. Self-Contained Weather Module -->
-    <div class="col-md-6">
-        <div class="sg-feature-card p-4 h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold mb-0 d-flex align-items-center gap-2" style="color:var(--sg-info);">
-                        <i class="fa-solid fa-cloud-sun"></i> Local Weather Monitor
-                    </h5>
-                    <button class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">
-                        <i class="fa-solid fa-location-crosshairs me-1"></i>GPS Locator
-                    </button>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label text-muted small mb-1">Select Chintalavalasa Area for local weather:</label>
-                    <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
-                        <option value="" disabled selected>-- Choose Ward / Area --</option>
-                    </select>
-                </div>
-
-                <div id="weatherLoading" class="text-muted small py-2 d-none">
-                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                    Syncing live weather feeds...
-                </div>
-
-                <div id="weatherDisplay">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div>
-                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">Chintalavalasa</span>
-                            <span id="weatherDesc" class="text-muted text-capitalize small">Please wait</span>
-                        </div>
-                        <span id="weatherTemp" class="display-6 fw-bold" style="color:var(--sg-info);">--&deg;C</span>
-                    </div>
-                    <div class="row g-2 pt-2 border-top text-secondary small">
-                        <div class="col-6"><i class="fa-solid fa-droplet me-1 text-primary"></i>Humidity: <strong id="weatherHumidity">--%</strong></div>
-                        <div class="col-6"><i class="fa-solid fa-wind me-1 text-primary"></i>Wind: <strong id="weatherWind">-- km/h</strong></div>
-                    </div>
-                </div>
-            </div>
+    <!-- Consolidated notice board -->
+    <div class="sg-notice-card mx-auto">
+        <div class="sg-notice-row">
+            <span class="sg-pill sg-pill-red">Monsoon Alert</span>
+            <span class="sg-notice-text">
+                <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases.
+                Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
+            </span>
+        </div>
+        <div class="sg-notice-row">
+            <span class="sg-pill sg-pill-green">Public Notice</span>
+            <span class="sg-notice-text">
+                <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for
+                MVGR campus surroundings this Saturday morning.
+            </span>
         </div>
     </div>
-</div>
+</main>
 
-<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
-<script>
-// --- 1. Rotating Quotes Logic ---
-const greenQuotes = [
-    { text: "Cleanliness is next to godliness.", author: "Mahatma Gandhi" },
-    { text: "The environment is everything that isn't me.", author: "Albert Einstein" },
-    { text: "The ground cannot be clean unless the citizens make it a habit.", author: "Swachh Bharat Mission" },
-    { text: "Look deep into nature, and then you will understand everything better.", author: "Albert Einstein" },
-    { text: "Nature does not hurry, yet everything is accomplished.", author: "Lao Tzu" },
-    { text: "The greatest threat to our planet is the belief that someone else will save it.", author: "Robert Swan" }
-];
-const randomIndex = Math.floor(Math.random() * greenQuotes.length);
-if (document.getElementById("quoteText")) {
-    document.getElementById("quoteText").textContent = greenQuotes[randomIndex].text;
-    document.getElementById("quoteAuthor").textContent = "— " + greenQuotes[randomIndex].author;
-}
-
-// --- 2. Populate Dropdown ---
-function populateHomeWardDropdown() {
-    initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
-}
-
-// --- 3. Weather Fetcher ---
-async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
-    const loader = document.getElementById("weatherLoading");
-    const descEl = document.getElementById("weatherDesc");
-
-    if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "Syncing live weather feeds...";
-
-    try {
-        const cacheBuster = new Date().getTime();
-        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
-
-        const contentType = response.headers.get("content-type");
-        if (!response.ok || !contentType || !contentType.includes("application/json")) {
-            throw new Error("Weather api server connection loss");
-        }
-
-        const data = await response.json();
-
-        document.getElementById("weatherCity").textContent = data.city;
-        document.getElementById("weatherTemp").textContent = data.temp;
-        document.getElementById("weatherHumidity").textContent = data.humidity;
-        document.getElementById("weatherWind").textContent = data.wind;
-        if (descEl) descEl.textContent = data.condition;
-
-    } catch (error) {
-        console.error("Weather Fetch Error:", error);
-
-        // Random fallback values inside normal seasonal temperature bounds
-        const fallbackTemp = Math.floor(Math.random() * (34 - 28 + 1)) + 28;
-        const fallbackHumidity = Math.floor(Math.random() * (85 - 70 + 1)) + 70;
-        const fallbackWind = Math.floor(Math.random() * (15 - 8 + 1)) + 8;
-
-        document.getElementById("weatherCity").textContent = targetName;
-        document.getElementById("weatherTemp").textContent = `${fallbackTemp}°C`;
-        document.getElementById("weatherHumidity").textContent = `${fallbackHumidity}%`;
-        document.getElementById("weatherWind").textContent = `${fallbackWind} km/h`;
-        if (descEl) descEl.textContent = "Normal Seasonal Conditions (Cache)";
-    } finally {
-        if (loader) loader.classList.add("d-none");
-    }
-}
-
-// --- 4. Interactive Change ---
-function loadWardWeatherChange() {
-    const selector = document.getElementById("homeWardSelector");
-    if (!selector) return;
-    const wardName = selector.value;
-    if (!wardName) return;
-
-    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
-}
-
-// --- 5. GPS Locator (opt-in enhancement) ---
-function getPresentLocationWeather() {
-    const descEl = document.getElementById("weatherDesc");
-    if (!navigator.geolocation) {
-        if (descEl) descEl.textContent = "GPS hardware unsupported.";
-        return;
-    }
-    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude.toFixed(4);
-            const lon = position.coords.longitude.toFixed(4);
-            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
-            const selector = document.getElementById("homeWardSelector");
-            if (selector) selector.value = "";
-        },
-        (error) => {
-            console.warn("GPS access declined or timed out.");
-        },
-        { timeout: 4000, enableHighAccuracy: true }
-    );
-}
-
-// --- Page Load Hook ---
-document.addEventListener("DOMContentLoaded", () => {
-    populateHomeWardDropdown();
-    // Load weather immediately (no GPS gate) so the card is never stuck.
-    fetchLiveWeatherFromServer('', 'Chintalavalasa');
-});
-</script>
 {% endblock %}
