@@ -237,11 +237,12 @@
                             <th>Weight (kg)</th>
                             <th>Amount</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="paytInvoiceList">
                         <tr>
-                            <td colspan="4" class="text-center py-3 text-muted">
+                            <td colspan="5" class="text-center py-3 text-muted">
                                 <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                                 <span class="ms-2">Loading billing ledger...</span>
                             </td>
@@ -361,7 +362,7 @@
                 badge.innerText = `${invoices.length} Bills`;
                 
                 if (invoices.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
                     return;
                 }
                 
@@ -374,6 +375,9 @@
                             <span class="badge ${inv.status === 'Paid' ? 'bg-success' : 'bg-danger'} rounded-pill">
                                 ${inv.status}
                             </span>
+                        </td>
+                        <td>
+                            ${inv.status !== 'Paid' ? `<a href="/payt/pay/${inv.id}" class="btn btn-sm btn-success">Pay Now</a>` : '—'}
                         </td>
                     </tr>
                 `).join('');

@@ -53,6 +53,11 @@
                     <a href="/admin/firmware" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
                         <span>📡</span> OTA Firmware Hub
                     </a>
+                    {% if is_superadmin %}
+                    <a href="/admin/super" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2 text-warning">
+                        <span>⭐</span> Superadmin Panel
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

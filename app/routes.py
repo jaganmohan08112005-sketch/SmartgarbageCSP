@@ -1031,11 +1031,13 @@ def admin():
         "geofence_violations": len([w for w in workers if w.geofence_violation]),
         "pending_pickups": len(bwg_requests),
     }
+    current_user = User.query.get(session.get('user_id'))
     return render_template('admin.html', complaints=complaints, bins=bins, workers=workers,
                            incidents=incidents, kpis=kpis, webhooks=active_webhooks,
                            sensor_healths=sensor_healths, firmware_releases=firmware_releases,
                            illegal_reports=illegal_reports, bwg_requests=bwg_requests,
-                           dump_yards=DUMP_YARDS)
+                           dump_yards=DUMP_YARDS,
+                           is_superadmin=(current_user.is_superadmin if current_user else False))
 
 # Route Optimizer — nearest-neighbour seeding + 2-opt refinement (networkx)
 # over a distance matrix (OSRM road distance when reachable, else Haversine).
