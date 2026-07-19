@@ -78,19 +78,19 @@
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
                                 {% if session.get('role') == 'admin' %}
-                                    <li><a class="dropdown-item" href="/admin">Admin Console</a></li>
+                                    <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gear me-2"></i>Admin Console</a></li>
                                 {% elif session.get('role') == 'worker' %}
-                                    <li><a class="dropdown-item" href="/worker">Worker Portal</a></li>
+                                    <li><a class="dropdown-item" href="/worker"><i class="fa-solid fa-truck-fast me-2"></i>Worker Portal</a></li>
                                 {% else %}
-                                    <li><a class="dropdown-item" href="/dashboard">My Dashboard</a></li>
+                                    <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>My Dashboard</a></li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="/logout">Logout</a></li>
+                                <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
                             </ul>
                         </div>
                     {% else %}
-                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill me-2" href="/login">{{ _('Login') }}</a>
-                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
+                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill me-2" href="/login"><i class="fa-solid fa-right-to-bracket me-1"></i>{{ _('Login') }}</a>
+                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register"><i class="fa-solid fa-user-plus me-1"></i>{{ _('Sign Up') }}</a>
                     {% endif %}
                     <a class="btn btn-light btn-sm px-2 rounded-pill ms-2" href="/set-lang/{% if lang == 'te' %}en{% else %}te{% endif %}" title="Switch language">
                         {% if lang == 'te' %}EN{% else %}తె{% endif %}
@@ -106,30 +106,19 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show shadow" role="alert" style="border-radius: 12px;">
-                        <div class="d-flex align-items-center gap-2">
-                            {% if category == 'success' %}
-                                <span>🎉</span>
-                            {% else %}
-                                <span>⚠️</span>
-                            {% endif %}
-                            <div>{{ message }}</div>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    {% set cat = category if category in ('success','danger','warning','info') else 'info' %}
+                    {% set icon = {
+                        'success': 'fa-circle-check',
+                        'danger':  'fa-circle-exclamation',
+                        'warning': 'fa-triangle-exclamation',
+                        'info':    'fa-circle-info'
+                    }[cat] %}
+                    <div class="alert alert-{{ cat }} alert-dismissible fade show shadow d-flex align-items-center gap-2" role="alert" style="border-radius: 12px;">
+                        <i class="fa-solid {{ icon }} fs-5"></i>
+                        <div>{{ message }}</div>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
-                {# Progressive enhancement: re-surface the first flash as a SweetAlert2 popup #}
-                {% set first = messages[0] %}
-                <script>
-                    if (window.Swal) {
-                        Swal.fire({
-                            icon: '{{ 'success' if first[0] == 'success' else 'error' }}',
-                            title: '{{ 'Success' if first[0] == 'success' else 'Notice' }}',
-                            text: {{ (first[1]|tojson) }},
-                            timer: 3500, showConfirmButton: false
-                        });
-                    }
-                </script>
             {% endif %}
         {% endwith %}
 
