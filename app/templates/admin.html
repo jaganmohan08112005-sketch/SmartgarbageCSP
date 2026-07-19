@@ -149,10 +149,12 @@
                     <div class="card border-0 shadow-sm p-3 h-100 bg-white text-danger border-start border-danger border-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="text-danger small fw-bold">Critical (🔴) Bins</span>
+                                <span class="text-danger small fw-bold">Critical (<i class="fa-solid fa-trash-can"></i>) Bins</span>
                                 <h3 class="fw-extrabold mt-1 mb-0 text-danger">{{ kpis.critical_bins }}</h3>
                             </div>
-                            <span class="fs-2 bg-danger bg-opacity-10 p-2 rounded-circle">🚨</span>
+                            <span class="fs-2 bg-danger bg-opacity-10 p-2 rounded-circle animate__animated animate__pulse animate__infinite">
+                                <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                            </span>
                         </div>
                         <div class="mt-2 small text-muted">
                             Require immediate pickup dispatch

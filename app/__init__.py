@@ -100,8 +100,8 @@ def create_app():
             "default-src 'self'; "
             "img-src 'self' data: https:; "
             "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
             "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
         )
         return resp
@@ -109,7 +109,28 @@ def create_app():
     # Structured logging
     if not app.debug and not app.testing:
         logging.basicConfig(level=logging.INFO,
-                                format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+                                 format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+
+    # CORS for the IoT telemetry endpoint only.
+    # ESP32/NodeMCU sensors POST cross-origin (from the device's own network /
+    # cellular gateway) to the Render server, so the ingest route must return
+    # permissive CORS headers + answer OPTIONS preflight. We scope it to just
+    # /api/bin-telemetry so the authenticated admin/citizen APIs stay locked
+    # to same-origin. (Avoids pulling in flask-cors for the whole app.)
+    IOT_TELEMETRY_PATH = '/api/bin-telemetry'
+
+    @app.after_request
+    def add_iot_cors(resp):
+        if request.path == IOT_TELEMETRY_PATH:
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return resp
+
+    @app.route(IOT_TELEMETRY_PATH, methods=['OPTIONS'])
+    def iot_telemetry_preflight():
+        # CORS preflight responder for cross-origin sensor POSTs.
+        return ('', 204)
 
     # Global 500 handler — log traceback, show generic page
     @app.errorhandler(500)
