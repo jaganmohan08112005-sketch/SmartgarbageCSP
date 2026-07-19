@@ -255,3 +255,77 @@ def test_illegal_report_compresses_photo(client, app):
     assert im.format == 'JPEG'
     assert max(im.size) <= 1280
     assert os.path.getsize(path) < 500 * 1024
+
+
+# ── Photo storage: local fallback when Cloudinary is NOT configured ──
+def test_photo_storage_local_fallback(app, monkeypatch):
+    monkeypatch.delenv('CLOUDINARY_URL', raising=False)
+    from PIL import Image
+    import io
+    buf = io.BytesIO()
+    Image.new('RGB', (300, 300), (10, 200, 50)).save(buf, format='PNG')
+    buf.seek(0)
+    buf.filename = 'fallback.png'
+
+    class FakeFile:
+        def __init__(self, b, name):
+            self._b = b; self.filename = name
+        def read(self):
+            return self._b.getvalue()
+        def seek(self, p):
+            return None
+        @property
+        def stream(self):
+            return self._b
+
+    with app.app_context():
+        from app.routes import save_compressed_photo
+        out = save_compressed_photo(FakeFile(buf, 'fallback.png'), 'complaint')
+    # Without Cloudinary, we must keep the local uploads/ relative path.
+    assert out.startswith('uploads/'), out
+    assert out.endswith('.png') or out.endswith('.jpg')
+
+
+# ── Photo storage: Cloudinary URL returned when uploader succeeds ──
+def test_photo_storage_cloudinary_url(app, monkeypatch):
+    monkeypatch.setenv('CLOUDINARY_URL', 'cloudinary://k:s@demo')
+    from PIL import Image
+    import io
+    buf = io.BytesIO()
+    Image.new('RGB', (300, 300), (10, 200, 50)).save(buf, format='PNG')
+    buf.seek(0)
+    buf.filename = 'remote.png'
+
+    class FakeFile:
+        def __init__(self, b, name):
+            self._b = b; self.filename = name
+        def read(self):
+            return self._b.getvalue()
+        def seek(self, p):
+            return None
+        @property
+        def stream(self):
+            return self._b
+
+    fake_result = {'secure_url': 'https://res.cloudinary.com/demo/image/upload/v1/smartgarbage/complaint/remote.png'}
+
+    import sys
+    import types
+
+    class FakeUploader:
+        @staticmethod
+        def upload(*a, **k):
+            return fake_result
+
+    fake_cloudinary = types.SimpleNamespace(uploader=FakeUploader,
+                                             config=lambda **k: None)
+    # Force the lazy `import cloudinary` / `import cloudinary.uploader` inside
+    # save_compressed_photo to resolve to our fakes.
+    monkeypatch.setitem(sys.modules, 'cloudinary', fake_cloudinary)
+    monkeypatch.setitem(sys.modules, 'cloudinary.uploader', fake_cloudinary.uploader)
+
+    with app.app_context():
+        from app.routes import save_compressed_photo
+        out = save_compressed_photo(FakeFile(buf, 'remote.png'), 'complaint')
+    assert out.startswith('https://'), out
+    assert 'smartgarbage' in out

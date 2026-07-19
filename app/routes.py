@@ -58,31 +58,54 @@ MAX_IMAGE_DIM = 1280      # longest edge, px
 JPEG_QUALITY = 82         # good visual quality, ~5-10x smaller than phone photos
 
 def save_compressed_photo(file_storage, prefix):
-    """Save an uploaded photo compressed + EXIF-stripped.
+    """Save an uploaded photo compressed + EXIF-stripped, then persist it.
 
-    Opens with Pillow, resizes to MAX_IMAGE_DIM on the longest edge,
-    and re-saves as JPEG at JPEG_QUALITY — turning typical 3-5MB phone
-    photos into ~200-400KB files. Strips all EXIF (GPS/metadata) as a
-    privacy side-effect. Falls back to the raw file if Pillow is missing.
-    Returns the relative path usable as a template src (e.g. 'uploads/foo.jpg').
+    On Render (and any host with Cloudinary configured via CLOUDINARY_URL) the
+    compressed bytes are uploaded to Cloudinary object storage and a public URL is
+    returned — this survives container restarts, unlike the ephemeral /tmp disk.
+    When Cloudinary is not configured (local dev) the file is written to the local
+    UPLOAD_FOLDER and a relative path ('uploads/foo.jpg') is returned, which the
+    templates resolve against /static.
+
+    Opens with Pillow, resizes to MAX_IMAGE_DIM on the longest edge, re-saves as
+    JPEG at JPEG_QUALITY (~5-10x smaller than phone photos), strips all EXIF as a
+    privacy side-effect. Falls back to the raw file on any error.
     """
     filename = f"{prefix}_{random.randint(10000, 99999)}_{secure_filename(file_storage.filename)}"
-    upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     try:
         from PIL import Image
         import io
         img = Image.open(file_storage.stream if hasattr(file_storage, 'stream') else file_storage)
         img = img.convert('RGB')  # drop alpha + any exotic modes
         img.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM))
-        # Save straight to disk as JPEG (no EXIF survives the RGB re-encode).
-        img.save(upload_path, format='JPEG', quality=JPEG_QUALITY, optimize=True)
-    except ImportError:
-        file_storage.seek(0)
-        file_storage.save(upload_path)
+        buf = io.BytesIO()
+        # Save to an in-memory buffer as JPEG (no EXIF survives the RGB re-encode).
+        img.save(buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
+        data = buf.getvalue()
     except Exception as e:
         current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
         file_storage.seek(0)
-        file_storage.save(upload_path)
+        data = file_storage.read()
+
+    # Cloudinary is optional. If CLOUDINARY_URL is set, upload there; else local disk.
+    cloudinary_url = os.getenv('CLOUDINARY_URL')
+    if cloudinary_url:
+        try:
+            import cloudinary
+            import cloudinary.uploader
+            cloudinary.config(secure=True)
+            result = cloudinary.uploader.upload(
+                data, public_id=f"smartgarbage/{prefix}/{filename.rsplit('.', 1)[0]}",
+                folder="smartgarbage", resource_type="image")
+            return result.get('secure_url', '')
+        except Exception as e:
+            current_app.logger.error("Cloudinary upload failed for %s: %s", filename, e)
+            # Fall through to local disk so we never lose the upload.
+
+    upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+    os.makedirs(os.path.dirname(upload_path), exist_ok=True)
+    with open(upload_path, 'wb') as f:
+        f.write(data)
     return f"uploads/{filename}"
 
 main = Blueprint('main', __name__)

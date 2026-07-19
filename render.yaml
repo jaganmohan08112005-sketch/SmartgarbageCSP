@@ -18,3 +18,5 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: CLOUDINARY_URL
+        sync: false
