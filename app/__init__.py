@@ -48,6 +48,12 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
+    # Shared secret for authenticating IoT telemetry POSTs from ESP32/Arduino
+    # devices. When set (production), /api/bin-telemetry requires a valid
+    # HMAC-SHA256 signature in the X-Signature header. A dev fallback keeps
+    # local simulators/seed working without a secret configured.
+    app.config['IOT_TELEMETRY_SECRET'] = os.environ.get('IOT_TELEMETRY_SECRET')
+
     # Database Configuration
     # On Render's FREE tier there is NO persistent disk, so SQLite would
     # reset on every restart. Instead we use Render's free PostgreSQL

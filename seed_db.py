@@ -15,43 +15,43 @@ from app.models import (Schedule, User, Complaint, SmartBin, WorkerProfile, Inci
 app = create_app()
 
 with app.app_context():
-    print("⏳ Recreating database tables...")
-    db.drop_all()
-    db.create_all()
-    print("✅ Database tables recreated successfully!")
-    
-    # 1. Seed Default Users & Profiles
-    print("👤 Seeding default users...")
-    admin_user = User(
-        username="admin",
-        password_hash=generate_password_hash("admin123"),
-        role="admin",
-        phone="+919876543210"
-    )
-    regular_user = User(
-        username="user",
-        password_hash=generate_password_hash("user123"),
-        role="citizen",
-        phone="+919876543211",
-        green_points=120
-    )
-    worker_user = User(
-        username="worker",
-        password_hash=generate_password_hash("worker123"),
-        role="worker",
-        phone="+919876543212"
-    )
-    driver_user = User(
-        username="driver2",
-        password_hash=generate_password_hash("driver123"),
-        role="worker",
-        phone="+919876543213"
-    )
+    print("⏳ Seeding database tables...")
 
-    db.session.add(admin_user)
-    db.session.add(regular_user)
-    db.session.add(worker_user)
-    db.session.add(driver_user)
+    # Idempotency guard: the schema is owned by Flask-Migrate/Alembic
+    # (the Dockerfile runs `flask db upgrade` BEFORE this script).
+    # We never run db.drop_all()/db.create_all() here, and we only
+    # seed when the DB is empty, so re-running is always safe and
+    # never conflicts with the migration history.
+    if User.query.count() > 0:
+        print("✅ Database already seeded (users present) — skipping to avoid "
+              "duplicating demo data or colliding with Alembic.")
+        raise SystemExit(0)
+
+    # NOTE: schema is owned by Flask-Migrate/Alembic. We do NOT call
+    # db.drop_all()/db.create_all() here — that would fight the migration
+    # history (the Dockerfile already runs `flask db upgrade` first).
+    # This script only INSERTs demo rows, and is idempotent: it skips
+    # any seed entity that already exists (matched by its natural key),
+    # so re-running it is safe and never conflicts with Alembic.
+    
+    # 1. Seed Default Users & Profiles (idempotent: skip if username exists)
+    print("👤 Seeding default users...")
+    if not User.query.filter_by(username="admin").first():
+        admin_user = User(username="admin", password_hash=generate_password_hash("admin123"),
+                         role="admin", phone="+919876543210")
+        db.session.add(admin_user)
+    if not User.query.filter_by(username="user").first():
+        regular_user = User(username="user", password_hash=generate_password_hash("user123"),
+                         role="citizen", phone="+919876543211", green_points=120)
+        db.session.add(regular_user)
+    if not User.query.filter_by(username="worker").first():
+        worker_user = User(username="worker", password_hash=generate_password_hash("worker123"),
+                         role="worker", phone="+919876543212")
+        db.session.add(worker_user)
+    if not User.query.filter_by(username="driver2").first():
+        driver_user = User(username="driver2", password_hash=generate_password_hash("driver123"),
+                         role="worker", phone="+919876543213")
+        db.session.add(driver_user)
     db.session.commit()
 
     # Seed Worker Profiles

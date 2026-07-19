@@ -20,3 +20,5 @@ services:
         sync: false
       - key: CLOUDINARY_URL
         sync: false
+      - key: IOT_TELEMETRY_SECRET
+        sync: false

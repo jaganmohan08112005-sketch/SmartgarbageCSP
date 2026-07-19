@@ -10,6 +10,10 @@ Usage:
     python simulate_bins.py --host http://localhost:5000 --interval 3
 """
 import argparse
+import hashlib
+import hmac
+import json
+import os
 import random
 import time
 
@@ -18,7 +22,11 @@ import requests
 DEFAULT_HOST = "http://localhost:5000"
 
 
-def tick(host):
+def _sign(secret, payload_bytes):
+    return hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+
+
+def tick(host, secret=None):
     """Send one telemetry frame per bin. Returns (sent, failed)."""
     # Read the live bin list from the API so we always target real hardware IDs.
     try:
@@ -40,8 +48,13 @@ def tick(host):
             "methane": random.randint(40, 220),
             "battery_level": random.randint(70, 100),
         }
+        headers = {}
+        if secret:
+            body = json.dumps(payload).encode()
+            headers["X-Signature"] = _sign(secret, body)
         try:
-            r = requests.post(f"{host}/api/bin-telemetry", json=payload, timeout=5)
+            r = requests.post(f"{host}/api/bin-telemetry", json=payload,
+                              headers=headers, timeout=5)
             if r.status_code == 200:
                 sent += 1
             else:
@@ -59,13 +72,15 @@ def main():
     ap.add_argument("--once", action="store_true", help="Run a single tick and exit")
     args = ap.parse_args()
 
+    secret = os.environ.get("IOT_TELEMETRY_SECRET")
+
     if args.once:
-        tick(args.host)
+        tick(args.host, secret)
         return
     print(f"[sim] streaming telemetry to {args.host} every {args.interval}s (Ctrl+C to stop)")
     try:
         while True:
-            tick(args.host)
+            tick(args.host, secret)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("\n[sim] stopped.")

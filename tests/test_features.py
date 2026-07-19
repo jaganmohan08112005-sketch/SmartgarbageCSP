@@ -220,6 +220,30 @@ def test_bin_telemetry_emits_socket_event(app):
         io_client.disconnect()
 
 
+# ── IoT telemetry HMAC auth (enforced only when secret is configured) ──
+def test_bin_telemetry_rejects_bad_signature_when_secret_set(app, monkeypatch):
+    from app.models import SmartBin
+    with app.app_context():
+        if not SmartBin.query.filter_by(hardware_id='SIG-1').first():
+            db.session.add(SmartBin(hardware_id='SIG-1', latitude=18.06,
+                                    longitude=83.41, level=10,
+                                    ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+
+    monkeypatch.setitem(app.config, 'IOT_TELEMETRY_SECRET', 'test-secret')
+    with app.test_client() as c:
+        r = c.post('/api/bin-telemetry', json={"hardware_id": "SIG-1", "level": 1})
+        assert r.status_code == 403
+
+        import hmac, hashlib, json
+        body = json.dumps({"hardware_id": "SIG-1", "level": 1}).encode()
+        sig = hmac.new(b'test-secret', body, hashlib.sha256).hexdigest()
+        r2 = c.post('/api/bin-telemetry', data=body,
+                    headers={'Content-Type': 'application/json',
+                             'X-Signature': sig})
+        assert r2.status_code == 200
+
+
 # ── Spam protection: anonymous illegal-dump route is rate-limited ──
 def test_report_illegal_is_rate_limited(client, app):
     # 10/hour limit; the 11th POST must be rejected with 429.
@@ -329,3 +353,21 @@ def test_photo_storage_cloudinary_url(app, monkeypatch):
         out = save_compressed_photo(FakeFile(buf, 'remote.png'), 'complaint')
     assert out.startswith('https://'), out
     assert 'smartgarbage' in out
+
+
+# ── ML miss-prediction: model path + heuristic fallback ─────────
+def test_predict_miss_returns_binary_with_model(app):
+    from app.ml_model import predict_miss
+    with app.app_context():
+        val = predict_miss('Ward 1 - MVGR College Area')
+    assert val in (0, 1)
+
+
+def test_predict_miss_heuristic_fallback_when_no_model(app, monkeypatch):
+    # Force the lazy-loaded model to None so the heuristic branch runs and
+    # the route can never crash on a missing/invalid artifact.
+    import app.ml_model as ml
+    monkeypatch.setattr(ml, 'model', None)
+    with app.app_context():
+        val = ml.predict_miss('Ward 3 - RTC Colony')
+    assert val in (0, 1)

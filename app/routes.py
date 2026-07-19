@@ -2,6 +2,8 @@ import os
 import re
 import sys
 import json
+import hmac
+import hashlib
 import random
 import math
 from datetime import datetime, timedelta, timezone
@@ -464,19 +466,6 @@ def mfa_verify():
             return redirect(url_for('main.login'))
     return render_template('mfa_verify.html')
 
-@main.route('/auth/google')
-def auth_google():
-    email = f"google_citizen_{random.randint(100,999)}@gmail.com"
-    user = User.query.filter_by(username=email).first()
-    if not user:
-        user = User(username=email, password_hash=generate_password_hash("google_pass"),
-                    role="citizen", phone="+919999999999")
-        db.session.add(user); db.session.commit()
-    session.update({'user_id': user.id, 'username': user.username,
-                    'role': user.role, 'mfa_pending': False})
-    write_audit("GOOGLE_LOGIN", target=email, detail="Google OAuth quick-signin.")
-    flash(f"Authenticated via Google OAuth: {email}", "success")
-    return redirect(url_for('main.dashboard'))
 
 @main.route('/auth/phone-login', methods=['POST'])
 def auth_phone_login():
@@ -1515,6 +1504,16 @@ def bin_telemetry():
     readings, updates the bin record in the database, clears stale sensor
     faults, and runs the emergency evaluation pipeline (fire / methane
     hazard detection + webhook dispatch) via evaluate_emergency_metrics()."""
+    # ── IoT auth: require a valid HMAC-SHA256 signature when a telemetry
+    # secret is configured (production). Skipped in dev when no secret set. ──
+    secret = current_app.config.get('IOT_TELEMETRY_SECRET')
+    if secret:
+        raw = request.get_data(cache=True)
+        provided = request.headers.get('X-Signature', '')
+        expected = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(provided, expected):
+            return jsonify({"success": False, "message": "Invalid signature."}), 403
+
     data = request.get_json(silent=True) or request.form
     hw_id = data.get('hardware_id') or data.get('id')
     if not hw_id:
