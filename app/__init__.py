@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, session, redirect, url_for, current_app
+from flask import Flask, render_template, session, redirect, url_for, current_app, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -24,21 +24,19 @@ def create_app():
 
     # ── Sentry error tracking (if DSN present) ──
     import os
-    import sentry_sdk
-    from sentry_sdk.integrations.flask import FlaskIntegration
-
     sentry_dsn = os.getenv('SENTRY_DSN')
     if sentry_dsn:
-        sentry_sdk.init(
-            dsn=sentry_dsn,
-            integrations=[FlaskIntegration()],
-            auto_setup=False,   # we let Flask register manually
-        )
-        # Attach identity from request (user_id) via before_request hook
-        @app.before_request
-        def bind_user_to_sentry():
-            # If you expose session['user_id'] to templates, Sentry will use it as user identifier
-            pass
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.flask import FlaskIntegration
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                integrations=[FlaskIntegration()],
+                auto_setup=False,   # we let Flask register manually
+            )
+        except ImportError:
+            # Sentry is optional — don't crash the app if the package is absent.
+            app.logger.warning("SENTRY_DSN set but sentry_sdk not installed; skipping init.")
 
 # (File ends at line 125)
 
@@ -127,7 +125,7 @@ def create_app():
     from .i18n import translate, SUPPORTED, DEFAULT_LANG
     @app.context_processor
     def inject_i18n():
-        lang = session.get('lang', DEFAULT_LANG) if 'session' in dir() else 'en'
+        lang = session.get('lang', DEFAULT_LANG)
         return dict(_=lambda t: translate(t, lang), lang=lang)
 
     @app.route('/set-lang/<lang>')
@@ -137,9 +135,11 @@ def create_app():
         session['lang'] = lang
         return redirect(request.referrer or url_for('main.dashboard'))
 
-    # Schema owned by migrations. create_all() kept as a
-    # zero-config safety net for fresh local installs only.
-    with app.app_context():
-        db.create_all()
+    # Schema is owned by Flask-Migrate/Alembic (see migrations/). Do NOT call
+    # db.create_all() here: it silently creates tables/columns matching the
+    # current models, and then Alembic's own ADD COLUMN/CREATE TABLE fails with
+    # "duplicate column"/"already exists" the next time `flask db upgrade` runs.
+    # Run `flask db upgrade` once after cloning (Dockerfile does this
+    # automatically before starting gunicorn in production).
 
     return app

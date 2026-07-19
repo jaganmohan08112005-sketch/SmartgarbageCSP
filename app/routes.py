@@ -578,10 +578,9 @@ def payt_invoice_payment(inv_id):
     """
     invoice = PAYTInvoice.query.get_or_404(inv_id)
     # Build a UPI deep-link that any UPI app can open.
-    # Amount in pais (Rupay paise) – Razorpay API expects integer.
-    amount_pais = int(invoice.amount_rs * 100)
-    # MoneyPey (JavaScript) example URI; routes work for any UPI app.
-    upi_url = f"upi://pay?pa={os.getenv('RAZOR_PAYER', 'smartgarbage@ybl')&amount={amount_pais}&prompt="
+    # UPI deep links expect the amount in decimal rupees (e.g. "150.00"), not paise.
+    upi_url = (f"upi://pay?pa={os.getenv('RAZOR_PAYER', 'smartgarbage@ybl')}"
+               f"&am={invoice.amount_rs:.2f}&pn=SmartGarbage&tn=PAYT-Invoice-{inv_id}&cu=INR")
 
     # Pass the UPI URL to the template so the front‑end can embed it in a button.
     return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
