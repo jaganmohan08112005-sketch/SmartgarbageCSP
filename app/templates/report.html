@@ -10,6 +10,7 @@
             </div>
             
             <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- User Contact Segment -->
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">

@@ -11,6 +11,7 @@
             </div>
             
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
                     <label class="form-label fw-bold text-secondary">Secure OTP Code</label>
                     <input name="otp" type="text" class="form-control form-control-lg text-center fw-bold fs-4" placeholder="••••••" maxlength="6" pattern="\d{6}" required autofocus style="letter-spacing: 0.5rem;">
