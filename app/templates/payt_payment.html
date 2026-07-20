@@ -1,30 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Pay PAYT Invoice — SmartGarbage</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        body { font-family: 'Outfit', sans-serif; background: #f4f7f6; min-height: 100vh;
-               display: flex; align-items: center; justify-content: center; margin: 0; }
-        .card { max-width: 420px; background: #fff; border-radius: 16px; padding: 2rem;
-                box-shadow: 0 10px 40px rgba(0,0,0,.08); text-align: center; }
-        .btn-pay { display: block; width: 100%; padding: .85rem; border-radius: 12px; margin-top: 1.5rem;
-                   background: #0f5132; color: #fff; font-weight: 700; text-decoration: none; }
-        .amt { font-size: 2.5rem; font-weight: 800; color: #0f5132; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">💳</div>
-        <h3 class="fw-bold mt-2 mb-1">PAYT Invoice</h3>
-        <p class="text-muted small">Pay using any UPI app (Google Pay, PhonePe, Paytm, BHIM).</p>
-        <div class="amt">₹{{ "%.2f"|format(invoice.amount_rs) }}</div>
-        <p class="mb-1"><strong>Period:</strong> {{ invoice.period }}</p>
-        <p class="mb-3"><strong>Compliance:</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
-        <a class="btn-pay" href="{{ upi_url }}">Pay ₹{{ "%.2f"|format(invoice.amount_rs) }} via UPI</a>
-        <p class="text-muted mt-3 mb-0 small">You'll be redirected to your UPI app to authorize the payment.</p>
+{% extends 'base.html' %}
+{% block title %}Pay PAYT Invoice - SmartGarbage{% endblock %}
+{% block content %}
+<div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
+    <div class="col-md-6 col-lg-5">
+        <div class="card p-4 border-0 shadow-sm text-center">
+            <div class="fs-1 mb-2">💳</div>
+            <h3 class="fw-bold mt-2 mb-1">PAYT Invoice</h3>
+            <p class="text-muted small">Pay using any UPI app (Google Pay, PhonePe, Paytm, BHIM).</p>
+
+            <div class="amt" style="font-size:2.5rem;font-weight:800;color:var(--sg-primary);">
+                ₹{{ "%.2f"|format(invoice.amount_rs) }}
+            </div>
+            <p class="mb-1"><strong>Period:</strong> {{ invoice.period }}</p>
+            <p class="mb-3"><strong>Compliance:</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
+
+            {% if invoice.status == 'Paid' %}
+                <div class="alert alert-success border-0 shadow-sm text-start small">
+                    <i class="fa-solid fa-circle-check me-1"></i>
+                    <strong>Payment confirmed.</strong> Thank you!<br>
+                    <span class="text-muted">Ref: {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
+                </div>
+            {% else %}
+                <a class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
+                    <i class="fa-solid fa-mobile-screen-button me-1"></i>
+                    Pay ₹{{ "%.2f"|format(invoice.amount_rs) }} via UPI
+                </a>
+                <p class="text-muted small mb-3">You'll be redirected to your UPI app to authorize the payment.</p>
+
+                <form method="POST" action="{{ url_for('main.payt_confirm_payment', inv_id=invoice.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-success w-100 fw-bold rounded-pill">
+                        <i class="fa-solid fa-check me-1"></i> I've completed the UPI payment
+                    </button>
+                </form>
+                <p class="text-muted mt-2 mb-0 small">Confirm here once the payment succeeds in your UPI app.</p>
+            {% endif %}
+        </div>
     </div>
-</body>
-</html>
+</div>
+{% endblock %}

@@ -71,6 +71,8 @@
                 <option value="" disabled selected>-- Choose Ward / Area --</option>
             </select>
 
+            <div class="sg-weather-shimmer sg-skeleton"></div>
+
             <div class="sg-weather-status">
                 <div class="sg-weather-loc">
                     <span id="weatherCity" class="sg-weather-city">Chintalavalasa Village</span>
@@ -99,12 +101,14 @@ function populateHomeWardDropdown() {
 
 // --- Weather fetcher (binds to weatherCity/Desc/Temp/Humidity/Wind) ---
 async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
+    const cardEl = document.querySelector(".sg-weather-card");
     const cityEl = document.getElementById("weatherCity");
     const descEl = document.getElementById("weatherDesc");
     const tempEl = document.getElementById("weatherTemp");
     const humEl  = document.getElementById("weatherHumidity");
     const windEl = document.getElementById("weatherWind");
 
+    if (cardEl) cardEl.classList.add("sg-weather-loading");
     try {
         const cacheBuster = new Date().getTime();
         const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
@@ -118,8 +122,10 @@ async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chinta
         if (humEl)  humEl.textContent  = data.humidity;
         if (windEl) windEl.textContent = data.wind;
         if (descEl) descEl.textContent = data.condition;
+        if (cardEl) cardEl.classList.remove("sg-weather-loading");
     } catch (error) {
         console.error("Weather Fetch Error:", error);
+        if (cardEl) cardEl.classList.remove("sg-weather-loading");
         if (cityEl) cityEl.textContent = targetName + " Village";
         if (tempEl) tempEl.textContent = "31°C";
         if (humEl)  humEl.textContent  = "--%";

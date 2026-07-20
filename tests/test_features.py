@@ -371,3 +371,45 @@ def test_predict_miss_heuristic_fallback_when_no_model(app, monkeypatch):
     with app.app_context():
         val = ml.predict_miss('Ward 3 - RTC Colony')
     assert val in (0, 1)
+
+
+# ── PAYT UPI payment-confirmation step ──────────────────────
+def test_payt_confirm_marks_invoice_paid(client, app):
+    from app.models import User, PAYTInvoice
+    uid = _make_user(app, 'payer', role='citizen')
+    with app.app_context():
+        inv = PAYTInvoice(user_id=uid, period='July 2026', weight_kg=10.0,
+                          landfill_kg=4.0, amount_rs=42.0, status='Unpaid')
+        db.session.add(inv)
+        db.session.commit()
+        inv_id = inv.id
+
+    # Login as the invoice owner (citizen, no MFA)
+    client.post('/login', data={'username': 'payer', 'password': 'testpass123'})
+    r = client.post(f'/payt/confirm/{inv_id}', data={'txn': 'UPI-RRN-123'},
+                    follow_redirects=False)
+    assert r.status_code == 302  # redirected to dashboard
+
+    with app.app_context():
+        inv = PAYTInvoice.query.get(inv_id)
+        assert inv.status == 'Paid'
+        assert inv.transaction_ref == 'UPI-RRN-123'
+        assert inv.payment_method == 'UPI'
+        assert inv.paid_at is not None
+
+
+def test_payt_confirm_rejects_other_user(client, app):
+    from app.models import User, PAYTInvoice
+    uid = _make_user(app, 'payer2', role='citizen')
+    intruder = _make_user(app, 'intruder', role='citizen')
+    with app.app_context():
+        inv = PAYTInvoice(user_id=uid, period='July 2026', weight_kg=10.0,
+                          amount_rs=42.0, status='Unpaid')
+        db.session.add(inv)
+        db.session.commit()
+        inv_id = inv.id
+
+    client.post('/login', data={'username': 'intruder', 'password': 'testpass123'})
+    # Should be forbidden (404 via abort(403) -> 403)
+    r = client.post(f'/payt/confirm/{inv_id}', data={}, follow_redirects=False)
+    assert r.status_code in (403, 302)

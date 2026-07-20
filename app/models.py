@@ -227,6 +227,9 @@ class PAYTInvoice(db.Model):
     amount_rs = db.Column(db.Float, default=0.0, nullable=False)        # ₹ amount (after penalty)
     status = db.Column(db.String(20), default='Unpaid', nullable=False) # Unpaid / Paid / Waived
     issued_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    paid_at = db.Column(db.DateTime, nullable=True)
+    transaction_ref = db.Column(db.String(120), nullable=True)  # UPI ref / RRN
+    payment_method = db.Column(db.String(20), default='UPI', nullable=True)
 
     user = db.relationship('User', backref=db.backref('payt_invoices', lazy=True))
 

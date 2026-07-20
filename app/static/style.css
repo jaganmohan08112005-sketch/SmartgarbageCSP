@@ -573,3 +573,49 @@ a:hover { color: var(--sg-green-700); }
 @media (max-width: 768px) {
     .sg-dual-grid { grid-template-columns: 1fr; gap: 1.25rem; }
 }
+
+/* ============================================================
+   Loading shimmer / skeleton (polish for async fetch states)
+   ============================================================ */
+@keyframes sgShimmer {
+    0%   { background-position: -480px 0; }
+    100% { background-position: 480px 0; }
+}
+.sg-skeleton {
+    border-radius: 6px;
+    background: #eef2f5;
+    background-image: linear-gradient(90deg, #eef2f5 0px, #f6f9fb 80px, #eef2f5 160px);
+    background-size: 480px 100%;
+    animation: sgShimmer 1.2s infinite linear;
+    color: transparent !important;
+}
+.sg-skeleton-text { height: .85rem; margin: .35rem 0; }
+
+/* Weather card: hide metrics while fetching, show shimmer */
+.sg-weather-loading .sg-weather-status,
+.sg-weather-loading .sg-weather-metrics { visibility: hidden; }
+.sg-weather-loading .sg-weather-shimmer {
+    display: block;
+    height: 56px;
+    margin-bottom: .85rem;
+}
+.sg-weather-shimmer { display: none; }
+
+/* PAYT invoice table: skeleton row while resolving */
+.sg-skeleton-row td { padding: .9rem .75rem; }
+.sg-skeleton-row .sg-skeleton { height: 1rem; }
+
+/* Consistent reusable status pills (same green/amber/red mapping) */
+.sg-status {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .35rem .75rem; border-radius: 999px;
+    font-size: .78rem; font-weight: 700; letter-spacing: .2px;
+}
+.sg-status-success { background: var(--sg-green-50); color: var(--sg-green-700); }
+.sg-status-warning { background: #fffbeb; color: #92670a; }
+.sg-status-danger  { background: #fef2f2; color: var(--sg-red-600); }
+.sg-status-muted   { background: #f1f5f9; color: var(--sg-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+    .sg-skeleton { animation: none; }
+}

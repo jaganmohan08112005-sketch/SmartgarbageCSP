@@ -8,7 +8,7 @@ import random
 import math
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from flask import (Blueprint, render_template, request, jsonify,
+from flask import (Blueprint, render_template, request, jsonify, abort,
                    redirect, url_for, session, flash, current_app, send_from_directory)
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -596,6 +596,34 @@ def payt_invoice_payment(inv_id):
 
     # Pass the UPI URL to the template so the front‑end can embed it in a button.
     return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
+
+    # After a citizen completes the UPI payment in their app, they confirm here.
+    # In production this would be replaced by a Razorpay/UPI webhook callback
+    # (server-to-server), but the confirmation step + audit trail is identical.
+    return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
+
+
+@main.route('/payt/confirm/<int:inv_id>', methods=['POST'])
+@login_required
+def payt_confirm_payment(inv_id):
+    """Mark a PAYT invoice as Paid after the citizen confirms the UPI payment."""
+    invoice = PAYTInvoice.query.get_or_404(inv_id)
+    if invoice.user_id != session['user_id']:
+        abort(403)
+    if invoice.status == 'Paid':
+        flash('This invoice is already paid.', 'success')
+        return redirect(url_for('main.dashboard'))
+    # Optional external transaction ref (e.g. UPI RRN) passed by a real gateway/webhook.
+    txn = (request.form.get('txn') or request.args.get('txn')
+           or f"PAYT-{inv_id}-{int(datetime.now(timezone.utc).timestamp())}")
+    invoice.status = 'Paid'
+    invoice.paid_at = datetime.now(timezone.utc)
+    invoice.transaction_ref = txn
+    invoice.payment_method = 'UPI'
+    db.session.commit()
+    write_audit('PAYT_PAID', target=f'Invoice #{inv_id}', detail=f'Amount Rs {invoice.amount_rs:.2f}, ref {txn}')
+    flash(f'Payment of Rs {invoice.amount_rs:.2f} confirmed. Thank you!', 'success')
+    return redirect(url_for('main.dashboard'))
 
 
 # Citizen real-time notifications (SSE push for complaint status changes)
