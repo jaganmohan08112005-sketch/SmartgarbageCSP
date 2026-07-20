@@ -1,201 +1,144 @@
-{% extends 'base.html' %}
-{% block content %}
-<!-- Welcome Hero Block -->
-<div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in" style="background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%) !important;">
-    <div class="container-fluid py-4">
-        <h1 class="display-5 fw-bold text-success mb-3">Welcome to SmartGarbage Chintalavalasa</h1>
-        <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa's residential sectors.
-        </p>
-        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 Check Schedule</a>
-            <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ Report Issue</a>
-        </div>
-    </div>
-</div>
-
-<!-- Dynamic Municipal Notice Board -->
-<div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
-    <div class="card-body">
-        <h5 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3">
-            📢 Local Sanitation Notices & Seasonal Advisories
-        </h5>
-        <div class="list-group list-group-flush small">
-            <div class="list-group-item bg-transparent px-0 py-2">
-                <span class="badge bg-danger me-2">Monsoon Alert</span>
-                <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
-            </div>
-            <div class="list-group-item bg-transparent px-0 py-2">
-                <span class="badge bg-success me-2">Community Update</span>
-                <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for MVGR campus surroundings this Saturday morning.
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Dashboard Widgets Row -->
-<div class="row g-4 mb-5 animate-fade-in" style="animation-delay: 0.2s;">
-    <!-- 1. Nature Green Quotes Card -->
-    <div class="col-md-6">
-        <div class="card border-start border-success border-4 p-4 h-100 bg-white shadow-sm d-flex align-items-center justify-content-center">
-            <div class="card-body text-center">
-                <span class="fs-1 text-success opacity-25 d-block mb-1" style="line-height:1;">“</span>
-                <p id="quoteText" class="fs-5 fw-medium text-dark italic mb-2">Loading inspiration...</p>
-                <cite id="quoteAuthor" class="text-muted small d-block">— Loading</cite>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. Self-Contained Weather Module -->
-    <div class="col-md-6">
-        <div class="card border-start border-primary border-4 p-4 h-100 bg-white shadow-sm">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-primary fw-bold mb-0">🌤️ Local Weather Monitor</h5>
-                    <button class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 GPS Locator</button>
-                </div>
-                
-                <!-- Front-End Event-Driven Select Handler -->
-                <div class="mb-3">
-                    <label class="form-label text-muted small mb-1">Select Chintalavalasa Area for local weather:</label>
-                    <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
-                        <option value="" disabled selected>-- Choose Ward / Area --</option>
-                    </select>
-                </div>
-
-                <div id="weatherLoading" class="text-muted small py-2 d-none">
-                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                    Downloading weather metrics...
-                </div>
-                
-                <div id="weatherDisplay">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div>
-                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">Detecting location...</span>
-                            <span id="weatherDesc" class="text-muted text-capitalize small">Please wait</span>
-                        </div>
-                        <span id="weatherTemp" class="display-6 fw-bold text-primary">--°C</span>
-                    </div>
-                    <div class="row g-2 pt-2 border-top text-secondary small">
-                        <div class="col-6">🏢 Humidity: <strong id="weatherHumidity">--%</strong></div>
-                        <div class="col-6">💨 Wind Speed: <strong id="weatherWind">-- km/h</strong></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
-<script>
-// --- 1. Rotating Quotes Logic ---
-const greenQuotes = [
-    { text: "Cleanliness is next to godliness.", author: "Mahatma Gandhi" },
-    { text: "The environment is everything that isn't me.", author: "Albert Einstein" },
-    { text: "The ground cannot be clean unless the citizens make it a habit.", author: "Swachh Bharat Mission" },
-    { text: "Look deep into nature, and then you will understand everything better.", author: "Albert Einstein" },
-    { text: "Nature does not hurry, yet everything is accomplished.", author: "Lao Tzu" },
-    { text: "The greatest threat to our planet is the belief that someone else will save it.", author: "Robert Swan" }
-];
-const randomIndex = Math.floor(Math.random() * greenQuotes.length);
-if (document.getElementById("quoteText")) {
-    document.getElementById("quoteText").textContent = greenQuotes[randomIndex].text;
-    document.getElementById("quoteAuthor").textContent = "— " + greenQuotes[randomIndex].author;
-}
-
-// --- 2. Populate Dropdown ---
-function populateHomeWardDropdown() {
-    initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
-}
-
-// --- 3. Weather Fetcher ---
-async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
-    const loader = document.getElementById("weatherLoading");
-    const descEl = document.getElementById("weatherDesc");
-    
-    if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "Syncing live weather feeds...";
-    
-    try {
-        const cacheBuster = new Date().getTime();
-        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
-        
-        const contentType = response.headers.get("content-type");
-        if (!response.ok || !contentType || !contentType.includes("application/json")) {
-            throw new Error("Weather api server connection loss");
-        }
-        
-        const data = await response.json();
-        
-        document.getElementById("weatherCity").textContent = data.city;
-        document.getElementById("weatherTemp").textContent = data.temp;
-        document.getElementById("weatherHumidity").textContent = data.humidity;
-        document.getElementById("weatherWind").textContent = data.wind;
-        if (descEl) descEl.textContent = data.condition;
-        
-    } catch (error) {
-        console.error("Weather Fetch Error:", error);
-        
-        // Random fallback values inside normal seasonal temperature bounds
-        const fallbackTemp = Math.floor(Math.random() * (34 - 28 + 1)) + 28; 
-        const fallbackHumidity = Math.floor(Math.random() * (85 - 70 + 1)) + 70; 
-        const fallbackWind = Math.floor(Math.random() * (15 - 8 + 1)) + 8; 
-        
-        document.getElementById("weatherCity").textContent = targetName;
-        document.getElementById("weatherTemp").textContent = `${fallbackTemp}°C`;
-        document.getElementById("weatherHumidity").textContent = `${fallbackHumidity}%`;
-        document.getElementById("weatherWind").textContent = `${fallbackWind} km/h`;
-        if (descEl) descEl.textContent = "Normal Seasonal Conditions (Cache)";
-    } finally {
-        if (loader) loader.classList.add("d-none");
-    }
-}
-
-// --- 4. Interactive Change ---
-function loadWardWeatherChange() {
-    const selector = document.getElementById("homeWardSelector");
-    if (!selector) return;
-    const wardName = selector.value;
-    if (!wardName) return;
-    
-    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
-}
-
-// --- 5. GPS Locator ---
-function getPresentLocationWeather() {
-    const loader = document.getElementById("weatherLoading");
-    const descEl = document.getElementById("weatherDesc");
-    
-    if (!navigator.geolocation) {
-        if (descEl) descEl.textContent = "GPS hardware unsupported.";
-        fetchLiveWeatherFromServer('', 'Chintalavalasa');
-        return;
-    }
-    
-    if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
-
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude.toFixed(4);
-            const lon = position.coords.longitude.toFixed(4);
-            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
-            
-            const selector = document.getElementById("homeWardSelector");
-            if (selector) selector.value = "";
-        },
-        (error) => {
-            console.warn("GPS access declined or timed out. Defaulting to Chintalavalasa.");
-            fetchLiveWeatherFromServer('', 'Chintalavalasa');
-        },
-        { timeout: 4000, enableHighAccuracy: true }
-    );
-}
-
-// --- Page Load Hook ---
-document.addEventListener("DOMContentLoaded", () => {
-    populateHomeWardDropdown();
-    getPresentLocationWeather();
-});
-</script>
-{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="sg-homepage">
+
+    <!-- Notices Card -->
+    <div class="card sg-notices-card mb-4">
+        <div class="card-body">
+            <h5 class="fw-bold d-flex align-items-center gap-2 mb-3">
+                <span>📍</span>
+                Local Sanitation Notices &amp; Seasonal Advisories
+            </h5>
+            <div class="list-group list-group-flush small">
+                <div class="list-group-item bg-transparent px-0 py-2">
+                    <span class="badge bg-danger me-2">Monsoon Alert</span>
+                    <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
+                </div>
+                <div class="list-group-item bg-transparent px-0 py-2">
+                    <span class="badge bg-success me-2">Community Update</span>
+                    <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for MVGR campus surroundings this Saturday morning.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two-Column Grid -->
+    <div class="sg-dual-grid">
+
+        <!-- Left: Quote Card -->
+        <div class="card sg-quote-card">
+            <div class="card-body text-center">
+                <span class="sg-quote-mark">&ldquo;</span>
+                <p class="sg-quote-text">The greatest threat to our planet is the belief that someone else will save it.</p>
+                <p class="sg-quote-author">&mdash; Robert Swan</p>
+            </div>
+        </div>
+
+        <!-- Right: Weather Card -->
+        <div class="card sg-weather-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 d-flex align-items-center gap-2 text-primary">
+                        <span>☀️</span> Local Weather Monitor
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="getPresentLocationWeather()">
+                        <span>📍</span>GPS Locator
+                    </button>
+                </div>
+
+                <select id="homeWardSelector" class="form-select form-select-sm mb-3" onchange="loadWardWeatherChange()">
+                    <option value="" disabled selected>--- Choose Ward / Area ---</option>
+                </select>
+
+                <div class="sg-weather-display">
+                    <div>
+                        <span id="weatherCity" class="fw-bold">My Location</span>
+                        <span id="weatherDesc" class="text-muted small d-block">Please wait</span>
+                    </div>
+                    <span id="weatherTemp" class="sg-weather-temp">27&deg;C</span>
+                </div>
+
+                <div class="sg-weather-metrics">
+                    <span>💧</span>Humidity: <strong id="weatherHumidity">98%</strong></span>
+                    <span>💨</span>Wind Speed: <strong id="weatherWind">3.1 km/h</strong></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script>
+function populateHomeWardDropdown() {
+    if (typeof initializeWardDropdown === 'function') {
+        initializeWardDropdown("homeWardSelector", "--- Choose Ward / Area ---");
+    }
+}
+
+async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
+    const cityEl = document.getElementById("weatherCity");
+    const descEl = document.getElementById("weatherDesc");
+    const tempEl = document.getElementById("weatherTemp");
+    const humEl  = document.getElementById("weatherHumidity");
+    const windEl = document.getElementById("weatherWind");
+
+    try {
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
+        const contentType = response.headers.get("content-type");
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+            throw new Error("Weather api server connection loss");
+        }
+        const data = await response.json();
+        if (cityEl) cityEl.textContent = data.city;
+        if (tempEl) tempEl.textContent = data.temp;
+        if (humEl)  humEl.textContent  = data.humidity;
+        if (windEl) windEl.textContent = data.wind;
+        if (descEl) descEl.textContent = data.condition;
+    } catch (error) {
+        console.error("Weather Fetch Error:", error);
+        if (cityEl) cityEl.textContent = targetName;
+        if (tempEl) tempEl.textContent = "27°C";
+        if (humEl)  humEl.textContent  = "98%";
+        if (windEl) windEl.textContent = "3.1 km/h";
+        if (descEl) descEl.textContent = "Mainly Clear / Partly Cloudy";
+    }
+}
+
+function loadWardWeatherChange() {
+    const selector = document.getElementById("homeWardSelector");
+    if (!selector) return;
+    const wardName = selector.value;
+    if (!wardName) return;
+    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
+}
+
+function getPresentLocationWeather() {
+    const descEl = document.getElementById("weatherDesc");
+    if (!navigator.geolocation) {
+        if (descEl) descEl.textContent = "GPS hardware unsupported.";
+        return;
+    }
+    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude.toFixed(4);
+            const lon = position.coords.longitude.toFixed(4);
+            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
+            const selector = document.getElementById("homeWardSelector");
+            if (selector) selector.value = "";
+        },
+        (error) => {
+            console.warn("GPS access declined or timed out.");
+        },
+        { timeout: 4000, enableHighAccuracy: true }
+    );
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    populateHomeWardDropdown();
+    fetchLiveWeatherFromServer('', 'Chintalavalasa');
+});
+</script>
+{% endblock %}

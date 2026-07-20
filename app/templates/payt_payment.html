@@ -16,21 +16,19 @@
 
             {% if invoice.status == 'Paid' %}
                 <div class="alert alert-success border-0 shadow-sm text-start small">
-                    <i class="fa-solid fa-circle-check me-1"></i>
-                    <strong>Payment confirmed.</strong> Thank you!<br>
+                    ✅ <strong>Payment confirmed.</strong> Thank you!<br>
                     <span class="text-muted">Ref: {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
                 </div>
             {% else %}
                 <a class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
-                    <i class="fa-solid fa-mobile-screen-button me-1"></i>
-                    Pay ₹{{ "%.2f"|format(invoice.amount_rs) }} via UPI
+                    📱 Pay ₹{{ "%.2f"|format(invoice.amount_rs) }} via UPI
                 </a>
                 <p class="text-muted small mb-3">You'll be redirected to your UPI app to authorize the payment.</p>
 
                 <form method="POST" action="{{ url_for('main.payt_confirm_payment', inv_id=invoice.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-success w-100 fw-bold rounded-pill">
-                        <i class="fa-solid fa-check me-1"></i> I've completed the UPI payment
+                        ✅ I've completed the UPI payment
                     </button>
                 </form>
                 <p class="text-muted mt-2 mb-0 small">Confirm here once the payment succeeds in your UPI app.</p>
