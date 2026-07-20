@@ -38,18 +38,6 @@
             </div>
         </div>
 
-        <!-- Segregation Streak + Ward Leaderboard -->
-        <div class="card p-4 border-0 shadow-sm bg-white mb-4" style="background: linear-gradient(135deg, #3498DB 0%, #2980B9 100%) !important; color: white;">
-            <div class="d-flex align-items-center justify-content-between">
-                <div>
-                    <span class="text-uppercase small fw-bold" style="opacity: 0.85;">🔥 Segregation Streak</span>
-                    <h2 class="display-5 fw-extrabold mt-1 mb-0">{{ segregation_streak }} <small style="font-size:1rem;opacity:0.9;">days</small></h2>
-                    <small class="d-block mt-2" style="opacity: 0.9;">Consecutive waste declarations with proper segregation. Keep it going!</small>
-                </div>
-                <span class="fs-1">🔥</span>
-            </div>
-        </div>
-
         <!-- Community Cleanliness Leaderboard -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
             <h5 class="fw-bold text-dark mb-3">🏆 Cleanliness Leaderboard</h5>
@@ -62,34 +50,6 @@
                         <span class="text-dark fw-medium">{{ r.ward.split(' - ')[1] if ' - ' in r.ward else r.ward }}</span>
                     </div>
                     <span class="badge bg-success p-2">{{ r.score }} pts</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Green Points Leaderboard (Eco Champions) -->
-        <div class="card p-4 border-0 shadow-sm bg-white mb-4">
-            <h5 class="fw-bold text-dark mb-3">🌱 Eco Champions</h5>
-            <p class="text-muted small">Top citizens by Green Points earned this cycle. Segregate right, climb the board!</p>
-            <div class="list-group gap-1" id="ecoChampions">
-                <div class="text-muted small py-2">Loading champions…</div>
-            </div>
-        </div>
-
-        <!-- Ward Segregation Leaderboard -->
-        <div class="card p-4 border-0 shadow-sm bg-white mb-4">
-            <h5 class="fw-bold text-dark mb-3">♻️ Ward Segregation Rate</h5>
-            <p class="text-muted small">Share of waste properly segregated (last 30 days). Higher = lower landfill fees.</p>
-            <div class="list-group gap-1">
-                {% for wd, pct in ward_leaderboard %}
-                <div class="list-group-item border-0 bg-light rounded-3 p-2.5">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="text-dark fw-medium small">{{ wd.split(' - ')[1] if ' - ' in wd else wd }}</span>
-                        <span class="badge bg-success">{{ pct }}%</span>
-                    </div>
-                    <div class="progress" style="height:6px;">
-                        <div class="progress-bar bg-success" style="width:{{ pct }}%"></div>
-                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -237,15 +197,13 @@
                             <th>Weight (kg)</th>
                             <th>Amount</th>
                             <th>Status</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="paytInvoiceList">
-                        <tr class="sg-skeleton-row">
-                            <td colspan="5">
-                                <div class="sg-skeleton sg-skeleton-text" style="width:40%"></div>
-                                <div class="sg-skeleton sg-skeleton-text" style="width:70%"></div>
-                                <div class="sg-skeleton sg-skeleton-text" style="width:55%"></div>
+                        <tr>
+                            <td colspan="4" class="text-center py-3 text-muted">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <span class="ms-2">Loading billing ledger...</span>
                             </td>
                         </tr>
                     </tbody>
@@ -363,7 +321,7 @@
                 badge.innerText = `${invoices.length} Bills`;
                 
                 if (invoices.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
                     return;
                 }
                 
@@ -376,9 +334,6 @@
                             <span class="badge ${inv.status === 'Paid' ? 'bg-success' : 'bg-danger'} rounded-pill">
                                 ${inv.status}
                             </span>
-                        </td>
-                        <td>
-                            ${inv.status !== 'Paid' ? `<a href="/payt/pay/${inv.id}" class="btn btn-sm btn-success">Pay Now</a>` : '—'}
                         </td>
                     </tr>
                 `).join('');
@@ -459,57 +414,5 @@
             alert("❌ Error completing points redemption. Try again.");
         }
     }
-
-    function showToast(msg) {
-    if (typeof EventSource !== 'undefined') {
-        const es = new EventSource('/api/notifications/stream');
-        es.onmessage = (e) => {
-            showToast(e.data);
-            fetch('/api/notifications/mark-read', { method: 'POST' });
-        };
-        es.onerror = () => {/* reconnect handled by browser */};
-    }
-
-    function showToast(msg) {
-        const box = document.getElementById('toast-container') || (() => {
-            const d = document.createElement('div');
-            d.id = 'toast-container';
-            d.style.cssText = 'position:fixed;top:80px;right:16px;z-index:1080;max-width:320px;';
-            document.body.appendChild(d);
-            return d;
-        })();
-        const t = document.createElement('div');
-        t.className = 'alert alert-success shadow-sm border-0 mb-2';
-        t.style.borderLeft = '4px solid #2ECC71';
-        t.innerHTML = `🔔 <strong>Update:</strong> ${msg}`;
-        box.appendChild(t);
-        setTimeout(() => t.remove(), 8000);
-    }
-
-    // ── Eco Champions (Green Points leaderboard) ──
-    async function loadEcoChampions() {
-        const el = document.getElementById('ecoChampions');
-        if (!el) return;
-        try {
-            const res = await fetch('/api/leaderboard');
-            if (!res.ok) return;
-            const rows = await res.json();
-            if (!rows.length) {
-                el.innerHTML = '<div class="text-muted small py-2">No champions yet — be the first!</div>';
-                return;
-            }
-            el.innerHTML = rows.map(r => `
-                <div class="list-group-item border-0 bg-light rounded-3 d-flex justify-content-between align-items-center p-2.5">
-                    <div>
-                        <span class="fw-bold me-2">#${r.rank}</span>
-                        <span class="text-dark fw-medium">${r.username}</span>
-                    </div>
-                    <span class="badge bg-success p-2">${r.green_points} GP</span>
-                </div>`).join('');
-        } catch (e) {
-            console.error('Eco champions load failed:', e);
-        }
-    }
-    loadEcoChampions();
 </script>
 {% endblock %}

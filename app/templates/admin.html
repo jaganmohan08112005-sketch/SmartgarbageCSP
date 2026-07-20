@@ -3,8 +3,7 @@
 {% block content %}
 <!-- Leaflet Map CSS/JS Dependencies -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <div class="row g-4">
     <!-- Left Navigation Sticky Sidebar (Dashboard controls) -->
@@ -53,11 +52,6 @@
                     <a href="/admin/firmware" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
                         <span>📡</span> OTA Firmware Hub
                     </a>
-                    {% if is_superadmin %}
-                    <a href="/admin/super" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2 text-warning">
-                        <span>⭐</span> Superadmin Panel
-                    </a>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -149,12 +143,10 @@
                     <div class="card border-0 shadow-sm p-3 h-100 bg-white text-danger border-start border-danger border-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="text-danger small fw-bold">Critical (<i class="fa-solid fa-trash-can"></i>) Bins</span>
+                                <span class="text-danger small fw-bold">Critical (🔴) Bins</span>
                                 <h3 class="fw-extrabold mt-1 mb-0 text-danger">{{ kpis.critical_bins }}</h3>
                             </div>
-                            <span class="fs-2 bg-danger bg-opacity-10 p-2 rounded-circle animate__animated animate__pulse animate__infinite">
-                                <i class="fa-solid fa-triangle-exclamation text-danger"></i>
-                            </span>
+                            <span class="fs-2 bg-danger bg-opacity-10 p-2 rounded-circle">🚨</span>
                         </div>
                         <div class="mt-2 small text-muted">
                             Require immediate pickup dispatch
@@ -284,7 +276,6 @@
                         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                             <h5 class="fw-bold mb-0 text-dark">🗺️ Live GIS Interactive Grid</h5>
                             <div class="d-flex gap-2">
-                                <span id="liveIndicator" class="badge bg-secondary" title="Live socket connection status">OFFLINE</span>
                                 <button class="btn btn-warning btn-sm fw-bold px-3 text-dark rounded-pill" onclick="simulateAnomalyTrigger()">⚠️ Fire Anomaly Simulator</button>
                                 <button class="btn btn-success btn-sm fw-bold px-3 rounded-pill" onclick="executeRoutingDispatch()">⚡ Dispatch Shortest Path</button>
                             </div>
@@ -348,16 +339,15 @@
             <!-- Worker & Fleet Management Registry -->
             <div class="card border-0 shadow-sm bg-white p-4 mb-4" id="worker-section">
                 <h4 class="mb-3 text-dark fw-bold">🚛 Worker & Fleet Management Registry</h4>
-                <p class="text-muted small">Safety & compliance per SBM Grameen II (PPE, training, PMJAY insurance).</p>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead>
                             <tr>
                                 <th>Driver Name</th>
                                 <th>Assigned Truck</th>
+                                <th>Tracking Location</th>
                                 <th>Work Status</th>
-                                <th>Rating</th>
-                                <th>Safety / Compliance</th>
+                                <th>Rating / Metrics</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -374,18 +364,16 @@
                                 </td>
                                 <td><code>{{ w.vehicle_id }}</code></td>
                                 <td>
+                                    <span class="small text-secondary">📍 {{ w.latitude }}, {{ w.longitude }}</span>
+                                    <a href="https://www.openstreetmap.org/?mlat={{ w.latitude }}&mlon={{ w.longitude }}#map=17" target="_blank" class="badge bg-light text-success border border-success ms-2 text-decoration-none">Live GPS</a>
+                                </td>
+                                <td>
                                     <span class="badge {% if w.status == 'Active' %}bg-success{% elif w.status == 'Idle' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
                                         {{ w.status }}
                                     </span>
                                 </td>
                                 <td>
                                     <span class="text-warning">★</span> <strong>{{ w.performance_rating }}</strong> / 5.0
-                                </td>
-                                <td>
-                                    <span class="badge {% if w.ppe_compliance %}bg-success{% else %}bg-danger{% endif %}" title="PPE kit issued & used">🦺 PPE</span>
-                                    <span class="badge {% if w.training_completed %}bg-success{% else %}bg-danger{% endif %}" title="Safety training completed">🎓 Trn</span>
-                                    <span class="badge {% if w.insurance_enrolled %}bg-success{% else %}bg-danger{% endif %}" title="PMJAY / insurance enrolled">🛡️ Ins</span>
-                                    {% if w.insurance_policy_no %}<br><small class="text-muted">{{ w.insurance_policy_no }}</small>{% endif %}
                                 </td>
                             </tr>
                             {% else %}
@@ -866,14 +854,6 @@
         });
     }
 
-    // Update a single bin marker in place (used by live socket pushes).
-    function updateBinMarker(bin) {
-        const marker = binMarkers[bin.hardware_id];
-        if (!marker || !bin) return;
-        marker.setStyle({ fillColor: getMarkerColor(bin.status) });
-        marker.setLatLng([bin.latitude, bin.longitude]);
-    }
-
     // Toggle Solar Pre-Compaction for the bin shown in the modal
     async function toggleCompactor() {
         if (!currentBinHwId) return;
@@ -1076,31 +1056,5 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadReports);
-
-    // ── Live updates via Socket.IO (flask-socketio, default namespace) ──
-    // Pushes fresh bin telemetry + fleet positions without a manual refresh,
-    // turning the admin view from a dashboard into a live control room.
-    (function connectLive() {
-        if (typeof io === 'undefined') { console.warn('socket.io client not loaded'); return; }
-        const socket = io({ transports: ['websocket', 'polling'] });
-
-        const liveDot = document.getElementById('liveIndicator');
-        socket.on('connect', () => { if (liveDot) { liveDot.className = 'badge bg-success'; liveDot.textContent = 'LIVE'; } });
-        socket.on('disconnect', () => { if (liveDot) { liveDot.className = 'badge bg-secondary'; liveDot.textContent = 'OFFLINE'; } });
-        socket.on('connect_error', () => { if (liveDot) { liveDot.className = 'badge bg-warning text-dark'; liveDot.textContent = 'RECONNECT'; } });
-
-        socket.on('bin_update', (data) => {
-            const bin = smartBins.find(b => b.hardware_id === data.hardware_id);
-            if (bin) Object.assign(bin, data);
-            const marker = binMarkers[data.hardware_id];
-            if (marker) updateBinMarker(bin || data);
-        });
-
-        socket.on('fleet_update', (payload) => {
-            if (payload && payload.fleet) {
-                if (typeof fleetMap !== 'undefined' && fleetMap) loadFleetLocations();
-            }
-        });
-    })();
 </script>
 {% endblock %}
