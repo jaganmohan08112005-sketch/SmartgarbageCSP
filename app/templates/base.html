@@ -42,7 +42,8 @@
     </style>
 </head>
 <body>
-    <!-- Responsive glass navigation bar -->
+    <!-- Responsive glass navigation bar (hidden on the homepage — it has its own header) -->
+    {% if request.endpoint != 'main.home' %}
     <nav class="navbar navbar-expand-lg navbar-dark sg-navbar">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center gap-2" href="/">
@@ -99,12 +100,14 @@
             </div>
         </div>
     </nav>
+    {% endif %}
 
     <!-- Global Layout Core Section Grid Container -->
-    <div class="container mt-4 mb-5">
+    <div class="{{ 'container mt-4 mb-5' if request.endpoint != 'main.home' else '' }}">
         <!-- Flask flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
+                <div class="container{{ ' pt-3' if request.endpoint == 'main.home' else '' }}">
                 {% for category, message in messages %}
                     {% set cat = 'success' if category == 'success' else ('warning' if category == 'warning' else ('info' if category == 'info' else 'danger')) %}
                     {% set icon = 'fa-circle-check' if cat == 'success' else ('fa-triangle-exclamation' if cat == 'warning' else ('fa-circle-info' if cat == 'info' else 'fa-circle-exclamation')) %}
@@ -114,6 +117,7 @@
                         <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
