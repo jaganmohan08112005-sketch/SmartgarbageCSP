@@ -2,30 +2,45 @@
 {% block title %}Register - SmartGarbage{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow">
+    <div class="col-md-5 col-lg-4">
+        <div class="card sg-login-card">
             <div class="card-body p-4">
-                <h3 class="text-center mb-4">📝 Create Account</h3>
+                <div class="text-center mb-4">
+                    <span class="fs-1">📝</span>
+                    <h3 class="fw-bold mt-2 sg-login-title">Create Account</h3>
+                    <p class="text-muted small">Register to track and report sanitation issues in Chintalavalasa</p>
+                </div>
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
-                        <label class="form-label">Username</label>
-                        <input name="username" class="form-control" required minlength="3">
+                        <label class="form-label fw-semibold">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text sg-input-icon">👤</span>
+                            <input name="username" class="form-control sg-form-input" placeholder="Choose a username" required minlength="3">
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input name="password" type="password" class="form-control" required minlength="6">
+                        <label class="form-label fw-semibold">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text sg-input-icon">🔒</span>
+                            <input name="password" type="password" class="form-control sg-form-input" placeholder="Choose a password (min. 6 chars)" required minlength="6">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Role</label>
-                        <select name="role" class="form-select">
-                            <option value="citizen">Citizen</option>
-                            <option value="worker">Worker</option>
-                        </select>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Account Role</label>
+                        <div class="input-group">
+                            <span class="input-group-text sg-input-icon">🛡️</span>
+                            <select name="role" class="form-select sg-form-input">
+                                <option value="citizen" selected>Standard Citizen (User)</option>
+                                <option value="worker">Sanitation Worker (Worker)</option>
+                            </select>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-success w-100">Register</button>
+                    <button type="submit" class="btn btn-signin w-100">Register Account</button>
+                    <div class="text-center mt-3">
+                        <p class="mb-0 text-muted small">Already have an account? <a href="/login" class="sg-link-signup">Log In Here</a></p>
+                    </div>
                 </form>
-                <p class="text-center mt-3">Have an account? <a href="/login">Login</a></p>
             </div>
         </div>
     </div>

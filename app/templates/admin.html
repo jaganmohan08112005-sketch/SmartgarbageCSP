@@ -1,35 +1,202 @@
 {% extends 'base.html' %}
-{% block title %}Admin - SmartGarbage{% endblock %}
+{% block title %}Admin Control Center - SmartGarbage{% endblock %}
 {% block content %}
-<h2 class="mb-4">Admin Dashboard</h2>
-<div class="card shadow">
-    <div class="card-body">
-        <h5 class="card-title">All Complaints</h5>
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr><th>ID</th><th>Ward</th><th>Address</th><th>Description</th><th>Status</th><th>Date</th></tr>
-                </thead>
-                <tbody>
-                    {% for c in complaints %}
-                    <tr>
-                        <td>{{ c.id }}</td>
-                        <td>{{ c.ward }}</td>
-                        <td>{{ c.address }}</td>
-                        <td>{{ c.description }}</td>
-                        <td>
-                            <span class="badge bg-{{ 'warning' if c.status == 'Pending' else 'success' }}">
-                                {{ c.status }}
-                            </span>
-                        </td>
-                        <td>{{ c.created_at.strftime('%Y-%m-%d') if c.created_at else 'N/A' }}</td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="6" class="text-center">No complaints yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="sg-admin-layout">
+
+    <div class="sg-admin-sidebar">
+        <div class="sg-sidebar-title">NAVIGATION MENU</div>
+        <nav class="nav flex-column">
+            <a href="#kpi" class="nav-link active">📊 Overview Metrics</a>
+            <a href="#map" class="nav-link">🗺️ GIS Telemetry Map</a>
+            <a href="#fleet" class="nav-link">🚚 Fleet Geo-Fencing</a>
+            <a href="#maint" class="nav-link">🔧 Predictive Maintenance</a>
+            <a href="#registry" class="nav-link">👷 Worker & Fleet Registry</a>
+            <a href="#dumps" class="nav-link">🛡️ Illegal Dump Reports</a>
+            <a href="#bot" class="nav-link">🤖 Bot Simulator</a>
+            <a href="#bwg" class="nav-link">🏢 BWG Pickup Requests</a>
+            <a href="#complaints" class="nav-link">📋 Citizen Complaints</a>
+            <a href="#webhooks" class="nav-link">🔌 Webhook Config</a>
+            <hr class="sg-sidebar-divider">
+            <a href="#audit" class="nav-link">🔒 Audit Trail</a>
+            <a href="#firmware" class="nav-link">📡 OTA Firmware Hub</a>
+        </nav>
+    </div>
+
+    <div class="sg-admin-main">
+        <h5 class="fw-bold d-flex align-items-center gap-2 text-white mb-4">
+            📷 Smart Bin Intelligence Features
+        </h5>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card sg-feature-card sg-card-yellow h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="sg-feature-icon" style="font-size: 2rem;">🕐</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h6 class="fw-bold mb-1">Decomposition Timer</h6>
+                            <span class="badge sg-badge-pending mb-2 d-inline-block">Pending Clearance</span>
+                            <button class="btn btn-sm btn-dark w-100">0 bin(s) flagged</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card sg-feature-card sg-card-teal h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="sg-feature-icon" style="font-size: 2rem;">🗑️</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h6 class="fw-bold mb-1">Solar Pre-Compaction</h6>
+                            <button class="btn btn-sm btn-success w-100">0 bin(s) enabled</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card sg-feature-card sg-card-purple h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="me-3">
+                            <span class="sg-feature-icon" style="font-size: 2rem;">📱</span>
+                        </div>
+                        <div style="flex: 1;">
+                            <h6 class="fw-bold mb-1">WhatsApp / Telegram Bot</h6>
+                            <button class="btn btn-sm btn-primary w-100">0 report(s)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card sg-kpi-card">
+                    <div class="card-body text-center">
+                        <h3 class="fw-bold text-primary">{{ kpis.total_bins }}</h3>
+                        <small class="text-muted">Total Bins</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card sg-kpi-card">
+                    <div class="card-body text-center">
+                        <h3 class="fw-bold text-danger">{{ kpis.critical_bins }}</h3>
+                        <small class="text-muted">Critical Bins</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card sg-kpi-card">
+                    <div class="card-body text-center">
+                        <h3 class="fw-bold text-success">{{ kpis.active_trucks }}</h3>
+                        <small class="text-muted">Active Trucks</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card sg-kpi-card">
+                    <div class="card-body text-center">
+                        <h3 class="fw-bold text-warning">{{ kpis.pending_complaints }}</h3>
+                        <small class="text-muted">Pending Complaints</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="card sg-panel-card h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold d-flex align-items-center gap-2 mb-3">
+                            🗺️ Live GIS Interactive Grid
+                        </h6>
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-sm sg-btn-fire">🔥 Fire Anomaly Simulator</button>
+                            <button class="btn btn-sm btn-success">📡 Dispatch Shortest Path</button>
+                        </div>
+                        <div id="adminMap" class="sg-map-widget" style="height: 400px;">
+                            <div class="text-center text-muted py-5">
+                                <p class="mb-1">🗺️ Interactive GIS Map</p>
+                                <small>OpenStreetMap integration</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card sg-panel-card h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold d-flex align-items-center gap-2 mb-3">
+                            ⚠️ Incident Feed
+                        </h6>
+                        <div class="text-center py-5">
+                            <span class="fs-1">🛡️</span>
+                            <p class="text-muted mt-2">No active safety warnings.<br>System is running healthy.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-3">
+            <div class="col-12">
+                <div class="card sg-panel-card">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-3">📋 Citizen Complaints</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr><th>ID</th><th>Ward</th><th>Address</th><th>Description</th><th>Status</th><th>Date</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in complaints %}
+                                    <tr>
+                                        <td>{{ c.id }}</td>
+                                        <td>{{ c.ward }}</td>
+                                        <td>{{ c.address }}</td>
+                                        <td>{{ c.description }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'warning' if c.status == 'Pending' else 'success' }}">
+                                                {{ c.status }}
+                                            </span>
+                                        </td>
+                                        <td>{{ c.created_at.strftime('%Y-%m-%d') if c.created_at else 'N/A' }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="6" class="text-center">No complaints yet.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var map = L.map('adminMap').setView([18.0675, 83.4094], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    {% for bin in bins %}
+    var circle{{ bin.id }} = L.circleMarker([{{ bin.latitude }}, {{ bin.longitude }}], {
+        radius: 10,
+        fillColor: '{% if bin.level >= 80 %}#E74C3C{% elif bin.level >= 50 %}#F1C40F{% else %}#2ECC71{% endif %}',
+        color: '#FFFFFF',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.9
+    }).bindPopup('<b>Smart Bin {{ bin.hardware_id }}</b><br>Level: {{ bin.level }}% Full<br>Status: {% if bin.level >= 80 %}Full{% elif bin.level >= 50 %}Medium{% else %}Empty{% endif %}').addTo(map);
+    {% endfor %}
+});
+</script>
 {% endblock %}

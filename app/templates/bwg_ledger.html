@@ -2,22 +2,26 @@
 {% block title %}BWG Ledger - SmartGarbage{% endblock %}
 {% block content %}
 <h3>Bulk Waste Generator Ledger</h3>
-<form method="POST" class="card p-4 shadow-sm">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-        <label class="form-label">Establishment Name</label>
-        <input name="establishment_name" class="form-control" required>
+<div class="card shadow">
+    <div class="card-body p-4">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+                <label class="form-label">Establishment Name</label>
+                <input name="establishment_name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Waste Type</label>
+                <select name="waste_type" class="form-select">
+                    <option>Mixed</option><option>Organic</option><option>Recyclable</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Weight (kg)</label>
+                <input name="weight_kg" type="number" step="0.1" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success">Submit Declaration</button>
+        </form>
     </div>
-    <div class="mb-3">
-        <label class="form-label">Waste Type</label>
-        <select name="waste_type" class="form-select">
-            <option>Mixed</option><option>Organic</option><option>Recyclable</option>
-        </select>
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Weight (kg)</label>
-        <input name="weight_kg" type="number" step="0.1" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-success">Submit Declaration</button>
-</form>
+</div>
 {% endblock %}

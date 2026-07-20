@@ -2,18 +2,20 @@
 {% block title %}Analytics - SmartGarbage{% endblock %}
 {% block content %}
 <h2>Reports & Analytics</h2>
-<div class="card p-4 shadow-sm">
-    <p class="text-muted">View system analytics and generate reports.</p>
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-            <tbody>
-                <tr><td>Total Complaints</td><td>{{ analytics.total_complaints }}</td></tr>
-                <tr><td>Pending</td><td>{{ analytics.pending }}</td></tr>
-                <tr><td>Resolved</td><td>{{ analytics.resolved }}</td></tr>
-                <tr><td>Total Bins</td><td>{{ analytics.total_bins }}</td></tr>
-            </tbody>
-        </table>
+<div class="card shadow">
+    <div class="card-body p-4">
+        <p class="text-muted">View system analytics and generate reports.</p>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td>Recycled (kg)</td><td>{{ circular_economy.recycled_kg }}</td></tr>
+                    <tr><td>Landfill (kg)</td><td>{{ circular_economy.landfill_kg }}</td></tr>
+                    <tr><td>Recycling Rate</td><td>{{ circular_economy.recycling_rate }}%</td></tr>
+                    <tr><td>CO2 Saved (kg)</td><td>{{ carbon_data.co2_saved_kg }}</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

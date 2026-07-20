@@ -2,23 +2,25 @@
 {% block title %}Audit Log - SmartGarbage{% endblock %}
 {% block content %}
 <h3>Security Audit Trail</h3>
-<div class="card p-4 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th></tr></thead>
-            <tbody>
-                {% for entry in logs %}
-                <tr>
-                    <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ entry.username }}</td>
-                    <td>{{ entry.action }}</td>
-                    <td>{{ entry.target or '-' }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4" class="text-center">No audit entries yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="card shadow">
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Target</th></tr></thead>
+                <tbody>
+                    {% for entry in logs %}
+                    <tr>
+                        <td>{{ entry.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ entry.username }}</td>
+                        <td>{{ entry.action }}</td>
+                        <td>{{ entry.target or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center">No audit entries yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

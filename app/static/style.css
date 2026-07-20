@@ -1,17 +1,561 @@
+/* ============================================================
+   SmartGarbage Chintalavalasa — High-Fidelity Design System
+   ============================================================ */
+
+:root {
+    --forest-900: #0d2b1e;
+    --forest-800: #134e2a;
+    --forest-700: #1B4D3E;
+    --forest-600: #236b4f;
+    --emerald-500: #2ECC71;
+    --emerald-600: #27AE60;
+    --emerald-700: #219653;
+    --warning-red: #E74C3C;
+    --warning-red-dark: #c0392b;
+    --safety-orange: #F97316;
+    --safety-orange-dark: #ea580c;
+    --sky-blue: #2563eb;
+    --navy-900: #1e293b;
+    --navy-800: #2C3E50;
+    --gray-50: #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-300: #cbd5e1;
+    --gray-400: #94a3b8;
+    --gray-500: #64748b;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --gray-800: #1e293b;
+    --gray-900: #0f172a;
+    --white: #ffffff;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 50px;
+}
+
 body {
-    font-family: Arial, sans-serif;
-    background: #f8f9fa;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.6;
 }
 
-.card {
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
+/* ============================================================
+   NAVBAR
+   ============================================================ */
+.sg-navbar {
+    background: var(--forest-700);
+    padding: 0.85rem 0;
+    box-shadow: var(--shadow-md);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
-.btn {
-    border-radius: 6px;
+.brand-icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    background: rgba(255,255,255,0.12);
+    font-size: 1.2rem;
 }
 
-.navbar-brand {
-    font-weight: bold;
+.brand-text {
+    font-size: 1.15rem;
+    letter-spacing: -0.3px;
+}
+
+.sg-navbar .nav-link {
+    color: rgba(255,255,255,0.92) !important;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem !important;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+}
+
+.sg-navbar .nav-link:hover {
+    color: #fff !important;
+    background: rgba(255,255,255,0.1);
+}
+
+.btn-signup {
+    background: var(--safety-orange);
+    border: none;
+    color: var(--gray-900);
+    font-weight: 700;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+}
+
+.btn-signup:hover {
+    background: var(--safety-orange-dark);
+    color: var(--gray-900);
+    transform: translateY(-1px);
+}
+
+/* ============================================================
+   ACTION BAR (Homepage)
+   ============================================================ */
+.sg-action-bar {
+    background: var(--white);
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-action-schedule {
+    background: var(--emerald-600);
+    border: none;
+    color: var(--white);
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.9rem;
+}
+
+.btn-action-schedule:hover {
+    background: var(--emerald-700);
+    color: var(--white);
+    transform: translateY(-1px);
+}
+
+.btn-action-report {
+    background: var(--white);
+    border: 2px solid var(--warning-red);
+    color: var(--warning-red);
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.9rem;
+}
+
+.btn-action-report:hover {
+    background: var(--warning-red);
+    color: var(--white);
+    transform: translateY(-1px);
+}
+
+/* ============================================================
+   ALERTS
+   ============================================================ */
+.sg-alert {
+    border: none;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   NOTICES CARD
+   ============================================================ */
+.sg-notices-card {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+}
+
+.sg-pin-icon {
+    font-size: 1.1rem;
+}
+
+.sg-notice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sg-notice-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+}
+
+.sg-notice-text {
+    color: var(--gray-600);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.sg-badge-danger {
+    background: var(--warning-red);
+    color: var(--white);
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.35em 0.75em;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.sg-badge-success {
+    background: var(--emerald-600);
+    color: var(--white);
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.35em 0.75em;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* ============================================================
+   DUAL GRID (Quote + Weather)
+   ============================================================ */
+.sg-dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.sg-quote-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sg-quote-mark {
+    font-size: 3.5rem;
+    line-height: 1;
+    color: var(--gray-300);
+    display: block;
+    margin-bottom: 1rem;
+    font-family: Georgia, serif;
+}
+
+.sg-quote-text {
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-style: italic;
+    color: var(--gray-700);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+}
+
+.sg-quote-author {
+    font-size: 0.9rem;
+    color: var(--warning-red);
+    margin: 0;
+}
+
+.sg-weather-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+}
+
+.sg-weather-title {
+    color: var(--sky-blue);
+    font-size: 1rem;
+}
+
+.sg-gps-btn {
+    border-color: var(--sky-blue);
+    color: var(--sky-blue);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.sg-gps-btn:hover {
+    background: var(--sky-blue);
+    color: var(--white);
+}
+
+.sg-ward-select {
+    border-color: var(--gray-300);
+    font-size: 0.9rem;
+}
+
+.sg-weather-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-top: 1px solid var(--gray-200);
+    margin-top: 1rem;
+}
+
+.sg-weather-temp {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--sky-blue);
+    line-height: 1;
+}
+
+.sg-weather-metrics {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+/* ============================================================
+   LOGIN PAGE
+   ============================================================ */
+.sg-login-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+
+.sg-login-title {
+    color: var(--forest-700);
+}
+
+.sg-input-icon {
+    background: var(--gray-100);
+    border: 1px solid var(--gray-200);
+    color: var(--gray-600);
+}
+
+.sg-form-input {
+    border-color: var(--gray-200);
+    font-size: 0.95rem;
+}
+
+.sg-form-input:focus {
+    border-color: var(--emerald-600);
+    box-shadow: 0 0 0 0.2rem rgba(46, 204, 113, 0.15);
+}
+
+.btn-signin {
+    background: var(--emerald-600);
+    border: none;
+    color: var(--white);
+    font-weight: 700;
+    padding: 0.75rem;
+    font-size: 1rem;
+    border-radius: var(--radius-pill);
+}
+
+.btn-signin:hover {
+    background: var(--emerald-700);
+    color: var(--white);
+}
+
+.hr-text {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    color: var(--gray-400);
+}
+
+.hr-text::before,
+.hr-text::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.hr-text span {
+    background: var(--white);
+    padding: 0 0.75rem;
+}
+
+.btn-google {
+    background: var(--white);
+    border: 1.5px solid var(--gray-300);
+    color: var(--gray-700);
+    font-weight: 600;
+    padding: 0.65rem;
+    border-radius: var(--radius-pill);
+}
+
+.btn-google:hover {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+}
+
+.sg-link-signup {
+    color: var(--emerald-600);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.sg-link-signup:hover {
+    color: var(--emerald-700);
+}
+
+.sg-testing-card {
+    background: #dbeafe;
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-md);
+    color: var(--gray-800);
+    font-size: 0.85rem;
+}
+
+.sg-testing-card code {
+    background: rgba(255,255,255,0.7);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+/* ============================================================
+   ADMIN DASHBOARD
+   ============================================================ */
+.sg-admin-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.sg-admin-sidebar {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    position: sticky;
+    top: 80px;
+    box-shadow: var(--shadow-sm);
+}
+
+.sg-sidebar-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--gray-500);
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+}
+
+.sg-admin-sidebar .nav-link {
+    color: var(--gray-700);
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.25rem;
+    transition: all 0.15s ease;
+}
+
+.sg-admin-sidebar .nav-link:hover {
+    background: var(--gray-100);
+    color: var(--gray-900);
+}
+
+.sg-admin-sidebar .nav-link.active {
+    background: var(--navy-800);
+    color: var(--white);
+    font-weight: 600;
+}
+
+.sg-sidebar-divider {
+    border-color: var(--gray-200);
+    margin: 0.75rem 0;
+}
+
+.sg-admin-main {
+    min-width: 0;
+}
+
+.sg-feature-card {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.sg-feature-icon {
+    font-size: 1.8rem;
+    display: block;
+    margin-bottom: 0.75rem;
+}
+
+.sg-card-yellow {
+    background: #fef9e7;
+}
+
+.sg-card-teal {
+    background: #e8f8f5;
+}
+
+.sg-card-purple {
+    background: #f5f0ff;
+}
+
+.sg-badge-pending {
+    background: var(--accent-color, #F1C40F);
+    color: var(--gray-900);
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.35em 0.75em;
+    border-radius: var(--radius-pill);
+}
+
+.sg-panel-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.sg-map-widget {
+    background: var(--gray-100);
+    border: 1.5px solid var(--gray-300);
+    border-radius: var(--radius-sm);
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sg-btn-fire {
+    background: var(--accent-color, #F1C40F);
+    border: none;
+    color: var(--gray-900);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.sg-btn-fire:hover {
+    background: #d4ac0d;
+    color: var(--gray-900);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 991px) {
+    .sg-admin-layout {
+        grid-template-columns: 1fr;
+    }
+    .sg-admin-sidebar {
+        position: static;
+    }
+}
+
+@media (max-width: 768px) {
+    .sg-dual-grid {
+        grid-template-columns: 1fr;
+    }
+    .sg-action-bar .container {
+        flex-direction: column;
+    }
+    .btn-action-schedule,
+    .btn-action-report {
+        width: 100%;
+    }
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+code {
+    background: var(--gray-100);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    color: var(--warning-red);
 }

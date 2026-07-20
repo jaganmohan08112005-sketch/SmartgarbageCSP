@@ -1,17 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}Worker Portal - SmartGarbage{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-10">
-        <div class="card shadow">
-            <div class="card-body p-4">
-                <h3 class="mb-4">🚛 Worker Portal</h3>
-                <h5>Assigned Tasks</h5>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="row g-4 justify-content-center">
+    <div class="col-md-5 col-sm-12">
+        <div class="card sg-panel-card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="fs-1">🚛</span>
+                    <div>
+                        <h5 class="fw-bold mb-0">{{ worker.name if worker else 'Worker' }}</h5>
+                        <p class="text-muted small mb-0">{{ worker.ward if worker else 'Assigned' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card sg-panel-card mb-3">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">Assigned Tasks</h5>
                 <div class="table-responsive">
                     <table class="table table-striped">
-                        <thead>
-                            <tr><th>ID</th><th>Ward</th><th>Address</th><th>Issue</th><th>Status</th></tr>
-                        </thead>
+                        <thead><tr><th>ID</th><th>Ward</th><th>Address</th><th>Issue</th><th>Status</th></tr></thead>
                         <tbody>
                             {% for t in tasks %}
                             <tr>
@@ -27,6 +39,33 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="card sg-panel-card">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">📦 Offload Record</h5>
+                <form method="POST" action="/worker/offload">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Bin ID</label>
+                        <input name="bin_id" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Weight (kg)</label>
+                        <input name="weight" type="number" step="0.1" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Submit Offload</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7 col-sm-12">
+        <div class="card sg-panel-card h-100">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">🗺️ Route Map</h5>
+                <div id="workerMap" style="height: 500px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
             </div>
         </div>
     </div>

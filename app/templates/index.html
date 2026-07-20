@@ -1,13 +1,64 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="text-center py-5">
-    <h1 class="display-4 fw-bold text-success">Welcome to SmartGarbage Chintalavalasa</h1>
-    <p class="lead text-muted">Smart waste management for a cleaner community</p>
-    <hr class="my-4">
-    <p>Report sanitation issues, track collection schedules, and help keep Chintalavalasa clean.</p>
-    {% if not session.get('user_id') %}
-        <a class="btn btn-success btn-lg me-2" href="/register">Get Started</a>
-        <a class="btn btn-outline-success btn-lg" href="/login">Login</a>
-    {% endif %}
+<div class="sg-homepage">
+
+    <div class="card sg-notices-card mb-4">
+        <div class="card-body">
+            <h5 class="fw-bold d-flex align-items-center gap-2 mb-3">
+                <span class="sg-pin-icon">📍</span>
+                Local Sanitation Notices &amp; Seasonal Advisories
+            </h5>
+            <div class="sg-notice-list">
+                <div class="sg-notice-item">
+                    <span class="badge sg-badge-danger">Monsoon Alert</span>
+                    <span class="sg-notice-text"><strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.</span>
+                </div>
+                <div class="sg-notice-item">
+                    <span class="badge sg-badge-success">Community Update</span>
+                    <span class="sg-notice-text"><strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for MVGR campus surroundings this Saturday morning.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sg-dual-grid">
+        <div class="card sg-quote-card">
+            <div class="card-body text-center">
+                <span class="sg-quote-mark">&ldquo;</span>
+                <p class="sg-quote-text">The greatest threat to our planet is the belief that someone else will save it.</p>
+                <p class="sg-quote-author">&mdash; Robert Swan</p>
+            </div>
+        </div>
+
+        <div class="card sg-weather-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0 d-flex align-items-center gap-2 sg-weather-title">
+                        <span>☀️</span> Local Weather Monitor
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary rounded-pill sg-gps-btn">
+                        📍 GPS Locator
+                    </button>
+                </div>
+
+                <select class="form-select form-select-sm mb-3 sg-ward-select">
+                    <option value="" disabled selected>--- Choose Ward / Area ---</option>
+                </select>
+
+                <div class="sg-weather-display">
+                    <div>
+                        <span class="fw-bold">My Location</span>
+                        <span class="text-muted small d-block">Mainly Clear / Partly Cloudy</span>
+                    </div>
+                    <span class="sg-weather-temp">27&deg;C</span>
+                </div>
+
+                <div class="sg-weather-metrics">
+                    <span>💧 Humidity: <strong>98%</strong></span>
+                    <span>💨 Wind Speed: <strong>3.1 km/h</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
