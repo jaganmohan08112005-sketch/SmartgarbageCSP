@@ -1,147 +1,33 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="row justify-content-center animate-fade-in">
-    <div class="col-lg-8 col-xl-7">
-        <div class="card p-4 shadow-sm border-0 mb-5">
-            <div class="text-center mb-4">
-                <span class="fs-1 text-danger">⚠️</span>
-                <h2 class="text-danger fw-bold mt-2">Report a Missed Pickup</h2>
-                <p class="text-muted small">Fill out the ticket below. GPS coordinates and photographic evidence are highly encouraged to accelerate resolution.</p>
-            </div>
-            
-            <form method="POST" enctype="multipart/form-data">
-                <!-- User Contact Segment -->
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold text-secondary">Your Name</label>
-                        <input name="name" class="form-control" value="{{ session.get('username') }}" placeholder="Enter name" required>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold text-secondary">Phone Number</label>
-                        <input name="phone" type="tel" class="form-control" placeholder="e.g., +91 98765 43210" required>
-                    </div>
-                </div>
-
-                <!-- GPS & Time Automatic Mapping Node -->
-                <div class="card p-3 mb-4 bg-light border-0 shadow-none">
-                    <h6 class="fw-bold text-dark mb-3 d-flex align-items-center gap-2">
-                        <span>📍</span> Automatic Location & Time Sync
-                    </h6>
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <button type="button" class="btn btn-sm btn-success px-3" onclick="captureGPSCoordinates()">
-                            🔄 Capture GPS Location
-                        </button>
-                        <span id="geoStatus" class="text-muted small">GPS coordinates not synced</span>
-                    </div>
-                    
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="small text-muted fw-bold">Latitude</label>
-                            <input type="text" id="latitude" name="latitude" class="form-control form-control-sm bg-white" readonly placeholder="Auto-filled">
-                        </div>
-                        <div class="col-6">
-                            <label class="small text-muted fw-bold">Longitude</label>
-                            <input type="text" id="longitude" name="longitude" class="form-control form-control-sm bg-white" readonly placeholder="Auto-filled">
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="small text-muted fw-bold mb-1">Time of Missed Collection</label>
-                        <input type="datetime-local" id="report_time" name="report_time" class="form-control form-control-sm" required>
-                    </div>
-                </div>
-
-                <!-- Sector Selection Segment -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Select Ward / Area</label>
-                    <select name="ward" id="repWard" class="form-select" required>
-                        <option value="" disabled selected>-- Choose Ward --</option>
-                    </select>
-                </div>
-
-                <!-- Manual Address Specifics -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Full Door & Street Address</label>
-                    <input name="address" class="form-control" placeholder="Door No, Street Name, Landmark" required>
-                </div>
-
-                <!-- Describe details -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Describe the Issue</label>
-                    <textarea name="description" class="form-control" rows="3" placeholder="Provide details about the missed garbage collection..." required></textarea>
-                </div>
-
-                <!-- Attachment Proof -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">Upload Photo Proof (Optional)</label>
-                    <input type="file" name="photo" class="form-control" accept="image/*">
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="btn btn-danger w-100 fw-bold py-2 shadow-sm">
-                    🚀 Submit Official Complaint
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
-<script>
-    // Set current date/time on loading
-    document.addEventListener("DOMContentLoaded", () => {
-        initializeWardDropdown("repWard", "-- Choose Ward --");
-        
-        // Auto populate report_time field with current date/time
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        
-        const currentLocalString = `${year}-${month}-${day}T${hours}:${minutes}`;
-        document.getElementById("report_time").value = currentLocalString;
-        
-        // Proactively capture coordinates on start
-        captureGPSCoordinates();
-    });
-
-    function captureGPSCoordinates() {
-        const geoStatus = document.getElementById("geoStatus");
-        const latInput = document.getElementById("latitude");
-        const lonInput = document.getElementById("longitude");
-        
-        if (!navigator.geolocation) {
-            geoStatus.textContent = "❌ GPS not supported by browser.";
-            geoStatus.className = "text-danger small";
-            return;
-        }
-        
-        geoStatus.textContent = "⏳ Requesting GPS access...";
-        geoStatus.className = "text-warning small";
-        
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lon = position.coords.longitude.toFixed(6);
-                
-                latInput.value = lat;
-                lonInput.value = lon;
-                
-                geoStatus.textContent = "✅ Coordinates successfully synced!";
-                geoStatus.className = "text-success small fw-bold";
-            },
-            (error) => {
-                console.warn("GPS error:", error);
-                geoStatus.textContent = "⚠️ Permission denied or timeout. Using defaults.";
-                geoStatus.className = "text-secondary small";
-                // Populate with central Chintalavalasa coordinates as fallback
-                latInput.value = "18.067500";
-                lonInput.value = "83.409400";
-            },
-            { timeout: 5000, enableHighAccuracy: true }
-        );
-    }
-</script>
-{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Report Missed Pickup - SmartGarbage{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">⚠️ Report Missed Pickup</h3>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Ward / Area</label>
+                        <input name="ward" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input name="address" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Photo (optional)</label>
+                        <input type="file" name="photo" class="form-control" accept="image/*">
+                    </div>
+                    <button type="submit" class="btn btn-danger w-100">Submit Report</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

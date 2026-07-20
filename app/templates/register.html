@@ -1,94 +1,33 @@
-{% extends 'base.html' %}
-{% block title %}Create Account - SmartGarbage{% endblock %}
-{% block content %}
-<div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
-    <div class="col-md-6 col-lg-5">
-        <div class="card p-4 shadow border-0">
-            <div class="text-center mb-4">
-                <span class="fs-1 text-success">📝</span>
-                <h3 class="fw-bold mt-2 text-success">Create Account</h3>
-                <p class="text-muted small">Register to track and report sanitation issues in Chintalavalasa</p>
-            </div>
-            
-            <form method="POST" novalidate>
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                <!-- Username -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Username</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted">👤</span>
-                        <input name="username" id="reg_username" class="form-control" placeholder="Choose a username" required autofocus minlength="3" maxlength="50">
-                    </div>
-                    <small class="text-muted">At least 3 characters, no spaces.</small>
-                </div>
-
-                <!-- Password -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Password</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted">🔒</span>
-                        <input name="password" id="reg_password" type="password" class="form-control" placeholder="Choose a password (min. 6 chars)" required minlength="6">
-                    </div>
-                    <small class="text-muted">Minimum 6 characters.</small>
-                </div>
-
-                <!-- Phone Number — real Indian mobile required -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Mobile Number <span class="text-danger">*</span></label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted">📞</span>
-                        <input name="phone" id="reg_phone" type="tel" class="form-control"
-                               placeholder="e.g. +91 98765 43210"
-                               pattern="^(\+91|91)?[6-9]\d{9}$"
-                               title="Enter a valid Indian mobile: 10 digits starting with 6, 7, 8, or 9 (with or without +91 prefix)"
-                               required>
-                    </div>
-                    <small class="text-muted">Indian mobile only — 10 digits starting with 6-9 (e.g. 9876543210 or +91 9876543210).</small>
-                </div>
-
-                <!-- Account Role -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">Account Role</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light text-muted">🛡️</span>
-                        <select name="role" id="reg_role" class="form-select" required>
-                            <option value="citizen" selected>Standard Citizen (User)</option>
-                            <option value="worker">Sanitation Worker (Worker)</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
-                    Register Account
-                </button>
-                
-                <div class="text-center mt-3">
-                    <p class="mb-0 text-muted small">Already have an account? <a href="/login" class="text-success fw-bold text-decoration-none">Log In Here</a></p>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Client-side phone validation for better UX before server validates
-    document.querySelector('form').addEventListener('submit', function(e) {
-        const phone = document.getElementById('reg_phone').value.replace(/[\s\-().]/g, '');
-        const match = phone.match(/^(?:\+91|91)?([6-9]\d{9})$/);
-        if (!match) {
-            e.preventDefault();
-            document.getElementById('reg_phone').setCustomValidity(
-                'Please enter a valid Indian mobile number (10 digits starting 6–9).'
-            );
-            document.getElementById('reg_phone').reportValidity();
-            return;
-        }
-        document.getElementById('reg_phone').setCustomValidity('');
-    });
-    document.getElementById('reg_phone').addEventListener('input', function() {
-        this.setCustomValidity('');
-    });
-</script>
-{% endblock %}
-
+{% extends 'base.html' %}
+{% block title %}Register - SmartGarbage{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4">📝 Create Account</h3>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input name="username" class="form-control" required minlength="3">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input name="password" type="password" class="form-control" required minlength="6">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select name="role" class="form-select">
+                            <option value="citizen">Citizen</option>
+                            <option value="worker">Worker</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Register</button>
+                </form>
+                <p class="text-center mt-3">Have an account? <a href="/login">Login</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
