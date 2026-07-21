@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}Ward Transparency - SmartGarbage{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <span class="fs-1">🏘️</span>
+        <h3 class="fw-bold text-success mb-1">Ward Transparency Dashboard</h3>
+        <p class="text-muted small">Public accountability view for Ward Committees & Gram Sabhas — no login required.</p>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm bg-white p-3 text-center">
+                <div class="fs-4 fw-bold text-dark">{{ bin_count }}</div>
+                <small class="text-muted">Smart Bins</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm p-3 text-center" style="background:linear-gradient(135deg,#2ECC71,#27AE60);color:#fff;">
+                <div class="fs-4 fw-bold">{{ avg_fill }}%</div>
+                <small>Avg Fill Level</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm bg-white p-3 text-center">
+                <div class="fs-4 fw-bold text-warning">{{ open_complaints }}</div>
+                <small class="text-muted">Open Complaints</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card border-0 shadow-sm bg-white p-3 text-center">
+                <div class="fs-4 fw-bold text-success">{{ resolved }}</div>
+                <small class="text-muted">Resolved</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h5 class="fw-bold text-dark mb-0">📊 Segregation Compliance (last 30 days)</h5>
+            <span class="badge bg-success rounded-pill fs-6">{{ segregation_rate }}% segregated</span>
+        </div>
+        <div class="progress mt-3" style="height:22px;">
+            <div class="progress-bar bg-success" style="width:{{ segregation_rate }}%">{{ segregation_rate }}%</div>
+        </div>
+        <p class="text-muted small mt-2 mb-0">Higher segregation = lower landfill fees under SWM Rules 2026.</p>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4">
+        <label class="form-label fw-bold text-secondary">Select Ward</label>
+        <select class="form-select" onchange="location.href='/ward/'+encodeURIComponent(this.value)">
+            {% for w in wards %}
+            <option value="{{ w }}" {% if w == ward_name %}selected{% endif %}>{{ w }}</option>
+            {% endfor %}
+        </select>
+        <p class="text-muted small mt-3 mb-0">Showing: <strong>{{ ward_name }}</strong></p>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline-success rounded-pill px-4">← Back to SmartGarbage</a>
+    </div>
+</div>
+{% endblock %}

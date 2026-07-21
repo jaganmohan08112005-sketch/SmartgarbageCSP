@@ -36,29 +36,103 @@
                     <h5 class="fw-bold mb-0 d-flex align-items-center gap-2 sg-weather-title">
                         <span>☀️</span> Local Weather Monitor
                     </h5>
-                    <button class="btn btn-sm btn-outline-primary rounded-pill sg-gps-btn">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill sg-gps-btn" onclick="getPresentLocationWeather()">
                         📍 GPS Locator
                     </button>
                 </div>
 
-                <select class="form-select form-select-sm mb-3 sg-ward-select">
+                <select id="homeWardSelector" class="form-select form-select-sm mb-3 sg-ward-select" onchange="loadWardWeatherChange()">
                     <option value="" disabled selected>--- Choose Ward / Area ---</option>
                 </select>
 
                 <div class="sg-weather-display">
                     <div>
-                        <span class="fw-bold">My Location</span>
-                        <span class="text-muted small d-block">Mainly Clear / Partly Cloudy</span>
+                        <span id="weatherCity" class="fw-bold">My Location</span>
+                        <span id="weatherDesc" class="text-muted small d-block">Mainly Clear / Partly Cloudy</span>
                     </div>
-                    <span class="sg-weather-temp">27&deg;C</span>
+                    <span id="weatherTemp" class="sg-weather-temp">27°C</span>
                 </div>
 
                 <div class="sg-weather-metrics">
-                    <span>💧 Humidity: <strong>98%</strong></span>
-                    <span>💨 Wind Speed: <strong>3.1 km/h</strong></span>
+                    <span>💧 Humidity: <strong id="weatherHumidity">98%</strong></span>
+                    <span>💨 Wind Speed: <strong id="weatherWind">3.1 km/h</strong></span>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script>
+function populateHomeWardDropdown() {
+    if (typeof initializeWardDropdown === 'function') {
+        initializeWardDropdown("homeWardSelector", "--- Choose Ward / Area ---");
+    }
+}
+
+async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
+    const cityEl = document.getElementById("weatherCity");
+    const descEl = document.getElementById("weatherDesc");
+    const tempEl = document.getElementById("weatherTemp");
+    const humEl  = document.getElementById("weatherHumidity");
+    const windEl = document.getElementById("weatherWind");
+
+    try {
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
+        const contentType = response.headers.get("content-type");
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+            throw new Error("Weather api server connection loss");
+        }
+        const data = await response.json();
+        if (cityEl) cityEl.textContent = data.city;
+        if (tempEl) tempEl.textContent = data.temp;
+        if (humEl)  humEl.textContent  = data.humidity;
+        if (windEl) windEl.textContent = data.wind;
+        if (descEl) descEl.textContent = data.condition;
+    } catch (error) {
+        console.error("Weather Fetch Error:", error);
+        if (cityEl) cityEl.textContent = targetName;
+        if (tempEl) tempEl.textContent = "27°C";
+        if (humEl)  humEl.textContent  = "98%";
+        if (windEl) windEl.textContent = "3.1 km/h";
+        if (descEl) descEl.textContent = "Mainly Clear / Partly Cloudy";
+    }
+}
+
+function loadWardWeatherChange() {
+    const selector = document.getElementById("homeWardSelector");
+    if (!selector) return;
+    const wardName = selector.value;
+    if (!wardName) return;
+    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
+}
+
+function getPresentLocationWeather() {
+    const descEl = document.getElementById("weatherDesc");
+    if (!navigator.geolocation) {
+        if (descEl) descEl.textContent = "GPS hardware unsupported.";
+        return;
+    }
+    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude.toFixed(4);
+            const lon = position.coords.longitude.toFixed(4);
+            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
+            const selector = document.getElementById("homeWardSelector");
+            if (selector) selector.value = "";
+        },
+        (error) => {
+            console.warn("GPS access declined or timed out.");
+        },
+        { timeout: 4000, enableHighAccuracy: true }
+    );
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    populateHomeWardDropdown();
+    fetchLiveWeatherFromServer('', 'Chintalavalasa');
+});
+</script>
 {% endblock %}

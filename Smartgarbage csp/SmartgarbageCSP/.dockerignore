@@ -1,0 +1,10 @@
+venv/
+.git/
+__pycache__/
+*.pyc
+instance/
+uploads/
+.vscode/
+.kilo/
+.env
+*.db

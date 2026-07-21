@@ -100,6 +100,16 @@ body {
     transform: translateY(-1px);
 }
 
+.sg-profile-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white;
+}
+
+.sg-profile-btn:hover {
+    background: rgba(255,255,255,0.25);
+}
+
 /* ============================================================
    ACTION BAR (Homepage)
    ============================================================ */
@@ -524,6 +534,13 @@ body {
     color: var(--gray-900);
 }
 
+.sg-kpi-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -558,4 +575,10 @@ code {
     border-radius: 4px;
     font-size: 0.85em;
     color: var(--warning-red);
+}
+
+.sg-footer {
+    background: var(--forest-700);
+    padding: 1.5rem 0;
+    margin-top: 3rem;
 }

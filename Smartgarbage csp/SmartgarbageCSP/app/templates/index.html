@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- Full-width professional header bar -->
+<header class="sg-header">
+    <div class="container d-flex align-items-center justify-content-between flex-wrap gap-2 py-2">
+        <a class="sg-header-brand" href="/">Chintalavalasa SmartGarbage Portal</a>
+        <nav class="sg-header-nav">
+            <a href="/schedule">Truck Schedule</a>
+            <a href="/report">Report Missed Pickup</a>
+            <a href="/admin">Panchayat Admin</a>
+        </nav>
+    </div>
+</header>
+
+<!-- Spacious, centered workspace -->
+<main class="sg-workspace">
+    <div class="text-center mx-auto" style="max-width: 760px;">
+        <h1 class="sg-page-title">Chintalavalasa SmartGarbage Portal</h1>
+        <p class="sg-page-summary">
+            A community initiative that tracks localized garbage disposal timetables, verifies
+            collection schedules, predicts route failures, and reports missed pickups in
+            real-time across Chintalavalasa's residential sectors.
+        </p>
+
+        <!-- Primary action buttons -->
+        <div class="sg-actions">
+            <a href="/schedule" class="btn sg-btn-primary">Check Truck Schedule</a>
+            <a href="/report" class="btn sg-btn-danger-outline">Report Missed Pickup</a>
+        </div>
+    </div>
+
+    <!-- Consolidated notice board -->
+    <div class="sg-notice-card mx-auto">
+        <div class="sg-notice-row">
+            <span class="sg-pill sg-pill-red">Monsoon Alert</span>
+            <span class="sg-notice-text">
+                <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases.
+                Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
+            </span>
+        </div>
+        <div class="sg-notice-row">
+            <span class="sg-pill sg-pill-green">Public Notice</span>
+            <span class="sg-notice-text">
+                <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for
+                MVGR campus surroundings this Saturday morning.
+            </span>
+        </div>
+    </div>
+
+    <!-- Dual-column grid system -->
+    <div class="sg-dual-grid mx-auto">
+
+        <!-- Column 1: Community Quote Block (green border) -->
+        <section class="sg-quote-card">
+            <span class="sg-quote-mark">&ldquo;</span>
+            <p class="sg-quote-statement">Our village layout stays healthy when waste is tracked and cleared on time.</p>
+            <p class="sg-quote-caption">&mdash; Community Initiative</p>
+        </section>
+
+        <!-- Column 2: Village Weather & Sanitation Monitor (blue border) -->
+        <section class="sg-weather-card">
+            <div class="sg-weather-head">
+                <h5 class="sg-weather-title">Village Weather &amp; Sanitation Monitor</h5>
+                <button class="sg-sync-btn" type="button" onclick="fetchLiveWeatherFromServer('', 'Chintalavalasa')">
+                    Sync Weather
+                </button>
+            </div>
+
+            <select id="homeWardSelector" class="form-select sg-weather-select" onchange="loadWardWeatherChange()">
+                <option value="" disabled selected>-- Choose Ward / Area --</option>
+            </select>
+
+            <div class="sg-weather-shimmer sg-skeleton"></div>
+
+            <div class="sg-weather-status">
+                <div class="sg-weather-loc">
+                    <span id="weatherCity" class="sg-weather-city">Chintalavalasa Village</span>
+                    <span id="weatherDesc" class="sg-weather-desc">Please wait</span>
+                </div>
+                <span id="weatherTemp" class="sg-weather-temp">31&deg;C</span>
+            </div>
+
+            <div class="sg-weather-metrics">
+                <span class="sg-metric"><i class="fa-solid fa-droplet me-1"></i>Humidity: <strong id="weatherHumidity">--%</strong></span>
+                <span class="sg-metric"><i class="fa-solid fa-wind me-1"></i>Wind: <strong id="weatherWind">-- km/h</strong></span>
+            </div>
+        </section>
+
+    </div>
+</main>
+
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
+<script>
+// --- Populate Ward dropdown (binds to template element) ---
+function populateHomeWardDropdown() {
+    if (typeof initializeWardDropdown === 'function') {
+        initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
+    }
+}
+
+// --- Weather fetcher (binds to weatherCity/Desc/Temp/Humidity/Wind) ---
+async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
+    const cardEl = document.querySelector(".sg-weather-card");
+    const cityEl = document.getElementById("weatherCity");
+    const descEl = document.getElementById("weatherDesc");
+    const tempEl = document.getElementById("weatherTemp");
+    const humEl  = document.getElementById("weatherHumidity");
+    const windEl = document.getElementById("weatherWind");
+
+    if (cardEl) cardEl.classList.add("sg-weather-loading");
+    try {
+        const cacheBuster = new Date().getTime();
+        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
+        const contentType = response.headers.get("content-type");
+        if (!response.ok || !contentType || !contentType.includes("application/json")) {
+            throw new Error("Weather api server connection loss");
+        }
+        const data = await response.json();
+        if (cityEl) cityEl.textContent = data.city;
+        if (tempEl) tempEl.textContent = data.temp;
+        if (humEl)  humEl.textContent  = data.humidity;
+        if (windEl) windEl.textContent = data.wind;
+        if (descEl) descEl.textContent = data.condition;
+        if (cardEl) cardEl.classList.remove("sg-weather-loading");
+    } catch (error) {
+        console.error("Weather Fetch Error:", error);
+        if (cardEl) cardEl.classList.remove("sg-weather-loading");
+        if (cityEl) cityEl.textContent = targetName + " Village";
+        if (tempEl) tempEl.textContent = "31°C";
+        if (humEl)  humEl.textContent  = "--%";
+        if (windEl) windEl.textContent = "-- km/h";
+        if (descEl) descEl.textContent = "Normal Seasonal Conditions";
+    }
+}
+
+function loadWardWeatherChange() {
+    const selector = document.getElementById("homeWardSelector");
+    if (!selector) return;
+    const wardName = selector.value;
+    if (!wardName) return;
+    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
+}
+
+// --- Page Load Hook ---
+document.addEventListener("DOMContentLoaded", () => {
+    populateHomeWardDropdown();
+    fetchLiveWeatherFromServer('', 'Chintalavalasa');
+});
+</script>
+{% endblock %}
