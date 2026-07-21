@@ -117,7 +117,7 @@
             <div class="card p-4 border-0 shadow-sm bg-white mb-4">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                     <div class="d-flex align-items-center gap-3">
-                        <span class="fs-1">🔧</span>
+                        <span class="sg-icon-lg">🔧</span>
                         <div>
                             <h2 class="mb-1 text-success fw-bold">Admin Control Center</h2>
                             <p class="text-muted mb-0 small">Real-time IoT grid monitoring, incident logs, and optimized routing services.</p>
@@ -138,7 +138,7 @@
                                 <span class="text-muted small fw-bold">Total Smart Bins</span>
                                 <h3 class="fw-extrabold mt-1 mb-0">{{ kpis.total_bins }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🗑️</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🗑️</span>
                         </div>
                         <div class="mt-2 text-success small">
                             <strong>{{ kpis.total_bins - kpis.critical_bins }}</strong> Bins Safe/Warning
@@ -152,7 +152,7 @@
                                 <span class="text-danger small fw-bold">Critical (<i class="fa-solid fa-trash-can"></i>) Bins</span>
                                 <h3 class="fw-extrabold mt-1 mb-0 text-danger">{{ kpis.critical_bins }}</h3>
                             </div>
-                            <span class="fs-2 bg-danger bg-opacity-10 p-2 rounded-circle animate__animated animate__pulse animate__infinite">
+                            <span class="sg-icon bg-danger bg-opacity-10 p-2 rounded-circle animate__animated animate__pulse animate__infinite">
                                 <i class="fa-solid fa-triangle-exclamation text-danger"></i>
                             </span>
                         </div>
@@ -168,7 +168,7 @@
                                 <span class="text-muted small fw-bold">Active Fleet Trucks</span>
                                 <h3 class="fw-extrabold mt-1 mb-0">{{ kpis.active_trucks }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🚛</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🚛</span>
                         </div>
                         <div class="mt-2 text-success small">
                             Collection trucks deployed
@@ -182,7 +182,7 @@
                                 <span class="text-muted small fw-bold">Daily Waste Tons</span>
                                 <h3 class="fw-extrabold mt-1 mb-0">{{ kpis.daily_waste_tons }}T</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">⚖️</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">⚖️</span>
                         </div>
                         <div class="mt-2 text-warning small">Estimated disposal weight</div>
                     </div>
@@ -197,7 +197,7 @@
                                 <span class="text-muted small fw-bold">Sensor Faults</span>
                                 <h3 class="fw-extrabold mt-1 mb-0 {% if kpis.sensor_faults > 0 %}text-warning{% endif %}">{{ kpis.sensor_faults }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🛠️</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🛠️</span>
                         </div>
                         <div class="mt-2 small text-muted">Bins silent &gt;24h — maintenance scheduled</div>
                     </div>
@@ -209,7 +209,7 @@
                                 <span class="text-muted small fw-bold">Geo-fence Violations</span>
                                 <h3 class="fw-extrabold mt-1 mb-0 {% if kpis.geofence_violations > 0 %}text-danger{% endif %}">{{ kpis.geofence_violations }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🛰️</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🛰️</span>
                         </div>
                         <div class="mt-2 small text-muted">Trucks outside assigned sectors</div>
                     </div>
@@ -221,7 +221,7 @@
                                 <span class="text-muted small fw-bold">BWG Pickup Requests</span>
                                 <h3 class="fw-extrabold mt-1 mb-0">{{ kpis.pending_pickups }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🏢</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🏢</span>
                         </div>
                         <div class="mt-2 small text-muted">Bulk generators awaiting dispatch</div>
                     </div>
@@ -233,7 +233,7 @@
                                 <span class="text-muted small fw-bold">Pending Complaints</span>
                                 <h3 class="fw-extrabold mt-1 mb-0">{{ kpis.pending_complaints }}</h3>
                             </div>
-                            <span class="fs-2 bg-light p-2 rounded-circle">🎫</span>
+                            <span class="sg-icon bg-light p-2 rounded-circle">🎫</span>
                         </div>
                         <div class="mt-2 small text-muted">Citizen overflow reports open</div>
                     </div>
@@ -248,7 +248,7 @@
                         <div class="row g-3 text-center">
                             <div class="col-md-4">
                                 <div class="p-3 rounded-3 h-100" style="background:#fff8e1;">
-                                    <div class="fs-2">⏱️</div>
+                                    <div class="sg-icon">⏱️</div>
                                     <strong>Decomposition Timer</strong>
                                     <p class="small text-muted mb-1 mt-1">Bins &gt;10% full for 48h auto-flag <span class="badge bg-warning text-dark">🟡 Pending Clearance</span>.</p>
                                     <span class="badge bg-secondary">{{ bins|selectattr('status','equalto','Pending Clearance')|list|length }} bin(s) flagged</span>
@@ -256,7 +256,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="p-3 rounded-3 h-100" style="background:#e8f8f5;">
-                                    <div class="fs-2">🗜️</div>
+                                    <div class="sg-icon">🗜️</div>
                                     <strong>Solar Pre-Compaction</strong>
                                     <p class="small text-muted mb-1 mt-1">At 70% fill the lid locks &amp; crushes trash (≈5× capacity). Toggle per bin on the map.</p>
                                     <span class="badge bg-success">{{ bins|selectattr('precompaction_enabled')|list|length }} bin(s) enabled</span>
@@ -264,7 +264,7 @@
                             </div>
                             <div class="col-md-4">
                                 <div class="p-3 rounded-3 h-100" style="background:#eef3ff;">
-                                    <div class="fs-2">📲</div>
+                                    <div class="sg-icon">📲</div>
                                     <strong>WhatsApp / Telegram Bot</strong>
                                     <p class="small text-muted mb-1 mt-1">Citizens photo a pile → GPS extracted → ticket + map pin. Endpoint: <code>/webhook/*</code></p>
                                     <span class="badge bg-primary">{{ illegal_reports|length }} report(s)</span>
@@ -313,7 +313,7 @@
                 <div class="col-lg-4 col-md-12">
                     <div class="card border-0 shadow-sm bg-white p-3 h-100 d-flex flex-column" style="max-height: 560px;">
                         <h5 class="fw-bold mb-3 text-dark d-flex align-items-center gap-2">
-                            <span class="fs-4">🚨</span> Incident Feed
+                            <span class="sg-icon-sm">🚨</span> Incident Feed
                         </h5>
                         <div class="flex-grow-1 overflow-y-auto pe-1" id="incidentSidebarList" style="max-height: 480px;">
                             {% for inc in incidents %}
@@ -336,7 +336,7 @@
                             </div>
                             {% else %}
                             <div class="text-center text-muted py-5">
-                                <span class="fs-2 opacity-50 d-block">🛡️</span>
+                                <span class="sg-icon opacity-50 d-block">🛡️</span>
                                 <p class="mb-0 mt-2 small">No active safety warnings. System is running healthy.</p>
                             </div>
                             {% endfor %}
@@ -365,7 +365,7 @@
                             <tr class="fw-medium">
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
-                                        <span class="fs-4">👤</span>
+                                        <span class="sg-icon-sm">👤</span>
                                         <div>
                                             <strong class="text-dark">{{ w.user.username }}</strong><br>
                                             <small class="text-muted">{{ w.user.phone if w.user.phone else 'No phone registered' }}</small>
@@ -470,7 +470,7 @@
                             {% else %}
                             <tr>
                                 <td colspan="6" class="text-center text-muted py-5">
-                                    <span class="fs-1 opacity-25 d-block mb-2">✔</span>
+                                    <span class="sg-icon-lg opacity-25 d-block mb-2">✔</span>
                                     <p class="mb-0">No filed complaints available in Chintalavalasa.</p>
                                 </td>
                             </tr>

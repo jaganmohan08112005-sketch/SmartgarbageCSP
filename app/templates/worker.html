@@ -11,7 +11,7 @@
         <!-- Worker Header Summary Card -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <div class="d-flex align-items-center gap-3">
-                <span class="fs-1">🚛</span>
+                <span class="sg-icon-lg">🚛</span>
                 <div>
                     <h4 class="mb-0 text-success fw-bold">Driver Portal</h4>
                     <p class="text-muted mb-0 small">Welcome, <strong>{{ session.get('username') }}</strong> | Truck: <code>{{ profile.vehicle_id if profile else 'CV-01' }}</code></p>
@@ -51,7 +51,7 @@
                 </div>
                 {% else %}
                 <div class="text-center py-4 text-muted">
-                    <span class="fs-1">✅</span>
+                    <span class="sg-icon-lg">✅</span>
                     <p class="mb-0 mt-2 small">All bins cleared in your sector!</p>
                 </div>
                 {% endfor %}

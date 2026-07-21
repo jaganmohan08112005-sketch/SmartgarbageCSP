@@ -419,6 +419,7 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
+
         if not user or not check_password_hash(user.password_hash, password):
             flash('Invalid username or password.', 'error')
             return redirect(url_for('main.login'))
