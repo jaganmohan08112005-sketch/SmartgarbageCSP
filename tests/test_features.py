@@ -4,6 +4,29 @@ from app import db, create_app, socketio
 import json as _json
 import os
 
+
+def test_language_switch_renders_telugu_labels(client):
+    r = client.get('/set-lang/te', follow_redirects=False)
+    assert r.status_code == 302
+
+    r2 = client.get('/login')
+    assert r2.status_code == 200
+    body = r2.get_data(as_text=True)
+    assert 'లాగిన్' in body or 'లాగిన్' in body
+
+
+def test_dashboard_renders_telugu_labels_after_language_switch(client, app):
+    _make_user(app, 'telugucitizen')
+    client.get('/set-lang/te', follow_redirects=False)
+    r = client.post('/login', data={'username': 'telugucitizen', 'password': 'testpass123'}, follow_redirects=True)
+    assert r.status_code == 200
+
+    r2 = client.get('/dashboard', follow_redirects=False)
+    assert r2.status_code == 200
+    body = r2.get_data(as_text=True)
+    assert 'ఇకో-రివార్డ్ వాలెట్ బ్యాలెన్స్' in body
+
+
 def _make_user(app, username, role='citizen', phone=None, password='testpass123', green_points=0):
     if phone is None:
         phone = f'+91987654{hash(username) % 10000:04d}'

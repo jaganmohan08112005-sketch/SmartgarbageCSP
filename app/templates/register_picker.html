@@ -6,31 +6,31 @@
         <div class="card p-4 shadow border-0">
             <div class="text-center mb-3">
                 <span class="fs-1">♻️</span>
-                <h3 class="fw-bold mt-2 text-success">Informal Waste Picker</h3>
-                <p class="text-muted small">Recognition & registration under SBM Grameen Phase II.</p>
+                <h3 class="fw-bold mt-2 text-success">{{ _('Informal Waste Picker') }}</h3>
+                <p class="text-muted small">{{ _('Recognition & registration under SBM Grameen Phase II.') }}</p>
             </div>
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Full Name</label>
-                    <input name="username" class="form-control" placeholder="Your name" required>
+                    <label class="form-label fw-bold text-secondary">{{ _('Full Name') }}</label>
+                    <input name="username" class="form-control" placeholder="{{ _('Your name') }}" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Mobile Number</label>
-                    <input name="phone" type="tel" class="form-control" placeholder="+91 98765 43210" pattern="^(\+91|91)?[6-9]\d{9}$" required>
-                    <small class="text-muted">Indian mobile only — 10 digits starting 6–9.</small>
+                    <label class="form-label fw-bold text-secondary">{{ _('Mobile Number') }}</label>
+                    <input name="phone" type="tel" class="form-control" placeholder="{{ _('+91 98765 43210') }}" pattern="^(\+91|91)?[6-9]\d{9}$" required>
+                    <small class="text-muted">{{ _('Indian mobile only — 10 digits starting 6–9.') }}</small>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Operates In (Ward/Area)</label>
-                    <input name="area" class="form-control" placeholder="e.g. Ward 3 - RTC Colony">
+                    <label class="form-label fw-bold text-secondary">{{ _('Operates In (Ward/Area)') }}</label>
+                    <input name="area" class="form-control" placeholder="{{ _('e.g. Ward 3 - RTC Colony') }}">
                 </div>
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">Set Password</label>
-                    <input name="password" type="password" class="form-control" minlength="6" placeholder="Min 6 characters" required>
+                    <label class="form-label fw-bold text-secondary">{{ _('Set Password') }}</label>
+                    <input name="password" type="password" class="form-control" minlength="6" placeholder="{{ _('Min 6 characters') }}" required>
                 </div>
-                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold rounded-pill">Register as Recognised Picker</button>
+                <button type="submit" class="btn btn-success btn-lg w-100 fw-bold rounded-pill">{{ _('Register as Recognised Picker') }}</button>
             </form>
-            <p class="text-center mt-3 mb-0"><a href="/login" class="text-success fw-bold text-decoration-none">Already registered? Log in</a></p>
+            <p class="text-center mt-3 mb-0"><a href="/login" class="text-success fw-bold text-decoration-none">{{ _('Already registered? Log in') }}</a></p>
         </div>
     </div>
 </div>

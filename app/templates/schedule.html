@@ -5,18 +5,18 @@
     <div class="col-lg-5">
         <div class="card p-4 shadow-sm border-0">
             <h3 class="mb-4 text-success fw-bold d-flex align-items-center gap-2">
-                <span>📅</span> Timetable Search
+                <span>📅</span> {{ _('Timetable Search') }}
             </h3>
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">Select Your Ward / Area</label>
+                    <label class="form-label fw-bold text-secondary">{{ _('Select Your Ward / Area') }}</label>
                     <select name="ward" id="schedWard" class="form-select form-select-lg" required>
-                        <option value="" disabled selected>-- Choose Ward --</option>
+                        <option value="" disabled selected>{{ _('-- Choose Ward --') }}</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm">
-                    🔍 View Ward Schedule
+                    🔍 {{ _('View Ward Schedule') }}
                 </button>
             </form>
         </div>
@@ -37,9 +37,9 @@
                                     <div class="d-flex align-items-center gap-3">
                                         <span class="fs-1 text-danger">⚠️</span>
                                         <div>
-                                            <h5 class="text-danger fw-bold mb-1">Missed Collection Risk: HIGH</h5>
+                                            <h5 class="text-danger fw-bold mb-1">{{ _('Missed Collection Risk: HIGH') }}</h5>
                                             <p class="mb-0 text-muted small">
-                                                Our Random Forest Classifier indicates a high likelihood of delays today due to weather indices or historical complaint patterns.
+                                                {{ _('Our Random Forest Classifier indicates a high likelihood of delays today due to weather indices or historical complaint patterns.') }}
                                             </p>
                                         </div>
                                     </div>
@@ -49,9 +49,9 @@
                                     <div class="d-flex align-items-center gap-3">
                                         <span class="fs-1 text-success">✅</span>
                                         <div>
-                                            <h5 class="text-success fw-bold mb-1">Missed Collection Risk: LOW</h5>
+                                            <h5 class="text-success fw-bold mb-1">{{ _('Missed Collection Risk: LOW') }}</h5>
                                             <p class="mb-0 text-muted small">
-                                                Routes are running smoothly. Normal pickup probability expected.
+                                                {{ _('Routes are running smoothly. Normal pickup probability expected.') }}
                                             </p>
                                         </div>
                                     </div>
@@ -65,9 +65,9 @@
                         <table class="table table-hover align-middle mt-2">
                             <thead>
                                 <tr>
-                                    <th>Day of Week</th>
-                                    <th>Time Slot Window</th>
-                                    <th>Vehicle ID</th>
+                                    <th>{{ _('Day of Week') }}</th>
+                                    <th>{{ _('Time Slot Window') }}</th>
+                                    <th>{{ _('Vehicle ID') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -79,7 +79,7 @@
                                     </tr>
                                 {% else %}
                                     <tr>
-                                        <td colspan="3" class="text-center text-muted py-4">No active timetable records mapped to this sector.</td>
+                                        <td colspan="3" class="text-center text-muted py-4">{{ _('No active timetable records mapped to this sector.') }}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
@@ -91,8 +91,8 @@
             <div class="card p-4 shadow-sm border-0 h-100 bg-white d-flex align-items-center justify-content-center text-center py-5">
                 <div class="py-5">
                     <span class="fs-1 text-muted opacity-50 d-block mb-3">📅</span>
-                    <h5 class="text-secondary fw-bold">No Ward Selected</h5>
-                    <p class="text-muted mb-0 small">Please select a Chintalavalasa residential sector on the left to review times and ML logs.</p>
+                    <h5 class="text-secondary fw-bold">{{ _('No Ward Selected') }}</h5>
+                    <p class="text-muted mb-0 small">{{ _('Please select a Chintalavalasa residential sector on the left to review times and ML logs.') }}</p>
                 </div>
             </div>
         {% endif %}
@@ -103,7 +103,7 @@
 <script type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        initializeWardDropdown("schedWard", "-- Choose Ward --");
+        initializeWardDropdown("schedWard", "{{ _('-- Choose Ward --') }}");
 
         // Guarantee the ward <select> opens on click (all screen sizes),
         // not relying solely on Bootstrap's native dropdown behavior.

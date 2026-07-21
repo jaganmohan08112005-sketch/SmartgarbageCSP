@@ -160,6 +160,11 @@ def create_app():
         if lang not in SUPPORTED:
             lang = DEFAULT_LANG
         session['lang'] = lang
+
+        next_url = request.args.get('next', '').strip()
+        if next_url.startswith('/'):
+            return redirect(next_url)
+
         return redirect(request.referrer or url_for('main.dashboard'))
 
     # Schema is owned by Flask-Migrate/Alembic (see migrations/). Do NOT call

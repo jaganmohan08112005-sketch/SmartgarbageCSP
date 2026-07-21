@@ -6,8 +6,8 @@
         <div class="card p-4 shadow border-0">
             <div class="text-center mb-4">
                 <span class="fs-1 text-success">📝</span>
-                <h3 class="fw-bold mt-2 text-success">Create Account</h3>
-                <p class="text-muted small">Register to track and report sanitation issues in Chintalavalasa</p>
+                <h3 class="fw-bold mt-2 text-success">{{ _('Create Account') }}</h3>
+                <p class="text-muted small">{{ _('Register to track and report sanitation issues in Chintalavalasa') }}</p>
             </div>
             
             <form method="POST" novalidate>
@@ -15,56 +15,56 @@
 
                 <!-- Username -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Username</label>
+                    <label class="form-label fw-bold text-secondary">{{ _('Username') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">👤</span>
-                        <input name="username" id="reg_username" class="form-control" placeholder="Choose a username" required autofocus minlength="3" maxlength="50">
+                        <input name="username" id="reg_username" class="form-control" placeholder="{{ _('Choose a username') }}" required autofocus minlength="3" maxlength="50">
                     </div>
-                    <small class="text-muted">At least 3 characters, no spaces.</small>
+                    <small class="text-muted">{{ _('At least 3 characters, no spaces.') }}</small>
                 </div>
 
                 <!-- Password -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Password</label>
+                    <label class="form-label fw-bold text-secondary">{{ _('Password') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🔒</span>
-                        <input name="password" id="reg_password" type="password" class="form-control" placeholder="Choose a password (min. 6 chars)" required minlength="6">
+                        <input name="password" id="reg_password" type="password" class="form-control" placeholder="{{ _('Choose a password (min. 6 chars)') }}" required minlength="6">
                     </div>
-                    <small class="text-muted">Minimum 6 characters.</small>
+                    <small class="text-muted">{{ _('Minimum 6 characters.') }}</small>
                 </div>
 
                 <!-- Phone Number — real Indian mobile required -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">Mobile Number <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold text-secondary">{{ _('Mobile Number') }} <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">📞</span>
                         <input name="phone" id="reg_phone" type="tel" class="form-control"
-                               placeholder="e.g. +91 98765 43210"
+                               placeholder="{{ _('e.g. +91 98765 43210') }}"
                                pattern="^(\+91|91)?[6-9]\d{9}$"
                                title="Enter a valid Indian mobile: 10 digits starting with 6, 7, 8, or 9 (with or without +91 prefix)"
                                required>
                     </div>
-                    <small class="text-muted">Indian mobile only — 10 digits starting with 6-9 (e.g. 9876543210 or +91 9876543210).</small>
+                    <small class="text-muted">{{ _('Indian mobile only — 10 digits starting with 6-9 (e.g. 9876543210 or +91 9876543210).') }}</small>
                 </div>
 
                 <!-- Account Role -->
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">Account Role</label>
+                    <label class="form-label fw-bold text-secondary">{{ _('Account Role') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🛡️</span>
                         <select name="role" id="reg_role" class="form-select" required>
-                            <option value="citizen" selected>Standard Citizen (User)</option>
-                            <option value="worker">Sanitation Worker (Worker)</option>
+                            <option value="citizen" selected>{{ _('Standard Citizen (User)') }}</option>
+                            <option value="worker">{{ _('Sanitation Worker (Worker)') }}</option>
                         </select>
                     </div>
                 </div>
                 
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
-                    Register Account
+                    {{ _('Register Account') }}
                 </button>
                 
                 <div class="text-center mt-3">
-                    <p class="mb-0 text-muted small">Already have an account? <a href="/login" class="text-success fw-bold text-decoration-none">Log In Here</a></p>
+                    <p class="mb-0 text-muted small">{{ _('Already have an account?') }} <a href="/login" class="text-success fw-bold text-decoration-none">{{ _('Log In Here') }}</a></p>
                 </div>
             </form>
         </div>
