@@ -92,7 +92,9 @@ def predict_miss(ward: str) -> int:
         # elevated risk if many recent complaints OR monsoon season.
         return 1 if (recent >= 3 or season_idx == 2) else 0
 
-    features = [[day_of_week, season_idx, recent, ward_id]]
-    prediction = model.predict(features)
+    import pandas as pd
+    feature_names = ['day_of_week', 'season_idx', 'complaints_last7', 'ward_id']
+    df_features = pd.DataFrame([[day_of_week, season_idx, recent, ward_id]], columns=feature_names)
+    prediction = model.predict(df_features)
 
     return int(prediction[0])

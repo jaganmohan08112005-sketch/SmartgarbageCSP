@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Citizen Portal - SmartGarbage{% endblock %}
+{% block title %}{{ _('Citizen Portal - SmartGarbage') }}{% endblock %}
 {% block content %}
 <!-- Leaflet Map CSS/JS Dependencies -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,7 +14,7 @@
                 <div>
                     <span class="text-uppercase small fw-bold" style="opacity: 0.85;">{{ _('Eco-Reward Wallet Balance') }}</span>
                     <h2 class="display-5 fw-extrabold mt-1 mb-0"><span id="greenPointsDisplay">{{ green_points }}</span> GP</h2>
-                    <small class="d-block mt-2" style="opacity: 0.9;">Earn points by reporting overflows or using smart recycling hubs.</small>
+                    <small class="d-block mt-2" style="opacity: 0.9;">{{ _('Earn points by reporting overflows or using smart recycling hubs.') }}</small>
                 </div>
                 <span class="sg-icon-lg">🌱</span>
             </div>
