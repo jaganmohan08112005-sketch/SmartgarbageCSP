@@ -15,19 +15,23 @@
 </div>
 
 <!-- Dynamic Municipal Notice Board -->
-<div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
+<div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s; border-radius: 18px; padding: 25px; margin-top: 30px;">
     <div class="card-body">
         <h5 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3">
             📢 {{ _('Local Sanitation Notices & Seasonal Advisories') }}
         </h5>
         <div class="list-group list-group-flush small">
-            <div class="list-group-item bg-transparent px-0 py-2">
+            <div class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
                 <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
-                <strong>{{ _('Wet Season Precautions:') }}</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }}
+                <div>
+                    <strong>{{ _('Wet Season Precautions:') }}</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }}
+                </div>
             </div>
-            <div class="list-group-item bg-transparent px-0 py-2">
+            <div class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
-                <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special collection drive scheduled for MVGR campus surroundings this Saturday morning.') }}
+                <div>
+                    <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special collection drive scheduled for MVGR campus surroundings this Saturday morning.') }}
+                </div>
             </div>
         </div>
     </div>
@@ -36,7 +40,7 @@
 <!-- Dashboard Widgets Row -->
 <div class="row g-4 mb-5 animate-fade-in" style="animation-delay: 0.2s;">
     <!-- 1. Nature Green Quotes Card -->
-    <div class="col-md-6">
+    <div class="col-lg-6">
         <div class="card border-start border-success border-4 p-4 h-100 bg-white shadow-sm d-flex align-items-center justify-content-center">
             <div class="card-body text-center">
                 <span class="fs-1 text-success opacity-25 d-block mb-1" style="line-height:1;">&ldquo;</span>
@@ -47,7 +51,7 @@
     </div>
 
     <!-- 2. Self-Contained Weather Module -->
-    <div class="col-md-6">
+    <div class="col-lg-6">
         <div class="card border-start border-primary border-4 p-4 h-100 bg-white shadow-sm">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -191,3 +195,4 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 {% endblock %}
+
