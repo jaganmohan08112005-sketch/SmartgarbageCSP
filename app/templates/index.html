@@ -1,37 +1,34 @@
 {% extends 'base.html' %}
+{% block title %}SmartGarbage Chintalavalasa{% endblock %}
 {% block content %}
 <!-- Welcome Hero Block -->
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in" style="background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%) !important;">
     <div class="container-fluid py-4">
-        <h1 class="display-5 fw-bold text-success mb-3">{{ _('Welcome to SmartGarbage Chintalavalasa') }}</h1>
+        <h1 class="display-5 fw-bold text-success mb-3">Welcome to SmartGarbage Chintalavalasa</h1>
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.') }}
+            Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa's residential sectors.
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Schedule') }}</a>
-            <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ {{ _('Report Issue') }}</a>
+            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 Check Schedule</a>
+            <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ Report Issue</a>
         </div>
     </div>
 </div>
 
 <!-- Dynamic Municipal Notice Board -->
-<div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s; border-radius: 18px; padding: 25px; margin-top: 30px;">
+<div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
     <div class="card-body">
         <h5 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3">
-            📢 {{ _('Local Sanitation Notices & Seasonal Advisories') }}
+            📢 Local Sanitation Notices & Seasonal Advisories
         </h5>
         <div class="list-group list-group-flush small">
-            <div class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
-                <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
-                <div>
-                    <strong>{{ _('Wet Season Precautions:') }}</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }}
-                </div>
+            <div class="list-group-item bg-transparent px-0 py-2">
+                <span class="badge bg-danger me-2">Monsoon Alert</span>
+                <strong>Wet Season Precautions:</strong> With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.
             </div>
-            <div class="list-group-item bg-transparent px-0 py-2 d-flex align-items-center gap-2">
-                <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
-                <div>
-                    <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special collection drive scheduled for MVGR campus surroundings this Saturday morning.') }}
-                </div>
+            <div class="list-group-item bg-transparent px-0 py-2">
+                <span class="badge bg-success me-2">Community Update</span>
+                <strong>MVGR College Road Cleanliness:</strong> Special collection drive scheduled for MVGR campus surroundings this Saturday morning.
             </div>
         </div>
     </div>
@@ -40,48 +37,49 @@
 <!-- Dashboard Widgets Row -->
 <div class="row g-4 mb-5 animate-fade-in" style="animation-delay: 0.2s;">
     <!-- 1. Nature Green Quotes Card -->
-    <div class="col-lg-6">
+    <div class="col-md-6">
         <div class="card border-start border-success border-4 p-4 h-100 bg-white shadow-sm d-flex align-items-center justify-content-center">
             <div class="card-body text-center">
-                <span class="fs-1 text-success opacity-25 d-block mb-1" style="line-height:1;">&ldquo;</span>
-                <p id="quoteText" class="fs-5 fw-medium text-dark italic mb-2">{{ _('Loading inspiration...') }}</p>
-                <cite id="quoteAuthor" class="text-muted small d-block">&mdash; {{ _('Loading') }}</cite>
+                <span class="fs-1 text-success opacity-25 d-block mb-1" style="line-height:1;">“</span>
+                <p id="quoteText" class="fs-5 fw-medium text-dark italic mb-2">Loading inspiration...</p>
+                <cite id="quoteAuthor" class="text-muted small d-block">— Loading</cite>
             </div>
         </div>
     </div>
 
     <!-- 2. Self-Contained Weather Module -->
-    <div class="col-lg-6">
+    <div class="col-md-6">
         <div class="card border-start border-primary border-4 p-4 h-100 bg-white shadow-sm">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-primary fw-bold mb-0">🌤️ {{ _('Local Weather Monitor') }}</h5>
+                    <h5 class="text-primary fw-bold mb-0">🌤️ Local Weather Monitor</h5>
                     <button class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 GPS Locator</button>
                 </div>
                 
+                <!-- Front-End Event-Driven Select Handler -->
                 <div class="mb-3">
-                    <label class="form-label text-muted small mb-1">{{ _('Select Chintalavalasa Area for local weather:') }}</label>
+                    <label class="form-label text-muted small mb-1">Select Chintalavalasa Area for local weather:</label>
                     <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
-                        <option value="" disabled selected>-- {{ _('Choose Ward / Area') }} --</option>
+                        <option value="" disabled selected>-- Choose Ward / Area --</option>
                     </select>
                 </div>
 
                 <div id="weatherLoading" class="text-muted small py-2 d-none">
                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                    {{ _('Downloading weather metrics...') }}
+                    Downloading weather metrics...
                 </div>
                 
                 <div id="weatherDisplay">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <div>
-                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">{{ _('Detecting location...') }}</span>
-                            <span id="weatherDesc" class="text-muted text-capitalize small">{{ _('Please wait') }}</span>
+                            <span id="weatherCity" class="fs-4 fw-bold text-dark d-block">Detecting location...</span>
+                            <span id="weatherDesc" class="text-muted text-capitalize small">Please wait</span>
                         </div>
                         <span id="weatherTemp" class="display-6 fw-bold text-primary">--°C</span>
                     </div>
                     <div class="row g-2 pt-2 border-top text-secondary small">
-                        <div class="col-6">🏢 {{ _('Humidity') }}: <strong id="weatherHumidity">--%</strong></div>
-                        <div class="col-6">💨 {{ _('Wind Speed') }}: <strong id="weatherWind">-- km/h</strong></div>
+                        <div class="col-6">🏢 Humidity: <strong id="weatherHumidity">--%</strong></div>
+                        <div class="col-6">💨 Wind Speed: <strong id="weatherWind">-- km/h</strong></div>
                     </div>
                 </div>
             </div>
@@ -91,6 +89,7 @@
 
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
 <script>
+// --- 1. Rotating Quotes Logic ---
 const greenQuotes = [
     { text: "Cleanliness is next to godliness.", author: "Mahatma Gandhi" },
     { text: "The environment is everything that isn't me.", author: "Albert Einstein" },
@@ -105,16 +104,18 @@ if (document.getElementById("quoteText")) {
     document.getElementById("quoteAuthor").textContent = "— " + greenQuotes[randomIndex].author;
 }
 
+// --- 2. Populate Dropdown ---
 function populateHomeWardDropdown() {
-    initializeWardDropdown("homeWardSelector", "-- {{ _('Choose Ward / Area') }} --");
+    initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
 }
 
+// --- 3. Weather Fetcher ---
 async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
     const loader = document.getElementById("weatherLoading");
     const descEl = document.getElementById("weatherDesc");
     
     if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "{{ _('Syncing live weather feeds...') }}";
+    if (descEl) descEl.textContent = "Syncing live weather feeds...";
     
     try {
         const cacheBuster = new Date().getTime();
@@ -136,6 +137,7 @@ async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chinta
     } catch (error) {
         console.error("Weather Fetch Error:", error);
         
+        // Random fallback values inside normal seasonal temperature bounds
         const fallbackTemp = Math.floor(Math.random() * (34 - 28 + 1)) + 28; 
         const fallbackHumidity = Math.floor(Math.random() * (85 - 70 + 1)) + 70; 
         const fallbackWind = Math.floor(Math.random() * (15 - 8 + 1)) + 8; 
@@ -144,12 +146,13 @@ async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chinta
         document.getElementById("weatherTemp").textContent = `${fallbackTemp}°C`;
         document.getElementById("weatherHumidity").textContent = `${fallbackHumidity}%`;
         document.getElementById("weatherWind").textContent = `${fallbackWind} km/h`;
-        if (descEl) descEl.textContent = "{{ _('Normal Seasonal Conditions (Cache)') }}";
+        if (descEl) descEl.textContent = "Normal Seasonal Conditions (Cache)";
     } finally {
         if (loader) loader.classList.add("d-none");
     }
 }
 
+// --- 4. Interactive Change ---
 function loadWardWeatherChange() {
     const selector = document.getElementById("homeWardSelector");
     if (!selector) return;
@@ -159,24 +162,25 @@ function loadWardWeatherChange() {
     fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
 }
 
+// --- 5. GPS Locator ---
 function getPresentLocationWeather() {
     const loader = document.getElementById("weatherLoading");
     const descEl = document.getElementById("weatherDesc");
     
     if (!navigator.geolocation) {
-        if (descEl) descEl.textContent = "{{ _('GPS hardware unsupported.') }}";
+        if (descEl) descEl.textContent = "GPS hardware unsupported.";
         fetchLiveWeatherFromServer('', 'Chintalavalasa');
         return;
     }
     
     if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "{{ _('Requesting device GPS coordinates...') }}";
+    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
 
     navigator.geolocation.getCurrentPosition(
         (position) => {
             const lat = position.coords.latitude.toFixed(4);
             const lon = position.coords.longitude.toFixed(4);
-            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, '{{ _("My Location") }}');
+            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
             
             const selector = document.getElementById("homeWardSelector");
             if (selector) selector.value = "";
@@ -189,10 +193,10 @@ function getPresentLocationWeather() {
     );
 }
 
+// --- Page Load Hook ---
 document.addEventListener("DOMContentLoaded", () => {
     populateHomeWardDropdown();
     getPresentLocationWeather();
 });
 </script>
 {% endblock %}
-
