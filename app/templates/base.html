@@ -51,7 +51,7 @@
             </button>
             
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
-                <div class="navbar-nav ms-auto align-items-center gap-1">
+                <div class="navbar-nav me-auto align-items-center gap-1">
                     <a class="nav-link text-white px-3" href="/">{{ _('Home') }}</a>
                     {% if session.get('user_id') %}
                         {% if session.get('role') == 'admin' %}
@@ -65,6 +65,16 @@
                             <a class="nav-link text-white px-3" href="/report">{{ _('Report Issue') }}</a>
                             <a class="nav-link text-info fw-bold px-3" href="/dashboard">📋 {{ _('My Dashboard') }}</a>
                         {% endif %}
+                    {% else %}
+                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill me-2" href="/login">{{ _('Login') }}</a>
+                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
+                    {% endif %}
+                </div>
+                <div class="navbar-nav ms-auto align-items-center gap-1">
+                    <a class="btn btn-outline-light btn-sm px-3 rounded-pill ms-2" href="{{ url_for('set_lang', lang='en' if lang == 'te' else 'te', next=request.path) }}">
+                        {{ 'EN' if lang == 'te' else 'తెలుగు' }}
+                    </a>
+                    {% if session.get('user_id') %}
                         <div class="nav-item dropdown ms-lg-2">
                             <a class="btn btn-outline-light btn-sm dropdown-toggle px-3 py-1.5 rounded-pill" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 👤 {{ session.get('username') }} 
@@ -82,13 +92,7 @@
                                 <li><a class="dropdown-item text-danger" href="/logout">{{ _('Logout') }}</a></li>
                             </ul>
                         </div>
-                    {% else %}
-                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill me-2" href="/login">{{ _('Login') }}</a>
-                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
                     {% endif %}
-                    <a class="btn btn-outline-light btn-sm px-3 rounded-pill ms-2" href="{{ url_for('set_lang', lang='en' if lang == 'te' else 'te', next=request.path) }}">
-                        {{ 'EN' if lang == 'te' else 'తెలుగు' }}
-                    </a>
                 </div>
             </div>
         </div>
