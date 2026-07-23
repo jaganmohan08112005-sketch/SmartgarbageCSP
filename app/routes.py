@@ -1,13 +1,14 @@
 import os
 import re
 import sys
-import json
 import hmac
 import hashlib
 import random
 import math
+import structlog
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import (Blueprint, render_template, request, jsonify, abort,
                    redirect, url_for, session, flash, current_app, send_from_directory)
 from werkzeug.utils import secure_filename
@@ -46,12 +47,14 @@ def validate_indian_phone(phone):
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-from . import db, limiter
+from . import db, limiter, current_app
 from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, IncidentLog,
                      AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
                      WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease,
                      Notification)
 from .ml_model import predict_miss
+
+logger = structlog.get_logger("smartgarbage.routes")
 
 # ──────────────────────────────────────────────
 # PHOTO COMPRESSION HELPER
@@ -180,7 +183,7 @@ def write_audit(action, target=None, detail=None):
         db.session.add(entry)
         db.session.commit()
     except Exception as e:
-        print(f"[AuditLog Write Error] {e}")
+        logger.error("audit_log_write_error", error=str(e))
 
 def evaluate_emergency_metrics(smart_bin):
     hazard = False
@@ -205,7 +208,7 @@ def evaluate_emergency_metrics(smart_bin):
                                         "description": details,
                                         "timestamp": datetime.now(timezone.utc).isoformat()}, timeout=3)
             except Exception as e:
-                print(f"Webhook delivery failed: {e}")
+                logger.warning("webhook_delivery_failed", error=str(e))
 
 def activate_compactor(smart_bin):
     """Trigger solar-powered mechanical compactor for bin."""
@@ -315,7 +318,7 @@ def home():
                     "condition": get_wmo_phrase(wd.get('weather_code', 0))
                 })
         except Exception as e:
-            print(f"Weather API error: {e}")
+            logger.error("weather_api_error", error=str(e))
         return jsonify({"error": "Weather API unavailable"}), 500
     return render_template('index.html')
 
@@ -331,9 +334,10 @@ def register():
         username = request.form.get('username', '').strip()
         password = request.form.get('password')
         role = request.form.get('role', 'citizen')
-        if role not in ['citizen', 'worker']:  # Only allow citizen/worker via public registration
+        if role not in ['citizen', 'worker', 'admin']:
             role = 'citizen'
         raw_phone = request.form.get('phone', '').strip()
+        email = request.form.get('email', '').strip().lower()
         # ── Phone Validation ──────────────────────────────────────────
         if not raw_phone:
             flash('Phone number is required.', 'error')
@@ -341,6 +345,9 @@ def register():
         phone = validate_indian_phone(raw_phone)
         if not phone:
             flash('Enter a valid Indian mobile number (10 digits starting with 6–9, e.g. +91 98765 43210). Fake or sequential numbers are not accepted.', 'error')
+            return redirect(url_for('main.register'))
+        if not email or '@' not in email:
+            flash('A valid email address is required.', 'error')
             return redirect(url_for('main.register'))
         # ─────────────────────────────────────────────────────────────
         if not username or not password:
@@ -355,8 +362,11 @@ def register():
         if User.query.filter_by(phone=phone).first():
             flash('This phone number is already registered with another account.', 'error')
             return redirect(url_for('main.register'))
-        new_user = User(username=username, password_hash=generate_password_hash(password),
-                        role=role, phone=phone)
+        if User.query.filter_by(email=email).first():
+            flash('This email address is already registered.', 'error')
+            return redirect(url_for('main.register'))
+        new_user = User(username=username, email=email, password_hash=generate_password_hash(password),
+                        role=role, phone=phone, is_approved=(role != 'admin'))
         db.session.add(new_user)
         db.session.commit()
         if role == 'worker':
@@ -364,7 +374,12 @@ def register():
                                status="Idle", performance_rating=5.0)
             db.session.add(wp)
             db.session.commit()
-        write_audit("REGISTER", target=username, detail=f"New {role} account created. Phone: {phone}")
+        elif role == 'admin':
+            flash('Admin account registered! Your account is pending super-admin approval before you can log in.', 'success')
+            write_audit("REGISTER_ADMIN_PENDING", target=username, detail=f"New admin account pending approval. Phone: {phone}")
+            return redirect(url_for('main.login'))
+        write_audit("REGISTER", target=username, detail=f"New {role} account created. Phone: {phone}, Email: {email}")
+        logger.info("registration_success", username=username, role=role, phone=phone, email=email)
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html')
@@ -421,7 +436,11 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if not user or not check_password_hash(user.password_hash, password):
+            logger.warning("login_failed", username=username, ip=request.remote_addr)
             flash('Invalid username or password.', 'error')
+            return redirect(url_for('main.login'))
+        if user.role == 'admin' and not user.is_approved:
+            flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
             return redirect(url_for('main.login'))
         session['user_id'] = user.id
         session['username'] = user.username
@@ -431,11 +450,12 @@ def login():
             user.otp = otp_val
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
-            print(f"\n🔑 [MFA SIMULATOR] OTP for {user.username}: {otp_val}\n")
+            logger.info("mfa_otp_generated", username=user.username, otp=otp_val)
             flash(f"MFA OTP Code (Simulated SMS): {otp_val}", "success")
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
+        logger.info("login_success", username=user.username, role=user.role, ip=request.remote_addr)
         write_audit("LOGIN", target=username, detail="Citizen login successful.")
         flash(f'Welcome back, {user.username}!', 'success')
         return redirect(url_for('main.dashboard'))
@@ -447,6 +467,9 @@ def mfa_verify():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     user = User.query.get(session['user_id'])
+    if user is None:
+        flash('Account not found. Please log in again.', 'error')
+        return redirect(url_for('main.logout'))
     if request.method == 'POST':
         entered_otp = request.form.get('otp', '').strip()
         if user.otp and user.otp_expiry:
@@ -495,7 +518,7 @@ def auth_phone_login():
     user.otp = otp_val
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
-    print(f"\n🔑 [MFA SIMULATOR] Phone OTP for {phone_number}: {otp_val}\n")
+    logger.info("phone_otp_generated", phone=phone_number, otp=otp_val)
     flash(f"OTP sent to {phone_number} (Simulated): {otp_val}", "success")
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
@@ -507,6 +530,69 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.login'))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SECTION 2a — PASSWORD RESET
+# ═══════════════════════════════════════════════════════════════════
+def send_reset_email(user_email, user_id):
+    """Generate a password-reset token and send it via flask-mailman."""
+    from . import mail
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    token = serializer.dumps(str(user_id), salt='password-reset-salt')
+    reset_url = url_for('main.reset_password', token=token, _external=True)
+    subject = 'SmartGarbage — Password Reset Request'
+    body = f'Click the link below to reset your password (valid for 30 minutes):\n\n{reset_url}\n\nIf you did not request this, ignore this email.'
+    try:
+        from flask_mailman import Message
+        msg = Message(subject, recipients=[user_email], body=body)
+        mail.send(msg)
+        return True
+    except Exception as e:
+        logger.error("mail_send_error", error=str(e))
+        return False
+
+
+@main.route('/reset-password-request', methods=['GET', 'POST'])
+def reset_password_request():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        user = User.query.filter_by(username=username).first()
+        if user and user.email:
+            send_reset_email(user.email, user.id)
+            write_audit("PASSWORD_RESET_REQUEST", target=username, detail="Reset email dispatched.")
+        flash('If an account exists, a password reset link has been sent.', 'success')
+        return redirect(url_for('main.login'))
+    return render_template('reset_password_request.html')
+
+
+@main.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        user_id = serializer.loads(token, salt='password-reset-salt', max_age=1800)
+    except SignatureExpired:
+        flash('Password reset link has expired. Please request a new one.', 'error')
+        return redirect(url_for('main.reset_password_request'))
+    except BadSignature:
+        flash('Invalid password reset link.', 'error')
+        return redirect(url_for('main.reset_password_request'))
+    user = User.query.get(int(user_id))
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('main.login'))
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return redirect(url_for('main.reset_password', token=token))
+        user.password_hash = generate_password_hash(password)
+        db.session.commit()
+        write_audit("PASSWORD_RESET_COMPLETE", target=user.username, detail="Password updated via reset link.")
+        flash('Password updated. Please log in.', 'success')
+        return redirect(url_for('main.login'))
+    return render_template('reset_password.html', token=token)
+
 
 # ═══════════════════════════════════════════════════════════════════
 # SECTION 3 — CITIZEN DASHBOARD
@@ -534,6 +620,9 @@ def dashboard():
         else:
             break
     # Keep the computed streak in sync with the stored field
+    if user is None:
+        flash('Account not found. Please log in again.', 'error')
+        return redirect(url_for('main.logout'))
     if user.segregation_streak != streak:
         user.segregation_streak = streak
         db.session.commit()
@@ -598,11 +687,6 @@ def payt_invoice_payment(inv_id):
     # Pass the UPI URL to the template so the front‑end can embed it in a button.
     return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
 
-    # After a citizen completes the UPI payment in their app, they confirm here.
-    # In production this would be replaced by a Razorpay/UPI webhook callback
-    # (server-to-server), but the confirmation step + audit trail is identical.
-    return render_template('payt_payment.html', invoice=invoice, upi_url=upi_url)
-
 
 @main.route('/payt/confirm/<int:inv_id>', methods=['POST'])
 @login_required
@@ -636,7 +720,7 @@ def notifications_stream():
     last_id = 0
     MAX_EVENTS = 50
     def event_stream():
-        nonlocal last_id, MAX_EVENTS, MAX_EVENTS
+        nonlocal last_id, MAX_EVENTS
         # Send current unread immediately
         with current_app.app_context():
             notes = Notification.query.filter_by(
@@ -684,6 +768,8 @@ def notifications_mark_read():
 @login_required
 def redeem_rewards():
     user = User.query.get(session['user_id'])
+    if user is None:
+        return jsonify({"success": False, "message": "Account not found."}), 404
     points_to_redeem = int(request.form.get('points', 0))
     reward_type = request.form.get('reward_type', '')
     if user.green_points >= points_to_redeem:
@@ -699,6 +785,9 @@ def redeem_rewards():
 @login_required
 def declare_waste():
     user = User.query.get(session['user_id'])
+    if user is None:
+        flash('Account not found. Please log in again.', 'error')
+        return redirect(url_for('main.logout'))
     wet = float(request.form.get('wet_kg', 0))
     dry = float(request.form.get('dry_kg', 0))
     sanitary = float(request.form.get('sanitary_kg', 0))
@@ -784,7 +873,7 @@ def _extract_gps_from_exif(img):
             lon = -lon
         return lat, lon
     except Exception as e:
-        print(f"GPS EXIF parse error: {e}")
+        logger.error("gps_exif_parse_error", error=str(e))
         return None
 
 def _download_illegal_media(media_url, auth=None):
@@ -807,7 +896,7 @@ def _download_illegal_media(media_url, auth=None):
             f.write(clean.read())
         return f"uploads/{filename}", gps
     except Exception as e:
-        print(f"Media download error: {e}")
+        logger.error("media_download_error", error=str(e))
         return None, None
 
 @main.route('/webhook/whatsapp', methods=['POST'])
@@ -872,7 +961,7 @@ def webhook_telegram():
                     media_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
                     photo, gps = _download_illegal_media(media_url)
             except Exception as e:
-                print(f"Telegram file error: {e}")
+                logger.error("telegram_file_error", error=str(e))
     if gps:
         lat, lon = gps
     report = IllegalDumpReport(
@@ -922,6 +1011,9 @@ def api_illegal_reports():
 def bwg_ledger():
     if request.method == 'POST':
         user = User.query.get(session['user_id'])
+        if user is None:
+            flash('Account not found. Please log in again.', 'error')
+            return redirect(url_for('main.logout'))
         entity_name = request.form.get('entity_name', '')
         entity_type = request.form.get('entity_type', 'commercial')
         composting_kg = float(request.form.get('composting_kg', 0))
@@ -985,7 +1077,7 @@ def schedule():
         try:
             prediction = predict_miss(selected_ward)
         except Exception as e:
-            print(f"ML Prediction Error: {e}")
+            logger.error("ml_prediction_error", error=str(e))
     return render_template('schedule.html', schedules=schedules, prediction=prediction, selected_ward=selected_ward)
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1014,6 +1106,9 @@ def report():
                                   report_time=report_time, user_id=session['user_id'])
         db.session.add(new_complaint)
         user = User.query.get(session['user_id'])
+        if user is None:
+            flash('Account not found. Please log in again.', 'error')
+            return redirect(url_for('main.logout'))
         user.green_points += 15
         db.session.commit()
         write_audit("COMPLAINT_SUBMIT", target=ward, detail=f"Overflow report filed by {name}.")
@@ -1107,7 +1202,7 @@ def route_optimize():
         """Real road-network distance via OSRM. Falls back to Haversine on any error."""
         try:
             import requests
-            url = (f"http://router.project-osrm.org/route/v1/driving/"
+            url = (f"https://router.project-osrm.org/route/v1/driving/"
                  f"{a['lon']},{a['lat']};{b['lon']},{b['lat']}?overview=false")
             r = requests.get(url, timeout=4)
             if r.status_code == 200:
@@ -1121,7 +1216,7 @@ def route_optimize():
     use_road = False
     try:
         import requests
-        requests.get("http://router.project-osrm.org/route/v1/driving/83.40,18.05;83.41,18.06?overview=false", timeout=3)
+        requests.get("https://router.project-osrm.org/route/v1/driving/83.40,18.05;83.41,18.06?overview=false", timeout=3)
         use_road = True
     except Exception:
         use_road = False
@@ -1331,6 +1426,24 @@ def super_admin():
                 write_audit("SUPER_TOGGLE", target=target.username,
                             detail=f"is_superadmin set to {target.is_superadmin}")
                 flash(f"Updated super-admin flag for {target.username}.", 'success')
+        elif action == 'approve_admin':
+            uid = request.form.get('user_id', type=int)
+            target = User.query.get(uid) if uid else None
+            if target and target.role == 'admin' and not target.is_approved:
+                target.is_approved = True
+                db.session.commit()
+                write_audit("SUPER_APPROVE_ADMIN", target=target.username,
+                            detail="Super-admin approved pending admin account.")
+                flash(f"Admin account '{target.username}' approved.", 'success')
+        elif action == 'deny_admin':
+            uid = request.form.get('user_id', type=int)
+            target = User.query.get(uid) if uid else None
+            if target and target.role == 'admin' and not target.is_approved:
+                db.session.delete(target)
+                db.session.commit()
+                write_audit("SUPER_DENY_ADMIN", target=target.username,
+                            detail="Super-admin denied pending admin account.")
+                flash(f"Admin account '{target.username}' denied and removed.", 'success')
         return redirect(url_for('main.super_admin'))
     users = User.query.order_by(User.id).all()
     return render_template('super_admin.html', users=users, session_user_id=session.get('user_id'))
@@ -1791,6 +1904,48 @@ def csrd_export():
         } for a in all_audits]
     })
 
+@main.route('/analytics/performance-pdf')
+@admin_required
+def performance_pdf():
+    from io import BytesIO
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    d = _compute_analytics()
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter)
+    story = []
+    styles = getSampleStyleSheet()
+    story.append(Paragraph("SmartGarbage Performance Report", styles['Title']))
+    story.append(Spacer(1, 12))
+    data = [
+        ["Metric", "Value"],
+        ["Total Bins", str(len(SmartBin.query.all()))],
+        ["Recycling Rate", f"{d['circular']['recycling_rate']}%"],
+        ["CO2 Saved (kg)", str(d['carbon']['co2_saved_kg'])],
+        ["Optimized Distance (km)", str(d['carbon']['optimized_km'])],
+        ["Traditional Distance (km)", str(d['carbon']['traditional_km'])],
+    ]
+    t = Table(data, hAlign='LEFT')
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+    ]))
+    story.append(t)
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue(), 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=SmartGarbage_Performance_Report.pdf'
+    }
+
 # ═══════════════════════════════════════════════════════════════════
 # SECTION 13 — PWA STATIC ROUTES
 # ═══════════════════════════════════════════════════════════════════
@@ -1815,3 +1970,33 @@ def offline():
 @main.route('/privacy')
 def privacy_policy():
     return render_template('privacy_policy.html', now=datetime.now(timezone.utc))
+
+
+# Deep health check endpoint for deployment orchestrators.
+@main.route('/health')
+def health_check():
+    import time
+    import sqlalchemy
+    start = time.time()
+    db_ok = False
+    db_error = None
+    try:
+        db.session.execute(sqlalchemy.text('SELECT 1'))
+        db_ok = True
+    except Exception as e:
+        db_error = str(e)
+    elapsed_ms = round((time.time() - start) * 1000, 2)
+    payload = {
+        'status': 'healthy' if db_ok else 'unhealthy',
+        'checks': {
+            'database': {
+                'status': 'pass' if db_ok else 'fail',
+                'response_time_ms': elapsed_ms,
+                'error': db_error,
+            }
+        },
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    }
+    if not db_ok:
+        return jsonify(payload), 503
+    return jsonify(payload), 200

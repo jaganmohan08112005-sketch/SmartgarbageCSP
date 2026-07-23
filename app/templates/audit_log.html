@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Security Audit Trail — SmartGarbage Admin{% endblock %}
+{% block title %}{{ _('Security Audit Trail — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
 <style>
   .audit-avatar.role-admin  { background:#2C3E50; }
@@ -19,17 +19,17 @@
         <span style="font-size:1.8rem;">🔒</span>
       </div>
       <div>
-        <h1 class="fw-bold mb-0">Immutable Audit Trail</h1>
-        <p class="text-muted mb-0">Tamper-proof security ledger of all system actions · Last 500 entries</p>
+        <h1 class="fw-bold mb-0">{{ _('Immutable Audit Trail') }}</h1>
+        <p class="text-muted mb-0">{{ _('Tamper-proof security ledger of all system actions · Last 500 entries') }}</p>
       </div>
     </div>
     <div class="d-flex gap-2">
-      <input type="text" id="search_audit" class="form-control" placeholder="🔍 Filter by user, action, target..." style="width:280px;" oninput="filterTable()">
+      <input type="text" id="search_audit" class="form-control" placeholder="🔍 {{ _('Filter by user, action, target...') }}" style="width:280px;" oninput="filterTable()">
       <select class="form-select" id="role_filter" onchange="filterTable()" style="width:130px;">
-        <option value="">All Roles</option>
-        <option value="admin">Admin</option>
-        <option value="worker">Worker</option>
-        <option value="citizen">Citizen</option>
+        <option value="">{{ _('All Roles') }}</option>
+        <option value="admin">{{ _('Admin') }}</option>
+        <option value="worker">{{ _('Worker') }}</option>
+        <option value="citizen">{{ _('Citizen') }}</option>
       </select>
     </div>
   </div>
@@ -40,28 +40,28 @@
       <div class="card border-0 shadow-sm text-center p-3">
         <div style="font-size:2rem;">📋</div>
         <div class="fw-bold fs-4">{{ logs|length }}</div>
-        <div class="text-muted small">Total Events</div>
+        <div class="text-muted small">{{ _('Total Events') }}</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center p-3">
         <div style="font-size:2rem;">👑</div>
         <div class="fw-bold fs-4">{{ logs|selectattr('role','equalto','admin')|list|length }}</div>
-        <div class="text-muted small">Admin Actions</div>
+        <div class="text-muted small">{{ _('Admin Actions') }}</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center p-3">
         <div style="font-size:2rem;">🚛</div>
         <div class="fw-bold fs-4">{{ logs|selectattr('role','equalto','worker')|list|length }}</div>
-        <div class="text-muted small">Worker Actions</div>
+        <div class="text-muted small">{{ _('Worker Actions') }}</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center p-3">
         <div style="font-size:2rem;">🔑</div>
         <div class="fw-bold fs-4">{{ logs|selectattr('action','in',['LOGIN','MFA_SUCCESS','GOOGLE_LOGIN'])|list|length }}</div>
-        <div class="text-muted small">Login Events</div>
+        <div class="text-muted small">{{ _('Login Events') }}</div>
       </div>
     </div>
   </div>
@@ -73,13 +73,13 @@
         <table class="table mb-0" id="audit_table">
           <thead style="position:sticky;top:0;z-index:10;">
             <tr>
-              <th style="width:170px;">Timestamp</th>
-              <th>User</th>
-              <th>Role</th>
-              <th>Action</th>
-              <th>Target</th>
-              <th>Detail</th>
-              <th>IP</th>
+              <th style="width:170px;">{{ _('Timestamp') }}</th>
+              <th>{{ _('User') }}</th>
+              <th>{{ _('Role') }}</th>
+              <th>{{ _('Action') }}</th>
+              <th>{{ _('Target') }}</th>
+              <th>{{ _('Detail') }}</th>
+              <th>{{ _('IP') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -121,7 +121,7 @@
             <tr>
               <td colspan="7" class="text-center py-5 text-muted">
                 <div style="font-size:2.5rem;">📭</div>
-                <p>No audit log entries yet. Actions will appear here as users interact with the system.</p>
+                <p>{{ _('No audit log entries yet. Actions will appear here as users interact with the system.') }}</p>
               </td>
             </tr>
             {% endfor %}

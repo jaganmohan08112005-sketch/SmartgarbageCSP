@@ -1,5 +1,6 @@
 import os
 import logging
+import structlog
 from flask import Flask, render_template, session, redirect, url_for, current_app, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
@@ -7,13 +8,14 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
+from flask_mailman import Mail
 
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
-
-# Live updates: socketio drives real-time bin/fleet pushes to the admin
+mail = Mail()
+socketio = SocketIO()
 # control room. async_mode is chosen at init time in create_app() so it
 # can fall back gracefully when eventlet/gevent are unavailable locally.
 socketio = SocketIO()
@@ -48,6 +50,14 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
+    # Mail Configuration (flask-mailman)
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 25))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
+    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
+    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@smartgarbage.local')
+
     # Shared secret for authenticating IoT telemetry POSTs from ESP32/Arduino
     # devices. When set (production), /api/bin-telemetry requires a valid
     # HMAC-SHA256 signature in the X-Signature header. A dev fallback keeps
@@ -81,6 +91,7 @@ def create_app():
     migrate.init_app(app, db)
     csrf.init_app(app)
     limiter.init_app(app)
+    mail.init_app(app)
 
     # WebSockets for live IoT/fleet updates. Prefer eventlet (needed for the
     # async Gunicorn worker in production); fall back to threading for plain
@@ -105,17 +116,36 @@ def create_app():
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "img-src 'self' data: https:; "
-            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; "
+            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
             "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
         )
         return resp
 
-    # Structured logging
-    if not app.debug and not app.testing:
-        logging.basicConfig(level=logging.INFO,
-                                 format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    # Structured logging with structlog
+    structlog.configure(
+        processors=[
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer()
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+    logger = structlog.get_logger("smartgarbage")
+    app.config['STRUCTLOG_LOGGER'] = logger
+
+    # Keep Python stdlib logging compatible with structlog
+    logging.basicConfig(format="%(message)s", level=logging.INFO)
+    logging.getLogger().handlers[0].setFormatter(structlog.stdlib.ProcessorFormatter(
+        processor=structlog.processors.JSONRenderer()
+    ))
 
     # CORS for the IoT telemetry endpoint only.
     # ESP32/NodeMCU sensors POST cross-origin (from the device's own network /

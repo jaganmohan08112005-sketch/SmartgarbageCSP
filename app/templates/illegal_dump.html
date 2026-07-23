@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Anonymous Illegal Dump Report — SmartGarbage{% endblock %}
+{% block title %}{{ _('Anonymous Illegal Dump Report — SmartGarbage') }}{% endblock %}
 {% block content %}
 <div class="container py-5" style="max-width:720px;">
   <div class="text-center mb-5">
     <div class="mb-3">
       <span style="font-size:3.5rem;">🛡️</span>
     </div>
-    <h1 class="fw-bold" style="color:var(--navy-color);">Anonymous Dump Report</h1>
-    <p class="text-muted">Your identity is <strong>never stored</strong>. GPS is captured from your form input — not from your photo's metadata.</p>
+    <h1 class="fw-bold" style="color:var(--navy-color);">{{ _('Anonymous Dump Report') }}</h1>
+    <p class="text-muted">{{ _('Your identity is') }} <strong>{{ _('never stored') }}</strong>. {{ _('GPS is captured from your form input — not from your photo\'s metadata.') }}</p>
     <div class="alert alert-warning py-2 d-inline-block px-4 rounded-pill">
-      <small>📸 Photos are automatically EXIF-stripped before storage. No device or person data is retained.</small>
+      <small>📸 {{ _('Photos are automatically EXIF-stripped before storage. No device or person data is retained.') }}</small>
     </div>
   </div>
 
@@ -20,7 +20,7 @@
 
         <!-- Dump Category -->
         <div class="mb-4">
-          <label class="form-label fw-semibold">🗑️ Waste Category</label>
+          <label class="form-label fw-semibold">🗑️ {{ _('Waste Category') }}</label>
           <div class="row g-2">
             {% for cat in ['E-Waste / Electronics','Chemical / Industrial','Medical / Bio-hazard','Construction Debris','Plastic Dumping','Other Toxic Waste'] %}
             <div class="col-6 col-md-4">
@@ -36,9 +36,9 @@
 
         <!-- Ward -->
         <div class="mb-4">
-          <label class="form-label fw-semibold">📍 Nearest Ward / Area</label>
+          <label class="form-label fw-semibold">📍 {{ _('Nearest Ward / Area') }}</label>
           <select class="form-select" name="ward">
-            <option value="">— Select approximate location —</option>
+            <option value="">— {{ _('Select approximate location') }} —</option>
             {% for ward in ['Ward 1 - MVGR College Area','Ward 2 - Chintalavalasa Junction','Ward 3 - RTC Colony','Ward 4 - Ramalayam Street','Ward 5 - Sai Nagar'] %}
             <option value="{{ ward }}">{{ ward }}</option>
             {% endfor %}
@@ -48,35 +48,35 @@
         <!-- GPS Coordinates (user-entered, not from photo) -->
         <div class="row g-3 mb-4">
           <div class="col-6">
-            <label class="form-label fw-semibold">🌐 Latitude</label>
+            <label class="form-label fw-semibold">🌐 {{ _('Latitude') }}</label>
             <input type="text" class="form-control" name="latitude" id="lat_field" placeholder="e.g. 18.0675">
           </div>
           <div class="col-6">
-            <label class="form-label fw-semibold">🌐 Longitude</label>
+            <label class="form-label fw-semibold">🌐 {{ _('Longitude') }}</label>
             <input type="text" class="form-control" name="longitude" id="lon_field" placeholder="e.g. 83.4094">
           </div>
           <div class="col-12">
             <button type="button" class="btn btn-outline-success btn-sm" onclick="getLocation()">
-              📡 Auto-detect My Location
+              📡 {{ _('Auto-detect My Location') }}
             </button>
           </div>
         </div>
 
         <!-- Description -->
         <div class="mb-4">
-          <label class="form-label fw-semibold">📝 Description</label>
-          <textarea class="form-control" name="description" rows="3" placeholder="Describe what you observed — type of materials, quantity, any vehicle details (optional)..."></textarea>
+          <label class="form-label fw-semibold">📝 {{ _('Description') }}</label>
+          <textarea class="form-control" name="description" rows="3" placeholder="{{ _('Describe what you observed — type of materials, quantity, any vehicle details (optional)...') }}"></textarea>
         </div>
 
         <!-- Photo Upload -->
         <div class="mb-4">
-          <label class="form-label fw-semibold">📷 Upload Evidence Photo <span class="text-muted fw-normal">(optional)</span></label>
+          <label class="form-label fw-semibold">📷 {{ _('Upload Evidence Photo') }} <span class="text-muted fw-normal">{{ _('(optional)') }}</span></label>
           <input type="file" class="form-control" name="photo" accept="image/*">
-          <div class="form-text">🔒 EXIF metadata (camera model, GPS tag, timestamp) is automatically removed before saving.</div>
+          <div class="form-text">🔒 {{ _('EXIF metadata (camera model, GPS tag, timestamp) is automatically removed before saving.') }}</div>
         </div>
 
         <button type="submit" class="btn btn-danger w-100 py-3 fw-bold">
-          🚨 Submit Anonymous Report
+          🚨 {{ _('Submit Anonymous Report') }}
         </button>
       </form>
     </div>
@@ -85,7 +85,7 @@
   <!-- Map Preview -->
   <div class="card border-0 shadow-sm mt-4">
     <div class="card-body p-3">
-      <div class="fw-semibold mb-2 small text-muted">📍 Pin location on map (click to set coordinates)</div>
+      <div class="fw-semibold mb-2 small text-muted">📍 {{ _('Pin location on map (click to set coordinates)') }}</div>
       <div id="illegal-map" style="height:280px;border-radius:12px;overflow:hidden;"></div>
     </div>
   </div>

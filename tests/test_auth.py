@@ -20,22 +20,26 @@ def test_register_accepts_valid_phone(client):
     response = client.post('/register', data={
         'username': 'testuser3',
         'password': 'testpass123',
-        'phone': '+919876543201'
+        'phone': '+919876543201',
+        'email': 'user3@example.com'
     }, follow_redirects=True)
     assert b'Registration successful' in response.data or b'Please log in' in response.data
 
-def test_admin_registration_forced_to_citizen(client, app):
+def test_admin_registration_requires_approval(client, app):
     from app import db
     response = client.post('/register', data={
         'username': 'wouldbeadmin',
         'password': 'testpass123',
         'phone': '9876543201',
+        'email': 'admin@example.com',
         'role': 'admin'
     }, follow_redirects=True)
     with app.app_context():
         u = User.query.filter_by(username='wouldbeadmin').first()
         assert u is not None
-        assert u.role == 'citizen'
+        assert u.role == 'admin'
+        assert u.is_approved == False
+    assert b'pending approval' in response.data or b'cannot log in' in response.data or b'approval' in response.data
 
 def test_report_requires_login(client):
     response = client.post('/report', data={

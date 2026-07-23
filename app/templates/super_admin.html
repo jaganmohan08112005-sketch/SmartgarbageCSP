@@ -1,43 +1,43 @@
 {% extends 'base.html' %}
-{% block title %}Super-Admin Console - SmartGarbage{% endblock %}
+{% block title %}{{ _('Super-Admin Console - SmartGarbage') }}{% endblock %}
 {% block content %}
 <div class="container py-4">
     <div class="d-flex align-items-center gap-2 mb-4">
         <span class="sg-icon">🛡️</span>
-        <h3 class="fw-bold text-dark mb-0">Super-Admin Console</h3>
+        <h3 class="fw-bold text-dark mb-0">{{ _('Super-Admin Console') }}</h3>
     </div>
-    <p class="text-muted">Privileged account management. New admin accounts can only be created here — public self-registration is restricted to citizen/worker roles.</p>
+    <p class="text-muted">{{ _('Privileged account management. New admin accounts can only be created here — public self-registration is restricted to citizen/worker roles.') }}</p>
 
     <!-- Create admin -->
     <div class="card border-0 shadow-sm bg-white p-4 mb-4">
-        <h5 class="fw-bold text-dark mb-3">➕ Create Admin Account</h5>
+        <h5 class="fw-bold text-dark mb-3">➕ {{ _('Create Admin Account') }}</h5>
         <form method="POST" action="/admin/super">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="create_admin">
             <div class="row g-2">
                 <div class="col-md-4">
-                    <input name="username" class="form-control" placeholder="Username" required>
+                    <input name="username" class="form-control" placeholder="{{ _('Username') }}" required>
                 </div>
                 <div class="col-md-4">
-                    <input name="password" type="password" class="form-control" placeholder="Password (min 6)" minlength="6" required>
+                    <input name="password" type="password" class="form-control" placeholder="{{ _('Password (min 6)') }}" minlength="6" required>
                 </div>
                 <div class="col-md-4">
-                    <input name="phone" class="form-control" placeholder="Admin mobile (+91...)" required>
+                    <input name="phone" class="form-control" placeholder="{{ _('Admin mobile (+91...)') }}" required>
                 </div>
             </div>
-            <button type="submit" class="btn btn-success mt-3 fw-bold rounded-pill px-4">Create Admin</button>
+            <button type="submit" class="btn btn-success mt-3 fw-bold rounded-pill px-4">{{ _('Create Admin') }}</button>
         </form>
     </div>
 
     <!-- User list -->
     <div class="card border-0 shadow-sm bg-white p-4">
-        <h5 class="fw-bold text-dark mb-3">👥 All Accounts</h5>
+        <h5 class="fw-bold text-dark mb-3">👥 {{ _('All Accounts') }}</h5>
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead>
                     <tr>
-                        <th>ID</th><th>Username</th><th>Role</th>
-                        <th>Phone</th><th>Approved</th><th>Super?</th><th></th>
+                        <th>{{ _('ID') }}</th><th>{{ _('Username') }}</th><th>{{ _('Role') }}</th>
+                        <th>{{ _('Phone') }}</th><th>{{ _('Approved') }}</th><th>{{ _('Super?') }}</th><th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,14 +51,29 @@
                         <td>{% if u.is_superadmin %}⭐{% else %}—{% endif %}</td>
                         <td>
                             {% if u.id != session_user_id %}
-                            <form method="POST" action="/admin/super" class="d-inline">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="action" value="toggle_super">
-                                <input type="hidden" name="user_id" value="{{ u.id }}">
-                                <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill">
-                                    {% if u.is_superadmin %}Revoke Super{% else %}Make Super{% endif %}
-                                </button>
-                            </form>
+                                {% if u.role == 'admin' and not u.is_approved %}
+                                <form method="POST" action="/admin/super" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="approve_admin">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <button type="submit" class="btn btn-sm btn-success rounded-pill me-1">Approve</button>
+                                </form>
+                                <form method="POST" action="/admin/super" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="deny_admin">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <button type="submit" class="btn btn-sm btn-danger rounded-pill">Deny</button>
+                                </form>
+                                {% else %}
+                                <form method="POST" action="/admin/super" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="toggle_super">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill">
+                                        {% if u.is_superadmin %}{{ _('Revoke Super') }}{% else %}{{ _('Make Super') }}{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>

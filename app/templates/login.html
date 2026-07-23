@@ -47,6 +47,9 @@
                         <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
                             <i class="fa-solid fa-right-to-bracket me-1"></i> {{ _('Sign In') }}
                         </button>
+                        <div class="text-center">
+                            <a href="{{ url_for('main.reset_password_request') }}" class="text-muted small text-decoration-none">{{ _('Forgot password?') }}</a>
+                        </div>
                     </form>
                 </div>
 

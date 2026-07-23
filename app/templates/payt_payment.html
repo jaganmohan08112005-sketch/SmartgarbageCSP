@@ -1,39 +1,39 @@
 {% extends 'base.html' %}
-{% block title %}Pay PAYT Invoice - SmartGarbage{% endblock %}
+{% block title %}{{ _('Pay PAYT Invoice - SmartGarbage') }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
     <div class="col-md-6 col-lg-5">
         <div class="card p-4 border-0 shadow-sm text-center">
             <div class="fs-1 mb-2">💳</div>
-            <h3 class="fw-bold mt-2 mb-1">PAYT Invoice</h3>
-            <p class="text-muted small">Pay using any UPI app (Google Pay, PhonePe, Paytm, BHIM).</p>
+            <h3 class="fw-bold mt-2 mb-1">{{ _('PAYT Invoice') }}</h3>
+            <p class="text-muted small">{{ _('Pay using any UPI app (Google Pay, PhonePe, Paytm, BHIM).') }}</p>
 
             <div class="amt" style="font-size:2.5rem;font-weight:800;color:var(--sg-primary);">
                 ₹{{ "%.2f"|format(invoice.amount_rs) }}
             </div>
-            <p class="mb-1"><strong>Period:</strong> {{ invoice.period }}</p>
-            <p class="mb-3"><strong>Compliance:</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
+            <p class="mb-1"><strong>{{ _('Period:') }}</strong> {{ invoice.period }}</p>
+            <p class="mb-3"><strong>{{ _('Compliance:') }}</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
 
             {% if invoice.status == 'Paid' %}
                 <div class="alert alert-success border-0 shadow-sm text-start small">
                     <i class="fa-solid fa-circle-check me-1"></i>
-                    <strong>Payment confirmed.</strong> Thank you!<br>
-                    <span class="text-muted">Ref: {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
+                    <strong>{{ _('Payment confirmed.') }}</strong> {{ _('Thank you!') }}<br>
+                    <span class="text-muted">{{ _('Ref:') }} {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
                 </div>
             {% else %}
                 <a class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
                     <i class="fa-solid fa-mobile-screen-button me-1"></i>
-                    Pay ₹{{ "%.2f"|format(invoice.amount_rs) }} via UPI
+                    {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('via UPI') }}
                 </a>
-                <p class="text-muted small mb-3">You'll be redirected to your UPI app to authorize the payment.</p>
+                <p class="text-muted small mb-3">{{ _('You\'ll be redirected to your UPI app to authorize the payment.') }}</p>
 
                 <form method="POST" action="{{ url_for('main.payt_confirm_payment', inv_id=invoice.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-success w-100 fw-bold rounded-pill">
-                        <i class="fa-solid fa-check me-1"></i> I've completed the UPI payment
+                        <i class="fa-solid fa-check me-1"></i> {{ _('I\'ve completed the UPI payment') }}
                     </button>
                 </form>
-                <p class="text-muted mt-2 mb-0 small">Confirm here once the payment succeeds in your UPI app.</p>
+                <p class="text-muted mt-2 mb-0 small">{{ _('Confirm here once the payment succeeds in your UPI app.') }}</p>
             {% endif %}
         </div>
     </div>

@@ -13,21 +13,21 @@
             <div class="d-flex align-items-center gap-3">
                 <span class="sg-icon-lg">🚛</span>
                 <div>
-                    <h4 class="mb-0 text-success fw-bold">Driver Portal</h4>
-                    <p class="text-muted mb-0 small">Welcome, <strong>{{ session.get('username') }}</strong> | Truck: <code>{{ profile.vehicle_id if profile else 'CV-01' }}</code></p>
+                    <h4 class="mb-0 text-success fw-bold">{{ _('Driver Portal') }}</h4>
+                    <p class="text-muted mb-0 small">{{ _('Welcome,') }} <strong>{{ session.get('username') }}</strong> | Truck: <code>{{ profile.vehicle_id if profile else 'CV-01' }}</code></p>
                 </div>
             </div>
             <div class="d-flex gap-2 mt-3 pt-2 border-top justify-content-between small text-secondary">
-                <span>Status: <strong class="text-success">Active Duty</strong></span>
-                <span>Rating: <strong class="text-warning">★ {{ profile.performance_rating if profile else '4.9' }}</strong></span>
+                <span>{{ _('Status:') }} <strong class="text-success">{{ _('Active Duty') }}</strong></span>
+                <span>{{ _('Rating:') }} <strong class="text-warning">★ {{ profile.performance_rating if profile else '4.9' }}</strong></span>
             </div>
         </div>
 
         <!-- Task Checklist queue (High contrast mobile responsive) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
-                <span>📋 Active Pickups Queue</span>
-                <span class="badge bg-danger rounded-pill small" id="taskCount">{{ work_bins|length }} Pending</span>
+                <span>📋 {{ _('Active Pickups Queue') }}</span>
+                <span class="badge bg-danger rounded-pill small" id="taskCount">{{ work_bins|length }} {{ _('Pending') }}</span>
             </h5>
             
             <div class="list-group gap-2" id="taskQueueList">
@@ -36,23 +36,23 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold text-dark mb-0">{{ b.hardware_id }}</h6>
                         <span class="badge {% if b.status == 'Critical' %}bg-danger{% else %}bg-warning text-dark{% endif %}" id="task-badge-{{ b.hardware_id }}">
-                            {{ b.level }}% Full
+                            {{ b.level }}% {{ _('Full') }}
                         </span>
                     </div>
                     <p class="text-muted small mb-2">📍 {{ b.ward }}</p>
                     <div class="d-flex gap-2">
                         <button class="btn btn-sm btn-outline-success flex-grow-1 fw-bold rounded-pill locate-btn" data-hw-id="{{ b.hardware_id }}">
-                            🗺️ Navigate
+                            🗺️ {{ _('Navigate') }}
                         </button>
                         <button class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill clear-btn" data-hw-id="{{ b.hardware_id }}">
-                            ✔ Clear Bins
+                            ✔ {{ _('Clear Bins') }}
                         </button>
                     </div>
                 </div>
                 {% else %}
                 <div class="text-center py-4 text-muted">
                     <span class="sg-icon-lg">✅</span>
-                    <p class="mb-0 mt-2 small">All bins cleared in your sector!</p>
+                    <p class="mb-0 mt-2 small">{{ _('All bins cleared in your sector!') }}</p>
                 </div>
                 {% endfor %}
             </div>
@@ -60,76 +60,76 @@
 
         <!-- Immediate Issue Reporter Form -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
-            <h5 class="fw-bold mb-3 text-danger">⚠️ Incident / Obstruction Reporter</h5>
+            <h5 class="fw-bold mb-3 text-danger">⚠️ {{ _('Incident / Obstruction Reporter') }}</h5>
             <form method="POST" action="/worker/report-issue">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">Target Bin ID</label>
+                    <label class="form-label small fw-bold text-secondary">{{ _('Target Bin ID') }}</label>
                     <select name="bin_id" class="form-select form-select-sm" required>
-                        <option value="" disabled selected>-- Select Bin --</option>
+                        <option value="" disabled selected>-- {{ _('Select Bin') }} --</option>
                         {% for b in work_bins %}
                         <option value="{{ b.hardware_id }}">{{ b.hardware_id }} ({{ b.ward }})</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">Flag Issue Type</label>
+                    <label class="form-label small fw-bold text-secondary">{{ _('Flag Issue Type') }}</label>
                     <select name="issue_type" class="form-select form-select-sm" required>
-                        <option value="Broken Lid">Broken Lid</option>
-                        <option value="Broken Wheels/Vandalism">Broken Wheels / Vandalism</option>
-                        <option value="Road Obstruction">Road Obstruction</option>
+                        <option value="Broken Lid">{{ _('Broken Lid') }}</option>
+                        <option value="Broken Wheels/Vandalism">{{ _('Broken Wheels / Vandalism') }}</option>
+                        <option value="Road Obstruction">{{ _('Road Obstruction') }}</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">Description</label>
-                    <textarea name="details" class="form-control form-control-sm" rows="2" placeholder="Explain damage or blockage details..." required></textarea>
+                    <label class="form-label small fw-bold text-secondary">{{ _('Description') }}</label>
+                    <textarea name="details" class="form-control form-control-sm" rows="2" placeholder="{{ _('Explain damage or blockage details...') }}" required></textarea>
                 </div>
                 <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold rounded-pill">
-                    🚀 Dispatch Issue Report
+                    🚀 {{ _('Dispatch Issue Report') }}
                 </button>
             </form>
         </div>
 
         <!-- Offloading Checkpoint / Digital Manifest Form -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-3 border-success">
-            <h5 class="fw-bold mb-1 text-success">🚛 Offloading Checkpoint</h5>
-            <p class="text-muted small">Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.</p>
+            <h5 class="fw-bold mb-1 text-success">🚛 {{ _('Offloading Checkpoint') }}</h5>
+            <p class="text-muted small">{{ _('Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.') }}</p>
             
             <form method="POST" action="/worker/offload">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">Select Dump Yard ID</label>
+                    <label class="form-label small fw-bold text-secondary">{{ _('Select Dump Yard ID') }}</label>
                     <select name="dump_yard_id" class="form-select form-select-sm" required>
-                        <option value="" disabled selected>-- Select Dump Yard --</option>
+                        <option value="" disabled selected>-- {{ _('Select Dump Yard') }} --</option>
                         {% for yard in dump_yards %}
                         <option value="{{ yard }}">{{ yard }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">Total Garbage Weight (kg)</label>
+                    <label class="form-label small fw-bold text-secondary">{{ _('Total Garbage Weight (kg)') }}</label>
                     <div class="input-group input-group-sm">
                         <input type="number" name="weight_kg" class="form-control" placeholder="e.g. 420.5" step="0.1" min="1" required>
                         <span class="input-group-text bg-light fw-bold">kg</span>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success btn-sm w-100 fw-bold rounded-pill shadow-sm">
-                    🔒 Log &amp; Verify Digital Manifest
+                    🔒 {{ _('Log & Verify Digital Manifest') }}
                 </button>
             </form>
         </div>
 
         <!-- Recent Offload Verification Logs -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
-            <h6 class="fw-bold text-dark mb-2">📜 Irreversible Offload Ledger</h6>
+            <h6 class="fw-bold text-dark mb-2">📜 {{ _('Irreversible Offload Ledger') }}</h6>
             <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
                 <table class="table table-sm table-hover align-middle mb-0" style="font-size:0.8rem;">
                     <thead class="table-light sticky-top">
                         <tr>
-                            <th>Time</th>
-                            <th>Yard</th>
-                            <th>Weight</th>
-                            <th>Status</th>
+                            <th>{{ _('Time') }}</th>
+                            <th>{{ _('Yard') }}</th>
+                            <th>{{ _('Weight') }}</th>
+                            <th>{{ _('Status') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -140,15 +140,15 @@
                             <td>{{ log.weight_kg }} kg</td>
                             <td>
                                 {% if log.impurity_flagged %}
-                                <span class="badge bg-danger">⚠️ Impure</span>
+                                <span class="badge bg-danger">⚠️ {{ _('Impure') }}</span>
                                 {% else %}
-                                <span class="badge bg-success">Verified</span>
+                                <span class="badge bg-success">{{ _('Verified') }}</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">No offloads logged in this shift.</td>
+                            <td colspan="4" class="text-center text-muted py-3">{{ _('No offloads logged in this shift.') }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -160,12 +160,12 @@
     <!-- Navigation Map Column -->
     <div class="col-md-7 col-sm-12">
         <div class="card p-3 border-0 shadow-sm bg-white h-100 sticky-top" style="top: 85px; min-height: 400px; z-index: 1;">
-            <h5 class="fw-bold mb-3 text-dark">🗺️ Shift Route Navigation Map</h5>
+            <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Shift Route Navigation Map') }}</h5>
             
             <div id="workerNavMap" style="height: 520px; border-radius: 12px; border: 1px solid #dee2e6;"></div>
             
             <div class="alert alert-info mt-3 border-0 small mb-0">
-                <strong>💡 Routing tip:</strong> Click <b>"Navigate"</b> in the pickup checklist queue to pan the map directly to the destination and draw the quickest path.
+                <strong>💡 {{ _('Routing tip:') }}</strong> {{ _('Click') }} <b>"Navigate"</b> {{ _('in the pickup checklist queue to pan the map directly to the destination and draw the quickest path.') }}
             </div>
         </div>
     </div>

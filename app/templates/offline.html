@@ -1,36 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SmartGarbage — Offline</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        body { font-family: 'Outfit', sans-serif; background: #f4f7f6; min-height: 100vh;
-               display: flex; align-items: center; justify-content: center; margin: 0; }
-        .card { max-width: 460px; background: #fff; border-radius: 16px; padding: 2rem;
-                box-shadow: 0 10px 40px rgba(0,0,0,.08); text-align: center; }
-        .icon { font-size: 3rem; }
-        .actions a { display: block; margin: .5rem 0; padding: .75rem; border-radius: 12px;
-                     background: #e8f8f5; color: #0f5132; text-decoration: none; font-weight: 600; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">📡</div>
-        <h3 class="fw-bold mt-2 mb-1">You're offline</h3>
+{% extends 'base.html' %}
+{% block title %}SmartGarbage — Offline{% endblock %}
+{% block content %}
+<div class="container text-center mt-5 mb-5">
+    <div class="card border-0 shadow-sm p-5 mx-auto animate-fade-in" style="max-width: 560px; border-radius: 18px;">
+        <div class="display-1 mb-2">📡</div>
+        <h3 class="fw-bold mt-2 mb-1">{{ _('You\'re offline') }}</h3>
         <p class="text-muted small">
-            Spotty signal is normal in rural areas. Here's what you can still do — your
-            actions will sync when you're back online.
+            {{ _('Spotty signal is normal in rural areas. Here\'s what you can still do — your actions will sync when you\'re back online.') }}
         </p>
-        <div class="actions mt-3">
-            <a href="/report">📋 Draft a waste report</a>
-            <a href="/schedule">📅 View collection schedule</a>
-            <a href="/transparency">🏘️ Ward transparency</a>
-            <a href="/">🏠 Go to home</a>
+        <div class="d-grid gap-2 mt-3">
+            <a href="/report" class="btn btn-outline-danger w-100 fw-bold">📋 {{ _('Draft a waste report') }}</a>
+            <a href="/schedule" class="btn btn-outline-success w-100 fw-bold">📅 {{ _('View collection schedule') }}</a>
+            <a href="/transparency" class="btn btn-outline-primary w-100 fw-bold">🏘️ {{ _('Ward transparency') }}</a>
+            <a href="/" class="btn btn-success w-100 fw-bold shadow-sm">🏠 {{ _('Go to home') }}</a>
         </div>
-        <p class="text-muted mt-3 mb-0 small" id="retry-hint">Tap reload to retry connection.</p>
+        <p class="text-muted mt-3 mb-0 small" id="retry-hint">{{ _('Tap reload to retry connection.') }}</p>
     </div>
-    <script>window.addEventListener('online', () => location.reload());</script>
-</body>
-</html>
+</div>
+<script>window.addEventListener('online', () => location.reload());</script>
+{% endblock %}

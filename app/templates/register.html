@@ -10,7 +10,7 @@
                 <p class="text-muted small">{{ _('Register to track and report sanitation issues in Chintalavalasa') }}</p>
             </div>
             
-            <form method="POST" novalidate>
+            <form method="POST" action="/register" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- Username -->
@@ -47,6 +47,18 @@
                     <small class="text-muted">{{ _('Indian mobile only — 10 digits starting with 6-9 (e.g. 9876543210 or +91 9876543210).') }}</small>
                 </div>
 
+                <!-- Email Address -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-secondary">{{ _('Email Address') }} <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted">✉️</span>
+                        <input name="email" id="reg_email" type="email" class="form-control"
+                               placeholder="{{ _('e.g. user@example.com') }}"
+                               required>
+                    </div>
+                    <small class="text-muted">{{ _('Required for password reset and notifications.') }}</small>
+                </div>
+
                 <!-- Account Role -->
                 <div class="mb-4">
                     <label class="form-label fw-bold text-secondary">{{ _('Account Role') }}</label>
@@ -55,8 +67,10 @@
                         <select name="role" id="reg_role" class="form-select" required>
                             <option value="citizen" selected>{{ _('Standard Citizen (User)') }}</option>
                             <option value="worker">{{ _('Sanitation Worker (Worker)') }}</option>
+                            <option value="admin">{{ _('Admin (Requires Approval)') }}</option>
                         </select>
                     </div>
+                    <small class="text-muted">{{ _('Admin accounts require super-admin approval before login is enabled.') }}</small>
                 </div>
                 
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
