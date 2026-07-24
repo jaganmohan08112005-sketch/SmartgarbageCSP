@@ -1,0 +1,4 @@
+playwright==1.55.0
+pytest==9.1.1
+pytest-playwright==0.7.0
+requests==2.32.4
