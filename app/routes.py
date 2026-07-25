@@ -716,7 +716,7 @@ def payt_confirm_payment(inv_id):
 @login_required
 def notifications_stream():
     from flask import Response, stream_with_context
-    import time as _time
+    from . import socketio
     last_id = 0
     MAX_EVENTS = 50
     def event_stream():
@@ -733,7 +733,9 @@ def notifications_stream():
                     return
         # Poll for new notifications (lightweight SSE)
         while True:
-            _time.sleep(5)
+            # Cooperative sleep: a blocking time.sleep() here would stall the
+            # whole eventlet hub and hang every other request.
+            socketio.sleep(5)
             with current_app.app_context():
                 new = Notification.query.filter(
                     Notification.user_id == session['user_id'],

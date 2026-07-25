@@ -122,7 +122,11 @@ def create_app():
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-            "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
+            # The service worker precaches the CDN assets, so they need to be
+            # fetchable from script context too, not just as <link>/<script>.
+            "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com "
+            "https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net "
+            "https://cdnjs.cloudflare.com https://unpkg.com"
         )
         return resp
 
