@@ -48,12 +48,84 @@
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
                 <div class="navbar-nav ms-auto align-items-center gap-1">
                     <a class="nav-link text-white px-3" href="/">{{ _('Home') }}</a>
+                    {% set role = session.get('role') %}
+                    {%- if role == 'admin' -%}
+                        {% set features = [
+                            ('/admin#kpi-section', '📊', _('Overview Metrics'), _('Live KPIs: bins, critical alerts, fleet, daily tonnage.')),
+                            ('/admin#gis-section', '🗺️', _('GIS Telemetry Map'), _('Bin-by-bin fill, methane and battery telemetry on the map.')),
+                            ('/admin#fleet-section', '🛰️', _('Fleet Geo-Fencing'), _('Track trucks live and catch sector violations.')),
+                            ('/admin#maintenance-section', '🛠️', _('Predictive Maintenance'), _('Bins whose sensors went silent, before they fail.')),
+                            ('/admin#worker-section', '🚛', _('Worker & Fleet Registry'), _('Crew, assigned vehicles and shift status.')),
+                            ('/admin#illegal-section', '🚨', _('Illegal Dump Reports'), _('Geo-tagged dumping photos from the WhatsApp/Telegram bots.')),
+                            ('/admin#bot-simulator-section', '🤖', _('Bot Simulator'), _('Send a test WhatsApp/Telegram message through the webhooks.')),
+                            ('/admin#bwg-section', '🏢', _('BWG Pickup Requests'), _('Approve bulk-waste generator pickups.')),
+                            ('/admin#tickets-section', '🎫', _('Citizen Complaints'), _('Open overflow tickets awaiting resolution.')),
+                            ('/admin#webhooks-section', '🔗', _('Webhook Config'), _('Endpoints notified on critical bin events.')),
+                            ('/admin/audit', '🔒', _('Audit Trail'), _('Every privileged action, who did it and when.')),
+                            ('/admin/firmware', '📡', _('OTA Firmware Hub'), _('Publish firmware for the bin controllers.')),
+                            ('/analytics', '📈', _('Analytics Hub'), _('Trends, CSRD export and performance reports.')),
+                            ('/schedule', '📅', _('Collection Schedules'), _('Ward pickup timings and miss prediction.')),
+                            ('/transparency', '🏛️', _('Ward Transparency'), _('Public ward scorecard: fill, complaints, segregation.'))
+                        ] %}
+                    {%- elif role == 'worker' -%}
+                        {% set features = [
+                            ('/worker#task-queue', '📋', _('Task Queue'), _('Bins assigned to your shift, sorted by urgency.')),
+                            ('/worker#route-map', '🗺️', _('Route Navigation Map'), _('Turn-by-turn shift route across your sector.')),
+                            ('/worker#incident-report', '⚠️', _('Incident Reporter'), _('Flag obstructions, damaged bins or blocked roads.')),
+                            ('/worker#offload', '🚛', _('Offloading Checkpoint'), _('Log tonnage offloaded at the processing facility.')),
+                            ('/schedule', '📅', _('Collection Schedules'), _('Ward pickup timings and miss prediction.')),
+                            ('/transparency', '🏛️', _('Ward Transparency'), _('Public ward scorecard: fill, complaints, segregation.'))
+                        ] %}
+                    {%- elif role -%}
+                        {% set features = [
+                            ('/dashboard#wallet', '🌱', _('Eco-Reward Wallet'), _('Your Green Points and coupons to redeem.')),
+                            ('/dashboard#declare-waste', '♻️', _('Waste Declaration'), _('Declare wet, dry, sanitary and hazardous waste.')),
+                            ('/dashboard#emergency-request', '🚨', _('Emergency Cleanup'), _('Photo + GPS report that dispatches a truck.')),
+                            ('/dashboard#bin-locator', '🗺️', _('Smart Bin Locator'), _('Nearest public bins and their live fill level.')),
+                            ('/dashboard#payt', '💳', _('PAYT Invoices'), _('Pay-as-you-throw bills and UPI payment.')),
+                            ('/dashboard#leaderboard', '🏆', _('Leaderboards'), _('Ward cleanliness, eco champions and segregation rates.')),
+                            ('/dashboard#my-tickets', '🎫', _('My Tickets'), _('Status of every complaint you raised.')),
+                            ('/report-illegal', '📸', _('Report Illegal Dumping'), _('Upload a geo-tagged photo of a dump site.')),
+                            ('/bwg-ledger', '🏢', _('Bulk Waste Ledger'), _('Bulk generators: declare waste and request pickup.')),
+                            ('/schedule', '📅', _('Collection Schedules'), _('Ward pickup timings and miss prediction.')),
+                            ('/report', '📝', _('Report an Issue'), _('Raise a complaint about a missed or overflowing bin.')),
+                            ('/transparency', '🏛️', _('Ward Transparency'), _('Public ward scorecard: fill, complaints, segregation.'))
+                        ] %}
+                    {%- else -%}
+                        {% set features = [
+                            ('/#weather-widget', '🌦️', _('Ward Weather'), _('Live weather for every Chintalavalasa ward.')),
+                            ('/transparency', '🏛️', _('Ward Transparency'), _('Public ward scorecard: fill, complaints, segregation.')),
+                            ('/login', '🔑', _('Login'), _('Citizen, worker and admin portals.')),
+                            ('/register', '📝', _('Sign Up'), _('Create a citizen account and start earning Green Points.'))
+                        ] %}
+                    {%- endif -%}
+                    <div class="nav-item dropdown">
+                        <a class="nav-link text-white px-3 dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            🧭 {{ _('Features') }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 p-2" style="max-height: 70vh; overflow-y: auto; width: 22rem;">
+                            <li><h6 class="dropdown-header text-uppercase small">{{ _('What you can do here') }}</h6></li>
+                            {% for url, icon, name, desc in features %}
+                            <li>
+                                <a class="dropdown-item rounded-3 py-2 text-wrap" href="{{ url }}">
+                                    <div class="d-flex gap-2">
+                                        <span>{{ icon }}</span>
+                                        <div>
+                                            <div class="fw-semibold text-dark">{{ name }}</div>
+                                            <div class="small text-muted">{{ desc }}</div>
+                                        </div>
+                                    </div>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                     {% if session.get('user_id') %}
-                        {% if session.get('role') == 'admin' %}
+                        {% if role == 'admin' %}
                             <a class="nav-link text-white px-3" href="/schedule">{{ _('Schedules') }}</a>
                             <a class="nav-link text-white px-3" href="/analytics">📈 {{ _('Analytics Hub') }}</a>
                             <a class="nav-link text-warning fw-bold px-3" href="/admin">🔧 {{ _('Admin Console') }}</a>
-                        {% elif session.get('role') == 'worker' %}
+                        {% elif role == 'worker' %}
                             <a class="nav-link text-info fw-bold px-3" href="/worker">🚛 {{ _('Worker Portal') }}</a>
                         {% else %}
                             <a class="nav-link text-white px-3" href="/schedule">{{ _('Schedules') }}</a>
@@ -112,6 +184,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/feature-nav.js') }}"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");
