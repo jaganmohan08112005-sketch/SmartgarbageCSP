@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import base64
 import hmac
 import hashlib
 import random
@@ -11,6 +12,7 @@ from functools import wraps
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import (Blueprint, render_template, request, jsonify, abort,
                    redirect, url_for, session, flash, current_app, send_from_directory)
+from urllib.parse import urlparse
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
@@ -74,9 +76,12 @@ def save_compressed_photo(file_storage, prefix):
 
     Opens with Pillow, resizes to MAX_IMAGE_DIM on the longest edge, re-saves as
     JPEG at JPEG_QUALITY (~5-10x smaller than phone photos), strips all EXIF as a
-    privacy side-effect. Falls back to the raw file on any error.
+    privacy side-effect. Returns None when the upload isn't a decodable image.
     """
-    filename = f"{prefix}_{random.randint(10000, 99999)}_{secure_filename(file_storage.filename)}"
+    # Always land on a .jpg name: the uploaded extension is attacker-controlled
+    # and UPLOAD_FOLDER is served from /static, so a .html/.svg upload would be
+    # stored XSS on our own origin.
+    filename = f"{prefix}_{random.randint(10000, 99999)}.jpg"
     try:
         from PIL import Image
         import io
@@ -88,9 +93,9 @@ def save_compressed_photo(file_storage, prefix):
         img.save(buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
         data = buf.getvalue()
     except Exception as e:
-        current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
-        file_storage.seek(0)
-        data = file_storage.read()
+        # Anything Pillow can't decode is not an image; don't persist raw bytes.
+        current_app.logger.warning("Rejected non-image upload %s: %s", filename, e)
+        return None
 
     # Cloudinary is optional. If CLOUDINARY_URL is set, upload there; else local disk.
     cloudinary_url = os.getenv('CLOUDINARY_URL')
@@ -423,6 +428,21 @@ def register_picker():
         return redirect(url_for('main.login'))
     return render_template('register_picker.html')
 
+MAX_MFA_ATTEMPTS = 5
+
+
+def _start_authenticated_session():
+    """Drop any pre-login session state before granting a login.
+
+    Prevents session fixation: an attacker-planted session cookie must not
+    survive into the authenticated session. The chosen language is UI-only
+    state and is carried over so the user doesn't lose it."""
+    lang = session.get('lang')
+    session.clear()
+    if lang:
+        session['lang'] = lang
+
+
 @main.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10/minute")
 def login():
@@ -442,6 +462,7 @@ def login():
         if user.role == 'admin' and not user.is_approved:
             flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
             return redirect(url_for('main.login'))
+        _start_authenticated_session()
         session['user_id'] = user.id
         session['username'] = user.username
         session['role'] = user.role
@@ -450,7 +471,7 @@ def login():
             user.otp = otp_val
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
-            logger.info("mfa_otp_generated", username=user.username, otp=otp_val)
+            logger.info("mfa_otp_generated", username=user.username)
             flash(f"MFA OTP Code (Simulated SMS): {otp_val}", "success")
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
@@ -474,9 +495,10 @@ def mfa_verify():
         entered_otp = request.form.get('otp', '').strip()
         if user.otp and user.otp_expiry:
             expiry = user.otp_expiry if user.otp_expiry.tzinfo else user.otp_expiry.replace(tzinfo=timezone.utc)
-            if expiry > datetime.now(timezone.utc) and user.otp == entered_otp:
+            if expiry > datetime.now(timezone.utc) and hmac.compare_digest(user.otp, entered_otp):
                 user.otp = None; user.otp_expiry = None
                 db.session.commit()
+                session['mfa_attempts'] = 0
                 session['mfa_pending'] = False
                 write_audit("MFA_SUCCESS", target=user.username, detail="MFA verified successfully.")
                 flash(f'MFA Verified. Welcome, {user.username}!', 'success')
@@ -484,6 +506,15 @@ def mfa_verify():
                 elif user.role == 'worker': return redirect(url_for('main.worker'))
                 return redirect(url_for('main.dashboard'))
             else:
+                # Burn the code after a handful of guesses so a 6-digit OTP
+                # can't be brute-forced within its 5-minute window.
+                session['mfa_attempts'] = session.get('mfa_attempts', 0) + 1
+                if session['mfa_attempts'] >= MAX_MFA_ATTEMPTS:
+                    user.otp = None; user.otp_expiry = None
+                    db.session.commit()
+                    logger.warning("mfa_attempts_exceeded", username=user.username, ip=request.remote_addr)
+                    flash('Too many incorrect codes. Please log in again.', 'error')
+                    return redirect(url_for('main.logout'))
                 flash('Invalid or expired OTP.', 'error')
         else:
             flash('OTP not found. Please log in again.', 'error')
@@ -518,8 +549,9 @@ def auth_phone_login():
     user.otp = otp_val
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
-    logger.info("phone_otp_generated", phone=phone_number, otp=otp_val)
+    logger.info("phone_otp_generated", phone=phone_number)
     flash(f"OTP sent to {phone_number} (Simulated): {otp_val}", "success")
+    _start_authenticated_session()
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
     return redirect(url_for('main.mfa_verify'))
@@ -679,6 +711,8 @@ def payt_invoice_payment(inv_id):
     In production we'd use Razorpay/UPI SDK for formal checkout flow.
     """
     invoice = PAYTInvoice.query.get_or_404(inv_id)
+    if invoice.user_id != session['user_id'] and session.get('role') != 'admin':
+        abort(403)
     # Build a UPI deep-link that any UPI app can open.
     # UPI deep links expect the amount in decimal rupees (e.g. "150.00"), not paise.
     upi_url = (f"upi://pay?pa={os.getenv('RAZOR_PAYER', 'smartgarbage@ybl')}"
@@ -878,11 +912,28 @@ def _extract_gps_from_exif(img):
         logger.error("gps_exif_parse_error", error=str(e))
         return None
 
+# Only the bot platforms host media we are willing to fetch. The media URL
+# arrives inside an unauthenticated webhook body, so without this allowlist it
+# is an SSRF handle onto the internal network / cloud metadata service.
+MEDIA_HOST_ALLOWLIST = ('api.twilio.com', 'media.twiliocdn.com', 'api.telegram.org')
+
+
+def _is_allowed_media_url(media_url):
+    parsed = urlparse(media_url or '')
+    host = (parsed.hostname or '').lower()
+    return parsed.scheme == 'https' and (
+        host in MEDIA_HOST_ALLOWLIST
+        or any(host.endswith('.' + h) for h in MEDIA_HOST_ALLOWLIST))
+
+
 def _download_illegal_media(media_url, auth=None):
     """Download a remote image, extract native GPS from EXIF, strip EXIF, and
     save it. Returns (relative_upload_path_or_None, (lat,lon)_or_None)."""
+    if not _is_allowed_media_url(media_url):
+        logger.warning("media_url_rejected", url=str(media_url)[:200])
+        return None, None
     try:
-        resp = requests.get(media_url, auth=auth, timeout=10)
+        resp = requests.get(media_url, auth=auth, timeout=10, allow_redirects=False)
         if resp.status_code != 200:
             return None, None
         from PIL import Image
@@ -890,7 +941,7 @@ def _download_illegal_media(media_url, auth=None):
         img = Image.open(io.BytesIO(resp.content))
         gps = _extract_gps_from_exif(img)
         clean = io.BytesIO()
-        img.save(clean, format=img.format or 'JPEG')
+        img.convert('RGB').save(clean, format='JPEG')
         clean.seek(0)
         filename = f"illegal_{random.randint(10000,99999)}.jpg"
         path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
@@ -901,12 +952,29 @@ def _download_illegal_media(media_url, auth=None):
         logger.error("media_download_error", error=str(e))
         return None, None
 
+def _twilio_signature_valid():
+    """Verify Twilio's X-Twilio-Signature over the request URL + sorted params.
+
+    Enforced only when TWILIO_AUTH_TOKEN is configured, so the in-browser bot
+    simulator still works locally."""
+    token = os.environ.get('TWILIO_AUTH_TOKEN')
+    if not token:
+        return True
+    payload = request.url + ''.join(
+        k + request.form[k] for k in sorted(request.form.keys()))
+    digest = hmac.new(token.encode(), payload.encode(), hashlib.sha1).digest()
+    expected = base64.b64encode(digest).decode()
+    return hmac.compare_digest(request.headers.get('X-Twilio-Signature', ''), expected)
+
+
 @main.route('/webhook/whatsapp', methods=['POST'])
 def webhook_whatsapp():
     """Twilio WhatsApp inbound webhook. A citizen photos a trash pile; we extract
     GPS from the image (or supplied lat/lon), log an anonymous IllegalDumpReport,
     and reply with a TwiML acknowledgement."""
     from flask import Response
+    if not _twilio_signature_valid():
+        return jsonify({"error": "Invalid signature"}), 403
     form = request.form
     sender = form.get('From', '')
     body = form.get('Body', '')
@@ -941,6 +1009,10 @@ def webhook_whatsapp():
 def webhook_telegram():
     """Telegram Bot API webhook. Accepts a photo (+ optional location/caption),
     resolves the file via Telegram API, extracts GPS, logs an IllegalDumpReport."""
+    expected_token = os.environ.get('TELEGRAM_WEBHOOK_SECRET')
+    if expected_token and not hmac.compare_digest(
+            request.headers.get('X-Telegram-Bot-Api-Secret-Token', ''), expected_token):
+        return jsonify({"error": "Invalid secret token"}), 403
     data = request.get_json(silent=True) or {}
     message = data.get('message', {})
     chat_id = message.get('chat', {}).get('id')
@@ -1460,6 +1532,11 @@ def firmware_hub():
     bins = SmartBin.query.all()
     return render_template('firmware.html', releases=releases, bins=bins)
 
+# Firmware lands in a /static-served folder, so keep it to real firmware images
+# rather than anything the browser would happily execute or render.
+FIRMWARE_EXTENSIONS = ('.bin', '.hex', '.uf2')
+
+
 @main.route('/admin/firmware/upload', methods=['POST'])
 @admin_required
 def firmware_upload():
@@ -1469,6 +1546,9 @@ def firmware_upload():
     file = request.files.get('firmware_file')
     if not version or not file or file.filename == '':
         flash("Version number and firmware file are required.", "error")
+        return redirect(url_for('main.firmware_hub'))
+    if os.path.splitext(file.filename)[1].lower() not in FIRMWARE_EXTENSIONS:
+        flash("Firmware must be a .bin, .hex or .uf2 image.", "error")
         return redirect(url_for('main.firmware_hub'))
     filename = secure_filename(f"firmware_v{version}_{file.filename}")
     upload_path = os.path.join(current_app.config.get('FIRMWARE_FOLDER',
