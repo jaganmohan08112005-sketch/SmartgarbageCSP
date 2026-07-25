@@ -352,7 +352,12 @@ const gisEl = document.getElementById('gisMap'); if (gisEl) gisObserver.observe(
 
 // Auto-load fleet map if visible
 const fleetObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if(e.isIntersecting) { initFleetMap(); fleetObserver.disconnect(); } });
+    entries.forEach(async e => {
+        if (!e.isIntersecting) return;
+        fleetObserver.disconnect();
+        await ensureLeafletAndSocket();
+        loadFleetLocations();
+    });
 });
 const fleetEl = document.getElementById('fleetMap'); if(fleetEl) fleetObserver.observe(fleetEl);
 

@@ -116,7 +116,10 @@ def create_app():
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "img-src 'self' data: https:; "
-            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
+            # 'unsafe-inline' is required: the page templates drive the maps,
+            # weather widget and ward pickers from inline <script> blocks and
+            # inline onclick handlers.
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
             "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
@@ -203,5 +206,8 @@ def create_app():
     # "duplicate column"/"already exists" the next time `flask db upgrade` runs.
     # Run `flask db upgrade` once after cloning (Dockerfile does this
     # automatically before starting gunicorn in production).
+
+    from .defaults import ensure_default_accounts
+    ensure_default_accounts(app)
 
     return app
