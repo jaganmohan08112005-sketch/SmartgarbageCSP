@@ -24,7 +24,7 @@
         </div>
 
         <!-- Task Checklist queue (High contrast mobile responsive) -->
-        <div class="card p-3 border-0 shadow-sm bg-white mb-3">
+        <div class="card p-3 border-0 shadow-sm bg-white mb-3" id="task-queue" data-feature="task-queue" data-feature-name="{{ _('Task Queue') }}">
             <h5 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
                 <span>📋 {{ _('Active Pickups Queue') }}</span>
                 <span class="badge bg-danger rounded-pill small" id="taskCount">{{ work_bins|length }} {{ _('Pending') }}</span>
@@ -59,7 +59,7 @@
         </div>
 
         <!-- Immediate Issue Reporter Form -->
-        <div class="card p-3 border-0 shadow-sm bg-white mb-3">
+        <div class="card p-3 border-0 shadow-sm bg-white mb-3" id="incident-report" data-feature="incident-report" data-feature-name="{{ _('Incident Reporter') }}">
             <h5 class="fw-bold mb-3 text-danger">⚠️ {{ _('Incident / Obstruction Reporter') }}</h5>
             <form method="POST" action="/worker/report-issue">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -91,7 +91,7 @@
         </div>
 
         <!-- Offloading Checkpoint / Digital Manifest Form -->
-        <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-3 border-success">
+        <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-3 border-success" id="offload" data-feature="offload" data-feature-name="{{ _('Offloading Checkpoint') }}">
             <h5 class="fw-bold mb-1 text-success">🚛 {{ _('Offloading Checkpoint') }}</h5>
             <p class="text-muted small">{{ _('Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.') }}</p>
             
@@ -159,7 +159,7 @@
 
     <!-- Navigation Map Column -->
     <div class="col-md-7 col-sm-12">
-        <div class="card p-3 border-0 shadow-sm bg-white h-100 sticky-top" style="top: 85px; min-height: 400px; z-index: 1;">
+        <div class="card p-3 border-0 shadow-sm bg-white h-100 sticky-top" style="top: 85px; min-height: 400px; z-index: 1;" id="route-map" data-feature="route-map" data-feature-name="{{ _('Route Navigation Map') }}">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Shift Route Navigation Map') }}</h5>
             
             <div id="workerNavMap" style="height: 520px; border-radius: 12px; border: 1px solid #dee2e6;"></div>

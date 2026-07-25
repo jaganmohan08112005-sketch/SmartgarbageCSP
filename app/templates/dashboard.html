@@ -9,6 +9,7 @@
     <!-- Left Column: Wallet & Leaderboard & Forms -->
     <div class="col-lg-5 col-sm-12">
         <!-- Gamified Eco-Reward Wallet Card -->
+        <div id="wallet" data-feature="wallet" data-feature-name="{{ _('Eco-Reward Wallet') }}">
         <div class="card p-4 border-0 shadow-sm bg-white mb-4" style="background: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%) !important; color: white;">
             <div class="d-flex align-items-center justify-content-between">
                 <div>
@@ -49,7 +50,9 @@
                 <span class="sg-icon-lg">🔥</span>
             </div>
         </div>
+        </div><!-- /#wallet -->
 
+        <div id="leaderboard" data-feature="leaderboard" data-feature-name="{{ _('Leaderboards') }}">
         <!-- Community Cleanliness Leaderboard -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
             <h5 class="fw-bold text-dark mb-3">🏆 {{ _('Cleanliness Leaderboard') }}</h5>
@@ -94,9 +97,10 @@
                 {% endfor %}
             </div>
         </div>
+        </div><!-- /#leaderboard -->
 
         <!-- "Report Overflowing Trash" Form -->
-        <div class="card p-4 border-0 shadow-sm bg-white">
+        <div class="card p-4 border-0 shadow-sm bg-white" id="emergency-request" data-feature="emergency-request" data-feature-name="{{ _('Emergency Cleanup') }}">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span class="sg-icon-sm">🚨</span>
                 <h5 class="fw-bold text-danger mb-0">{{ _('Emergency Cleanup Request') }}</h5>
@@ -154,7 +158,7 @@
         </div>
 
         <!-- 4-Stream Waste Segregation Declaration Form -->
-        <div class="card p-4 border-0 shadow-sm bg-white mt-4 border-start border-3 border-success">
+        <div class="card p-4 border-0 shadow-sm bg-white mt-4 border-start border-3 border-success" id="declare-waste" data-feature="declare-waste" data-feature-name="{{ _('Waste Declaration') }}">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span class="sg-icon-sm">🌿</span>
                 <h5 class="fw-bold text-success mb-0">{{ _('4-Stream Waste Declaration') }}</h5>
@@ -208,7 +212,7 @@
     <!-- Right Column: Interactive Locator Map & Tickets History -->
     <div class="col-lg-7 col-sm-12">
         <!-- Smart Bin Public Locator Map -->
-        <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;">
+        <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;" id="bin-locator" data-feature="bin-locator" data-feature-name="{{ _('Smart Bin Locator') }}">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Public Smart Bin Locator Map') }}</h5>
             <p class="text-muted small">{{ _('Review active waste levels to find empty community bins nearby.') }}</p>
             
@@ -223,7 +227,7 @@
         </div>
 
         <!-- Pay-As-You-Throw (PAYT) Utility Invoices -->
-        <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+        <div class="card border-0 shadow-sm bg-white p-4 mb-4" id="payt" data-feature="payt" data-feature-name="{{ _('PAYT Invoices') }}">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h5 class="fw-bold text-dark mb-0">💳 {{ _('Pay-As-You-Throw (PAYT) Invoices') }}</h5>
                 <span class="badge bg-primary rounded-pill" id="invoiceCount">{{ _('Loading...') }}</span>
@@ -254,7 +258,7 @@
         </div>
 
         <!-- Submitted Tickets History (Preserved Original) -->
-        <div class="card border-0 shadow-sm bg-white p-4">
+        <div class="card border-0 shadow-sm bg-white p-4" id="my-tickets" data-feature="my-tickets" data-feature-name="{{ _('My Tickets') }}">
             <h4 class="mb-4 text-dark fw-bold">{{ _('Your Submitted Tickets') }}</h4>
             
             <div class="table-responsive">
@@ -460,7 +464,6 @@
         }
     }
 
-    function showToast(msg) {
     if (typeof EventSource !== 'undefined') {
         const es = new EventSource('/api/notifications/stream');
         es.onmessage = (e) => {

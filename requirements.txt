@@ -28,7 +28,7 @@ Flask-Talisman==0.2.1
 
 Flask-WTF==1.2.1
 
-eventlet==0.39.1
+eventlet==0.40.3
 
 fonttools==4.63.0
 
@@ -57,7 +57,7 @@ psycopg2-binary==2.9.10
 
 pandas==3.0.3
 
-pillow==12.2.0
+pillow==12.3.0
 
 pyparsing==3.3.2
 
@@ -81,7 +81,7 @@ urllib3==2.7.0
 
 werkzeug==3.1.8
 
-sentry-sdk==2.5.0
+sentry-sdk==2.8.0
 
 
 cloudinary==1.41.0

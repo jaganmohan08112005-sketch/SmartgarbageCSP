@@ -51,10 +51,10 @@ python manage.py db upgrade
 python run.py
 ```
 
-**Default Demo Accounts** (CHANGE THESE IN PRODUCTION):
-- Admin: `admin` / `admin123` (requires MFA)
-- Worker: `worker` / `worker123` (requires MFA)  
-- Citizen: `user` / `user123` (direct entry)
+**Built-in Accounts** (provisioned automatically on every start — CHANGE THESE IN PRODUCTION):
+- Admin: `24331A4441ADMIN` / `24331A4441ADMIN` (requires MFA — the OTP is shown on screen)
+- Worker: `24331A4441WORKER` / `24331A4441WORKER` (requires MFA — the OTP is shown on screen)
+- Citizen: `24331A4441CITIZEN` / `24331A4441CITIZEN` (direct entry)
 
 ## 📋 Compliance with SWM Rules, 2026
 

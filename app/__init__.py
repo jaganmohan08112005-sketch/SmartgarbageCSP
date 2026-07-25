@@ -1,5 +1,6 @@
 import os
 import logging
+import secrets
 import structlog
 from flask import Flask, render_template, session, redirect, url_for, current_app, request
 from flask_sqlalchemy import SQLAlchemy
@@ -43,12 +44,32 @@ def create_app():
 # (File ends at line 125)
 
     # Security Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-fallback-key-change-in-production')
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER') is not None
+    # A deployment is anything that isn't a plain local run: on those, a shared
+    # hard-coded SECRET_KEY would let anyone forge session cookies and password
+    # reset tokens, so fall back to a random per-process key instead.
+    is_deployment = any(os.environ.get(v) for v in ('RENDER', 'DATABASE_URL', 'DYNO', 'FLY_APP_NAME'))
+    secret_key = os.environ.get('SECRET_KEY')
+    if not secret_key:
+        if is_deployment:
+            secret_key = secrets.token_hex(32)
+            app.logger.error("SECRET_KEY is not set: using a random key. "
+                             "Sessions and reset links will break on restart — set SECRET_KEY.")
+        else:
+            secret_key = 'dev-fallback-key-change-in-production'
+    app.config['SECRET_KEY'] = secret_key
+    app.config['SESSION_COOKIE_SECURE'] = is_deployment
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
+    app.config['IS_DEPLOYMENT'] = is_deployment
+
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+
+    @app.before_request
+    def enforce_session_lifetime():
+        # Without this the cookie is a browser-session cookie and
+        # PERMANENT_SESSION_LIFETIME is never applied.
+        session.permanent = True
 
     # Mail Configuration (flask-mailman)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
@@ -113,13 +134,24 @@ def create_app():
     def set_security_headers(resp):
         resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
         resp.headers['X-Content-Type-Options'] = 'nosniff'
+        resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        resp.headers['Permissions-Policy'] = 'camera=(self), geolocation=(self), microphone=()'
+        if app.config['IS_DEPLOYMENT']:
+            resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "img-src 'self' data: https:; "
-            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
+            # 'unsafe-inline' is required: the page templates drive the maps,
+            # weather widget and ward pickers from inline <script> blocks and
+            # inline onclick handlers.
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-            "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
+            # The service worker precaches the CDN assets, so they need to be
+            # fetchable from script context too, not just as <link>/<script>.
+            "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com "
+            "https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net "
+            "https://cdnjs.cloudflare.com https://unpkg.com"
         )
         return resp
 
@@ -178,6 +210,13 @@ def create_app():
     from .routes import main
     app.register_blueprint(main)
 
+    # Machine-to-machine endpoints: IoT sensors and the Twilio/Telegram bot
+    # platforms cannot carry a CSRF token, so CSRFProtect rejected every one of
+    # their POSTs. They authenticate with their own signatures instead
+    # (HMAC for telemetry, provider signature checks for the webhooks).
+    for endpoint in ('main.bin_telemetry', 'main.webhook_whatsapp', 'main.webhook_telegram'):
+        csrf.exempt(app.view_functions[endpoint])
+
     # ── i18n: language toggle route + template globals ──
     from .i18n import translate, SUPPORTED, DEFAULT_LANG
     @app.context_processor
@@ -191,8 +230,10 @@ def create_app():
             lang = DEFAULT_LANG
         session['lang'] = lang
 
+        # Only same-site paths: '//evil.com' and '/\\evil.com' are
+        # browser-equivalent to absolute URLs and would be an open redirect.
         next_url = request.args.get('next', '').strip()
-        if next_url.startswith('/'):
+        if next_url.startswith('/') and not next_url.startswith(('//', '/\\')):
             return redirect(next_url)
 
         return redirect(request.referrer or url_for('main.dashboard'))
@@ -203,5 +244,8 @@ def create_app():
     # "duplicate column"/"already exists" the next time `flask db upgrade` runs.
     # Run `flask db upgrade` once after cloning (Dockerfile does this
     # automatically before starting gunicorn in production).
+
+    from .defaults import ensure_default_accounts
+    ensure_default_accounts(app)
 
     return app

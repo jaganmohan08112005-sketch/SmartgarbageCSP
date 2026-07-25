@@ -3,46 +3,42 @@
    and live socket connections. Also lazy-loads Leaflet and Socket.IO. */
 "use strict";
 
-// ---- Sidebar nav: scroll-to-section + active highlight on click ----
-document.addEventListener('DOMContentLoaded', () => {
+// ---- Sidebar nav: one feature panel at a time ----
+// Clicking a menu entry shows only that section; the URL hash keeps the
+// selection shareable/bookmarkable and survives back/forward.
+const DEFAULT_SECTION = 'kpi-section';
+
+function showAdminSection(sectionId, push) {
     const navLinks = document.querySelectorAll('#admin-pills a[data-section]');
+    const ids = Array.from(navLinks).map(l => l.dataset.section);
+    if (!ids.includes(sectionId)) sectionId = DEFAULT_SECTION;
 
-    function setActive(sectionId) {
-        navLinks.forEach(link => {
-            if (link.dataset.section === sectionId) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
-        });
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('d-none', id !== sectionId);
+    });
+    navLinks.forEach(link => link.classList.toggle('active', link.dataset.section === sectionId));
+
+    if (push && window.location.hash !== '#' + sectionId) {
+        history.pushState(null, '', '#' + sectionId);
     }
+    // Leaflet measures the container on creation, so a map revealed after
+    // load needs an explicit init/resize once it actually has a size.
+    if (sectionId === 'gis-section') initMaps();
+    if (sectionId === 'fleet-section') loadFleetLocations();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-    navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#admin-pills a[data-section]').forEach(link => {
+        link.addEventListener('click', function (e) {
             e.preventDefault();
-            const targetId = this.dataset.section;
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) {
-                const yOffset = -100;
-                const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-            }
-            setActive(targetId);
+            showAdminSection(this.dataset.section, true);
         });
     });
-
-    const sectionIds = Array.from(navLinks).map(l => l.dataset.section);
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                setActive(entry.target.id);
-            }
-        });
-    }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
-
-    sectionIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) observer.observe(el);
+    showAdminSection((window.location.hash || '').replace('#', '') || DEFAULT_SECTION, false);
+    window.addEventListener('hashchange', () => {
+        showAdminSection((window.location.hash || '').replace('#', '') || DEFAULT_SECTION, false);
     });
 });
 
@@ -165,8 +161,9 @@ async function initMaps() {
         L.marker([18.0675, 83.4094], {icon: depotIcon}).bindPopup("<b>Municipal Headquarters Depot</b>").addTo(map);
         if (smartBins && smartBins.length) buildBinMarkers();
     }
-    // Initialize fleet map separately
-    if (!fleetMap) initFleetMap();
+    else {
+        map.invalidateSize();
+    }
     // Connect live socket once scripts are loaded
     connectLive();
 }
@@ -203,10 +200,10 @@ async function executeRoutingDispatch() {
         const infoBanner = document.getElementById('routingInfo');
         infoBanner.classList.remove('d-none');
         document.getElementById('routeCount').innerText = data.critical_count;
-        document.getElementById('routeDistance').innerText = data.total_distance_km;
+        document.getElementById('routeDistance').innerText = data.total_distance;
         const labels = data.route.map(node => node.label);
         document.getElementById('routePathText').innerHTML = `<b>Sequenced Pickups Route:</b> ${labels.join(' ➔ ')}` + (data.co2_saved_kg ? ` &nbsp;|&nbsp; 🌿 <b>${data.co2_saved_kg} kg CO₂ saved</b> vs fixed routes` : '');
-        alert(`✅ Dijkstra Route Optimized!\nDistance: ${data.total_distance_km} km across ${data.critical_count} critical bins.\n🌿 Estimated CO₂ saved: ${data.co2_saved_kg || 0} kg vs traditional fixed routes.`);
+        alert(`✅ Dijkstra Route Optimized!\nDistance: ${data.total_distance} km across ${data.critical_count} critical bins.\n🌿 Estimated CO₂ saved: ${data.co2_saved_kg || 0} kg vs traditional fixed routes.`);
     }
 }
 
@@ -242,6 +239,7 @@ function initFleetMap(){
 async function loadFleetLocations(){
     if(!leafletLoaded) await ensureLeafletAndSocket();
     initFleetMap();
+    fleetMap.invalidateSize();
     fleetMarkers.forEach(m => fleetMap.removeLayer(m));
     fleetMarkers = [];
     try {
@@ -343,18 +341,6 @@ function connectLive() {
         if (payload && payload.fleet) { if (typeof fleetMap !== 'undefined' && fleetMap) loadFleetLocations(); }
     });
 }
-
-// Auto-initialize maps when GIS map enters viewport
-const gisObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) { initMaps(); gisObserver.disconnect(); } });
-}, { rootMargin: '0px', threshold: 0.1 });
-const gisEl = document.getElementById('gisMap'); if (gisEl) gisObserver.observe(gisEl);
-
-// Auto-load fleet map if visible
-const fleetObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if(e.isIntersecting) { initFleetMap(); fleetObserver.disconnect(); } });
-});
-const fleetEl = document.getElementById('fleetMap'); if(fleetEl) fleetObserver.observe(fleetEl);
 
 // Expose some functions globally for inline button onclick handlers
 window.simulateAnomalyTrigger = simulateAnomalyTrigger;
