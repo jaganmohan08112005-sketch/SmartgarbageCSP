@@ -460,7 +460,6 @@
         }
     }
 
-    function showToast(msg) {
     if (typeof EventSource !== 'undefined') {
         const es = new EventSource('/api/notifications/stream');
         es.onmessage = (e) => {

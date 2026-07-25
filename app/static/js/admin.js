@@ -203,10 +203,10 @@ async function executeRoutingDispatch() {
         const infoBanner = document.getElementById('routingInfo');
         infoBanner.classList.remove('d-none');
         document.getElementById('routeCount').innerText = data.critical_count;
-        document.getElementById('routeDistance').innerText = data.total_distance_km;
+        document.getElementById('routeDistance').innerText = data.total_distance;
         const labels = data.route.map(node => node.label);
         document.getElementById('routePathText').innerHTML = `<b>Sequenced Pickups Route:</b> ${labels.join(' ➔ ')}` + (data.co2_saved_kg ? ` &nbsp;|&nbsp; 🌿 <b>${data.co2_saved_kg} kg CO₂ saved</b> vs fixed routes` : '');
-        alert(`✅ Dijkstra Route Optimized!\nDistance: ${data.total_distance_km} km across ${data.critical_count} critical bins.\n🌿 Estimated CO₂ saved: ${data.co2_saved_kg || 0} kg vs traditional fixed routes.`);
+        alert(`✅ Dijkstra Route Optimized!\nDistance: ${data.total_distance} km across ${data.critical_count} critical bins.\n🌿 Estimated CO₂ saved: ${data.co2_saved_kg || 0} kg vs traditional fixed routes.`);
     }
 }
 
