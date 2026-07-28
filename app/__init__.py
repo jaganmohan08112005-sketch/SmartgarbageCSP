@@ -39,13 +39,29 @@ def create_app(test_config=None):
 
 # (File ends at line 125)
 
+    if test_config:
+        app.config.update(test_config)
+
     # Security Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-fallback-key-change-in-production')
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER') is not None
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    if not app.config['SECRET_KEY']:
+        if app.config.get('TESTING') or os.environ.get('PYTEST_CURRENT_TEST'):
+            app.config['SECRET_KEY'] = 'test-secret-key-only-for-pytest'
+        else:
+            raise RuntimeError("SECRET_KEY environment variable is required")
+    app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+
+    @app.before_request
+    def enforce_https():
+        if app.config.get('TESTING'):
+            return None
+        if request.headers.get('X-Forwarded-Proto') != 'https':
+            if request.url.startswith('http://') and request.host != '127.0.0.1:5000':
+                return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
     # Mail Configuration (flask-mailman)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
@@ -62,29 +78,23 @@ def create_app(test_config=None):
     app.config['IOT_TELEMETRY_SECRET'] = os.environ.get('IOT_TELEMETRY_SECRET')
 
     # Database Configuration
-    # On Render's FREE tier there is NO persistent disk, so SQLite would
-    # reset on every restart. Instead we use Render's free PostgreSQL
-    # instance (auto-injected as DATABASE_URL) — it survives restarts.
-    # When DATABASE_URL is absent (local dev), fall back to local SQLite.
-    db_url = os.environ.get('DATABASE_URL')
-    if db_url:
-        # Render appends sslmode=require sometimes; ensure it's present for PG
-        if '?' not in db_url:
-            db_url = db_url + '?sslmode=require'
-        app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
-        app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
-    elif os.environ.get('RENDER') and os.path.isdir('/data'):
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/garbage.db'
-        app.config['UPLOAD_FOLDER'] = '/data/uploads'
-    else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garbage.db'
-        app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+    app.config.setdefault('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads'))
+    if not test_config or 'SQLALCHEMY_DATABASE_URI' not in test_config:
+        db_url = os.environ.get('DATABASE_URL')
+        if db_url:
+            if '?' not in db_url:
+                db_url = db_url + '?sslmode=require'
+            app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
+            app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
+        elif os.environ.get('RENDER') and os.path.isdir('/data'):
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/garbage.db'
+            app.config['UPLOAD_FOLDER'] = '/data/uploads'
+        else:
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garbage.db'
+            app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 
     # Ensure the upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-    if test_config:
-        app.config.update(test_config)
 
     # Initialize extensions
     db.init_app(app)

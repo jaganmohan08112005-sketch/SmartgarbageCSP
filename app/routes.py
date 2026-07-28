@@ -450,8 +450,8 @@ def login():
             user.otp = otp_val
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
-            logger.info("mfa_otp_generated", username=user.username, otp=otp_val)
-            flash(f"MFA OTP Code (Simulated SMS): {otp_val}", "success")
+            logger.info("mfa_otp_generated", username=user.username)
+            flash("MFA required. Enter the OTP sent to your registered contact.", "success")
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
@@ -518,8 +518,8 @@ def auth_phone_login():
     user.otp = otp_val
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
-    logger.info("phone_otp_generated", phone=phone_number, otp=otp_val)
-    flash(f"OTP sent to {phone_number} (Simulated): {otp_val}", "success")
+    logger.info("phone_otp_generated", phone=phone_number)
+    flash("OTP sent to your registered phone number.", "success")
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
     return redirect(url_for('main.mfa_verify'))
@@ -1336,10 +1336,24 @@ def fleet_location():
 @admin_required
 def configure_webhooks():
     url = request.form.get('webhook_url', '').strip()
-    if url and url not in active_webhooks:
-        active_webhooks.append(url)
-        write_audit("WEBHOOK_ADD", target=url, detail="Webhook URL registered.")
-        flash(f"Webhook registered: {url}", "success")
+    if url:
+        parsed = request.host_url if False else url
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(url)
+            if parsed_url.scheme not in ('http', 'https'):
+                flash('Invalid webhook URL: must use http or https.', 'error')
+                return redirect(url_for('main.admin'))
+            if not parsed_url.hostname:
+                flash('Invalid webhook URL: hostname is required.', 'error')
+                return redirect(url_for('main.admin'))
+        except Exception:
+            flash('Invalid webhook URL format.', 'error')
+            return redirect(url_for('main.admin'))
+        if url not in active_webhooks:
+            active_webhooks.append(url)
+            write_audit("WEBHOOK_ADD", target=url, detail="Webhook URL registered.")
+            flash(f"Webhook registered: {url}", "success")
     return redirect(url_for('main.admin'))
 
 # Complaint resolution
@@ -1641,6 +1655,7 @@ def _recompute_bin_status(level):
     return "Safe"
 
 @main.route('/api/bin-telemetry', methods=['POST'])
+@limiter.limit("100/minute")
 def bin_telemetry():
     """ESP32/Arduino smart-bin ingestion endpoint. Receives live sensor
     readings, updates the bin record in the database, clears stale sensor
