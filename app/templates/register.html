@@ -86,22 +86,62 @@
 </div>
 
 <script>
-    // Client-side phone validation for better UX before server validates
-    document.querySelector('form').addEventListener('submit', function(e) {
-        const phone = document.getElementById("reg_phone").value.replace(/[\s\-().]/g, '');
-        const match = phone.match(/^(?:\+91|91)?([6-9]\d{9})$/);
-        if (!match) {
-            e.preventDefault();
-            document.getElementById("reg_phone").setCustomValidity(
-                'Please enter a valid Indian mobile number (10 digits starting 6–9).'
-            );
-            document.getElementById("reg_phone").reportValidity();
-            return;
+    (function() {
+        const form = document.querySelector('form');
+        const username = document.getElementById('reg_username');
+        const password = document.getElementById('reg_password');
+        const phone = document.getElementById('reg_phone');
+        const email = document.getElementById('reg_email');
+
+        function setValid(el, isValid) {
+            el.classList.toggle('is-valid', isValid);
+            el.classList.toggle('is-invalid', !isValid);
         }
-        document.getElementById("reg_phone").setCustomValidity('');
-    });
-    document.getElementById("reg_phone").addEventListener("input", function() {
-        this.setCustomValidity('');
-    });
+
+        function validatePhone() {
+            const cleaned = phone.value.replace(/[\s\-().]/g, '');
+            const match = cleaned.match(/^(?:\+91|91)?([6-9]\d{9})$/);
+            setValid(phone, !!match);
+            return !!match;
+        }
+
+        function validateEmail() {
+            const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
+            setValid(email, valid || email.value.trim() === '');
+            return valid;
+        }
+
+        function validatePassword() {
+            const valid = password.value.length >= 6;
+            setValid(password, valid);
+            return valid;
+        }
+
+        function validateUsername() {
+            const valid = username.value.trim().length >= 3;
+            setValid(username, valid);
+            return valid;
+        }
+
+        phone.addEventListener('input', validatePhone);
+        email.addEventListener('input', validateEmail);
+        password.addEventListener('input', validatePassword);
+        username.addEventListener('input', validateUsername);
+
+        form.addEventListener('submit', function(e) {
+            const phoneValid = validatePhone();
+            const emailValid = validateEmail();
+            const passwordValid = validatePassword();
+            const usernameValid = validateUsername();
+
+            if (!phoneValid || !emailValid || !passwordValid || !usernameValid) {
+                e.preventDefault();
+                if (!phoneValid) phone.reportValidity();
+                else if (!emailValid) email.reportValidity();
+                else if (!passwordValid) password.reportValidity();
+                else if (!usernameValid) username.reportValidity();
+            }
+        });
+    })();
 </script>
 {% endblock %}

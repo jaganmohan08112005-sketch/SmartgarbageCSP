@@ -61,7 +61,7 @@
         <!-- Immediate Issue Reporter Form -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-danger">⚠️ {{ _('Incident / Obstruction Reporter') }}</h5>
-            <form method="POST" action="/worker/report-issue">
+            <form method="POST" action="/worker/report-issue" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
                     <label class="form-label small fw-bold text-secondary">{{ _('Target Bin ID') }}</label>
@@ -95,7 +95,7 @@
             <h5 class="fw-bold mb-1 text-success">🚛 {{ _('Offloading Checkpoint') }}</h5>
             <p class="text-muted small">{{ _('Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.') }}</p>
             
-            <form method="POST" action="/worker/offload">
+            <form method="POST" action="/worker/offload" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
                     <label class="form-label small fw-bold text-secondary">{{ _('Select Dump Yard ID') }}</label>
@@ -148,7 +148,10 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">{{ _('No offloads logged in this shift.') }}</td>
+                            <td colspan="4" class="text-center py-4">
+                                <div style="font-size:2rem;">📋</div>
+                                <p class="text-muted mb-0 small">{{ _('No offloads logged in this shift.') }}</p>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

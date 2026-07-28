@@ -1,3 +1,4 @@
+"""QA audit tests for admin flows (MFA, cross-role oversight)."""
 
 import json
 import pytest
@@ -12,12 +13,16 @@ class TestAdminAccess:
         with client.session_transaction() as sess:
             assert sess.get("mfa_pending") is True
 
-    def test_admin_dashboard_loads_after_mfa(self, admin_client):
-        r = admin_client.get("/admin", follow_redirects=False)
+    def test_admin_dashboard_loads_after_mfa(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/admin", follow_redirects=False)
         assert r.status_code == 200
 
-    def test_admin_dashboard_contains_kpis(self, admin_client):
-        body = admin_client.get("/admin", follow_redirects=True).data.decode()
+    def test_admin_dashboard_contains_kpis(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        body = client.get("/admin", follow_redirects=True).data.decode()
         assert "total_bins" in body or "Control Room" in body or "Admin" in body
 
     def test_admin_audit_requires_superadmin(self, app):
@@ -41,36 +46,44 @@ class TestAdminAccess:
 
 
 class TestAdminCrossRoleOversight:
-    def test_admin_sees_citizen_complaint(self, admin_client, app):
+    def test_admin_sees_citizen_complaint(self, client, app):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
         with app.app_context():
             c = Complaint.query.filter_by(name="qa_citizen").first()
             assert c is not None
             cid = c.id
-        r = admin_client.get("/admin", follow_redirects=False)
+        r = client.get("/admin", follow_redirects=False)
         assert r.status_code == 200
 
-    def test_admin_resolves_citizen_complaint(self, admin_client, app):
+    def test_admin_resolves_citizen_complaint(self, client, app):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
         with app.app_context():
             c = Complaint.query.filter_by(name="qa_citizen").first()
             cid = c.id
-        r = admin_client.get(f"/resolve/{cid}", follow_redirects=False)
+        r = client.get(f"/resolve/{cid}", follow_redirects=False)
         assert r.status_code == 302
         with app.app_context():
             c = Complaint.query.get(cid)
             assert c.status == "Resolved"
 
-    def test_resolution_creates_notification(self, admin_client, app):
+    def test_resolution_creates_notification(self, client, app):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
         with app.app_context():
             c = Complaint.query.filter_by(name="qa_citizen").first()
             cid = c.id
             citizen_id = c.user_id
-        admin_client.get(f"/resolve/{cid}", follow_redirects=False)
+        client.get(f"/resolve/{cid}", follow_redirects=False)
         with app.app_context():
             notes = Notification.query.filter_by(user_id=citizen_id).all()
             assert len(notes) >= 1
             assert "resolved" in notes[-1].message.lower() or "Resolved" in notes[-1].message
 
-    def test_admin_approves_bwg_request(self, admin_client, app):
+    def test_admin_approves_bwg_request(self, client, app):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
         with app.app_context():
             u = User.query.filter_by(username="qa_citizen").first()
             decl = BWGDeclaration(
@@ -86,46 +99,60 @@ class TestAdminCrossRoleOversight:
             db.session.add(decl)
             db.session.commit()
             did = decl.id
-        r = admin_client.get(f"/admin/bwg-approve/{did}", follow_redirects=False)
+        r = client.get(f"/admin/bwg-approve/{did}", follow_redirects=False)
         assert r.status_code == 302
         with app.app_context():
             decl = BWGDeclaration.query.get(did)
             assert decl.pickup_status == "Approved"
 
-    def test_admin_fleet_location_returns_json(self, admin_client):
-        r = admin_client.get("/api/fleet-location", follow_redirects=False)
+    def test_admin_fleet_location_returns_json(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/api/fleet-location", follow_redirects=False)
         assert r.status_code == 200
         data = json.loads(r.data)
         assert isinstance(data, list)
 
-    def test_admin_illegal_reports_api(self, admin_client):
-        r = admin_client.get("/api/illegal-reports", follow_redirects=False)
+    def test_admin_illegal_reports_api(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/api/illegal-reports", follow_redirects=False)
         assert r.status_code == 200
         data = json.loads(r.data)
         assert isinstance(data, list)
 
-    def test_admin_state_portal_export(self, admin_client):
-        r = admin_client.get("/analytics/state-portal-export", follow_redirects=False)
+    def test_admin_state_portal_export(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/analytics/state-portal-export", follow_redirects=False)
         assert r.status_code == 200
         data = json.loads(r.data)
         assert "indicators" in data
 
-    def test_admin_trend_segregation_api(self, admin_client):
-        r = admin_client.get("/api/trend/segregation", follow_redirects=False)
+    def test_admin_trend_segregation_api(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/api/trend/segregation", follow_redirects=False)
         assert r.status_code == 200
         data = json.loads(r.data)
         assert "months" in data and "series" in data
 
-    def test_admin_analytics_page_loads(self, admin_client):
-        r = admin_client.get("/analytics", follow_redirects=False)
+    def test_admin_analytics_page_loads(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/analytics", follow_redirects=False)
         assert r.status_code == 200
 
-    def test_admin_firmware_hub_loads(self, admin_client):
-        r = admin_client.get("/admin/firmware", follow_redirects=False)
+    def test_admin_firmware_hub_loads(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.get("/admin/firmware", follow_redirects=False)
         assert r.status_code == 200
 
-    def test_superadmin_can_create_admin(self, admin_client):
-        r = admin_client.post(
+    def test_superadmin_can_create_admin(self, client):
+        from conftest import _complete_mfa
+        _complete_mfa(client, "qa_admin")
+        r = client.post(
             "/admin/super",
             data={"action": "create_admin", "username": "qa_newadmin", "password": "testpass123", "phone": "+919876540003"},
             follow_redirects=False,

@@ -77,7 +77,7 @@ s.get(BASE + "/logout")
 
 # ---------------------------------------------------------------
 step(7, "WORKER LOGIN (MFA) — get OTP, verify, open portal")
-r = s.post(BASE + "/login", data={"username": "worker", "password": "worker123"}, allow_redirects=False)
+r = s.post(BASE + "/login", data={"username": "24331A4441WORKER", "password": "24331A4441WORKER"}, allow_redirects=False)
 print(f"  POST /login (worker)  -> {r.status_code} -> {r.headers.get('Location')}  (MFA required)")
 otp = otp_for("worker")
 print(f"  OTP for worker        -> {otp}")
@@ -106,7 +106,7 @@ s.get(BASE + "/logout")
 
 # ---------------------------------------------------------------
 step(11, "ADMIN LOGIN (MFA) — open control center")
-r = s.post(BASE + "/login", data={"username": "admin", "password": "admin123"}, allow_redirects=False)
+r = s.post(BASE + "/login", data={"username": "24331A4441ADMIN", "password": "24331A4441ADMIN"}, allow_redirects=False)
 print(f"  POST /login (admin)   -> {r.status_code} -> {r.headers.get('Location')}  (MFA required)")
 otp = otp_for("admin")
 print(f"  OTP for admin         -> {otp}")

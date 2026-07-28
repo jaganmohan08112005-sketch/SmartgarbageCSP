@@ -3,11 +3,33 @@
    and live socket connections. Also lazy-loads Leaflet and Socket.IO. */
 "use strict";
 
+// ---- Toast notification helper ----
+function showToast(msg) {
+    const box = document.getElementById('toast-container') || (() => {
+        const d = document.createElement('div');
+        d.id = 'toast-container';
+        d.style.cssText = 'position:fixed;top:80px;right:16px;z-index:1080;max-width:320px;';
+        document.body.appendChild(d);
+        return d;
+    })();
+    const t = document.createElement('div');
+    t.className = 'sg-toast success';
+    t.innerHTML = msg;
+    box.appendChild(t);
+    setTimeout(() => t.remove(), 8000);
+}
+
 // ---- Sidebar nav: scroll-to-section + active highlight on click ----
 document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('#admin-pills a[data-section]');
+    const allSections = document.querySelectorAll('.admin-section');
+
+    function hideAllSections() {
+        allSections.forEach(s => s.classList.remove('active'));
+    }
 
     function setActive(sectionId) {
+        hideAllSections();
         navLinks.forEach(link => {
             if (link.dataset.section === sectionId) {
                 link.classList.add('active');
@@ -15,18 +37,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 link.classList.remove('active');
             }
         });
+        const targetEl = document.getElementById(sectionId);
+        if (targetEl) {
+            targetEl.classList.add('active');
+            const yOffset = -100;
+            const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
     }
 
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             const targetId = this.dataset.section;
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) {
-                const yOffset = -100;
-                const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                window.scrollTo({ top: y, behavior: 'smooth' });
-            }
             setActive(targetId);
         });
     });
@@ -44,6 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const el = document.getElementById(id);
         if (el) observer.observe(el);
     });
+
+    // Show first section by default
+    if (sectionIds.length > 0 && allSections.length > 0) {
+        setActive(sectionIds[0]);
+    }
 });
 
 // ---- Dynamic asset loader (for lazy-loading Leaflet & Socket.IO) ----
@@ -206,7 +234,7 @@ async function executeRoutingDispatch() {
         document.getElementById('routeDistance').innerText = data.total_distance_km;
         const labels = data.route.map(node => node.label);
         document.getElementById('routePathText').innerHTML = `<b>Sequenced Pickups Route:</b> ${labels.join(' ➔ ')}` + (data.co2_saved_kg ? ` &nbsp;|&nbsp; 🌿 <b>${data.co2_saved_kg} kg CO₂ saved</b> vs fixed routes` : '');
-        alert(`✅ Dijkstra Route Optimized!\nDistance: ${data.total_distance_km} km across ${data.critical_count} critical bins.\n🌿 Estimated CO₂ saved: ${data.co2_saved_kg || 0} kg vs traditional fixed routes.`);
+        showToast(`✅ <strong>Route Optimized!</strong> Distance: ${data.total_distance_km} km across ${data.critical_count} critical bins.<br>🌿 CO₂ saved: ${data.co2_saved_kg || 0} kg`);
     }
 }
 
@@ -215,7 +243,7 @@ function simulateAnomalyTrigger() {
     if (criticalBin && binMarkers[criticalBin.hardware_id]) {
         map.setView([criticalBin.latitude, criticalBin.longitude], 16);
         binMarkers[criticalBin.hardware_id].openPopup();
-        alert("⚠️ Simulated Incident Triggered: High temperature (72.1°C) and hazardous methane levels (850 ppm) breached at BIN-302 inside RTC Colony! Webhooks dispatched to regional emergency response teams.");
+        showToast("⚠️ <strong>Simulated Incident:</strong> High temperature (72.1°C) and hazardous methane (850 ppm) breached at BIN-302 — webhooks dispatched.");
     }
 }
 

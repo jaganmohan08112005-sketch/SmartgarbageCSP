@@ -27,13 +27,11 @@ def _free_port():
 
 
 def _complete_mfa(client, username, password="testpass123", role=None):
-    """Log in a user, read the generated OTP from DB, and complete MFA."""
+    """Log in a user, read the generated OTP from DB, and complete MFA.
+    Assumes an active app context (provided by the app fixture)."""
     client.post("/login", data={"username": username, "password": password}, follow_redirects=False)
-    from app import create_app
-    app = create_app()
-    with app.app_context():
-        u = User.query.filter_by(username=username).first()
-        otp = u.otp if u else None
+    u = User.query.filter_by(username=username).first()
+    otp = u.otp if u else None
     client.post("/mfa-verify", data={"otp": otp}, follow_redirects=False)
 
 
@@ -44,17 +42,20 @@ def _complete_mfa(client, username, password="testpass123", role=None):
 def app():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
-    app = create_app()
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{path}"
-    app.config["SERVER_NAME"] = "localhost:5001"
+    app = create_app(test_config={
+        "TESTING": True,
+        "WTF_CSRF_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{path}",
+        "SERVER_NAME": "localhost:5001"
+    })
     with app.app_context():
         db.create_all()
         _seed(app)
         yield app
         db.session.remove()
         db.drop_all()
+    with app.app_context():
+        db.engine.dispose()
     os.remove(path)
 
 
@@ -161,10 +162,12 @@ def admin_client(client):
 @pytest.fixture(scope="session")
 def live_server_url():
     port = _free_port()
-    app = create_app()
-    app.config["TESTING"] = False
-    app.config["WTF_CSRF_ENABLED"] = False
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + tempfile.mktemp(suffix=".db")
+    db_path = "sqlite:///" + tempfile.mktemp(suffix=".db")
+    app = create_app(test_config={
+        "TESTING": False,
+        "WTF_CSRF_ENABLED": False,
+        "SQLALCHEMY_DATABASE_URI": db_path
+    })
     with app.app_context():
         db.create_all()
         _seed(app)

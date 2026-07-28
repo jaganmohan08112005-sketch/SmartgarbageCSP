@@ -36,23 +36,24 @@ with app.app_context():
     
     # 1. Seed Default Users & Profiles (idempotent: skip if username exists)
     print("👤 Seeding default users...")
-    if not User.query.filter_by(username="admin").first():
-        admin_user = User(username="admin", password_hash=generate_password_hash("admin123"),
-                         role="admin", phone="+919876543210")
+    if not User.query.filter_by(username="24331A4441ADMIN").first():
+        admin_user = User(username="24331A4441ADMIN", password_hash=generate_password_hash("24331A4441ADMIN"),
+                         role="admin", phone="+919876543210", is_approved=True, is_superadmin=True)
         db.session.add(admin_user)
-    if not User.query.filter_by(username="user").first():
-        regular_user = User(username="user", password_hash=generate_password_hash("user123"),
-                         role="citizen", phone="+919876543211", green_points=120)
-        db.session.add(regular_user)
-    if not User.query.filter_by(username="worker").first():
-        worker_user = User(username="worker", password_hash=generate_password_hash("worker123"),
-                         role="worker", phone="+919876543212")
+    if not User.query.filter_by(username="24331A4441CITIZEN").first():
+        citizen_user = User(username="24331A4441CITIZEN", password_hash=generate_password_hash("24331A4441CITIZEN"),
+                           role="citizen", phone="+919876543211", is_approved=True, green_points=120)
+        db.session.add(citizen_user)
+    if not User.query.filter_by(username="24331A4441WORKER").first():
+        worker_user = User(username="24331A4441WORKER", password_hash=generate_password_hash("24331A4441WORKER"),
+                          role="worker", phone="+919876543212", is_approved=True)
         db.session.add(worker_user)
-    if not User.query.filter_by(username="driver2").first():
-        driver_user = User(username="driver2", password_hash=generate_password_hash("driver123"),
-                         role="worker", phone="+919876543213")
-        db.session.add(driver_user)
     db.session.commit()
+
+    # Refresh objects after commit so .id attributes are populated
+    admin_user = User.query.filter_by(username="24331A4441ADMIN").first()
+    citizen_user = User.query.filter_by(username="24331A4441CITIZEN").first()
+    worker_user = User.query.filter_by(username="24331A4441WORKER").first()
 
     # Seed Worker Profiles
     print("🚛 Seeding worker profiles...")
@@ -64,23 +65,13 @@ with app.app_context():
         status="Active",
         performance_rating=4.9
     )
-    wp2 = WorkerProfile(
-        user_id=driver_user.id,
-        vehicle_id="CV-02",
-        latitude=18.0552,
-        longitude=83.4051,
-        status="Idle",
-        performance_rating=4.7
-    )
     db.session.add(wp1)
-    db.session.add(wp2)
     db.session.commit()
 
     print("✅ Default users created:")
-    print("   - Admin: username='admin', password='admin123'")
-    print("   - Citizen: username='user', password='user123'")
-    print("   - Worker 1: username='worker', password='worker123'")
-    print("   - Worker 2: username='driver2', password='driver123'")
+    print("   - Admin: username='24331A4441ADMIN', password='24331A4441ADMIN'")
+    print("   - Citizen: username='24331A4441CITIZEN', password='24331A4441CITIZEN'")
+    print("   - Worker: username='24331A4441WORKER', password='24331A4441WORKER'")
 
     # 2. Seed Chintalavalasa Schedules
     print("📅 Seeding Chintalavalasa collection schedules...")
@@ -234,8 +225,8 @@ with app.app_context():
     # 10. Seed 4-Stream Waste Declarations
     print("🌿 Seeding 4-stream declarations...")
     declarations = [
-        WasteDeclaration(user_id=regular_user.id, wet_kg=4.5, dry_kg=2.1, sanitary_kg=0.5, hazardous_kg=0.2, ward="Ward 2 - Chintalavalasa Junction"),
-        WasteDeclaration(user_id=regular_user.id, wet_kg=3.8, dry_kg=1.8, sanitary_kg=0.2, hazardous_kg=0.0, ward="Ward 2 - Chintalavalasa Junction")
+        WasteDeclaration(user_id=citizen_user.id, wet_kg=4.5, dry_kg=2.1, sanitary_kg=0.5, hazardous_kg=0.2, ward="Ward 2 - Chintalavalasa Junction"),
+        WasteDeclaration(user_id=citizen_user.id, wet_kg=3.8, dry_kg=1.8, sanitary_kg=0.2, hazardous_kg=0.0, ward="Ward 2 - Chintalavalasa Junction")
     ]
     db.session.add_all(declarations)
     db.session.commit()
@@ -243,15 +234,15 @@ with app.app_context():
     # 11. Seed BWG Commercial Declarations
     print("🏢 Seeding Bulk Waste declarations & PAYT...")
     bwg_decls = [
-        BWGDeclaration(user_id=regular_user.id, entity_name="Sunrise Apartments Block-C", entity_type="residential", composting_kg=40.0, recyclable_kg=35.0, landfill_kg=45.5, request_bulk_pickup=True, pickup_status="Pending"),
-        BWGDeclaration(user_id=regular_user.id, entity_name="Mega Shopping Plaza", entity_type="commercial", composting_kg=85.0, recyclable_kg=90.0, landfill_kg=15.0, request_bulk_pickup=False, pickup_status="N/A")
+        BWGDeclaration(user_id=citizen_user.id, entity_name="Sunrise Apartments Block-C", entity_type="residential", composting_kg=40.0, recyclable_kg=35.0, landfill_kg=45.5, request_bulk_pickup=True, pickup_status="Pending"),
+        BWGDeclaration(user_id=citizen_user.id, entity_name="Mega Shopping Plaza", entity_type="commercial", composting_kg=85.0, recyclable_kg=90.0, landfill_kg=15.0, request_bulk_pickup=False, pickup_status="N/A")
     ]
     db.session.add_all(bwg_decls)
     db.session.commit()
 
     # Seed PAYT Invoices (Auto-generate for Sunrise apartments since weight > 100kg)
     invoice = PAYTInvoice(
-        user_id=regular_user.id,
+        user_id=citizen_user.id,
         period=datetime.now(timezone.utc).strftime("%B %Y"),
         weight_kg=120.5,
         bin_pickups=4,

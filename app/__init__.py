@@ -16,12 +16,9 @@ csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 mail = Mail()
 socketio = SocketIO()
-# control room. async_mode is chosen at init time in create_app() so it
-# can fall back gracefully when eventlet/gevent are unavailable locally.
-socketio = SocketIO()
 
 
-def create_app():
+def create_app(test_config=None):
     app = Flask(__name__)
 
     # ── Sentry error tracking (if DSN present) ──
@@ -86,6 +83,9 @@ def create_app():
     # Ensure the upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+    if test_config:
+        app.config.update(test_config)
+
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
@@ -116,7 +116,7 @@ def create_app():
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "img-src 'self' data: https:; "
-            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
             "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
@@ -185,6 +185,21 @@ def create_app():
         lang = session.get('lang', DEFAULT_LANG)
         return dict(_=lambda t: translate(t, lang), lang=lang)
 
+    @app.context_processor
+    def inject_current_user():
+        from .models import User
+        user = None
+        if session.get('user_id'):
+            user = User.query.get(session['user_id'])
+        if user is None:
+            class AnonymousUser:
+                is_authenticated = False
+                role = None
+                username = None
+                is_superadmin = False
+            user = AnonymousUser()
+        return dict(current_user=user)
+
     @app.route('/set-lang/<lang>')
     def set_lang(lang):
         if lang not in SUPPORTED:
@@ -203,5 +218,34 @@ def create_app():
     # "duplicate column"/"already exists" the next time `flask db upgrade` runs.
     # Run `flask db upgrade` once after cloning (Dockerfile does this
     # automatically before starting gunicorn in production).
+    #
+    # Lightweight idempotent default-user seeder (no table creation, just
+    # INSERT-if-missing so the three login credentials always work without
+    # requiring re-registration).
+    try:
+        with app.app_context():
+            from app.models import User
+            from werkzeug.security import generate_password_hash
+            defaults = [
+                ("24331A4441ADMIN", "24331A4441ADMIN", "admin", "+919876543210", True, True),
+                ("24331A4441CITIZEN", "24331A4441CITIZEN", "citizen", "+919876543211", True, False),
+                ("24331A4441WORKER", "24331A4441WORKER", "worker", "+919876543212", True, False),
+            ]
+            for uname, pwd, role, phone, approved, superadmin in defaults:
+                if not User.query.filter_by(username=uname).first():
+                    user = User(
+                        username=uname,
+                        password_hash=generate_password_hash(pwd),
+                        role=role,
+                        phone=phone,
+                        is_approved=approved,
+                        is_superadmin=superadmin,
+                        green_points=120 if role == "citizen" else 0,
+                    )
+                    db.session.add(user)
+            db.session.commit()
+    except Exception:
+        # Silently skip if migrations haven't run yet (no tables yet).
+        pass
 
     return app

@@ -14,7 +14,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='js/offline.js') }}" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -31,32 +33,158 @@
             background: linear-gradient(135deg, #f4f7f6 0%, #e9ecef 100%);
             min-height: 100vh;
         }
+        
+        /* Green header bar */
+        .sg-green-header {
+            background: linear-gradient(90deg, #0f5132 0%, #1e8449 100%);
+            box-shadow: 0 2px 8px rgba(15, 81, 50, 0.3);
+            z-index: 1030;
+        }
+        
+        .sg-green-header .navbar-brand:hover {
+            color: #fff !important;
+            text-decoration: none;
+        }
+        
+        /* Language toggle button styling */
+        .sg-lang-btn {
+            min-width: 48px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Green header buttons */
+        .sg-green-header .btn-outline-light:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .sg-green-header .btn-warning:hover {
+            background: #fbbf24;
+            color: #000 !important;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top" style="backdrop-filter: blur(10px); background-color: rgba(15, 81, 50, 0.95) !important;">
+    <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
+    <div class="sg-green-header">
+        <div class="container d-flex align-items-center justify-content-between py-2">
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white text-decoration-none" href="/">
+                <span class="brand-mark">🗑️</span>
+                <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                {% if not current_user.is_authenticated %}
+                <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
+                <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
+                {% endif %}
+                {% if lang == 'en' %}
+                <a class="sg-lang-btn ms-1" href="/set-lang/te?next={{ request.path }}" title="Switch to Telugu" data-lang="te" style="font-size:0.78rem; min-width:38px; height:30px;">తె</a>
+                {% else %}
+                <a class="sg-lang-btn ms-1" href="/set-lang/en?next={{ request.path }}" title="Switch to English" data-lang="en" style="font-size:0.78rem; min-width:38px; height:30px;">EN</a>
+                {% endif %}
+                <button class="sg-dark-toggle" id="darkModeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+                    <span id="darkModeIcon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
-                <span class="fs-3">🗑️</span>
-                <span style="letter-spacing: -0.5px;">SmartGarbage <span class="fw-light text-warning">CV</span></span>
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold d-lg-none" href="/">
+                <span class="brand-mark">🗑️</span>
+                <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbarLayout" aria-controls="mainNavbarLayout" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
                 <div class="navbar-nav ms-auto align-items-center gap-1">
-                    <a class="nav-link text-white px-3" href="/">{{ _('Home') }}</a>
+                    <!-- Mobile menu items (visible on mobile, hidden on desktop by default) -->
+                    <div class="d-lg-none">
+                        <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/"><i class="fa-solid fa-house me-1"></i>{{ _('Home') }}</a>
+                        {% if current_user.is_authenticated %}
+                            {% if current_user.role == 'worker' %}
+                            <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                            <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                            <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
+                            {% elif current_user.role == 'citizen' %}
+                            <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                            <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                            <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
+                            {% endif %}
+                        {% else %}
+                            <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                            <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                        {% endif %}
+                        <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency"><i class="fa-solid fa-location-dot me-1"></i>{{ _('Wards') }}</a>
+                        <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
+                    </div>
+                    
+                    <!-- Desktop menu items (hidden by default, shown when menu is toggled) -->
+                    <div class="d-none d-lg-block" id="desktop-menu-container">
+                        <div class="navbar-nav ms-auto align-items-center gap-1">
+                            {% if current_user.is_authenticated %}
+                                {% if current_user.role == 'worker' %}
+                                <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                                <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                                <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
+                                {% elif current_user.role == 'citizen' %}
+                                <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                                <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                                <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
+                                {% endif %}
+                            {% else %}
+                                <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                                <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                            {% endif %}
+                            <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency"><i class="fa-solid fa-location-dot me-1"></i>{{ _('Wards') }}</a>
+                            <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
+                        </div>
+                        
+                        <!-- User dropdown and auth buttons (desktop) -->
+                        <div class="ms-lg-2">
+                            {% if current_user.is_authenticated %}
+                            <div class="nav-item dropdown">
+                                <a class="sg-user-pill dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fa-solid fa-circle-user"></i>
+                                    <span>{{ current_user.username }}</span>
+                                    <span class="badge">{{ current_user.role }}</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                                    {% if current_user.role == 'citizen' or current_user.role == 'worker' %}
+                                    <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('My Dashboard') }}</a></li>
+                                    {% endif %}
+                                    {% if current_user.role == 'admin' or current_user.is_superadmin %}
+                                    <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Admin Control Center') }}</a></li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
+                                </ul>
+                            </div>
+                            {% else %}
+                            <div class="d-flex gap-2">
+                                <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
+                                <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
+                            </div>
+{% endif %}
+                             </div>
+                             
+                              <!-- Language toggle (desktop) -->
+                              {% if lang == 'en' %}
+                              <a class="sg-lang-btn ms-2" href="/set-lang/te?next={{ request.path }}" title="Switch to Telugu" data-lang="te">తె</a>
+                              {% else %}
+                              <a class="sg-lang-btn ms-2" href="/set-lang/en?next={{ request.path }}" title="Switch to English" data-lang="en">EN</a>
+                              {% endif %}
+                         </div>
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </nav>
 
-                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill me-2" href="/login">{{ _('Login') }}</a>
-                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
-
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <div class="container mt-4 mb-5">
+    <div class="container mt-4 mb-5" id="main-content">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -83,6 +211,8 @@
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");
             const menu = document.getElementById("mainNavbarLayout");
+            const desktopMenu = document.getElementById("desktop-menu-container");
+            
             if (toggler && menu) {
                 toggler.addEventListener("click", () => {
                     const open = menu.classList.contains("show");
@@ -94,7 +224,44 @@
                     }
                 });
             }
+            
+            if (toggler && desktopMenu) {
+                toggler.addEventListener("click", () => {
+                    desktopMenu.classList.toggle("show");
+                });
+            }
+
+            // Dark mode toggle
+            const darkToggle = document.getElementById('darkModeToggle');
+            const darkIcon = document.getElementById('darkModeIcon');
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (darkIcon) darkIcon.textContent = '☀️';
+            } else if (savedTheme === 'light') {
+                document.documentElement.removeAttribute('data-theme');
+                if (darkIcon) darkIcon.textContent = '🌙';
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                if (darkIcon) darkIcon.textContent = '☀️';
+            }
+            if (darkToggle) {
+                darkToggle.addEventListener('click', () => {
+                    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                    if (isDark) {
+                        document.documentElement.removeAttribute('data-theme');
+                        localStorage.setItem('theme', 'light');
+                        if (darkIcon) darkIcon.textContent = '🌙';
+                    } else {
+                        document.documentElement.setAttribute('data-theme', 'dark');
+                        localStorage.setItem('theme', 'dark');
+                        if (darkIcon) darkIcon.textContent = '☀️';
+                    }
+                });
+            }
         });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js">
     </script>
 </body>
 </html>

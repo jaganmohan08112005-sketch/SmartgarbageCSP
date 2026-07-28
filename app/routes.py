@@ -424,7 +424,7 @@ def register_picker():
     return render_template('register_picker.html')
 
 @main.route('/login', methods=['GET', 'POST'])
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def login():
     if 'user_id' in session and not session.get('mfa_pending'):
         if session.get('role') == 'admin': return redirect(url_for('main.admin'))
@@ -462,7 +462,7 @@ def login():
     return render_template('login.html')
 
 @main.route('/mfa-verify', methods=['GET', 'POST'])
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 def mfa_verify():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
