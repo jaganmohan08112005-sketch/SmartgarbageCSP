@@ -3,11 +3,11 @@ import re
 import sys
 import hmac
 import hashlib
+import json
 import random
 import math
 import structlog
 from datetime import datetime, timedelta, timezone
-from functools import wraps
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import (Blueprint, render_template, request, jsonify, abort,
                    redirect, url_for, session, flash, current_app, send_from_directory)
@@ -451,7 +451,10 @@ def login():
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
-            flash("MFA required. Enter the OTP sent to your registered contact.", "success")
+            if not send_sms_via_twilio(user.phone or '+919876543210', f"SmartGarbage OTP: {otp_val}"):
+                flash("MFA required. Enter the OTP sent to your registered contact.", "success")
+            else:
+                flash("MFA required. Enter the OTP sent to your registered contact via SMS.", "success")
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
@@ -519,7 +522,10 @@ def auth_phone_login():
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
     logger.info("phone_otp_generated", phone=phone_number)
-    flash("OTP sent to your registered phone number.", "success")
+    if not send_sms_via_twilio(phone_number, f"SmartGarbage OTP: {otp_val}"):
+        flash("OTP sent to your registered phone number.", "success")
+    else:
+        flash("OTP sent to your registered phone number via SMS.", "success")
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
     return redirect(url_for('main.mfa_verify'))
@@ -536,13 +542,14 @@ def logout():
 # SECTION 2a — PASSWORD RESET
 # ═══════════════════════════════════════════════════════════════════
 def send_reset_email(user_email, user_id):
-    """Generate a password-reset token and send it via flask-mailman."""
-    from . import mail
+    """Generate a password-reset token and send it via SMTP or flask-mailman."""
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
     token = serializer.dumps(str(user_id), salt='password-reset-salt')
     reset_url = url_for('main.reset_password', token=token, _external=True)
     subject = 'SmartGarbage — Password Reset Request'
     body = f'Click the link below to reset your password (valid for 30 minutes):\n\n{reset_url}\n\nIf you did not request this, ignore this email.'
+    if send_email_via_smtp(user_email, subject, body):
+        return True
     try:
         from flask_mailman import Message
         msg = Message(subject, recipients=[user_email], body=body)
@@ -600,7 +607,9 @@ def reset_password(token):
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    complaints = Complaint.query.filter_by(user_id=session['user_id']).order_by(Complaint.id.desc()).all()
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    complaints = Complaint.query.filter_by(user_id=session['user_id']).order_by(Complaint.id.desc()).limit(per_page).offset((page - 1) * per_page).all()
     user = User.query.get(session['user_id'])
     wards_scores = []
     for ward_name in WARD_COORDINATES:
@@ -609,17 +618,15 @@ def dashboard():
         wards_scores.append({"ward": ward_name, "score": max(0, 100 - int(avg_level))})
     wards_scores.sort(key=lambda x: x['score'], reverse=True)
     bin_assets = SmartBin.query.all()
-    invoices = PAYTInvoice.query.filter_by(user_id=session['user_id']).order_by(PAYTInvoice.issued_at.desc()).all()
-    declarations = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(5).all()
-    # Segregation streak: count consecutive recent declarations (newest→oldest) with >0 segregated kg
-    all_user_decl = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).all()
+    invoices = PAYTInvoice.query.filter_by(user_id=session['user_id']).order_by(PAYTInvoice.issued_at.desc()).limit(per_page).offset((page - 1) * per_page).all()
+    declarations = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(per_page).offset((page - 1) * per_page).all()
+    all_user_decl = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(200).all()
     streak = 0
     for d in all_user_decl:
         if (d.wet_kg + d.dry_kg) > 0:
             streak += 1
         else:
             break
-    # Keep the computed streak in sync with the stored field
     if user is None:
         flash('Account not found. Please log in again.', 'error')
         return redirect(url_for('main.logout'))
@@ -628,27 +635,32 @@ def dashboard():
         db.session.commit()
     bins_data = [{'hardware_id': b.hardware_id, 'latitude': b.latitude, 'longitude': b.longitude,
                   'level': b.level, 'status': b.status} for b in bin_assets]
-    # Ward segregation leaderboard: avg segregation % per ward from recent declarations
     from datetime import timedelta as _td
     cutoff = datetime.now(timezone.utc) - _td(days=30)
-    ward_seg = {}
-    for wd in WARD_COORDINATES:
-        wdecls = WasteDeclaration.query.filter(WasteDeclaration.ward == wd,
-                                                WasteDeclaration.timestamp >= cutoff).all()
-        if wdecls:
-            tot = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in wdecls) or 1
-            seg = sum(d.wet_kg + d.dry_kg for d in wdecls)
-            ward_seg[wd] = round((seg / tot) * 100, 1)
-        else:
-            ward_seg[wd] = 0.0
+    cache_key = f"ward_seg:{cutoff.date().isoformat()}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        ward_seg = cached
+    else:
+        ward_seg = {}
+        for wd in WARD_COORDINATES:
+            wdecls = WasteDeclaration.query.filter(WasteDeclaration.ward == wd,
+                                                    WasteDeclaration.timestamp >= cutoff).all()
+            if wdecls:
+                tot = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in wdecls) or 1
+                seg = sum(d.wet_kg + d.dry_kg for d in wdecls)
+                ward_seg[wd] = round((seg / tot) * 100, 1)
+            else:
+                ward_seg[wd] = 0.0
+        cache_set(cache_key, ward_seg, ttl_seconds=120)
     ward_leaderboard = sorted(ward_seg.items(), key=lambda kv: kv[1], reverse=True)
-    # Pass the real registered phone so the report form pre-fills accurately
     current_user_phone = user.phone or ''
     return render_template('dashboard.html', complaints=complaints, green_points=user.green_points,
                            leaderboard=wards_scores, bins=bin_assets, bins_data=bins_data,
                            invoices=invoices, declarations=declarations, dump_yards=DUMP_YARDS,
                            current_user_phone=current_user_phone,
-                            segregation_streak=streak, ward_leaderboard=ward_leaderboard)
+                            segregation_streak=streak, ward_leaderboard=ward_leaderboard,
+                            page=page, per_page=per_page)
 
 # Citizen Green-Points leaderboard (ward-scoped, privacy-conscious:
 # usernames only, never phone numbers). Powers the dashboard "Eco Champions" card.
@@ -656,18 +668,24 @@ def dashboard():
 @login_required
 def green_points_leaderboard():
     ward = request.args.get('ward', '').strip()
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    cache_key = f"leaderboard:{ward}:{page}:{per_page}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
     query = User.query.filter(User.green_points > 0)
     if ward:
-        # A citizen's ward is taken from their waste declarations (User has no
-        # ward column), so scope to users who declared under that ward.
         user_ids = db.session.query(WasteDeclaration.user_id).filter(
             WasteDeclaration.ward == ward).distinct()
         query = query.filter(User.id.in_(user_ids))
-    top = query.order_by(User.green_points.desc()).limit(10).all()
-    return jsonify([
-        {"rank": i + 1, "username": u.username, "green_points": u.green_points}
-        for i, u in enumerate(top)
-    ])
+    page_obj = query.order_by(User.green_points.desc()).limit(per_page).offset((page - 1) * per_page).all()
+    payload = [
+        {"rank": i + 1 + (page - 1) * per_page, "username": u.username, "green_points": u.green_points}
+        for i, u in enumerate(page_obj)
+    ]
+    cache_set(cache_key, payload, ttl_seconds=30)
+    return jsonify(payload)
 
 # ══════════════════════════════════════════════════════════════════
 # PAYT / Razorpay-UPI payment endpoint (client-side button triggers this)
@@ -2015,3 +2033,92 @@ def health_check():
     if not db_ok:
         return jsonify(payload), 503
     return jsonify(payload), 200
+
+
+# ═══════════════════════════════════════════════════════════════════
+# OPTIONAL REDIS CACHE (used for KPI / leaderboard data when configured)
+# ═══════════════════════════════════════════════════════════════════
+def _redis_client():
+    try:
+        import redis
+        url = os.environ.get('REDIS_URL')
+        if url:
+            return redis.Redis.from_url(url, socket_timeout=2)
+    except Exception:
+        pass
+    return None
+
+
+def cache_get(key):
+    r = _redis_client()
+    if not r:
+        return None
+    try:
+        value = r.get(key)
+        if value:
+            return json.loads(value)
+    except Exception:
+        pass
+    return None
+
+
+def cache_set(key, value, ttl_seconds=60):
+    r = _redis_client()
+    if not r:
+        return
+    try:
+        r.set(key, json.dumps(value), ex=ttl_seconds)
+    except Exception:
+        pass
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SMS / EMAIL GATEWAY INTEGRATION HELPERS
+# Keep current simulated fallback when real credentials are absent.
+# ═══════════════════════════════════════════════════════════════════
+def send_sms_via_twilio(to_number, body):
+    sid = os.environ.get('TWILIO_ACCOUNT_SID')
+    auth = os.environ.get('TWILIO_AUTH_TOKEN')
+    sender = os.environ.get('TWILIO_WHATSAPP_NUMBER') or os.environ.get('TWILIO_FROM_NUMBER')
+    if not sid or not auth or not sender:
+        return False
+    try:
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+        data = {
+            'To': to_number,
+            'From': sender,
+            'Body': body,
+        }
+        requests.post(url, data=data, auth=(sid, auth), timeout=5)
+        return True
+    except Exception as e:
+        logger.error("twilio_sms_error", error=str(e))
+        return False
+
+
+def send_email_via_smtp(to_email, subject, body):
+    host = os.environ.get('MAIL_SERVER')
+    port = int(os.environ.get('MAIL_PORT', 25))
+    use_tls = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
+    username = os.environ.get('MAIL_USERNAME')
+    password = os.environ.get('MAIL_PASSWORD')
+    sender = os.environ.get('MAIL_DEFAULT_SENDER')
+    if not host or not username or not password:
+        return False
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = sender or username
+        msg['To'] = to_email
+        with smtplib.SMTP(host, port, timeout=5) as server:
+            if use_tls:
+                server.starttls()
+            server.login(username, password)
+            server.sendmail(msg['From'], [msg['To']], msg.as_string())
+        return True
+    except Exception as e:
+        logger.error("smtp_email_error", error=str(e))
+        return False
+

@@ -103,13 +103,15 @@ def create_app(test_config=None):
     limiter.init_app(app)
     mail.init_app(app)
 
-    # WebSockets for live IoT/fleet updates. Prefer eventlet (needed for the
-    # async Gunicorn worker in production); fall back to threading for plain
-    # `flask run` local dev where eventlet isn't installed.
+    # WebSockets for live IoT/fleet updates. Prefer gevent-worker-friendly
+    # async modes for production; fall back gracefully when unavailable.
     try:
-        socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+        socketio.init_app(app, async_mode='gevent', cors_allowed_origins="*")
     except Exception:
-        socketio.init_app(app, cors_allowed_origins="*")
+        try:
+            socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+        except Exception:
+            socketio.init_app(app, cors_allowed_origins="*")
     # Quiet the SQLAlchemy 1.x LegacyAPIWarning emitted by the app-wide
     # use of `Model.query.get()` (deprecated in 2.0). Tracked separately
     # from a real migration to Session.get().
@@ -117,8 +119,8 @@ def create_app(test_config=None):
     from sqlalchemy.exc import LegacyAPIWarning
     warnings.filterwarnings("ignore", category=LegacyAPIWarning)
 
-    # Security headers via after_request (Talisman handles HSTS/secure cookie;
-    # CSP scoped to the CDNs actually used so Leaflet maps keep working)
+    # Security headers via after_request (HSTS/secure cookie/CSP scoped to CDNs
+    # actually used so Leaflet maps keep working)
     @app.after_request
     def set_security_headers(resp):
         resp.headers['X-Frame-Options'] = 'SAMEORIGIN'

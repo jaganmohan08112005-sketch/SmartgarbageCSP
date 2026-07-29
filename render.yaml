@@ -2,8 +2,8 @@ services:
   - type: web
     name: smartgarbage
     runtime: docker
-    plan: starter
-    region: singapore
+    plan: free
+    region: oregon
     branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
@@ -13,43 +13,17 @@ services:
       - key: PYTHON_VERSION
         value: "3.12"
       - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: smartgarbage-db
-          property: connectionString
+        sync: false
+      - key: RAZOR_PUBLIC_KEY
+        sync: false
       - key: SENTRY_DSN
         sync: false
       - key: CLOUDINARY_URL
         sync: false
       - key: IOT_TELEMETRY_SECRET
-        generateValue: true
-      - key: MAIL_SERVER
-        value: "smtp.gmail.com"
-      - key: MAIL_PORT
-        value: "587"
-      - key: MAIL_USE_TLS
-        value: "true"
-      - key: MAIL_USERNAME
-        sync: false
-      - key: MAIL_PASSWORD
-        sync: false
-      - key: RAZOR_PUBLIC_KEY
-        sync: false
-      - key: RAZOR_PRIVATE_KEY
-        sync: false
-      - key: RAZOR_WEBHOOK_SECRET
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_WHATSAPP_NUMBER
         sync: false
 
 databases:
   - name: smartgarbage-db
     plan: free
-    region: singapore
+    region: oregon
