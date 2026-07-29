@@ -451,10 +451,7 @@ def login():
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
-            if not send_sms_via_twilio(user.phone or '+919876543210', f"SmartGarbage OTP: {otp_val}"):
-                flash("MFA required. Enter the OTP sent to your registered contact.", "success")
-            else:
-                flash("MFA required. Enter the OTP sent to your registered contact via SMS.", "success")
+            _send_otp_with_fallback(user.phone or '+919876543210', otp_val)
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
@@ -522,10 +519,7 @@ def auth_phone_login():
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
     logger.info("phone_otp_generated", phone=phone_number)
-    if not send_sms_via_twilio(phone_number, f"SmartGarbage OTP: {otp_val}"):
-        flash("OTP sent to your registered phone number.", "success")
-    else:
-        flash("OTP sent to your registered phone number via SMS.", "success")
+    _send_otp_with_fallback(phone_number, otp_val)
     session.update({'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role})
     return redirect(url_for('main.mfa_verify'))
@@ -604,6 +598,22 @@ def reset_password(token):
 # ═══════════════════════════════════════════════════════════════════
 # SECTION 3 — CITIZEN DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
+def _is_local_request():
+    host = request.host.split(':')[0] if ':' in request.host else request.host
+    return host in ('127.0.0.1', 'localhost', '0.0.0.0')
+
+
+def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
+    is_local = _is_local_request()
+    if is_local:
+        flash(f"Dev OTP (localhost): {otp_val}", "success")
+        return
+    sms_sent = send_sms_via_twilio(recipient, f"SmartGarbage OTP: {otp_val}")
+    if not sms_sent:
+        send_email_via_smtp(recipient, subject, f"Your SmartGarbage OTP is: {otp_val}\n\nThis code expires in 5 minutes.")
+    flash("MFA required. Enter the OTP sent to your registered contact.", "success")
+
+
 @main.route('/dashboard')
 @login_required
 def dashboard():

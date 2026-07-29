@@ -114,6 +114,7 @@
                             <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
                             <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
                             {% endif %}
+                            <a class="nav-link text-danger px-3" href="/logout"><i class="fa-solid fa-right-from-bracket me-1"></i>{{ _('Logout') }}</a>
                         {% else %}
                             <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
                             <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
