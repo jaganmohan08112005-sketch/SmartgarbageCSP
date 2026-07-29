@@ -49,7 +49,7 @@ def create_app(test_config=None):
             app.config['SECRET_KEY'] = 'test-secret-key-only-for-pytest'
         else:
             raise RuntimeError("SECRET_KEY environment variable is required")
-    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER') is not None
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
@@ -57,11 +57,10 @@ def create_app(test_config=None):
 
     @app.before_request
     def enforce_https():
-        if app.config.get('TESTING'):
+        if app.config.get('TESTING') or not os.environ.get('RENDER'):
             return None
         if request.headers.get('X-Forwarded-Proto') != 'https':
-            if request.url.startswith('http://') and request.host != '127.0.0.1:5000':
-                return redirect(request.url.replace('http://', 'https://', 1), code=301)
+            return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
     # Mail Configuration (flask-mailman)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
