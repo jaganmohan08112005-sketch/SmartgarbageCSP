@@ -143,40 +143,27 @@
                             <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
                         </div>
                         
-                        <!-- User dropdown and auth buttons (desktop) -->
-                        <div class="ms-lg-2">
-                            {% if current_user.is_authenticated %}
-                            <div class="nav-item dropdown">
-                                <a class="sg-user-pill dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fa-solid fa-circle-user"></i>
-                                    <span>{{ current_user.username }}</span>
-                                    <span class="badge">{{ current_user.role }}</span>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
-                                    {% if current_user.role == 'citizen' or current_user.role == 'worker' %}
-                                    <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('My Dashboard') }}</a></li>
-                                    {% endif %}
-                                    {% if current_user.role == 'admin' or current_user.is_superadmin %}
-                                    <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Admin Control Center') }}</a></li>
-                                    {% endif %}
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
-                                </ul>
-                            </div>
-                            {% else %}
-                            <div class="d-flex gap-2">
-                                <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
-                                <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
-                            </div>
-{% endif %}
+                         <!-- User dropdown and auth buttons (desktop) -->
+                         <div class="ms-lg-2">
+                             {% if current_user.is_authenticated %}
+                             <div class="nav-item dropdown">
+                                 <a class="sg-user-pill dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                     <i class="fa-solid fa-circle-user"></i>
+                                     <span>{{ current_user.username }}</span>
+                                     <span class="badge">{{ current_user.role }}</span>
+                                 </a>
+                                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                                     {% if current_user.role == 'citizen' or current_user.role == 'worker' %}
+                                     <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('My Dashboard') }}</a></li>
+                                     {% endif %}
+                                     {% if current_user.role == 'admin' or current_user.is_superadmin %}
+                                     <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Admin Control Center') }}</a></li>
+                                     {% endif %}
+                                     <li><hr class="dropdown-divider"></li>
+                                     <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
+                                 </ul>
                              </div>
-                             
-                              <!-- Language toggle (desktop) -->
-                              {% if lang == 'en' %}
-                              <a class="sg-lang-btn ms-2" href="/set-lang/te?next={{ request.path }}" title="Switch to Telugu" data-lang="te">తె</a>
-                              {% else %}
-                              <a class="sg-lang-btn ms-2" href="/set-lang/en?next={{ request.path }}" title="Switch to English" data-lang="en">EN</a>
-                              {% endif %}
+                             {% endif %}
                          </div>
                      </div>
                  </div>
