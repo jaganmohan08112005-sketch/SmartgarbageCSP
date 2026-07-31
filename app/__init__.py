@@ -9,6 +9,7 @@ from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
 from flask_socketio import SocketIO
 from flask_mailman import Mail
+from flask_login import LoginManager
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -16,6 +17,7 @@ csrf = CSRFProtect()
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 mail = Mail()
 socketio = SocketIO()
+login_manager = LoginManager()
 
 
 def create_app(test_config=None):
@@ -101,6 +103,13 @@ def create_app(test_config=None):
     csrf.init_app(app)
     limiter.init_app(app)
     mail.init_app(app)
+
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        from .models import User
+        return User.query.get(int(user_id))
 
     # WebSockets for live IoT/fleet updates. Prefer gevent-worker-friendly
     # async modes for production; fall back gracefully when unavailable.

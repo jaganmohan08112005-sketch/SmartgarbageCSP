@@ -1,10 +1,11 @@
 from . import db
 from datetime import datetime, timezone
+from flask_login import UserMixin
 
 # ──────────────────────────────────────────────
 # CORE USER MODEL
 # ──────────────────────────────────────────────
-class User(db.Model):
+class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
     email = db.Column(db.String(120), nullable=True, index=True)
@@ -20,6 +21,21 @@ class User(db.Model):
     locked_until = db.Column(db.DateTime, nullable=True)
     # v2: Gamification — segregation streak (consecutive declarations with >0 segregated kg)
     segregation_streak = db.Column(db.Integer, default=0, nullable=False)
+
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_id(self):
+        return str(self.id)
 
 # ──────────────────────────────────────────────
 # COLLECTION SCHEDULE

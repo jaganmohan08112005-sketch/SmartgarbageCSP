@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask import (Blueprint, render_template, request, jsonify, abort,
                    redirect, url_for, session, flash, current_app, send_from_directory)
+from flask_login import login_user, logout_user
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
@@ -457,6 +458,7 @@ def login():
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
+        login_user(user)
         logger.info("login_success", username=user.username, role=user.role, ip=request.remote_addr)
         write_audit("LOGIN", target=username, detail="Citizen login successful.")
         flash(f'Welcome back, {user.username}!', 'success')
@@ -481,6 +483,7 @@ def mfa_verify():
                 db.session.commit()
                 session['mfa_pending'] = False
                 session.pop('dev_otp', None)
+                login_user(user)
                 write_audit("MFA_SUCCESS", target=user.username, detail="MFA verified successfully.")
                 flash(f'MFA Verified. Welcome, {user.username}!', 'success')
                 if user.role == 'admin': return redirect(url_for('main.admin'))
@@ -534,6 +537,7 @@ def auth_phone_login():
 @main.route('/logout')
 def logout():
     write_audit("LOGOUT", target=session.get('username'))
+    logout_user()
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.login'))
