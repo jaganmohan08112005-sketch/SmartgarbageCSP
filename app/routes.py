@@ -452,6 +452,8 @@ def login():
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
             _send_otp_with_fallback(user.phone or '+919876543210', otp_val)
+            if _is_local_request():
+                session['dev_otp'] = otp_val
             session['mfa_pending'] = True
             return redirect(url_for('main.mfa_verify'))
         session['mfa_pending'] = False
@@ -478,6 +480,7 @@ def mfa_verify():
                 user.otp = None; user.otp_expiry = None
                 db.session.commit()
                 session['mfa_pending'] = False
+                session.pop('dev_otp', None)
                 write_audit("MFA_SUCCESS", target=user.username, detail="MFA verified successfully.")
                 flash(f'MFA Verified. Welcome, {user.username}!', 'success')
                 if user.role == 'admin': return redirect(url_for('main.admin'))
@@ -488,7 +491,8 @@ def mfa_verify():
         else:
             flash('OTP not found. Please log in again.', 'error')
             return redirect(url_for('main.login'))
-    return render_template('mfa_verify.html')
+    dev_otp = session.get('dev_otp')
+    return render_template('mfa_verify.html', dev_otp=dev_otp)
 
 
 @main.route('/auth/phone-login', methods=['POST'])
@@ -520,8 +524,11 @@ def auth_phone_login():
     db.session.commit()
     logger.info("phone_otp_generated", phone=phone_number)
     _send_otp_with_fallback(phone_number, otp_val)
-    session.update({'user_id': user.id, 'mfa_pending': True,
-                    'username': user.username, 'role': user.role})
+    session_data = {'user_id': user.id, 'mfa_pending': True,
+                    'username': user.username, 'role': user.role}
+    if _is_local_request():
+        session_data['dev_otp'] = otp_val
+    session.update(session_data)
     return redirect(url_for('main.mfa_verify'))
 
 @main.route('/logout')
