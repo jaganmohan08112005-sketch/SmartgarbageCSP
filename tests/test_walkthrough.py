@@ -37,8 +37,9 @@ def _login(client, app, username, password='demo123', role='citizen', phone='+91
     r = client.post('/login', data={'username': username, 'password': password}, follow_redirects=False)
     assert r.status_code == 302, f"login {username} -> {r.status_code}"
     if role in ('admin', 'worker'):
-        with app.app_context():
-            otp = User.query.filter_by(username=username).first().otp
+        # OTPs are stored hashed — read the plaintext dev OTP from the session.
+        with client.session_transaction() as sess:
+            otp = sess.get('dev_otp')
         r2 = client.post('/mfa-verify', data={'otp': otp}, follow_redirects=False)
         assert r2.status_code == 302
 

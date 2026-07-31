@@ -1,3 +1,4 @@
+import os
 import sys
 import random
 from werkzeug.security import generate_password_hash
@@ -13,6 +14,13 @@ from app.models import (Schedule, User, Complaint, SmartBin, WorkerProfile, Inci
                         WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease)
 
 app = create_app()
+
+# SECURITY: this script seeds demo accounts with publicly-known credentials.
+# Never run it against a production database unless SEED_DEMO=true.
+if (os.environ.get('RENDER')
+        and os.environ.get('SEED_DEMO', 'false').lower() not in ('true', '1', 'yes')):
+    print("⏭️ SEED_DEMO not enabled — refusing to seed demo data in production.")
+    raise SystemExit(0)
 
 with app.app_context():
     print("⏳ Seeding database tables...")

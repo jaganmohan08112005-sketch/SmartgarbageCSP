@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}SmartGarbage Chintalavalasa{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="description" content="SmartGarbage Chintalavalasa — report overflowing bins, track collection schedules, declare segregated waste and earn Green Points.">
+    <meta property="og:title" content="SmartGarbage Chintalavalasa">
+    <meta property="og:description" content="Civic waste-management portal for Chintalavalasa — report, track, declare, and earn rewards.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-192.png') }}">
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f5132">

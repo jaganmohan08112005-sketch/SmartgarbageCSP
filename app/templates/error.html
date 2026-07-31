@@ -1,9 +1,19 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container text-center mt-5 py-5">
-    <h1 class="display-1 text-muted">⚠️</h1>
-    <h2 class="fw-bold">{{ _('Something went wrong') }}</h2>
+    <h1 class="display-1 text-muted">{{ code if code else '⚠️' }}</h1>
+    <h2 class="fw-bold">{{ message or _('Something went wrong') }}</h2>
+    {% if code == 404 %}
+    <p class="text-muted">{{ _('The page you are looking for does not exist or has been moved.') }}</p>
+    {% elif code == 403 %}
+    <p class="text-muted">{{ _('You do not have permission to view this page.') }}</p>
+    {% elif code == 413 %}
+    <p class="text-muted">{{ _('That file was too large to upload.') }}</p>
+    {% elif code == 429 %}
+    <p class="text-muted">{{ _('Too many requests — please wait a moment and try again.') }}</p>
+    {% else %}
     <p class="text-muted">{{ _('We\'ve logged the issue and our team has been notified. Please try again shortly.') }}</p>
+    {% endif %}
     <a href="/" class="btn btn-success mt-3">{{ _('Return Home') }}</a>
 </div>
 {% endblock %}

@@ -39,8 +39,9 @@ def _make_user(app, username, role='citizen', phone=None, password='testpass123'
 
 def _login_admin(client, app, username, password='testpass123'):
     client.post('/login', data={'username': username, 'password': password}, follow_redirects=False)
-    with app.app_context():
-        otp = User.query.filter_by(username=username).first().otp
+    # OTPs are stored hashed — read the plaintext dev OTP from the session.
+    with client.session_transaction() as sess:
+        otp = sess.get('dev_otp')
     client.post('/mfa-verify', data={'otp': otp}, follow_redirects=False)
 
 # ── Login lockout after repeated failures ──────────────────────

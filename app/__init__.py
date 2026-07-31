@@ -14,7 +14,11 @@ from flask_login import LoginManager
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
-limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+# In-memory by default; production should set REDIS_URL so rate limits are
+# shared across gunicorn workers/instances (per-process memory limits silently
+# reset the counter whenever you scale past one worker).
+limiter = Limiter(key_func=get_remote_address,
+                  storage_uri=os.environ.get("REDIS_URL") or "memory://")
 mail = Mail()
 socketio = SocketIO()
 login_manager = LoginManager()
@@ -83,8 +87,12 @@ def create_app(test_config=None):
     if not test_config or 'SQLALCHEMY_DATABASE_URI' not in test_config:
         db_url = os.environ.get('DATABASE_URL')
         if db_url:
-            if '?' not in db_url:
-                db_url = db_url + '?sslmode=require'
+            # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
+            # when it isn't already present (Supabase connection strings may
+            # carry their own options like ?sslmode=require or ?options=...).
+            if 'sslmode' not in db_url:
+                sep = '&' if '?' in db_url else '?'
+                db_url = f"{db_url}{sep}sslmode=require"
             app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
             app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
         elif os.environ.get('RENDER') and os.path.isdir('/data'):
@@ -111,15 +119,20 @@ def create_app(test_config=None):
         from .models import User
         return User.query.get(int(user_id))
 
+    # WebSockets for live IoT/fleet updates.
+
     # WebSockets for live IoT/fleet updates. Prefer gevent-worker-friendly
     # async modes for production; fall back gracefully when unavailable.
+    # When REDIS_URL is set, SocketIO uses Redis as a message queue so
+    # broadcasts work across multiple gunicorn workers/instances.
+    mq = os.environ.get("REDIS_URL")
     try:
-        socketio.init_app(app, async_mode='gevent', cors_allowed_origins="*")
+        socketio.init_app(app, async_mode='gevent', cors_allowed_origins="*", message_queue=mq)
     except Exception:
         try:
-            socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+            socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*", message_queue=mq)
         except Exception:
-            socketio.init_app(app, cors_allowed_origins="*")
+            socketio.init_app(app, cors_allowed_origins="*", message_queue=mq)
     # Quiet the SQLAlchemy 1.x LegacyAPIWarning emitted by the app-wide
     # use of `Model.query.get()` (deprecated in 2.0). Tracked separately
     # from a real migration to Session.get().
@@ -133,6 +146,9 @@ def create_app(test_config=None):
     def set_security_headers(resp):
         resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
         resp.headers['X-Content-Type-Options'] = 'nosniff'
+        resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        if os.environ.get('RENDER'):
+            resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         resp.headers['Content-Security-Policy'] = (
             "default-src 'self'; "
             "img-src 'self' data: https:; "
@@ -188,11 +204,37 @@ def create_app(test_config=None):
         # CORS preflight responder for cross-origin sensor POSTs.
         return ('', 204)
 
-    # Global 500 handler — log traceback, show generic page
+    # Global error handlers — log traceback, show friendly page
     @app.errorhandler(500)
     def internal_error(e):
         app.logger.error("Unhandled exception: %s", e, exc_info=True)
-        return render_template('error.html'), 500
+        return render_template('error.html', code=500, message="Something went wrong on our side."), 500
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template('error.html', code=404, message="Page not found."), 404
+
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('error.html', code=403,
+                               message="You don't have permission to view this page."), 403
+
+    @app.errorhandler(413)
+    def too_large(e):
+        return render_template('error.html', code=413,
+                               message="That file is too large (max 16 MB)."), 413
+
+    @app.errorhandler(429)
+    def too_many(e):
+        return render_template('error.html', code=429,
+                               message="Too many requests. Please wait a moment and try again."), 429
+
+    @app.errorhandler(400)
+    def bad_request(e):
+        # CSRF rejections surface as 400 — log them for triage.
+        app.logger.warning("bad_request: %s", e)
+        return render_template('error.html', code=400,
+                               message="That request could not be processed."), 400
 
     # Register blueprints
     from .routes import main
@@ -242,30 +284,37 @@ def create_app(test_config=None):
     # Lightweight idempotent default-user seeder (no table creation, just
     # INSERT-if-missing so the three login credentials always work without
     # requiring re-registration).
-    try:
-        with app.app_context():
-            from app.models import User
-            from werkzeug.security import generate_password_hash
-            defaults = [
-                ("24331A4441ADMIN", "24331A4441ADMIN", "admin", "+919876543210", True, True),
-                ("24331A4441CITIZEN", "24331A4441CITIZEN", "citizen", "+919876543211", True, False),
-                ("24331A4441WORKER", "24331A4441WORKER", "worker", "+919876543212", True, False),
-            ]
-            for uname, pwd, role, phone, approved, superadmin in defaults:
-                if not User.query.filter_by(username=uname).first():
-                    user = User(
-                        username=uname,
-                        password_hash=generate_password_hash(pwd),
-                        role=role,
-                        phone=phone,
-                        is_approved=approved,
-                        is_superadmin=superadmin,
-                        green_points=120 if role == "citizen" else 0,
-                    )
-                    db.session.add(user)
-            db.session.commit()
-    except Exception:
-        # Silently skip if migrations haven't run yet (no tables yet).
-        pass
+    #
+    # SECURITY: these demo accounts have publicly-known credentials, so they are
+    # NEVER auto-created in production. They only exist when SEED_DEMO=true or
+    # when running locally (no RENDER env). Deployments must create real
+    # accounts through registration + admin approval.
+    if (os.environ.get('SEED_DEMO', 'false').lower() in ('true', '1', 'yes')
+            or not os.environ.get('RENDER')):
+        try:
+            with app.app_context():
+                from app.models import User
+                from werkzeug.security import generate_password_hash
+                defaults = [
+                    ("24331A4441ADMIN", "24331A4441ADMIN", "admin", "+919876543210", True, True),
+                    ("24331A4441CITIZEN", "24331A4441CITIZEN", "citizen", "+919876543211", True, False),
+                    ("24331A4441WORKER", "24331A4441WORKER", "worker", "+919876543212", True, False),
+                ]
+                for uname, pwd, role, phone, approved, superadmin in defaults:
+                    if not User.query.filter_by(username=uname).first():
+                        user = User(
+                            username=uname,
+                            password_hash=generate_password_hash(pwd),
+                            role=role,
+                            phone=phone,
+                            is_approved=approved,
+                            is_superadmin=superadmin,
+                            green_points=120 if role == "citizen" else 0,
+                        )
+                        db.session.add(user)
+                db.session.commit()
+        except Exception:
+            # Silently skip if migrations haven't run yet (no tables yet).
+            pass
 
     return app

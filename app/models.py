@@ -13,7 +13,7 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(50), default='citizen', nullable=False)  # 'citizen', 'worker', 'admin'
     phone = db.Column(db.String(20), nullable=True)
     green_points = db.Column(db.Integer, default=0, nullable=False)
-    otp = db.Column(db.String(10), nullable=True)
+    otp = db.Column(db.String(128), nullable=True)  # sha256 hex digest (64 chars)
     otp_expiry = db.Column(db.DateTime, nullable=True)
     is_superadmin = db.Column(db.Boolean, default=False, nullable=False)
     is_approved = db.Column(db.Boolean, default=False, nullable=False)  # admin must approve new accounts

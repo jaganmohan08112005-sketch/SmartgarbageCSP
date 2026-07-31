@@ -2,7 +2,7 @@ services:
   - type: web
     name: smartgarbage
     runtime: docker
-    plan: free
+    plan: starter
     region: oregon
     branch: main
     dockerfilePath: ./Dockerfile
@@ -14,6 +14,12 @@ services:
         value: "3.12"
       - key: SECRET_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: RAZOR_PUBLIC_KEY
         sync: false
       - key: SENTRY_DSN
@@ -23,7 +29,7 @@ services:
       - key: IOT_TELEMETRY_SECRET
         sync: false
 
-databases:
-  - name: smartgarbage-db
-    plan: free
-    region: oregon
+# NOTE: Supabase replaces Render's managed Postgres.
+# Create a Supabase project, copy the "Connection pooler" (port 5432) URI,
+# and paste it as DATABASE_URL in Render env vars.
+# Remove any `databases:` block below once Supabase is live.

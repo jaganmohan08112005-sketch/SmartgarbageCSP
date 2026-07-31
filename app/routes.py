@@ -48,7 +48,7 @@ def validate_indian_phone(phone):
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-from . import db, limiter, current_app
+from . import db, limiter, csrf, current_app
 from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, IncidentLog,
                      AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
                      WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease,
@@ -56,6 +56,37 @@ from .models import (Schedule, Complaint, User, SmartBin, WorkerProfile, Inciden
 from .ml_model import predict_miss
 
 logger = structlog.get_logger("smartgarbage.routes")
+
+# ──────────────────────────────────────────────
+# OTP HASHING HELPER
+# ──────────────────────────────────────────────
+def _hash_otp(otp_val):
+    """One-way hash for OTPs at rest — never store plaintext OTPs in the DB.
+    Matches the same digest used in login() / auth_phone_login() / mfa_verify()."""
+    return hashlib.sha256(otp_val.encode('utf-8')).hexdigest()
+
+
+# ──────────────────────────────────────────────
+# SUPABASE STORAGE HELPER
+# ──────────────────────────────────────────────
+def _upload_to_supabase(data, filename, prefix):
+    """Upload compressed bytes to Supabase Storage bucket 'uploads'.
+    Returns a public URL on success, or None on failure."""
+    try:
+        from supabase import create_client
+        url = os.environ.get('SUPABASE_URL')
+        key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+        if not url or not key:
+            return None
+        client = create_client(url, key)
+        path = f"{prefix}/{filename}"
+        client.storage.from_('uploads').upload(path, data, {'content-type': 'image/jpeg', 'upsert': 'true'})
+        public_url = client.storage.from_('uploads').get_public_url(path)
+        return public_url
+    except Exception as e:
+        logger.error("supabase_upload_failed", error=str(e))
+        return None
+
 
 # ──────────────────────────────────────────────
 # PHOTO COMPRESSION HELPER
@@ -92,6 +123,12 @@ def save_compressed_photo(file_storage, prefix):
         current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
         file_storage.seek(0)
         data = file_storage.read()
+
+    # Storage priority: Supabase > Cloudinary > local disk.
+    # Supabase is preferred when SUPABASE_URL + key are set (managed, survives restarts).
+    supabase_url = _upload_to_supabase(data, filename, prefix)
+    if supabase_url:
+        return supabase_url
 
     # Cloudinary is optional. If CLOUDINARY_URL is set, upload there; else local disk.
     cloudinary_url = os.getenv('CLOUDINARY_URL')
@@ -443,12 +480,19 @@ def login():
         if user.role == 'admin' and not user.is_approved:
             flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
             return redirect(url_for('main.login'))
+        # Session-fixation defense: start each login with a fresh session
+        # (preserving the user's language preference).
+        _lang = session.get('lang')
+        session.clear()
+        if _lang:
+            session['lang'] = _lang
         session['user_id'] = user.id
         session['username'] = user.username
         session['role'] = user.role
         if user.role in ['admin', 'worker']:
             otp_val = str(random.randint(100000, 999999))
-            user.otp = otp_val
+            # Store only a one-way hash of the OTP at rest, never plaintext.
+            user.otp = _hash_otp(otp_val)
             user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
@@ -478,7 +522,7 @@ def mfa_verify():
         entered_otp = request.form.get('otp', '').strip()
         if user.otp and user.otp_expiry:
             expiry = user.otp_expiry if user.otp_expiry.tzinfo else user.otp_expiry.replace(tzinfo=timezone.utc)
-            if expiry > datetime.now(timezone.utc) and user.otp == entered_otp:
+            if expiry > datetime.now(timezone.utc) and user.otp == _hash_otp(entered_otp):
                 user.otp = None; user.otp_expiry = None
                 db.session.commit()
                 session['mfa_pending'] = False
@@ -499,6 +543,7 @@ def mfa_verify():
 
 
 @main.route('/auth/phone-login', methods=['POST'])
+@limiter.limit("10/hour")
 def auth_phone_login():
     raw_phone = request.form.get('phone_number', '').strip()
     if not raw_phone:
@@ -522,11 +567,16 @@ def auth_phone_login():
                     role="citizen", phone=phone_number)
         db.session.add(user); db.session.commit()
     otp_val = str(random.randint(100000, 999999))
-    user.otp = otp_val
+    # Store only a one-way hash of the OTP at rest, never plaintext.
+    user.otp = _hash_otp(otp_val)
     user.otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
     db.session.commit()
     logger.info("phone_otp_generated", phone=phone_number)
     _send_otp_with_fallback(phone_number, otp_val)
+    _lang = session.get('lang')
+    session.clear()  # session-fixation defense (preserve lang preference)
+    if _lang:
+        session['lang'] = _lang
     session_data = {'user_id': user.id, 'mfa_pending': True,
                     'username': user.username, 'role': user.role}
     if _is_local_request():
@@ -566,6 +616,7 @@ def send_reset_email(user_email, user_id):
 
 
 @main.route('/reset-password-request', methods=['GET', 'POST'])
+@limiter.limit("10/hour")
 def reset_password_request():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -939,6 +990,7 @@ def _download_illegal_media(media_url, auth=None):
         return None, None
 
 @main.route('/webhook/whatsapp', methods=['POST'])
+@csrf.exempt
 def webhook_whatsapp():
     """Twilio WhatsApp inbound webhook. A citizen photos a trash pile; we extract
     GPS from the image (or supplied lat/lon), log an anonymous IllegalDumpReport,
@@ -975,6 +1027,7 @@ def webhook_whatsapp():
     return Response(twiml, mimetype='application/xml')
 
 @main.route('/webhook/telegram', methods=['POST'])
+@csrf.exempt
 def webhook_telegram():
     """Telegram Bot API webhook. Accepts a photo (+ optional location/caption),
     resolves the file via Telegram API, extracts GPS, logs an IllegalDumpReport."""
@@ -1171,7 +1224,10 @@ def ward_transparency(ward_name=None):
     avg_fill = round(sum(b.level for b in bins) / len(bins), 1) if bins else 0
     from datetime import timedelta
     cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    decls = WasteDeclaration.query.filter(WasteDeclaration.timestamp >= cutoff).all()
+    # Ward-scoped: only count declarations made inside the selected ward.
+    decls = WasteDeclaration.query.filter(
+        WasteDeclaration.ward == ward_name,
+        WasteDeclaration.timestamp >= cutoff).all()
     total_w = sum(d.wet_kg + d.dry_kg + d.sanitary_kg + d.hazardous_kg for d in decls) or 1
     segregated_w = sum(d.wet_kg + d.dry_kg for d in decls)
     segregation_rate = round((segregated_w / total_w) * 100, 1)
@@ -1695,6 +1751,7 @@ def _recompute_bin_status(level):
 
 @main.route('/api/bin-telemetry', methods=['POST'])
 @limiter.limit("100/minute")
+@csrf.exempt  # HMAC-signed IoT device POSTs; see IOT_TELEMETRY_SECRET
 def bin_telemetry():
     """ESP32/Arduino smart-bin ingestion endpoint. Receives live sensor
     readings, updates the bin record in the database, clears stale sensor
@@ -1703,6 +1760,12 @@ def bin_telemetry():
     # ── IoT auth: require a valid HMAC-SHA256 signature when a telemetry
     # secret is configured (production). Skipped in dev when no secret set. ──
     secret = current_app.config.get('IOT_TELEMETRY_SECRET')
+    # On Render (production) the HMAC secret is mandatory — never accept
+    # unsigned telemetry from a public internet-facing endpoint.
+    if not secret and os.environ.get('RENDER'):
+        logger.error("iot_telemetry_secret_missing", ip=request.remote_addr)
+        return jsonify({"success": False,
+                        "message": "IOT_TELEMETRY_SECRET not configured."}), 503
     if secret:
         raw = request.get_data(cache=True)
         provided = request.headers.get('X-Signature', '')
@@ -2027,6 +2090,32 @@ def privacy_policy():
 
 
 # Deep health check endpoint for deployment orchestrators.
+@main.route('/robots.txt')
+def robots_txt():
+    from flask import Response
+    body = ("User-agent: *\n"
+            "Allow: /\n"
+            "Disallow: /admin\n"
+            "Disallow: /api/\n"
+            "Disallow: /worker\n"
+            "Disallow: /dashboard\n"
+            f"Sitemap: {request.url_root.rstrip('/')}/sitemap.xml\n")
+    return Response(body, mimetype='text/plain')
+
+
+@main.route('/sitemap.xml')
+def sitemap_xml():
+    from flask import Response
+    base = request.url_root.rstrip('/')
+    paths = ['/', '/schedule', '/report', '/transparency', '/register',
+             '/register/picker', '/privacy']
+    urls = ''.join(f"  <url><loc>{base}{p}</loc></url>\n" for p in paths)
+    body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            + urls + '</urlset>\n')
+    return Response(body, mimetype='application/xml')
+
+
 @main.route('/health')
 def health_check():
     import time

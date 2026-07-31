@@ -27,11 +27,13 @@ def _free_port():
 
 
 def _complete_mfa(client, username, password="testpass123", role=None):
-    """Log in a user, read the generated OTP from DB, and complete MFA.
-    Assumes an active app context (provided by the app fixture)."""
+    """Log in a user, read the generated OTP from the session (dev_otp), and
+    complete MFA. Assumes an active app context (provided by the app fixture)."""
     client.post("/login", data={"username": username, "password": password}, follow_redirects=False)
-    u = User.query.filter_by(username=username).first()
-    otp = u.otp if u else None
+    with client.session_transaction() as sess:
+        otp = sess.get('dev_otp')
+    if not otp:
+        return
     client.post("/mfa-verify", data={"otp": otp}, follow_redirects=False)
 
 
