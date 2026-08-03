@@ -2,10 +2,27 @@ from . import db
 from datetime import datetime, timezone
 from flask_login import UserMixin
 
+
+def utcnow():
+    """Naive-UTC wall clock for DB columns (Postgres parity).
+
+    Every DateTime column is `timestamp without time zone`, so a tz-aware
+    value would either be rejected or silently shifted by the DB session's
+    timezone on Postgres (SQLite ignores tz entirely). The app therefore
+    stores UTC wall-clock time and only normalizes to aware UTC for
+    arithmetic (see the read-side guards in ml_model / routes).
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 # ──────────────────────────────────────────────
 # CORE USER MODEL
 # ──────────────────────────────────────────────
 class User(db.Model, UserMixin):
+    # `user` is a reserved word in PostgreSQL — SQLAlchemy/Alembic auto-quote
+    # it in DDL and ORM SQL, so this is safe as long as nobody writes raw SQL
+    # against it (quoted: SELECT * FROM "user"). Declared explicitly so the
+    # table name is visible and greppable.
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
     email = db.Column(db.String(120), nullable=True, index=True)
@@ -52,6 +69,11 @@ class Schedule(db.Model):
 # CITIZEN COMPLAINT / OVERFLOW REPORT
 # ──────────────────────────────────────────────
 class Complaint(db.Model):
+    __table_args__ = (
+        # Hot path: admin ward sweeps (resolve_bin) + transparency view filter
+        # on (ward, status). Composite index avoids a full scan per ward.
+        db.Index('ix_complaint_ward_status', 'ward', 'status'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
     phone = db.Column(db.String(15))
@@ -64,7 +86,7 @@ class Complaint(db.Model):
     longitude = db.Column(db.String(50), nullable=True)
     report_time = db.Column(db.String(100), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 # ──────────────────────────────────────────────
 # SMART BIN (IoT Telemetry)
@@ -80,7 +102,7 @@ class SmartBin(db.Model):
     methane = db.Column(db.Float, default=50.0, nullable=False)       # ppm
     status = db.Column(db.String(20), default='Safe', nullable=False) # Safe / Warning / Critical
     ward = db.Column(db.String(100), nullable=False, index=True)
-    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    last_updated = db.Column(db.DateTime, default=utcnow, index=True)
     # v2 additions
     overflow_eta_hours = db.Column(db.Float, nullable=True)           # AI estimator: hours until overflow
     waste_stream = db.Column(db.String(20), default='mixed')          # wet/dry/sanitary/hazardous/mixed
@@ -89,6 +111,25 @@ class SmartBin(db.Model):
     decomposition_started_at = db.Column(db.DateTime, nullable=True)  # timestamp when level first exceeded 10%
     precompaction_enabled = db.Column(db.Boolean, default=False, nullable=False)
     last_compacted_at = db.Column(db.DateTime, nullable=True)
+
+
+# ──────────────────────────────────────────────
+# IOT DEVICE (per-bin authentication)
+# ──────────────────────────────────────────────
+class Device(db.Model):
+    __tablename__ = 'device'
+    id = db.Column(db.Integer, primary_key=True)
+    hardware_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    api_key_hash = db.Column(db.String(128), nullable=False)  # sha256 hex digest (64 chars)
+    name = db.Column(db.String(100), nullable=True)            # human label, e.g. "BIN-301 Sensor"
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    last_seen = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    bin = db.relationship('SmartBin', backref=db.backref('device', uselist=False),
+                          primaryjoin='Device.hardware_id == SmartBin.hardware_id',
+                          foreign_keys='Device.hardware_id')
+
 
 # ──────────────────────────────────────────────
 # WORKER / DRIVER PROFILE
@@ -121,6 +162,30 @@ class WorkerProfile(db.Model):
     user = db.relationship('User', backref=db.backref('worker_profile', uselist=False))
 
 # ──────────────────────────────────────────────
+# LIVE TELEMETRY HISTORY (per-ping level snapshots)
+# Every bin-telemetry ping appends a row here, giving _estimate_fill_rate_hour_pct
+# the actual fill-velocity signal (real level-vs-time points) instead of inferring
+# it from a single anchor timestamp. Feeds the fill-rate regressor's retraining.
+# Retention-pruned in bin_telemetry (bounded per-bin window) so it stays lean.
+# ──────────────────────────────────────────────
+class BinTelemetryLog(db.Model):
+    __table_args__ = (
+        # Hot path: per-bin history reads (fill-velocity) ordered by time.
+        db.Index('ix_bin_telemetry_log_bin_timestamp', 'bin_id', 'timestamp'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=False)
+    level = db.Column(db.Integer, nullable=False)          # 0-100% snapshot
+    temperature = db.Column(db.Float, nullable=True)
+    methane = db.Column(db.Float, nullable=True)
+    battery_level = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(20), nullable=True)
+    timestamp = db.Column(db.DateTime, default=utcnow, index=True)
+
+    bin = db.relationship('SmartBin', backref=db.backref('telemetry_logs', lazy=True))
+
+
+# ──────────────────────────────────────────────
 # INCIDENT / EMERGENCY LOG
 # ──────────────────────────────────────────────
 class IncidentLog(db.Model):
@@ -130,7 +195,7 @@ class IncidentLog(db.Model):
     severity = db.Column(db.String(20), nullable=False)       # Critical / Warning
     status = db.Column(db.String(20), default='Active', nullable=False)
     description = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=utcnow)
 
     bin = db.relationship('SmartBin', backref=db.backref('incidents', lazy=True))
 
@@ -146,7 +211,7 @@ class AuditLog(db.Model):
     target = db.Column(db.String(100), nullable=True)         # e.g. "BIN-302", "Route #3"
     detail = db.Column(db.Text, nullable=True)
     ip_address = db.Column(db.String(50), nullable=True)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    timestamp = db.Column(db.DateTime, default=utcnow, index=True)
 
     user = db.relationship('User', backref=db.backref('audit_logs', lazy=True))
 
@@ -158,7 +223,7 @@ class SensorHealth(db.Model):
     bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), unique=True, nullable=False)
     battery_voltage = db.Column(db.Float, default=3.7, nullable=False)   # Volts
     calibration_drift = db.Column(db.Float, default=0.0, nullable=False) # % drift from baseline
-    last_ping = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    last_ping = db.Column(db.DateTime, default=utcnow)
     fault_flag = db.Column(db.Boolean, default=False, nullable=False)
     fault_reason = db.Column(db.String(200), nullable=True)
     maintenance_scheduled = db.Column(db.Boolean, default=False, nullable=False)
@@ -177,7 +242,7 @@ class OffloadLog(db.Model):
     impurity_flagged = db.Column(db.Boolean, default=False, nullable=False)
     impurity_detail = db.Column(db.String(200), nullable=True)
     verified = db.Column(db.Boolean, default=True, nullable=False)       # immutable once created
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=utcnow)
 
     worker = db.relationship('WorkerProfile', backref=db.backref('offload_logs', lazy=True))
 
@@ -193,12 +258,19 @@ class IllegalDumpReport(db.Model):
     scrubbed_photo = db.Column(db.String(200), nullable=True)   # EXIF-stripped
     ward = db.Column(db.String(100), nullable=True, index=True)
     status = db.Column(db.String(20), default='Pending', nullable=False)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    timestamp = db.Column(db.DateTime, default=utcnow, index=True)
 
 # ──────────────────────────────────────────────
 # v2: 4-STREAM WASTE DECLARATION
 # ──────────────────────────────────────────────
 class WasteDeclaration(db.Model):
+    __table_args__ = (
+        # Hot path: ward-scoped analytics + transparency filters on
+        # (ward, timestamp) — the trend-over-time and per-ward segregation
+        # queries GROUP BY month across a ward's rows. Composite index avoids
+        # a full-table scan once declarations grow past tens of thousands.
+        db.Index('ix_waste_declaration_ward_timestamp', 'ward', 'timestamp'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     wet_kg = db.Column(db.Float, default=0.0, nullable=False)           # Organic / Kitchen
@@ -206,7 +278,7 @@ class WasteDeclaration(db.Model):
     sanitary_kg = db.Column(db.Float, default=0.0, nullable=False)      # Securely wrapped items
     hazardous_kg = db.Column(db.Float, default=0.0, nullable=False)     # Batteries / E-waste / Bulbs
     ward = db.Column(db.String(100), nullable=True)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User', backref=db.backref('waste_declarations', lazy=True))
 
@@ -214,6 +286,10 @@ class WasteDeclaration(db.Model):
 # v2: BULK WASTE GENERATOR (BWG) LEDGER
 # ──────────────────────────────────────────────
 class BWGDeclaration(db.Model):
+    __table_args__ = (
+        # Every citizen ledger view filters by user_id.
+        db.Index('ix_bwg_declaration_user_id', 'user_id'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     entity_name = db.Column(db.String(200), nullable=False)             # Apartment / Mall name
@@ -223,7 +299,7 @@ class BWGDeclaration(db.Model):
     landfill_kg = db.Column(db.Float, default=0.0, nullable=False)     # Residual landfill waste
     request_bulk_pickup = db.Column(db.Boolean, default=False, nullable=False)
     pickup_status = db.Column(db.String(20), default='Pending', nullable=False)
-    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    timestamp = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User', backref=db.backref('bwg_declarations', lazy=True))
 
@@ -243,10 +319,28 @@ class PAYTInvoice(db.Model):
     base_amount_rs = db.Column(db.Float, default=0.0, nullable=False)
     amount_rs = db.Column(db.Float, default=0.0, nullable=False)        # ₹ amount (after penalty)
     status = db.Column(db.String(20), default='Unpaid', nullable=False) # Unpaid / Paid / Waived
-    issued_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    issued_at = db.Column(db.DateTime, default=utcnow)
     paid_at = db.Column(db.DateTime, nullable=True)
-    transaction_ref = db.Column(db.String(120), nullable=True)  # UPI ref / RRN
-    payment_method = db.Column(db.String(20), default='UPI', nullable=True)
+    transaction_ref = db.Column(db.String(120), nullable=True)  # UPI ref / RRN / Razorpay payment id
+    payment_method = db.Column(db.String(20), default='UPI', nullable=True)  # UPI / Razorpay
+    # Server-side Razorpay order id (created before checkout so the capture
+    # webhook can map an order back to its invoice without trusting the client).
+    razorpay_order_id = db.Column(db.String(64), nullable=True, index=True)
+    # Razorpay payment.failed tracking. Strictly informational: invoice.status
+    # is CAPTURE-DRIVEN (only payment.captured / signature-verified verify
+    # flips it to Paid). These columns let the pay page show a friendly retry
+    # state and admins audit failed attempts without ever trusting a failure
+    # event to change billing state.
+    failed_attempts = db.Column(db.Integer, default=0, nullable=False)
+    last_failed_at = db.Column(db.DateTime, nullable=True)
+    last_failed_reason = db.Column(db.String(200), nullable=True)
+    # Admin waive / Razorpay-refund tracking. Status gains 'Refunded' (money
+    # reversed via the Razorpay Refunds API) and 'Waived' (debt forgiven, no
+    # money moves). refund_id is the Razorpay refund id — its presence is the
+    # idempotency guard: a second admin refund attempt is a no-op.
+    refund_id = db.Column(db.String(64), nullable=True, index=True)
+    refunded_at = db.Column(db.DateTime, nullable=True)
+    refund_reason = db.Column(db.String(200), nullable=True)
 
     user = db.relationship('User', backref=db.backref('payt_invoices', lazy=True))
 
@@ -257,23 +351,93 @@ class FirmwareRelease(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     version = db.Column(db.String(20), nullable=False)                  # e.g. "2.1.4"
     filename = db.Column(db.String(200), nullable=False)
+    sha256 = db.Column(db.String(64), nullable=True)                    # integrity hash of the artifact
     description = db.Column(db.Text, nullable=True)
     target_bins = db.Column(db.Text, nullable=True)                     # comma-separated hw_ids or "ALL"
     pushed_at = db.Column(db.DateTime, nullable=True)
     push_status = db.Column(db.String(20), default='Pending', nullable=False) # Pending / Pushed / Failed
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+
+# ──────────────────────────────────────────────
+# v2: WEBHOOK REGISTRATION (persisted — survives restarts, shared across workers)
+# ──────────────────────────────────────────────
+class Webhook(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(500), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    def __repr__(self):
+        return f'<Webhook {self.url}>'
 
 
 # ──────────────────────────────────────────────
 # v2: CITIZEN NOTIFICATION (real-time status push)
 # ──────────────────────────────────────────────
 class Notification(db.Model):
+    __table_args__ = (
+        # Hot path: per-citizen notification lists (dashboard) filtered by
+        # read-state and sorted by recency, plus the dunning dedupe lookup
+        # (user_id + link). The citizen stream grows with every status change.
+        db.Index('ix_notification_user_read_created', 'user_id', 'read', 'created_at'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message = db.Column(db.Text, nullable=False)
     link = db.Column(db.String(200), nullable=True)
     read = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     user = db.relationship('User', backref=db.backref('notifications', lazy=True))
+
+
+# ──────────────────────────────────────────────
+# v2: PROACTIVE DISPATCH ASSIGNMENT
+# Auto-queued by the telemetry ingest when a bin's ML overflow forecast
+# crosses FORECAST_ALERT_HOURS (6h); workers see the ranked queue, accept a
+# bin, and mark it completed once cleared. Admin control room watches the
+# same rows live over socket.io.
+# ──────────────────────────────────────────────
+class DispatchAssignment(db.Model):
+    __table_args__ = (
+        # Hot paths: per-bin status lookups (queue render) + per-worker
+        # active assignments (worker dashboard).
+        db.Index('ix_dispatch_bin_status', 'bin_id', 'status'),
+        db.Index('ix_dispatch_worker_status', 'worker_id', 'status'),
+        # Race guard: at most ONE active (Assigned) assignment per bin, so two
+        # trucks can never both claim the same bin. Partial unique index works
+        # on both SQLite and Postgres (status is a constant here, not a param).
+        db.Index('uq_dispatch_bin_assigned', 'bin_id', unique=True,
+                 sqlite_where=db.text("status = 'Assigned'"),
+                 postgresql_where=db.text("status = 'Assigned'")),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=False)
+    worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True)  # None while Pending
+    eta_hours = db.Column(db.Float, nullable=True)      # forecast snapshot when queued
+    status = db.Column(db.String(20), default='Pending', nullable=False)  # Pending / Assigned / Completed
+    assigned_at = db.Column(db.DateTime, nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    bin = db.relationship('SmartBin', backref=db.backref('dispatch_assignments', lazy=True))
+    worker = db.relationship('WorkerProfile', backref=db.backref('dispatch_assignments', lazy=True))
+
+
+# ──────────────────────────────────────────────
+# v2: OFFLINE DELIVERY (PWA queue replay health)
+# Written when a submission tagged X-Offline-Replay lands, so the
+# municipality can see offline-first usage: which complaints/photos
+# arrived via the IndexedDB queue instead of a live form post.
+# ──────────────────────────────────────────────
+class OfflineDelivery(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    endpoint = db.Column(db.String(100), nullable=False)          # '/report' or '/report-illegal'
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'), nullable=True)
+    illegal_report_id = db.Column(db.Integer, db.ForeignKey('illegal_dump_report.id'), nullable=True)
+    ward = db.Column(db.String(100), nullable=True, index=True)
+    has_photo = db.Column(db.Boolean, default=False, nullable=False)
+    attempts = db.Column(db.Integer, default=0, nullable=False)    # replay attempts before success
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    delivered_at = db.Column(db.DateTime, default=utcnow, index=True)

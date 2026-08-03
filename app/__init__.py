@@ -10,14 +10,47 @@ from flask_migrate import Migrate
 from flask_socketio import SocketIO
 from flask_mailman import Mail
 from flask_login import LoginManager
+from flask_talisman import Talisman
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
+talisman = Talisman()
+
+
+def _is_deployed():
+    """True when running on a managed platform (Render or Fly.io).
+
+    Drives HTTPS enforcement, secure-cookie / HSTS headers and the demo-seed
+    guard. Both platforms terminate TLS at the edge, so anything behind their
+    proxies is production.
+    """
+    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+
+
+def _rate_limit_key():
+    """Per-user rate-limit key when authenticated; IP for anonymous traffic.
+
+    Previously limits were keyed purely by IP (get_remote_address), which lets
+    one abusive user exhaust the whole NAT/office's budget and under-limits a
+    single account shared across devices. Authenticated users are now bucketed
+    by user id, so limits are fair per-account; anonymous endpoints (login,
+    register, webhooks) keep the IP bucket as before.
+
+    Redis-backed via REDIS_URL so counters survive worker restarts and are
+    shared across instances; falls back to in-memory locally.
+    """
+    uid = session.get('user_id')
+    if uid:
+        return f"user:{uid}"
+    return get_remote_address()
+
+
 # In-memory by default; production should set REDIS_URL so rate limits are
 # shared across gunicorn workers/instances (per-process memory limits silently
 # reset the counter whenever you scale past one worker).
-limiter = Limiter(key_func=get_remote_address,
+limiter = Limiter(key_func=_rate_limit_key,
                   storage_uri=os.environ.get("REDIS_URL") or "memory://")
 mail = Mail()
 socketio = SocketIO()
@@ -27,8 +60,12 @@ login_manager = LoginManager()
 def create_app(test_config=None):
     app = Flask(__name__)
 
+    # Trust one layer of proxy headers (Fly.io / Render terminate TLS at the
+    # edge and rewrite remote_addr). Without this, request.remote_addr is the
+    # proxy IP — silently breaking per-IP rate limiting and audit-IP forensics.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     # ── Sentry error tracking (if DSN present) ──
-    import os
     sentry_dsn = os.getenv('SENTRY_DSN')
     if sentry_dsn:
         try:
@@ -55,18 +92,20 @@ def create_app(test_config=None):
             app.config['SECRET_KEY'] = 'test-secret-key-only-for-pytest'
         else:
             raise RuntimeError("SECRET_KEY environment variable is required")
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('RENDER') is not None
+    # Secure cookies on both Render AND Fly.io (edge TLS terminates on both).
+    app.config['SESSION_COOKIE_SECURE'] = _is_deployed()
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 
+    # Request ID middleware: every request gets a unique ID for tracing across
+    # logs, audit entries, and external API calls.
+    import uuid
     @app.before_request
-    def enforce_https():
-        if app.config.get('TESTING') or not os.environ.get('RENDER'):
-            return None
-        if request.headers.get('X-Forwarded-Proto') != 'https':
-            return redirect(request.url.replace('http://', 'https://', 1), code=301)
+    def inject_request_id():
+        from flask import g
+        g.request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
 
     # Mail Configuration (flask-mailman)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
@@ -109,6 +148,7 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+    talisman.init_app(app)
     limiter.init_app(app)
     mail.init_app(app)
 
@@ -140,32 +180,39 @@ def create_app(test_config=None):
     from sqlalchemy.exc import LegacyAPIWarning
     warnings.filterwarnings("ignore", category=LegacyAPIWarning)
 
-    # Security headers via after_request (HSTS/secure cookie/CSP scoped to CDNs
-    # actually used so Leaflet maps keep working)
-    @app.after_request
-    def set_security_headers(resp):
-        resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-        resp.headers['X-Content-Type-Options'] = 'nosniff'
-        resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        if os.environ.get('RENDER'):
-            resp.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-        resp.headers['Content-Security-Policy'] = (
-            "default-src 'self'; "
-            "img-src 'self' data: https:; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
-            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-            "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com"
-        )
-        return resp
+    # Security headers via Flask-Talisman (HSTS, CSP, secure-cookie, etc.)
+    # Scoped to CDNs actually used so Leaflet maps keep working.
+    _csp = (
+        "default-src 'self'; "
+        "img-src 'self' data: https:; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io https://checkout.razorpay.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com; "
+        "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com https://api.razorpay.com"
+    )
+    talisman.init_app(app, force_https=_is_deployed(),
+                      strict_transport_security=True,
+                      strict_transport_security_max_age=31536000,
+                      strict_transport_security_include_subdomains=True,
+                      content_security_policy=_csp)
 
     # Structured logging with structlog
+    def _add_request_id(_, __, event_dict):
+        try:
+            from flask import g
+            event_dict['request_id'] = getattr(g, 'request_id', None)
+        except Exception:
+            event_dict['request_id'] = None
+        return event_dict
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
             structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
             structlog.stdlib.PositionalArgumentsFormatter(),
+            _add_request_id,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.JSONRenderer()
         ],
@@ -274,6 +321,45 @@ def create_app(test_config=None):
 
         return redirect(request.referrer or url_for('main.dashboard'))
 
+    # Load persisted webhook registrations so they survive restarts and are
+    # shared across workers (safe to call pre-migration — helper tolerates the
+    # table being absent).
+    with app.app_context():
+        from .routes import _reload_webhooks
+        _reload_webhooks()
+
+    # Schedule the recurring PAYT-dunning run (overdue invoice reminders) as a
+    # delayed RQ job. No-op when REDIS_URL is unset — jobs then run inline.
+    try:
+        from .jobs import schedule_dunning
+        schedule_dunning()
+    except Exception:
+        pass  # queue not available (local dev / tests) — dunning still admin-triggerable
+
+    # Schedule the recurring dead-letter alert sweep: every interval the sweep
+    # scans the RQ failed registry and turns exhausted-retry jobs into in-app
+    # admin Notifications + a JOB_DEAD_LETTERED webhook, then re-schedules
+    # itself. No-op when REDIS_URL is unset (no worker / no registry).
+    try:
+        from .jobs import schedule_failed_alert_sweep
+        schedule_failed_alert_sweep()
+    except Exception:
+        pass  # queue not available (local dev / tests) — sweep is a no-op
+
+    # Schedule SLA escalation (complaints > 24h / illegal reports > 48h).
+    try:
+        from .jobs import schedule_sla_escalation
+        schedule_sla_escalation()
+    except Exception:
+        pass
+
+    # Schedule telemetry retention (prune BinTelemetryLog > 90 days).
+    try:
+        from .jobs import schedule_telemetry_retention
+        schedule_telemetry_retention()
+    except Exception:
+        pass
+
     # Schema is owned by Flask-Migrate/Alembic (see migrations/). Do NOT call
     # db.create_all() here: it silently creates tables/columns matching the
     # current models, and then Alembic's own ADD COLUMN/CREATE TABLE fails with
@@ -287,10 +373,10 @@ def create_app(test_config=None):
     #
     # SECURITY: these demo accounts have publicly-known credentials, so they are
     # NEVER auto-created in production. They only exist when SEED_DEMO=true or
-    # when running locally (no RENDER env). Deployments must create real
-    # accounts through registration + admin approval.
+    # when running locally (no RENDER/FLY_APP_NAME env). Deployments must create
+    # real accounts through registration + admin approval.
     if (os.environ.get('SEED_DEMO', 'false').lower() in ('true', '1', 'yes')
-            or not os.environ.get('RENDER')):
+            or not _is_deployed()):
         try:
             with app.app_context():
                 from app.models import User
@@ -312,6 +398,28 @@ def create_app(test_config=None):
                             green_points=120 if role == "citizen" else 0,
                         )
                         db.session.add(user)
+                db.session.commit()
+                # Worker accounts also need their driver profile (vehicle,
+                # sector, rating): every worker-only API (dispatch
+                # accept/complete, GPS heartbeat, offload) looks up
+                # WorkerProfile by user_id and 404s when it is missing. Real
+                # registrations create one in auth.register(); the demo seeder
+                # must too — and idempotently backfill any pre-existing demo
+                # DB that predates this (hence the create-if-missing below).
+                from app.models import WorkerProfile
+                for uname, _, role, _, _, _ in defaults:
+                    if role != "worker":
+                        continue
+                    worker = User.query.filter_by(username=uname).first()
+                    if worker and not WorkerProfile.query.filter_by(user_id=worker.id).first():
+                        db.session.add(WorkerProfile(
+                            user_id=worker.id,
+                            vehicle_id="CV-01",
+                            latitude=18.0675,
+                            longitude=83.4094,
+                            status="Active",
+                            performance_rating=4.9,
+                        ))
                 db.session.commit()
         except Exception:
             # Silently skip if migrations haven't run yet (no tables yet).

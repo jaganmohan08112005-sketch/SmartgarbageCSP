@@ -26,6 +26,8 @@ Flask-Login==0.6.3
 
 Flask-SQLAlchemy==3.1.1
 
+Flask-Talisman==1.1.0
+
 Flask-WTF==1.2.1
 
 eventlet==0.39.1
@@ -96,3 +98,7 @@ flask-mailman==1.1.1
 
 structlog==26.1.0
 supabase==2.15.0
+
+rq==2.2.0
+
+reportlab==5.0.0
