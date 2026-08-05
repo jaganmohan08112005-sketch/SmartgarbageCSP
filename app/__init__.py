@@ -455,3 +455,18 @@ def create_app(test_config=None):
             pass
 
     return app
+
+
+# Render's native-Python runtime starts the app with `gunicorn app:app` (its
+# default start command for Python services), which imports this package and
+# then looks up an `app` attribute on it. We deliberately do NOT create the
+# Flask instance at import time — that would break test collection (tests
+# import this module before their app fixture exists, and create_app() raises
+# without SECRET_KEY). Instead expose it lazily via PEP 562 module __getattr__:
+# gunicorn's `getattr(app_module, 'app')` triggers this on first access, which
+# imports wsgi.py (itself the `wsgi:app` entrypoint used by the Dockerfile).
+def __getattr__(name):
+    if name == 'app':
+        from wsgi import app as _wsgi_app
+        return _wsgi_app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

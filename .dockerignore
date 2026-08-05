@@ -1,4 +1,7 @@
 venv/
+.venv/
+.venv-1/
+.freebuff/
 .git/
 __pycache__/
 *.pyc
