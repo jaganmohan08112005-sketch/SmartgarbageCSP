@@ -6,6 +6,59 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <div class="row g-4">
+
+    <!-- ── Search hero: bin status / collection schedule (above the fold) ── -->
+    <div class="col-12 animate-fade-in">
+        <div class="sg-search-hero p-4">
+            <h5 class="fw-bold text-success mb-1">🔍 {{ _('Search your local bin status or schedule collection') }}</h5>
+            <p class="text-muted small mb-3">{{ _('Try a bin ID (e.g. BIN-101) or a ward name') }}</p>
+            <div class="position-relative">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-white border-0" style="border-radius:999px 0 0 999px;">🔎</span>
+                    <input type="search" id="sgSearchInput" class="form-control sg-search-input border-0"
+                           placeholder="{{ _('Search your local bin status or schedule collection') }}"
+                           aria-label="{{ _('Search your local bin status or schedule collection') }}"
+                           autocomplete="off">
+                    <button class="btn btn-success px-4" type="button" id="sgSearchGo" style="border-radius:0 999px 999px 0;">
+                        🔎 {{ _('Go') }}
+                    </button>
+                </div>
+                <div class="sg-search-results d-none" id="sgSearchResults" role="listbox" aria-label="Search results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Report an Issue: three primary action categories (Singapore OneService pattern) ── -->
+    <div class="col-12 animate-fade-in" style="animation-delay:0.05s;">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+            <h5 class="fw-bold text-dark mb-0">🚨 {{ _('Report an Issue') }}</h5>
+            <span class="text-muted small">{{ _('Photo evidence recommended — earn 15 Green Points') }}</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4 col-sm-6">
+                <a href="/report" class="sg-category-card danger p-3 d-flex flex-column gap-2">
+                    <span class="sg-category-icon">📷</span>
+                    <strong class="text-dark">{{ _('Overflowing Bin') }}</strong>
+                    <span class="small text-muted">{{ _('Photo evidence recommended — earn 15 Green Points') }}</span>
+                </a>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <a href="/report" class="sg-category-card warning p-3 d-flex flex-column gap-2">
+                    <span class="sg-category-icon">🗓️</span>
+                    <strong class="text-dark">{{ _('Missed Pickup') }}</strong>
+                    <span class="small text-muted">{{ _('Report a missed scheduled collection') }}</span>
+                </a>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <a href="/report-illegal" class="sg-category-card info p-3 d-flex flex-column gap-2">
+                    <span class="sg-category-icon">🛡️</span>
+                    <strong class="text-dark">{{ _('Illegal Dumping') }}</strong>
+                    <span class="small text-muted">{{ _('Anonymous toxic/illegal dump report') }}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Left Column: Wallet & Leaderboard & Forms -->
     <div class="col-lg-5 col-sm-12">
         <!-- Gamified Eco-Reward Wallet Card -->
@@ -227,6 +280,23 @@
 
     <!-- Right Column: Interactive Locator Map & Tickets History -->
     <div class="col-lg-7 col-sm-12">
+        <!-- Localized announcements sidebar (real-world civic updates) -->
+        <div class="card border-0 shadow-sm bg-white p-4 mb-4 border-start border-warning border-4">
+            <h5 class="fw-bold text-warning-emphasis d-flex align-items-center gap-2 mb-3">
+                📢 {{ _('Local Sanitation Notices') }}
+            </h5>
+            <div class="list-group list-group-flush small">
+                <div class="list-group-item bg-transparent px-0 py-2">
+                    <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
+                    <strong>{{ _('Holiday Collection Shifts') }}:</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }}
+                </div>
+                <div class="list-group-item bg-transparent px-0 py-2">
+                    <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
+                    <strong>{{ _('E-Waste Drive this Sunday') }}:</strong> {{ _('Special collection drive scheduled for MVGR campus surroundings this Saturday morning.') }}
+                </div>
+            </div>
+        </div>
+
         <!-- Smart Bin Public Locator Map -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Public Smart Bin Locator Map') }}</h5>
@@ -326,9 +396,37 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge {% if c.status == 'Pending' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                                    <span class="badge {% if c.status == 'Pending' %}bg-warning text-dark{% elif c.status in ('Resolved', 'Closed') %}bg-success{% else %}bg-danger{% endif %}">
                                         {{ c.status }}
                                     </span>
+                                    {% set status_flow = ['Submitted', 'Assigned', 'In Progress', 'Resolved'] %}
+                                    {% if c.status in status_flow %}
+                                        {% set cur_idx = status_flow.index(c.status) %}
+                                    {% elif c.status in ('Pending', 'Under Review') %}
+                                        {% set cur_idx = 0 %}
+                                    {% elif c.status in ('Escalated',) %}
+                                        {% set cur_idx = 1 %}
+                                    {% else %}
+                                        {% set cur_idx = 3 %}
+                                    {% endif %}
+                                    <!-- Semantic status timeline (WCAG): dots + arrows, sr-only labels -->
+                                    <ol class="sg-stepper mt-2" aria-label="Status timeline">
+                                        {% for step in status_flow %}
+                                        <li class="{% if loop.index0 < cur_idx %}done{% elif loop.index0 == cur_idx %}current{% endif %}"
+                                            title="{{ step }}">
+                                            <span class="dot" aria-hidden="true"></span>
+                                            <span class="sr-only">{{ '✔' if loop.index0 < cur_idx else step }}</span>
+                                            {% if not loop.last %}<span class="step-arrow" aria-hidden="true">›</span>{% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ol>
+                                    {% if complaint_tokens.get(c.id) %}
+                                        <a href="{{ url_for('main.track_complaint', token=complaint_tokens[c.id]) }}"
+                                           class="btn btn-sm btn-outline-success rounded-pill mt-2 d-inline-flex align-items-center gap-1"
+                                           style="font-size:0.75rem;">
+                                            🔎 {{ _('Track') }}
+                                        </a>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% else %}
@@ -398,7 +496,7 @@
                             </span>
                         </td>
                         <td>
-                            ${inv.status !== 'Paid' ? `<a href="/payt/pay/${inv.id}" class="btn btn-sm btn-success">Pay Now</a>` : '—'}
+                            ${inv.status !== 'Paid' ? `<a href="/payt/pay/${inv.id}" class="btn btn-sm btn-success">Pay Now</a>` : `<a href="/payt/receipt/${inv.id}" class="btn btn-sm btn-outline-success">Receipt</a>`}
                         </td>
                     </tr>
                 `).join('');
@@ -408,25 +506,62 @@
         }
     }
 
-    // Device coordinate synchronization
+    // Device coordinate synchronization — NO silent default-coords fallback.
+    // Filling in central Chintalavalasa when GPS is denied was a spam loophole:
+    // a fake reporter could submit a complaint anywhere with valid-looking
+    // coordinates. If GPS fails, the fields stay EMPTY and the form's
+    // client-side check blocks submission with a clear message.
     function captureGPS() {
+        const latEl = document.getElementById('latitude');
+        const lonEl = document.getElementById('longitude');
+        const notify = () => {
+            if (!latEl.value || !lonEl.value) {
+                const el = document.getElementById('geoStatusInline') || (() => {
+                    const d = document.createElement('div');
+                    d.id = 'geoStatusInline';
+                    d.className = 'small text-danger fw-bold mt-1';
+                    d.textContent = '⚠️ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}';
+                    const wrap = latEl && latEl.closest('.p-3');
+                    if (wrap) wrap.appendChild(d);
+                    return d;
+                })();
+            }
+        };
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
-                    document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+                    latEl.value = position.coords.latitude.toFixed(6);
+                    lonEl.value = position.coords.longitude.toFixed(6);
                 },
                 (error) => {
-                    // Fallback to central Chintalavalasa
-                    document.getElementById('latitude').value = "18.067500";
-                    document.getElementById('longitude').value = "83.409400";
+                    latEl.value = '';
+                    lonEl.value = '';
+                    notify();
                 }
             );
         } else {
-            document.getElementById('latitude').value = "18.067500";
-            document.getElementById('longitude').value = "83.409400";
+            latEl.value = '';
+            lonEl.value = '';
+            notify();
         }
     }
+
+    // Block the emergency-report submit when GPS coordinates are missing
+    // (anti-spam: every complaint must carry a real device position).
+    const sgReportForms = document.querySelectorAll('form[action="/report"]');
+    sgReportForms.forEach(f => {
+        f.addEventListener('submit', (e) => {
+            const lat = f.querySelector('[name="latitude"]');
+            const lon = f.querySelector('[name="longitude"]');
+            if (!lat || !lat.value || !lon || !lon.value) {
+                e.preventDefault();
+                showToast('❌ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}');
+                if (lat) lat.classList.add('is-invalid');
+                if (lon) lon.classList.add('is-invalid');
+                if (typeof navigator.geolocation !== 'undefined') captureGPS();
+            }
+        });
+    });
 
     // Initialize Leaflet locator viewport
     let map = L.map('locatorMap').setView([18.0675, 83.4094], 14);
@@ -439,18 +574,6 @@
         if (level >= 50) return '#F1C40F'; // Warning Yellow
         return '#2ECC71'; // Safe Green
     }
-
-    // Plot markers
-    smartBins.forEach(bin => {
-        L.circleMarker([bin.latitude, bin.longitude], {
-            radius: 8,
-            fillColor: getBinColor(bin.level),
-            color: '#FFFFFF',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-        }).bindPopup(`<b>Smart Bin ID: ${bin.hardware_id}</b><br>Level: ${bin.level}% Full<br>Status: ${bin.level >= 80 ? 'Full' : (bin.level >= 50 ? 'Medium' : 'Empty')}`).addTo(map);
-    });
 
     // Reward coupons redemption API trigger
     async function redeemReward(rewardName, costPoints) {
@@ -468,6 +591,7 @@
 
         const response = await fetch('/api/redeem', {
             method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content },
             body: formData
         });
 
@@ -481,14 +605,6 @@
     }
 
     function showToast(msg) {
-        if (typeof EventSource !== 'undefined') {
-            const es = new EventSource('/api/notifications/stream');
-            es.onmessage = (e) => {
-                showToast(e.data);
-                fetch('/api/notifications/mark-read', { method: 'POST' });
-            };
-            es.onerror = () => { /* reconnect handled by browser */ };
-        }
         const box = document.getElementById('toast-container') || (() => {
             const d = document.createElement('div');
             d.id = 'toast-container';
@@ -500,6 +616,21 @@
         t.innerHTML = `🔔 <strong>Update:</strong> ${msg}`;
         box.appendChild(t);
         setTimeout(() => t.remove(), 8000);
+    }
+
+    // Real-time complaint status notifications — single SSE stream, set up ONCE.
+    // (Previously this was inside showToast(), opening a new EventSource per toast
+    // — a connection leak and a showToast->onmessage recursion risk.)
+    if (typeof EventSource !== 'undefined') {
+        const es = new EventSource('/api/notifications/stream');
+        es.onmessage = (e) => {
+            showToast(e.data);
+            fetch('/api/notifications/mark-read', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+            });
+        };
+        es.onerror = () => { /* reconnect handled by browser */ };
     }
 
     // ── Eco Champions (Green Points leaderboard) ──
@@ -527,6 +658,72 @@
         }
     }
     loadEcoChampions();
+
+    // ── Citizen search hero: filter bins by ID / ward, pan the map on click ──
+    const searchInput = document.getElementById('sgSearchInput');
+    const searchResults = document.getElementById('sgSearchResults');
+    const searchGo = document.getElementById('sgSearchGo');
+    if (searchInput && searchResults) {
+        const renderSearch = () => {
+            const q = searchInput.value.trim().toLowerCase();
+            if (!q) { searchResults.classList.add('d-none'); searchResults.innerHTML = ''; return; }
+            const matches = smartBins.filter(b =>
+                (b.hardware_id || '').toLowerCase().includes(q) ||
+                (b.ward || '').toLowerCase().includes(q)
+            ).slice(0, 8);
+            if (!matches.length) {
+                searchResults.innerHTML = `<div class="sg-search-result-item text-muted">🔎 {{ _('No results found') }}</div>`;
+            } else {
+                searchResults.innerHTML = matches.map(b => {
+                    const lvl = b.level || 0;
+                    const color = lvl >= 80 ? '#E74C3C' : (lvl >= 50 ? '#F1C40F' : '#2ECC71');
+                    return `<div class="sg-search-result-item" data-lat="${b.latitude}" data-lon="${b.longitude}" data-hw="${b.hardware_id}">
+                        <span><strong>${b.hardware_id}</strong> <span class="text-muted small">· ${b.ward}</span></span>
+                        <span class="badge" style="background:${color};">${lvl}%</span>
+                    </div>`;
+                }).join('');
+            }
+            searchResults.classList.remove('d-none');
+        };
+        searchInput.addEventListener('input', renderSearch);
+        searchInput.addEventListener('focus', renderSearch);
+        searchResults.addEventListener('click', (e) => {
+            const item = e.target.closest('.sg-search-result-item');
+            if (!item || !item.dataset.lat) return;
+            const lat = parseFloat(item.dataset.lat);
+            const lon = parseFloat(item.dataset.lon);
+            map.setView([lat, lon], 17);
+            const marker = markers.find(m => m.hardware_id === item.dataset.hw);
+            if (marker && marker.marker) marker.marker.openPopup();
+            searchResults.classList.add('d-none');
+        });
+        if (searchGo) {
+            searchGo.addEventListener('click', () => {
+                const q = searchInput.value.trim();
+                if (q) window.location.href = '/schedule?ward=' + encodeURIComponent(q);
+            });
+        }
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); if (searchGo) searchGo.click(); }
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.position-relative')) searchResults.classList.add('d-none');
+        });
+    }
+
+    // Track circle markers so the search result can open the right popup.
+    const markers = [];
+    smartBins.forEach(bin => {
+        const circle = L.circleMarker([bin.latitude, bin.longitude], {
+            radius: 8,
+            fillColor: getBinColor(bin.level),
+            color: '#FFFFFF',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+        }).bindPopup(`<b>Smart Bin ID: ${bin.hardware_id}</b><br>Level: ${bin.level}% Full<br>Status: ${bin.level >= 80 ? 'Full' : (bin.level >= 50 ? 'Medium' : 'Empty')}`).addTo(map);
+        markers.push({ hardware_id: bin.hardware_id, marker: circle });
+    });
 
     // Socket.IO real-time updates
     if (typeof io !== 'undefined') {

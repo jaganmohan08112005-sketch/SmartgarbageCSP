@@ -1,6 +1,3 @@
-import os
-import json
-
 SUPPORTED = ['en', 'te']
 DEFAULT_LANG = 'en'
 
@@ -147,6 +144,64 @@ EN = {
     'Send Login OTP': 'Send Login OTP',
     "Don't have an account?": "Don't have an account?",
     'Sign Up Here': 'Sign Up Here',
+    # ── Government-compliant header ──
+    'Directorate of Waste Management & Sanitation': 'Directorate of Waste Management & Sanitation',
+    'Grievance Hotline': 'Grievance Hotline',
+    'Accessibility': 'Accessibility',
+    'Increase text size': 'Increase text size',
+    'Decrease text size': 'Decrease text size',
+    'Reset text size': 'Reset text size',
+    'High contrast': 'High contrast',
+    'Language': 'Language',
+    # ── Stakeholder portal split ──
+    'Citizen Portal': 'Citizen Portal',
+    'Report issues, track tickets, pay bills and earn Green Points — built for residents.': 'Report issues, track tickets, pay bills and earn Green Points — built for residents.',
+    'Enter Citizen Portal': 'Enter Citizen Portal',
+    'Officer / Admin Login': 'Officer / Admin Login',
+    'Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.': 'Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.',
+    'Officer Login': 'Officer Login',
+    # ── Citizen search hero ──
+    'Search your local bin status or schedule collection': 'Search your local bin status or schedule collection',
+    'Try a bin ID (e.g. BIN-101) or a ward name': 'Try a bin ID (e.g. BIN-101) or a ward name',
+    'Report an Issue': 'Report an Issue',
+    'Overflowing Bin': 'Overflowing Bin',
+    'Missed Pickup': 'Missed Pickup',
+    'Illegal Dumping': 'Illegal Dumping',
+    'Photo evidence recommended — earn 15 Green Points': 'Photo evidence recommended — earn 15 Green Points',
+    'Report a missed scheduled collection': 'Report a missed scheduled collection',
+    'Anonymous toxic/illegal dump report': 'Anonymous toxic/illegal dump report',
+    'Local Sanitation Notices': 'Local Sanitation Notices',
+    'Holiday Collection Shifts': 'Holiday Collection Shifts',
+    'E-Waste Drive this Sunday': 'E-Waste Drive this Sunday',
+    'No results found': 'No results found',
+    # ── GPS verification / anti-spam ──
+    'GPS required to file a report': 'GPS required to file a report',
+    'Enable location access and try again': 'Enable location access and try again',
+    'Photo location does not match your device location': 'Photo location does not match your device location',
+    'Photo verified at your location': 'Photo verified at your location',
+    'AI image verification pending': 'AI image verification pending',
+    'Speak your description': 'Speak your description',
+    'Listening… tap again to stop': 'Listening… tap again to stop',
+    'Voice input not supported on this browser': 'Voice input not supported on this browser',
+    # ── Worker close-the-loop ──
+    'Clear Bin requires After-photo': 'Clear Bin requires After-photo',
+    'Upload a live photo of the cleared bin to close this ticket': 'Upload a live photo of the cleared bin to close this ticket',
+    'After Photo': 'After Photo',
+    'Your GPS must be within range of the bin': 'Your GPS must be within range of the bin',
+    'Submit After-photo': 'Submit After-photo',
+    'Camera not available — choose from gallery': 'Camera not available — choose from gallery',
+    # ── Route savings ──
+    'Fuel Cost': 'Fuel Cost',
+    'Manpower Hours': 'Manpower Hours',
+    'est. savings vs. static daily routes': 'est. savings vs. static daily routes',
+    # ── Worker close-the-loop modal (inline labels) ──
+    'GPS not synced — required': 'GPS not synced — required',
+    'Requesting GPS access...': 'Requesting GPS access...',
+    'Submitting…': 'Submitting…',
+    'Clear rejected': 'Clear rejected',
+    'Bin cleared with verified evidence': 'Bin cleared with verified evidence',
+    'Could not clear bin — check connection and retry': 'Could not clear bin — check connection and retry',
+    'Pending': 'Pending',
 }
 
 TE = {
@@ -282,6 +337,64 @@ TE = {
     'Send Login OTP': 'లాగిన్ OTP పంపండి',
     "Don't have an account?": 'ఖాతా లేదా?',
     'Sign Up Here': 'ఇక్కడ సైన్ అప్ చేయండి',
+    # ── Government-compliant header ──
+    'Directorate of Waste Management & Sanitation': 'వ్యర్థ నిర్వహణ & పారిశుధ్య శాఖ',
+    'Grievance Hotline': 'ఫిర్యాదు హాట్లైన్',
+    'Accessibility': 'యాక్సెసిబిలిటీ',
+    'Increase text size': 'అక్షర పరిమాణం పెంచండి',
+    'Decrease text size': 'అక్షర పరిమాణం తగ్గించండి',
+    'Reset text size': 'అక్షర పరిమాణం రీసెట్ చేయండి',
+    'High contrast': 'అధిక కాంట్రాస్ట్',
+    'Language': 'భాష',
+    # ── Stakeholder portal split ──
+    'Citizen Portal': 'సిటిజన్ పోర్టల్',
+    'Report issues, track tickets, pay bills and earn Green Points — built for residents.': 'సమస్యలను నివేదించండి, టిక్కెట్లను ట్రాక్ చేయండి, బిల్లులు చెల్లించండి — నివాసితుల కోసం.',
+    'Enter Citizen Portal': 'సిటిజన్ పోర్టల్లోకి ప్రవేశించండి',
+    'Officer / Admin Login': 'అధికారి / అడ్మిన్ లాగిన్',
+    'Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.': 'కంట్రోల్ రూమ్, GIS టెలిమెట్రీ, ఫ్లీట్ డిస్పాచ్ — సిబ్బందికి మాత్రమే.',
+    'Officer Login': 'అధికారి లాగిన్',
+    # ── Citizen search hero ──
+    'Search your local bin status or schedule collection': 'మీ స్థానిక బిన్ స్థితి లేదా సేకరణ షెడ్యూల్ కోసం శోధించండి',
+    'Try a bin ID (e.g. BIN-101) or a ward name': 'బిన్ ID (ఉదా. BIN-101) లేదా వార్డ్ పేరును ప్రయత్నించండి',
+    'Report an Issue': 'సమస్య నివేదించండి',
+    'Overflowing Bin': 'నిండిపోయిన బిన్',
+    'Missed Pickup': 'తప్పిన సేకరణ',
+    'Illegal Dumping': 'చట్టవిరుద్ధమైన డంపింగ్',
+    'Photo evidence recommended — earn 15 Green Points': 'ఫోటో ఆధారం సిఫార్సు — 15 గ్రీన్ పాయింట్లు సంపాదించండి',
+    'Report a missed scheduled collection': 'తప్పిన షెడ్యూల్డ్ సేకరణను నివేదించండి',
+    'Anonymous toxic/illegal dump report': 'అనామక విషపూరిత/చట్టవిరుద్ధ డంప్ నివేదిక',
+    'Local Sanitation Notices': 'స్థానిక పారిశుధ్య నోటీసులు',
+    'Holiday Collection Shifts': 'సెలవు సేకరణ షిఫ్టులు',
+    'E-Waste Drive this Sunday': 'ఈ ఆదివారం ఇ-వేస్ట్ డ్రైవ్',
+    'No results found': 'ఫలితాలు కనుగొనబడలేదు',
+    # ── GPS verification / anti-spam ──
+    'GPS required to file a report': 'నివేదిక దాఖలు చేయడానికి GPS అవసరం',
+    'Enable location access and try again': 'లొకేషన్ యాక్సెస్ ప్రారంభించి మళ్లీ ప్రయత్నించండి',
+    'Photo location does not match your device location': 'ఫోటో స్థానం మీ పరికర స్థానంతో సరిపోలడం లేదు',
+    'Photo verified at your location': 'మీ స్థానంలో ఫోటో ధృవీకరించబడింది',
+    'AI image verification pending': 'AI ఇమేజ్ వెరిఫికేషన్ పెండింగ్',
+    'Speak your description': 'మీ వివరణ మాట్లాడండి',
+    'Listening… tap again to stop': 'వింటోంది… ఆపడానికి మళ్లీ నొక్కండి',
+    'Voice input not supported on this browser': 'ఈ బ్రౌజర్లో వాయిస్ ఇన్పుట్ మద్దతు లేదు',
+    # ── Worker close-the-loop ──
+    'Clear Bin requires After-photo': 'బిన్ క్లియర్ చేయడానికి ఆఫ్టర్-ఫోటో అవసరం',
+    'Upload a live photo of the cleared bin to close this ticket': 'ఈ టిక్కెట్ మూసివేయడానికి క్లియర్ చేసిన బిన్ యొక్క లైవ్ ఫోటో అప్లోడ్ చేయండి',
+    'After Photo': 'ఆఫ్టర్ ఫోటో',
+    'Your GPS must be within range of the bin': 'మీ GPS బిన్ పరిధిలో ఉండాలి',
+    'Submit After-photo': 'ఆఫ్టర్-ఫోటో సమర్పించండి',
+    'Camera not available — choose from gallery': 'కెమెరా అందుబాటులో లేదు — గ్యాలరీ నుండి ఎంచుకోండి',
+    # ── Route savings ──
+    'Fuel Cost': 'ఇంధన ఖర్చు',
+    'Manpower Hours': 'మానవశక్తి గంటలు',
+    'est. savings vs. static daily routes': 'స్థిర రోజువారీ మార్గాలతో పోలిస్తే అంచనా పొదుపు',
+    # ── Worker close-the-loop modal (inline labels) ──
+    'GPS not synced — required': 'GPS సమకాలీకరించబడలేదు — అవసరం',
+    'Requesting GPS access...': 'GPS యాక్సెస్ అభ్యర్థిస్తోంది...',
+    'Submitting…': 'సమర్పిస్తోంది…',
+    'Clear rejected': 'క్లియర్ తిరస్కరించబడింది',
+    'Bin cleared with verified evidence': 'ధృవీకరించబడిన ఆధారంతో బిన్ క్లియర్ చేయబడింది',
+    'Could not clear bin — check connection and retry': 'బిన్ క్లియర్ చేయలేకపోయింది — కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి',
+    'Pending': 'పెండింగ్',
 }
 
 

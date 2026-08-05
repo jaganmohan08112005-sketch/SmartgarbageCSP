@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smartgarbage-pwa-v7';
+const CACHE_NAME = 'smartgarbage-pwa-v8';
 const OFFLINE_DB_NAME = 'smartgarbage-offline';
 const OFFLINE_STORE = 'pending-forms';
 

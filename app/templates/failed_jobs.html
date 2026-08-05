@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Failed Jobs — SmartGarbage Admin') }}{% endblock %}
+{% block content %}
+<style>
+  .job-func { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
+  .job-exc  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .75rem;
+              background:#fdf2f2; color:#842029; border:1px solid #f5c2c7; border-radius:.5rem;
+              white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto; }
+  .badge-retries { background:#e2e3e5; color:#383d41; }
+</style>
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-5 flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#8E44AD,#6C3483);width:60px;height:60px;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:1.8rem;">🗑️</span>
+      </div>
+      <div>
+        <h1 class="fw-bold mb-0">{{ _('Failed Jobs — Dead-Letter Queue') }}</h1>
+        <p class="text-muted mb-0">{{ _('RQ jobs that exhausted their retry budget · requeue, delete, or purge') }}</p>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">← {{ _('Admin Home') }}</a>
+      {% if job_count > 0 %}
+      <form method="POST" action="{{ url_for('main.failed_jobs_clear') }}" onsubmit="return confirm('{{ _('Purge ALL failed jobs? This cannot be undone.') }}')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">🧹 {{ _('Purge All') }} ({{ job_count }})</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if job_count == 0 %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <div style="font-size:3rem;margin-bottom:.5rem;">✅</div>
+      <h4 class="fw-bold mb-1">{{ _('No failed jobs') }}</h4>
+      <p class="text-muted mb-0">{{ _('The dead-letter queue is empty. Jobs that exhaust their retry budget will appear here.') }}</p>
+      <p class="text-muted small mt-2 mb-0">{{ _('(Shown when Redis / RQ is configured; without a broker nothing is queued.)') }}</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>{{ _('Job Function') }}</th>
+              <th>{{ _('Enqueued') }}</th>
+              <th>{{ _('Failed') }}</th>
+              <th>{{ _('Retries Left') }}</th>
+              <th>{{ _('Error') }}</th>
+              <th class="text-end">{{ _('Actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for j in jobs %}
+            <tr>
+              <td class="small text-muted">{{ loop.index }}</td>
+              <td>
+                <span class="job-func">{{ j.func or 'unknown' }}</span>
+                <div class="small text-muted">{{ j.id[:12] }}…</div>
+              </td>
+              <td class="small">{{ j.enqueued_at.strftime('%Y-%m-%d %H:%M') if j.enqueued_at else '—' }}</td>
+              <td class="small">{{ j.ended_at.strftime('%Y-%m-%d %H:%M') if j.ended_at else '—' }}</td>
+              <td><span class="badge badge-retries">{{ j.retries_left if j.retries_left is not none else '0' }}</span></td>
+              <td style="max-width:320px;">
+                {% if j.exc_info %}<pre class="job-exc p-2 mb-0">{{ j.exc_info }}</pre>{% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td class="text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                  <form method="POST" action="{{ url_for('main.failed_job_requeue', job_id=j.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-success" title="{{ _('Requeue for another attempt') }}">↻ {{ _('Requeue') }}</button>
+                  </form>
+                  <form method="POST" action="{{ url_for('main.failed_job_delete', job_id=j.id) }}"
+                        onsubmit="return confirm('{{ _('Delete this failed job?') }}')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">✕ {{ _('Delete') }}</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

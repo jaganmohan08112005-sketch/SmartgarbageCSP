@@ -147,8 +147,7 @@ erDiagram
 
 ## 🎯 Known Gaps
 
-1. **Single-worker rate limiting** — global limits, not per-user (Flask-Limiter uses in-memory store; move to Redis when running >1 worker)
-2. **True route optimization** — beyond miss-risk prediction (travelling-salesman ordering)
+1. **True route optimization** — beyond miss-risk prediction (travelling-salesman ordering)
 
 ## ✅ Recently Closed
 
@@ -162,9 +161,13 @@ erDiagram
 - ✅ **State-portal compliance export** — `/analytics/state-portal-export` (JSON + CSV) with SWM Rules 2026 mandated indicators.
 - ✅ **Trend-over-time analytics** — `/api/trend/segregation` returns monthly segregation % per ward.
 - ✅ **Real-time push notifications** — `Notification` model + SSE stream + resolve pushes status-change alerts to citizens.
+- ✅ **Per-user rate limiting (Redis-backed)** — Flask-Limiter now keys authenticated requests by `user:<id>` (IP fallback for anonymous); `REDIS_URL` storage shares counters across workers/instances.
+- ✅ **WhatsApp/SMS status-change delivery** — complaint resolution pushes in-app Notification + Twilio SMS/WhatsApp (with email fallback) to the reporter via `_notify_status_change()`.
+- ✅ **Fly.io deployment parity** — HTTPS enforcement, secure cookies, HSTS and the demo-seed guard now key off `_is_deployed()` (Render OR Fly), so Fly.io gets production-grade cookies and no demo accounts.
+- ✅ **PWA offline queue hardened** — offline.js replays queued forms as `application/x-www-form-urlencoded` (JSON was silently unparseable by `request.form`), adds a page-agnostic toast, precaches offline.js, and adds manifest shortcuts + apple-touch icons.
 
 ## 🚀 Future Roadmap
 
-- [ ] Redis-backed per-user rate limiting
-- [ ] Mobile app (PWA enhancement)
-- [ ] WhatsApp/SMS status-change delivery (beyond in-app SSE)
+- [ ] Native mobile app wrapper (PWA already covers offline + installability)
+- [ ] WhatsApp/SMS status-change delivery to workers (beyond citizens)
+- [ ] Push (Web Push) notifications for closed-tab delivery

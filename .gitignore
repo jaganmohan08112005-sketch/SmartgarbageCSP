@@ -15,3 +15,4 @@ Smartgarbage csp/
 Smartgarbage round4/
 tmp_*.py
 scratch/
+.freebuff/

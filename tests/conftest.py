@@ -2,7 +2,6 @@ import os
 import sys
 import tempfile
 import socket
-import json
 from contextlib import closing
 
 import pytest
@@ -11,7 +10,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
-from app.models import User, SmartBin, Schedule, Complaint, WorkerProfile, BWGDeclaration, PAYTInvoice, WasteDeclaration, Notification
+from app.models import User, SmartBin, Schedule, Complaint, WorkerProfile
 from werkzeug.security import generate_password_hash
 
 
@@ -116,24 +115,44 @@ def _seed(app):
 # ---------------------------------------------------------------------------
 # App fixture
 # ---------------------------------------------------------------------------
-@pytest.fixture
-def app():
-    fd, path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-    app = create_app(test_config={
+def _make_app(db_uri):
+    return create_app(test_config={
         "TESTING": True,
         "WTF_CSRF_ENABLED": False,
-        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{path}",
+        "SQLALCHEMY_DATABASE_URI": db_uri,
         "SERVER_NAME": "localhost:5001"
     })
-    with app.app_context():
-        db.create_all()
-        _seed(app)
-        yield app
-        db.session.remove()
-    with app.app_context():
-        db.engine.dispose()
-    os.remove(path)
+
+
+@pytest.fixture
+def app():
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if test_db_url:
+        # Postgres mode (CI parity job): the service-container database is
+        # shared across tests, so drop/recreate the schema per test to keep
+        # each test isolated (SQLite got that for free via a fresh temp file).
+        app = _make_app(test_db_url)
+        with app.app_context():
+            db.drop_all()
+            db.create_all()
+            _seed(app)
+            yield app
+            db.session.remove()
+            db.drop_all()
+        with app.app_context():
+            db.engine.dispose()
+    else:
+        fd, path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        app = _make_app(f"sqlite:///{path}")
+        with app.app_context():
+            db.create_all()
+            _seed(app)
+            yield app
+            db.session.remove()
+        with app.app_context():
+            db.engine.dispose()
+        os.remove(path)
 
 
 # ---------------------------------------------------------------------------

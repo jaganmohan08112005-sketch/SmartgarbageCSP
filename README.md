@@ -89,13 +89,20 @@ python run.py
 | `SECRET_KEY` | Yes | Flask session secret (auto-generated if missing) |
 | `DATABASE_URL` | No | Database connection URL (default: SQLite) |
 | `FLASK_ENV` | No | Set to `production` for production mode |
+| `REDIS_URL` | No | Redis for shared rate limits + KPI cache (needed when running >1 worker) |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase Storage for photos (recommended in production) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | No | SMS delivery for OTP + complaint status alerts |
+| `TWILIO_WHATSAPP_NUMBER` | No | WhatsApp delivery (e.g. `whatsapp:+14155238886`) |
+| `MAIL_SERVER` / `MAIL_USERNAME` / `MAIL_PASSWORD` | No | SMTP email fallback (OTP, status alerts, password reset) |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | No | Server-side PAYT order creation + Checkout (falls back to UPI deep-link when unset) |
+| `RAZORPAY_WEBHOOK_SECRET` | No | Verifies `/webhook/razorpay` capture signatures (HMAC-SHA256, like Twilio) |
 
 ## 📦 Deployment
 
-Deployed on Render.com using:
-- Dockerfile for containerization
-- Auto-deploy from GitHub main branch
-- PostgreSQL database
+Deployed via Docker on Fly.io (recommended) or Render.com:
+- `fly.toml` / `render.yaml` deploy configs
+- Auto-deploy from GitHub main branch (CI runs pytest + flake8)
+- Supabase PostgreSQL + Storage (see `DEPLOY.md`)
 
 ## 🧪 Testing
 

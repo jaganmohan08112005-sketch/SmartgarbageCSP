@@ -1,7 +1,7 @@
 import os
 import logging
 import structlog
-from flask import Flask, render_template, session, redirect, url_for, current_app, request
+from flask import Flask, render_template, session, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -80,8 +80,6 @@ def create_app(test_config=None):
             # Sentry is optional — don't crash the app if the package is absent.
             app.logger.warning("SENTRY_DSN set but sentry_sdk not installed; skipping init.")
 
-# (File ends at line 125)
-
     if test_config:
         app.config.update(test_config)
 
@@ -102,6 +100,7 @@ def create_app(test_config=None):
     # Request ID middleware: every request gets a unique ID for tracing across
     # logs, audit entries, and external API calls.
     import uuid
+
     @app.before_request
     def inject_request_id():
         from flask import g
@@ -144,11 +143,11 @@ def create_app(test_config=None):
     # Ensure the upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-    # Initialize extensions
+    # Initialize extensions (Talisman is configured below with its full
+    # security policy — no bare init here).
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    talisman.init_app(app)
     limiter.init_app(app)
     mail.init_app(app)
 
@@ -158,8 +157,6 @@ def create_app(test_config=None):
     def load_user(user_id):
         from .models import User
         return User.query.get(int(user_id))
-
-    # WebSockets for live IoT/fleet updates.
 
     # WebSockets for live IoT/fleet updates. Prefer gevent-worker-friendly
     # async modes for production; fall back gracefully when unavailable.
@@ -195,6 +192,12 @@ def create_app(test_config=None):
                       strict_transport_security=True,
                       strict_transport_security_max_age=31536000,
                       strict_transport_security_include_subdomains=True,
+                      # Pass the same value the app configures explicitly: without
+                      # this, flask-talisman's session_cookie_secure default (True)
+                      # force-sets SESSION_COOKIE_SECURE on every request in
+                      # non-debug mode, silently overriding _is_deployed() and
+                      # breaking plain-http local/LAN runs.
+                      session_cookie_secure=_is_deployed(),
                       content_security_policy=_csp)
 
     # Structured logging with structlog
@@ -289,6 +292,7 @@ def create_app(test_config=None):
 
     # ── i18n: language toggle route + template globals ──
     from .i18n import translate, SUPPORTED, DEFAULT_LANG
+
     @app.context_processor
     def inject_i18n():
         lang = session.get('lang', DEFAULT_LANG)
@@ -346,7 +350,8 @@ def create_app(test_config=None):
     except Exception:
         pass  # queue not available (local dev / tests) — sweep is a no-op
 
-    # Schedule SLA escalation (complaints > 24h / illegal reports > 48h).
+    # Schedule SLA escalation (complaints past their sla_deadline / illegal
+    # reports pending > 48h).
     try:
         from .jobs import schedule_sla_escalation
         schedule_sla_escalation()
@@ -357,6 +362,30 @@ def create_app(test_config=None):
     try:
         from .jobs import schedule_telemetry_retention
         schedule_telemetry_retention()
+    except Exception:
+        pass
+
+    # Schedule the 15-minute maintenance sweep (sensor faults + decomposition
+    # timers) — replaces the per-admin-load calls that used to run 2 full-table
+    # scans + 2N queries on every admin page render.
+    try:
+        from .jobs import schedule_maintenance
+        schedule_maintenance()
+    except Exception:
+        pass
+
+    # Schedule the daily PAYT billing reconciliation (verified OffloadLog
+    # weights vs self-reported invoices; flags >20% discrepancies for audit).
+    try:
+        from .jobs import schedule_payt_reconciliation
+        schedule_payt_reconciliation()
+    except Exception:
+        pass
+
+    # Schedule the weekly ML model retraining (fill-rate + miss-prediction).
+    try:
+        from .jobs import schedule_model_retraining
+        schedule_model_retraining()
     except Exception:
         pass
 

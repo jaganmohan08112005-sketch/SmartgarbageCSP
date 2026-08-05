@@ -6,7 +6,7 @@
         <div class="card p-4 border-0 shadow-sm text-center">
             <div class="fs-1 mb-2">💳</div>
             <h3 class="fw-bold mt-2 mb-1">{{ _('PAYT Invoice') }}</h3>
-            <p class="text-muted small">{{ _('Pay using any UPI app (Google Pay, PhonePe, Paytm, BHIM).') }}</p>
+            <p class="text-muted small">{{ _('Pay securely — the invoice is confirmed automatically once the payment is captured.') }}</p>
 
             <div class="amt" style="font-size:2.5rem;font-weight:800;color:var(--sg-primary);">
                 ₹{{ "%.2f"|format(invoice.amount_rs) }}
@@ -20,8 +20,35 @@
                     <strong>{{ _('Payment confirmed.') }}</strong> {{ _('Thank you!') }}<br>
                     <span class="text-muted">{{ _('Ref:') }} {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
                 </div>
+                <a class="btn btn-outline-success w-100 fw-bold shadow-sm mb-2" href="{{ url_for('main.payt_receipt', inv_id=invoice.id) }}">
+                    <i class="fa-solid fa-file-pdf me-1"></i>
+                    {{ _('Download Receipt (PDF)') }}
+                </a>
+                <p class="text-muted small mb-0">{{ _('A copy was also emailed to your registered address.') }}</p>
             {% else %}
-                <a class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
+                {% if invoice.failed_attempts %}
+                    <div class="alert alert-warning border-0 shadow-sm text-start small mb-3">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        <strong>{{ _('Payment not completed') }}</strong> — {{ _('no money was deducted.') }}<br>
+                        <span class="text-muted">
+                            {{ _('Attempt') }} {{ invoice.failed_attempts }}{% if invoice.last_failed_reason %}: {{ invoice.last_failed_reason }}{% endif %}
+                        </span><br>
+                        <span class="text-muted">{{ _('Please try again below — your invoice is still unpaid.') }}</span>
+                    </div>
+                {% endif %}
+                {% if razorpay_order_id %}
+                    <!-- Primary path: server-created Razorpay order + Checkout UI -->
+                    <button type="button" id="razorpayBtn" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
+                        <i class="fa-solid fa-lock me-1"></i>
+                        {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('securely') }}
+                    </button>
+                    <p class="text-muted small mb-3">{{ _('Secure payment via Razorpay (UPI, cards, net-banking, wallets).') }}</p>
+
+                    <div class="hr-text small text-muted my-3">{{ _('or') }}</div>
+                {% endif %}
+
+                <!-- Fallback: UPI deep-link -->
+                <a class="btn btn-outline-success w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
                     <i class="fa-solid fa-mobile-screen-button me-1"></i>
                     {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('via UPI') }}
                 </a>
@@ -33,9 +60,71 @@
                         <i class="fa-solid fa-check me-1"></i> {{ _('I\'ve completed the UPI payment') }}
                     </button>
                 </form>
-                <p class="text-muted mt-2 mb-0 small">{{ _('Confirm here once the payment succeeds in your UPI app.') }}</p>
+                <p class="text-muted mt-2 mb-0 small">{{ _('Confirm here once the payment succeeds in your UPI app (fallback).') }}</p>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if razorpay_order_id %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+(function () {
+    const btn = document.getElementById('razorpayBtn');
+    if (!btn || typeof Razorpay === 'undefined') return;
+    const options = {
+        key: {{ razorpay_key_id|tojson }},
+        amount: {{ amount_paise }},        // paise
+        currency: 'INR',
+        name: 'SmartGarbage CV',
+        description: {{ ('PAYT Invoice #' ~ invoice.id ~ ' — ' ~ invoice.period)|tojson }},
+        order_id: {{ razorpay_order_id|tojson }},
+        prefill: { contact: {{ (invoice.user.phone if invoice.user else '')|tojson }} },
+        handler: async function (response) {
+            try {
+                const res = await fetch({{ url_for('main.payt_verify_payment', inv_id=invoice.id)|tojson }}, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_signature: response.razorpay_signature
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = {{ url_for('main.dashboard')|tojson }};
+                } else {
+                    alert('Payment could not be verified. If money was deducted it will auto-confirm shortly. (' + (data.message || 'error') + ')');
+                }
+            } catch (e) {
+                alert('Payment verification failed. Your payment will auto-confirm via webhook shortly.');
+            }
+        },
+        modal: {
+            ondismiss: function () { /* user closed the checkout — stay on page */ }
+        }
+    };
+    btn.addEventListener('click', function () {
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (resp) {
+            // The failure is recorded server-side via the webhook; reload so the
+            // citizen sees the friendly retry state (attempt count + reason)
+            // instead of a silent dead end.
+            const err = (resp && resp.error && (resp.error.description || resp.error.code)) || '';
+            if (err) alert('Payment failed: ' + err + '\nNo money was deducted. You can retry below.');
+            // Give Razorpay's server-side webhook a moment to record the
+            // failure so the reload actually shows the retry banner.
+            setTimeout(function () { window.location.reload(); }, 2500);
+        });
+        rzp.open();
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

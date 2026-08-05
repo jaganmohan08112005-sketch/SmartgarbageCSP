@@ -1,9 +1,8 @@
 """QA audit tests for admin flows (MFA, cross-role oversight)."""
 
 import json
-import pytest
 from app import db
-from app.models import Complaint, BWGDeclaration, PAYTInvoice, Notification, WasteDeclaration, User
+from app.models import Complaint, BWGDeclaration, Notification, User
 
 
 class TestAdminAccess:
@@ -52,7 +51,6 @@ class TestAdminCrossRoleOversight:
         with app.app_context():
             c = Complaint.query.filter_by(name="qa_citizen").first()
             assert c is not None
-            cid = c.id
         r = client.get("/admin", follow_redirects=False)
         assert r.status_code == 200
 

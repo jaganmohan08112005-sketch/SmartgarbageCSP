@@ -9,9 +9,10 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
 from app import create_app, db
-from app.models import (Schedule, User, Complaint, SmartBin, WorkerProfile, IncidentLog,
-                        AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
-                        WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease)
+from app.models import (Schedule, User, Complaint, SmartBin, BinTelemetryLog, WorkerProfile,
+                        IncidentLog, AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
+                        WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease,
+                        utcnow)
 
 app = create_app()
 
@@ -120,6 +121,30 @@ with app.app_context():
     db.session.add_all(bins)
     db.session.commit()
 
+    # 3b. Seed live telemetry history (per-ping level snapshots)
+    # Gives the fill-rate ML model REAL velocity data to learn from on a fresh
+    # demo DB: each bin gets a ramp of pings over the last ~48h trending toward
+    # its current level (higher-level bins fill faster).
+    print("📈 Seeding telemetry history...")
+    telemetry_logs = []
+    for b in bins:
+        target = max(b.level, 5)
+        # 5 snapshots over 48h: hours-ago offsets with levels ramping up.
+        for i, hours_ago in enumerate((48, 36, 24, 12, 2)):
+            progress = (48 - hours_ago) / 46.0  # 0 → ~1 across the window
+            level_now = int(max(0, min(100, round(target * progress))))
+            telemetry_logs.append(BinTelemetryLog(
+                bin_id=b.id,
+                level=max(level_now, 2),
+                temperature=b.temperature,
+                methane=b.methane,
+                battery_level=b.battery_level,
+                status="Safe" if level_now < 50 else ("Warning" if level_now < 80 else "Critical"),
+                timestamp=utcnow() - timedelta(hours=hours_ago),
+            ))
+    db.session.add_all(telemetry_logs)
+    db.session.commit()
+
     # 4. Seed Incident Logs
     print("🚨 Seeding incident logs...")
     incident_bin = SmartBin.query.filter_by(hardware_id="BIN-302").first()
@@ -132,7 +157,7 @@ with app.app_context():
             severity="Critical",
             status="Active",
             description="Extreme temperature alert (72.1°C) detected at MVGR College sector bin. Potential fire hazard inside compartment.",
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=25)
+            timestamp=utcnow() - timedelta(minutes=25)
         ),
         IncidentLog(
             bin_id=incident_bin.id,
@@ -140,7 +165,7 @@ with app.app_context():
             severity="Critical",
             status="Active",
             description="Hazardous methane concentration detected (850 ppm). Exceeded safety threshold.",
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=15)
+            timestamp=utcnow() - timedelta(minutes=15)
         ),
         IncidentLog(
             bin_id=incident_bin2.id,
@@ -148,7 +173,7 @@ with app.app_context():
             severity="Warning",
             status="Active",
             description="Accelerometer detected tilt angle > 45 degrees. Potential vandalism or accidental impact at Junction.",
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=5)
+            timestamp=utcnow() - timedelta(minutes=5)
         )
     ]
     db.session.add_all(incidents)
@@ -179,7 +204,7 @@ with app.app_context():
             bin_id=b.id,
             battery_voltage=round(random.uniform(3.6, 4.2), 2),
             calibration_drift=round(random.uniform(0.5, 4.5), 1),
-            last_ping=datetime.now(timezone.utc) - timedelta(minutes=random.randint(5, 180)),
+            last_ping=utcnow() - timedelta(minutes=random.randint(5, 180)),
             fault_flag=False,
             maintenance_scheduled=False
         )
@@ -193,7 +218,7 @@ with app.app_context():
     if faulty_sh:
         faulty_sh.battery_voltage = 2.85  # Below critical threshold!
         faulty_sh.calibration_drift = 18.4
-        faulty_sh.last_ping = datetime.now(timezone.utc) - timedelta(hours=26)  # Silent for >24 hours
+        faulty_sh.last_ping = utcnow() - timedelta(hours=26)  # Silent for >24 hours
         faulty_sh.fault_flag = True
         faulty_sh.fault_reason = "Ultrasonic sensor silent for over 24 hours. Battery voltage low (2.85V)."
         faulty_sh.maintenance_scheduled = True
@@ -263,7 +288,7 @@ with app.app_context():
     # 12. Seed OTA Firmware Releases
     print("📡 Seeding OTA firmware versions...")
     releases = [
-        FirmwareRelease(version="2.1.2", filename="ESP32_bin_v2.1.2.bin", description="Improved ultrasonic sensor calibration routines.", target_bins="ALL", push_status="Pushed", pushed_at=datetime.now(timezone.utc)-timedelta(days=5)),
+        FirmwareRelease(version="2.1.2", filename="ESP32_bin_v2.1.2.bin", description="Improved ultrasonic sensor calibration routines.", target_bins="ALL", push_status="Pushed", pushed_at=utcnow()-timedelta(days=5)),
         FirmwareRelease(version="2.1.3", filename="ESP32_bin_v2.1.3.bin", description="Methane gas threshold sensitivity configuration updates.", target_bins="ALL", push_status="Pending")
     ]
     db.session.add_all(releases)

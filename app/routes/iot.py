@@ -23,6 +23,16 @@ def _hash_device_key(api_key: str) -> str:
     return hashlib.sha256(api_key.encode('utf-8')).hexdigest()
 
 
+def _is_deployed():
+    """True when running on a production platform (Render or Fly.io).
+
+    The OLD check only enforced the HMAC secret on Render — a Fly.io
+    deployment without IOT_TELEMETRY_SECRET silently accepted unsigned
+    telemetry from the public internet. Both platforms are production.
+    """
+    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+
+
 def _authenticate_device(hardware_id: str):
     """Validate per-device API key. Returns Device or None."""
     device = Device.query.filter_by(hardware_id=hardware_id, is_active=True).first()
@@ -74,9 +84,9 @@ def bin_telemetry():
     # ── IoT auth: require a valid HMAC-SHA256 signature when a telemetry
     # secret is configured (production). Skipped in dev when no secret set. ──
     secret = current_app.config.get('IOT_TELEMETRY_SECRET')
-    # On Render (production) the HMAC secret is mandatory — never accept
-    # unsigned telemetry from a public internet-facing endpoint.
-    if not secret and os.environ.get('RENDER'):
+    # On ANY production platform (Render OR Fly.io) the HMAC secret is
+    # mandatory — never accept unsigned telemetry from a public endpoint.
+    if not secret and _is_deployed():
         logger.error("iot_telemetry_secret_missing", ip=request.remote_addr)
         return jsonify({"success": False,
                         "message": "IOT_TELEMETRY_SECRET not configured."}), 503
@@ -100,7 +110,7 @@ def bin_telemetry():
         device.last_seen = utcnow()
     else:
         secret = current_app.config.get('IOT_TELEMETRY_SECRET')
-        if not secret and os.environ.get('RENDER'):
+        if not secret and _is_deployed():
             logger.error("iot_telemetry_secret_missing", ip=request.remote_addr)
             return jsonify({"success": False,
                             "message": "IOT_TELEMETRY_SECRET not configured."}), 503
@@ -165,7 +175,19 @@ def bin_telemetry():
     # _estimate_fill_rate_hour_pct prevents spurious alerts right after).
     now = utcnow()
     prev_eta = smart_bin.overflow_eta_hours
-    smart_bin.overflow_eta_hours = predict_overflow_eta_hours(smart_bin, now)
+    # ── ETA recompute throttle ──
+    # The fill-rate estimator queries telemetry history + runs the sklearn
+    # regressor on EVERY ping (28,800/day at 5-min cadence). Only recompute
+    # when the level changed by >5% OR 15 minutes have elapsed since the last
+    # computation — the forecast is an advisory, not a per-ping necessity.
+    _last_eta = smart_bin.last_eta_computed_at
+    _level_delta = abs((smart_bin.level or 0) - (prev_state[0] or 0))
+    _eta_stale = (_last_eta is None or
+                  (now - _last_eta).total_seconds() >= 900)  # 15 min
+    if _eta_stale or _level_delta > 5:
+        smart_bin.overflow_eta_hours = predict_overflow_eta_hours(smart_bin, now)
+        smart_bin.last_eta_computed_at = now
+    # else: keep the stored forecast (no recompute this ping)
 
     # ── Stagnant Rot & Decomposition Timer (Max 48h above 10% fill) ──
     if smart_bin.level > 10:

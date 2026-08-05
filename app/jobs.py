@@ -21,7 +21,7 @@ import structlog
 
 logger = structlog.get_logger("smartgarbage.jobs")
 
-# Lazily-built singletons (mirrors the Redis cache client pattern in routes.py).
+# Lazily-built singletons (mirrors the Redis cache client pattern in app/routes/).
 _QUEUE = None
 _QUEUE_TRIED = False
 _REDIS = None
@@ -76,12 +76,16 @@ JOB_RETRY_POLICIES = {
     'send_email_job': (3, [30, 60, 120]),
     'send_otp_job': (3, [30, 60, 120]),
     'notify_status_change_job': (3, [30, 60, 120]),
+    'send_tracking_link_job': (3, [30, 60, 120]),       # complaint tracking link SMS
     'dispatch_webhooks_job': (4, [10, 30, 60, 120]),    # external webhooks: fast first retries
     'payt_reminder_job': (3, [60, 300, 900]),           # dunning SMS: 1m, 5m, 15m
     'generate_export_job': (2, [30, 120]),              # heavy report builds: 30s, 2m
     'dunning_job': (1, [300]),                          # periodic sweep: single 5m retry
     'sweep_failed_jobs_alerts_job': (1, [300]),         # dead-letter alert sweep: single 5m retry
     'payt_receipt_job': (2, [60, 300]),                 # receipt PDF + SMTP: 1m, 5m
+    'maintenance_job': (1, [300]),                      # sensor/decomp sweep: single 5m retry
+    'payt_reconciliation_job': (1, [300]),              # billing reconcile: single 5m retry
+    'model_retraining_job': (1, [600]),                 # ML retrain: single 10m retry
 }
 
 
@@ -454,6 +458,27 @@ def notify_status_change_job(complaint_id, phone, email, area, status):
         sent = send_email_job(email, "SmartGarbage — Complaint Update", message)
     logger.info("status_notify_delivered", complaint_id=complaint_id,
                 status=status, delivered=sent)
+    return sent
+
+
+@instrument
+def send_tracking_link_job(phone, email, complaint_id, area, track_url):
+    """Send a citizen their complaint's signed tracking link.
+
+    SMS/WhatsApp first with email fallback, mirroring notify_status_change_job.
+    The URL carries a signed token (90-day expiry) so the complaint can't be
+    enumerated — only the reporter (who got the link) can open it.
+    """
+    message = (f"SmartGarbage: Your complaint #{complaint_id} in {area} was "
+               f"received. Track its status live: {track_url}")
+    sent = False
+    if phone:
+        sent = send_sms_job(phone, message)
+        if not sent and email:
+            sent = send_email_job(email, "SmartGarbage — Complaint Tracking", message)
+    elif email:
+        sent = send_email_job(email, "SmartGarbage — Complaint Tracking", message)
+    logger.info("tracking_link_delivered", complaint_id=complaint_id, delivered=sent)
     return sent
 
 
@@ -968,29 +993,43 @@ def schedule_failed_alert_sweep(interval_minutes=5):
 
 @instrument
 def sla_escalation_job():
-    """Escalate complaints pending > 24h and illegal dump reports pending > 48h.
+    """Escalate complaints past their SLA deadline and illegal dump reports
+    pending > 48h.
 
-    Moves stale items to 'Escalated' status and notifies admins so nothing
-    silently ages out of the queue."""
+    Complaint lifecycle v3: complaints enter as 'Submitted' with a 48h
+    sla_deadline. This job escalates any complaint still in an open state
+    (Submitted / Under Review / Assigned / In Progress) past its deadline,
+    and moves illegal dump reports pending > 48h to 'Escalated'. Admins are
+    notified so nothing silently ages out of the queue."""
     with _app_ctx():
         from app import db
         from app.models import Complaint, IllegalDumpReport, User, Notification, AuditLog, utcnow
-        cutoff_c = utcnow() - timedelta(hours=24)
+        now = utcnow()
+        # Complaints: use the SLA deadline (48h from submission) — the old
+        # 24h-from-created_at check didn't match the new lifecycle.
         stale = Complaint.query.filter(
-            Complaint.status == 'Pending',
-            Complaint.created_at < cutoff_c
+            Complaint.status.in_(['Submitted', 'Under Review', 'Assigned', 'In Progress']),
+            Complaint.sla_deadline.isnot(None),
+            Complaint.sla_deadline < now
         ).all()
         admins = User.query.filter_by(role='admin', is_active=True).all()
+        from .routes import record_complaint_event
         for c in stale:
             c.status = 'Escalated'
-            detail = f"Auto-escalated after 24h (filed {c.created_at.isoformat() if c.created_at else '?'})"
+            detail = (f"Auto-escalated past SLA deadline "
+                      f"(filed {c.created_at.isoformat() if c.created_at else '?'}, "
+                      f"deadline {c.sla_deadline.isoformat() if c.sla_deadline else '?'})")
+            # Timeline event joins the single commit below (commit=False)
+            record_complaint_event(c, 'Escalated',
+                                   'Auto-escalated: SLA deadline crossed, control room notified.',
+                                   commit=False)
             db.session.add(AuditLog(
                 username='system', role='system', action='COMPLAINT_ESCALATED',
                 target=c.ward, detail=detail))
             for a in admins:
                 db.session.add(Notification(
                     user_id=a.id,
-                    message=f"Complaint #{c.id} in {c.ward} escalated (24h overdue).",
+                    message=f"Complaint #{c.id} in {c.ward} escalated (SLA overdue).",
                     link=f"/admin#{c.id}"
                 ))
         cutoff_i = utcnow() - timedelta(hours=48)
@@ -1024,7 +1063,7 @@ def telemetry_retention_job(max_age_days=90):
     retraining never scan unbounded history."""
     with _app_ctx():
         from app import db
-        from app.models import BinTelemetryLog
+        from app.models import BinTelemetryLog, utcnow
         cutoff = utcnow() - timedelta(days=max_age_days)
         deleted = BinTelemetryLog.query.filter(
             BinTelemetryLog.timestamp < cutoff
@@ -1050,3 +1089,173 @@ def schedule_telemetry_retention(interval_hours=24):
         return
     q.enqueue_in(timedelta(hours=interval_hours), telemetry_retention_job,
                  retry=_retry_for(telemetry_retention_job))
+
+
+# ──────────────────────────────────────────────
+# MAINTENANCE JOB (sensor faults + decomposition timers)
+# ──────────────────────────────────────────────
+# These two checks previously ran on EVERY admin page load — 2 full-table
+# scans + 2N queries per visit. They now run on a 15-minute scheduled job so
+# the admin dashboard stays fast while the checks still happen regularly.
+@instrument
+def maintenance_job():
+    """Run sensor-fault + decomposition-timer maintenance on a 15-min cadence.
+
+    Replaces the per-admin-load calls to check_sensor_faults() and
+    check_decomposition_timers() — the admin dashboard no longer pays 2
+    full-table scans + 2N queries on every render."""
+    with _app_ctx():
+        from .routes import check_sensor_faults, check_decomposition_timers
+        check_sensor_faults()
+        check_decomposition_timers()
+        logger.info("maintenance_job_complete")
+        return True
+
+
+def schedule_maintenance(interval_minutes=15):
+    """Enqueue the next maintenance sweep (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:maintenance:scheduled', '1', nx=True,
+                         ex=int(interval_minutes * 60)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(minutes=interval_minutes), maintenance_job,
+                 retry=_retry_for(maintenance_job))
+
+
+# ──────────────────────────────────────────────
+# PAYT BILLING RECONCILIATION (verified weights drive invoices)
+# ──────────────────────────────────────────────
+# PAYT invoices are generated from SELF-REPORTED weights (WasteDeclaration /
+# BWGDeclaration). The only trusted weight source is the worker-verified
+# OffloadLog. This job matches offload weights to declarations per ward/period
+# and flags discrepancies > 20% for admin audit, flipping the invoice's
+# billing_status to 'Verified' (or 'Disputed').
+@instrument
+def payt_reconciliation_job():
+    """Reconcile worker-verified OffloadLog weights against self-reported
+    PAYT invoices per ward/period.
+
+    For each 'Self-Reported' invoice, sum the worker-verified offload weights
+    for the same ward in the same calendar month. If the verified total is
+    within 20% of the declared weight, the invoice is marked 'Verified'
+    (trusted). If the discrepancy exceeds 20%, it's marked 'Disputed' for
+    admin audit — only verified weights should drive the final invoice amount.
+    Returns the number of invoices reconciled."""
+    with _app_ctx():
+        from app import db
+        from app.models import PAYTInvoice, OffloadLog
+        from sqlalchemy import func
+        from datetime import datetime as _dt
+        # Only invoices still in the self-reported state are candidates.
+        invoices = PAYTInvoice.query.filter_by(billing_status='Self-Reported').all()
+        reconciled = 0
+        for inv in invoices:
+            # Sum worker-verified offload weights for the same ward in the
+            # same calendar month as the invoice period.
+            try:
+                period_dt = _dt.strptime(inv.period, "%B %Y")
+            except (ValueError, TypeError):
+                continue
+            month_start = period_dt.replace(day=1, tzinfo=timezone.utc)
+            if month_start.month == 12:
+                month_end = month_start.replace(year=month_start.year + 1, month=1)
+            else:
+                month_end = month_start.replace(month=month_start.month + 1)
+            # OffloadLog doesn't carry a ward column — sum ALL worker-verified
+            # offloads in the same calendar month and compare against the
+            # invoice's declared weight. In a single-ward deployment this is
+            # accurate; multi-ward deployments should extend OffloadLog with a
+            # ward column and filter on it here.
+            verified_total = (db.session.query(func.coalesce(
+                func.sum(OffloadLog.weight_kg), 0.0))
+                .filter(OffloadLog.verified == True,  # noqa: E712
+                        OffloadLog.timestamp >= month_start,
+                        OffloadLog.timestamp < month_end)
+                .scalar())
+            verified_total = float(verified_total or 0.0)
+            declared = float(inv.weight_kg or 0.0)
+            if declared <= 0:
+                continue
+            discrepancy = abs(verified_total - declared) / declared
+            if discrepancy <= 0.20:
+                inv.billing_status = 'Verified'
+            else:
+                inv.billing_status = 'Disputed'
+            reconciled += 1
+        db.session.commit()
+        logger.info("payt_reconciliation", reconciled=reconciled)
+        return reconciled
+
+
+def schedule_payt_reconciliation(interval_hours=24):
+    """Enqueue the next PAYT reconciliation sweep (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:payt-recon:scheduled', '1', nx=True,
+                         ex=int(interval_hours * 3600)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(hours=interval_hours), payt_reconciliation_job,
+                 retry=_retry_for(payt_reconciliation_job))
+
+
+# ──────────────────────────────────────────────
+# ML MODEL RETRAINING (weekly cadence)
+# ──────────────────────────────────────────────
+# Models are loaded at import time and never retrained. This job retrains on a
+# weekly cadence using build_real_fill_rows() + synthetic priors, and
+# hot-swaps the pickle with a versioned filename + atomic rename.
+@instrument
+def model_retraining_job():
+    """Retrain the fill-rate + miss-prediction models on a weekly cadence.
+
+    Uses train_model.py's build_real_fill_rows() + synthetic priors, then
+    atomically swaps the versioned pickle files so the running app picks up
+    the new model on the next import."""
+    with _app_ctx():
+        try:
+            from train_model import build_real_fill_rows, train_and_save_models
+        except ImportError:
+            # train_model.py may not be importable in all environments — fall
+            # back to a no-op with a log.
+            logger.warning("model_retraining_skipped", reason="train_model not importable")
+            return False
+        try:
+            # Build training rows from real telemetry + synthetic priors.
+            rows = build_real_fill_rows()
+            # train_and_save_models writes versioned pickles with atomic rename.
+            train_and_save_models(rows)
+            logger.info("model_retraining_complete", rows=len(rows))
+            return True
+        except Exception as e:
+            logger.error("model_retraining_error", error=str(e))
+            return False
+
+
+def schedule_model_retraining(interval_days=7):
+    """Enqueue the next model retraining run (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:model-retrain:scheduled', '1', nx=True,
+                         ex=int(interval_days * 86400)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(days=interval_days), model_retraining_job,
+                 retry=_retry_for(model_retraining_job))

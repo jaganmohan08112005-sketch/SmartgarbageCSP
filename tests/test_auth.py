@@ -1,5 +1,3 @@
-from app.models import User
-from werkzeug.security import generate_password_hash
 
 def test_register_requires_phone(client):
     response = client.post('/register', data={
@@ -8,6 +6,7 @@ def test_register_requires_phone(client):
     }, follow_redirects=True)
     assert b'Phone number is required' in response.data
 
+
 def test_register_validates_indian_phone(client):
     response = client.post('/register', data={
         'username': 'testuser2',
@@ -15,6 +14,7 @@ def test_register_validates_indian_phone(client):
         'phone': '1234567890'
     }, follow_redirects=True)
     assert b'valid Indian mobile number' in response.data or b'Fake or sequential' in response.data
+
 
 def test_register_accepts_valid_phone(client):
     response = client.post('/register', data={
@@ -25,8 +25,8 @@ def test_register_accepts_valid_phone(client):
     }, follow_redirects=True)
     assert b'Registration successful' in response.data or b'Please log in' in response.data
 
+
 def test_admin_registration_requires_approval(client, app):
-    from app import db
     response = client.post('/register', data={
         'username': 'wouldbeadmin',
         'password': 'testpass123',
@@ -37,6 +37,7 @@ def test_admin_registration_requires_approval(client, app):
     assert response.status_code == 200
     assert b'Registration successful' in response.data or b'pending approval' in response.data or b'cannot log in' in response.data or b'approval' in response.data
 
+
 def test_report_requires_login(client):
     response = client.post('/report', data={
         'name': 'test',
@@ -46,11 +47,13 @@ def test_report_requires_login(client):
     }, follow_redirects=True)
     assert b'login' in response.data.lower() or response.status_code == 302
 
+
 def test_phone_validation_rejects_all_same(client):
     response = client.post('/auth/phone-login', data={
         'phone_number': '9999999999'
     }, follow_redirects=True)
     assert b'valid Indian mobile' in response.data or b'rejected' in response.data.lower()
+
 
 def test_phone_validation_rejects_sequential(client):
     response = client.post('/auth/phone-login', data={

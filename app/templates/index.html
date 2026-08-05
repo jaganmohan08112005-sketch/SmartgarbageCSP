@@ -15,6 +15,45 @@
     </div>
 </div>
 
+<!-- Stakeholder Portal Split: distinct citizen vs officer entry (never mix the two audiences) -->
+<div class="row g-4 mb-4 animate-fade-in" style="animation-delay: 0.05s;">
+    <!-- Citizen Portal -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4 h-100 sg-portal-card sg-portal-citizen">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <span class="sg-portal-icon">👨‍👩‍👧‍👦</span>
+                <div>
+                    <h4 class="fw-bold text-success mb-0">{{ _('Citizen Portal') }}</h4>
+                    <small class="text-muted">{{ _('Public · No login needed to explore') }}</small>
+                </div>
+            </div>
+            <p class="text-muted small mb-3">{{ _('Report issues, track tickets, pay bills and earn Green Points — built for residents.') }}</p>
+            <div class="d-grid gap-2">
+                <a href="/report" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">⚠️ {{ _('Report an Issue') }}</a>
+                <a href="/schedule" class="btn btn-outline-success w-100 rounded-pill">📅 {{ _('Check Schedule') }}</a>
+                <a href="/register" class="btn btn-outline-success w-100 rounded-pill">{{ _('Enter Citizen Portal') }}</a>
+            </div>
+        </div>
+    </div>
+    <!-- Officer / Admin -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4 h-100 sg-portal-card sg-portal-officer" style="background: linear-gradient(135deg, var(--sg-navy-800) 0%, var(--sg-navy-900) 100%);">
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <span class="sg-portal-icon">🏛️</span>
+                <div>
+                    <h4 class="fw-bold text-warning mb-0">{{ _('Officer / Admin Login') }}</h4>
+                    <small class="text-white-50">{{ _('Municipal staff only') }}</small>
+                </div>
+            </div>
+            <p class="small mb-3 text-white-50">{{ _('Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.') }}</p>
+            <div class="d-grid gap-2">
+                <a href="/login" class="btn btn-warning w-100 fw-bold rounded-pill shadow-sm">🔐 {{ _('Officer Login') }}</a>
+                <a href="/transparency" class="btn btn-outline-light w-100 rounded-pill">📍 {{ _('Wards') }}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Dynamic Municipal Notice Board -->
 <div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
     <div class="card-body">

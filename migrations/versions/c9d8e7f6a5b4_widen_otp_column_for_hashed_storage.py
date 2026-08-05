@@ -19,14 +19,18 @@ depends_on = None
 def upgrade():
     # OTPs are now stored as a sha256 hex digest (64 chars) instead of a
     # 6-digit plaintext, so widen the column from 10 to 128 chars.
-    op.alter_column('user', 'otp',
-                    existing_type=sa.String(length=10),
-                    type_=sa.String(length=128),
-                    existing_nullable=True)
+    # batch_alter_table emits ALTER COLUMN on Postgres and an equivalent
+    # table-rebuild on SQLite, so `flask db upgrade` works on both backends.
+    with op.batch_alter_table('user') as batch:
+        batch.alter_column('otp',
+                           existing_type=sa.String(length=10),
+                           type_=sa.String(length=128),
+                           existing_nullable=True)
 
 
 def downgrade():
-    op.alter_column('user', 'otp',
-                    existing_type=sa.String(length=128),
-                    type_=sa.String(length=10),
-                    existing_nullable=True)
+    with op.batch_alter_table('user') as batch:
+        batch.alter_column('otp',
+                           existing_type=sa.String(length=128),
+                           type_=sa.String(length=10),
+                           existing_nullable=True)

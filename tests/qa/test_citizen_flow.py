@@ -1,8 +1,6 @@
 
 import json
-import pytest
-from app import db
-from app.models import BWGDeclaration, Complaint, WasteDeclaration, PAYTInvoice, Notification, User
+from app.models import BWGDeclaration, Complaint, WasteDeclaration, User
 
 
 class TestCitizenRegistrationAuth:
@@ -74,7 +72,7 @@ class TestCitizenFeatureExecution:
         with app.app_context():
             c = Complaint.query.filter_by(description="QA overflow").first()
             assert c is not None
-            assert c.status == "Pending"
+            assert c.status == "Submitted"
             assert c.user_id is not None
 
     def test_declare_waste_earns_points(self, citizen_client, app):

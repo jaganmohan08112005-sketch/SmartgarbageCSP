@@ -8,6 +8,8 @@
         <p class="text-muted small">
             {{ _('Spotty signal is normal in rural areas. Here\'s what you can still do — your actions will sync when you\'re back online.') }}
         </p>
+        <div class="alert alert-warning d-none mt-3 mb-0 text-start" id="syncPendingSlot" role="status"
+             aria-live="polite"></div>
         <div class="d-grid gap-2 mt-3">
             <a href="/report" class="btn btn-outline-danger w-100 fw-bold">📋 {{ _('Draft a waste report') }}</a>
             <a href="/schedule" class="btn btn-outline-success w-100 fw-bold">📅 {{ _('View collection schedule') }}</a>
