@@ -12,6 +12,8 @@ services:
         value: "true"
       - key: PYTHON_VERSION
         value: "3.12"
+      - key: RQ_IN_PROCESS_WORKER
+        value: "false"
       - key: SECRET_KEY
         sync: false
       - key: DATABASE_URL
@@ -27,6 +29,70 @@ services:
       - key: CLOUDINARY_URL
         sync: false
       - key: IOT_TELEMETRY_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+  # Dedicated RQ queue worker. The Dockerfile's CMD runs `python worker.py`
+  # when RENDER_WORKER=true, so background jobs (SMS/WhatsApp, webhook
+  # dispatch, exports, PAYT dunning, retention/sweeps) execute in production.
+  # Note: if this service was created as a native-Python service (not from
+  # this blueprint), Render ignores render.yaml entirely — the web process
+  # then runs the queue in-process instead (see wsgi.py's
+  # RQ_IN_PROCESS_WORKER fallback, on by default when REDIS_URL is set).
+  - type: worker
+    name: smartgarbage-worker
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: RENDER
+        value: "true"
+      - key: RENDER_WORKER
+        value: "true"
+      - key: RQ_IN_PROCESS_WORKER
+        value: "false"
+      - key: SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: IOT_TELEMETRY_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
 
 # NOTE: Supabase replaces Render's managed Postgres.
