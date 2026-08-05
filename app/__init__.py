@@ -89,7 +89,38 @@ def create_app(test_config=None):
         if app.config.get('TESTING') or os.environ.get('PYTEST_CURRENT_TEST'):
             app.config['SECRET_KEY'] = 'test-secret-key-only-for-pytest'
         else:
-            raise RuntimeError("SECRET_KEY environment variable is required")
+            # Self-bootstrapping fallback: if SECRET_KEY was never provisioned
+            # in the environment (Render services created before the env var
+            # was enforced have no value), generate one and persist it to a
+            # 0600 file next to the database so sessions survive restarts.
+            # Precedence is unchanged: a real SECRET_KEY env var wins. This
+            # only exists so a missing key can never block the deploy; set
+            # SECRET_KEY in the platform dashboard for production-grade
+            # security (the warning below is the signal to do so).
+            import secrets
+            import stat as _stat
+            _key_path = (('/data/secret_key'
+                          if os.environ.get('RENDER') and os.path.isdir('/data')
+                          else os.path.join(app.instance_path, 'secret_key')))
+            try:
+                os.makedirs(os.path.dirname(_key_path), exist_ok=True)
+                if os.path.exists(_key_path):
+                    with open(_key_path, 'r', encoding='utf-8') as _f:
+                        app.config['SECRET_KEY'] = _f.read().strip()
+                if not app.config['SECRET_KEY']:
+                    app.config['SECRET_KEY'] = secrets.token_hex(32)
+                    with open(_key_path, 'w', encoding='utf-8') as _f:
+                        _f.write(app.config['SECRET_KEY'])
+                    os.chmod(_key_path, _stat.S_IRUSR | _stat.S_IWUSR)  # 0600
+                app.logger.warning(
+                    "SECRET_KEY not set in env; using persisted key at %s "
+                    "(set SECRET_KEY in the platform dashboard to silence this)",
+                    _key_path)
+            except OSError:
+                app.config['SECRET_KEY'] = secrets.token_hex(32)
+                app.logger.warning(
+                    "SECRET_KEY not set in env and could not be persisted; "
+                    "using an ephemeral key (sessions will reset on restart)")
     # Secure cookies on both Render AND Fly.io (edge TLS terminates on both).
     app.config['SESSION_COOKIE_SECURE'] = _is_deployed()
     app.config['SESSION_COOKIE_HTTPONLY'] = True
