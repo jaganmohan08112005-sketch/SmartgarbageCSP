@@ -1,7 +1,6 @@
 
 import threading
 
-import pytest
 from app import db
 from app.models import BWGDeclaration, Complaint, User
 

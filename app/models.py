@@ -14,6 +14,7 @@ def utcnow():
     """
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
+
 # ──────────────────────────────────────────────
 # CORE USER MODEL
 # ──────────────────────────────────────────────
@@ -38,6 +39,8 @@ class User(db.Model, UserMixin):
     locked_until = db.Column(db.DateTime, nullable=True)
     # v2: Gamification — segregation streak (consecutive declarations with >0 segregated kg)
     segregation_streak = db.Column(db.Integer, default=0, nullable=False)
+    # v3: Household size for waste-declaration plausibility checks
+    household_size = db.Column(db.Integer, default=1, nullable=False)
 
     @property
     def is_active(self):
@@ -54,6 +57,7 @@ class User(db.Model, UserMixin):
     def get_id(self):
         return str(self.id)
 
+
 # ──────────────────────────────────────────────
 # COLLECTION SCHEDULE
 # ──────────────────────────────────────────────
@@ -65,6 +69,7 @@ class Schedule(db.Model):
     time_slot = db.Column(db.String(50))
     vehicle_id = db.Column(db.String(20))
 
+
 # ──────────────────────────────────────────────
 # CITIZEN COMPLAINT / OVERFLOW REPORT
 # ──────────────────────────────────────────────
@@ -73,6 +78,8 @@ class Complaint(db.Model):
         # Hot path: admin ward sweeps (resolve_bin) + transparency view filter
         # on (ward, status). Composite index avoids a full scan per ward.
         db.Index('ix_complaint_ward_status', 'ward', 'status'),
+        # Lifecycle state machine: SLA escalation + per-status admin sweeps.
+        db.Index('ix_complaint_status_created', 'status', 'created_at'),
     )
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
@@ -81,17 +88,51 @@ class Complaint(db.Model):
     address = db.Column(db.Text)
     description = db.Column(db.Text)
     photo = db.Column(db.String(200))
-    status = db.Column(db.String(20), default='Pending')
+    status = db.Column(db.String(20), default='Submitted')
     latitude = db.Column(db.String(50), nullable=True)
     longitude = db.Column(db.String(50), nullable=True)
     report_time = db.Column(db.String(100), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
+    # v3: Complaint lifecycle state machine (Submitted → Under Review →
+    # Assigned → In Progress → Resolved → Closed) with SLA + escalation.
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=True, index=True)
+    assigned_worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True)
+    sla_deadline = db.Column(db.DateTime, nullable=True)
+    escalated = db.Column(db.Boolean, default=False, nullable=False)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(db.DateTime, nullable=True)
+
+
+# ──────────────────────────────────────────────
+# v4: COMPLAINT STATUS TIMELINE (citizen tracking)
+# One row per status transition — powers the public /track/<token> timeline
+# (Submitted → Under Review → Assigned → In Progress → Escalated → Resolved
+# → Closed). Written by record_complaint_event() at every transition so the
+# citizen sees a real history, not just the current status.
+# ──────────────────────────────────────────────
+class ComplaintStatusLog(db.Model):
+    __table_args__ = (
+        # Hot path: timeline reads for one complaint ordered by time.
+        db.Index('ix_complaint_status_log_complaint_created', 'complaint_id', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False)   # Submitted / Under Review / Assigned / In Progress / Escalated / Resolved / Closed
+    note = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    complaint = db.relationship('Complaint', backref=db.backref('status_logs', lazy=True))
+
 
 # ──────────────────────────────────────────────
 # SMART BIN (IoT Telemetry)
 # ──────────────────────────────────────────────
 class SmartBin(db.Model):
+    __table_args__ = (
+        # Hot path: dispatch queue sorting by forecast urgency + fill level.
+        db.Index('ix_smart_bin_eta_level', 'overflow_eta_hours', 'level'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     hardware_id = db.Column(db.String(50), unique=True, nullable=False)
     latitude = db.Column(db.Float, nullable=False)
@@ -100,7 +141,7 @@ class SmartBin(db.Model):
     battery_level = db.Column(db.Integer, default=100, nullable=False)
     temperature = db.Column(db.Float, default=25.0, nullable=False)   # °C
     methane = db.Column(db.Float, default=50.0, nullable=False)       # ppm
-    status = db.Column(db.String(20), default='Safe', nullable=False) # Safe / Warning / Critical
+    status = db.Column(db.String(20), default='Safe', nullable=False)  # Safe / Warning / Critical
     ward = db.Column(db.String(100), nullable=False, index=True)
     last_updated = db.Column(db.DateTime, default=utcnow, index=True)
     # v2 additions
@@ -111,6 +152,12 @@ class SmartBin(db.Model):
     decomposition_started_at = db.Column(db.DateTime, nullable=True)  # timestamp when level first exceeded 10%
     precompaction_enabled = db.Column(db.Boolean, default=False, nullable=False)
     last_compacted_at = db.Column(db.DateTime, nullable=True)
+    # v3: ETA recompute throttling (only recompute when level changes >5% or 15 min elapsed)
+    last_eta_computed_at = db.Column(db.DateTime, nullable=True)
+    # v4: Close-the-loop accountability — a bin may ONLY be cleared after the
+    # worker uploads a real-time geotagged After-photo. The photo path is kept
+    # here so the audit trail can point at the evidence for every clearance.
+    after_photo = db.Column(db.String(200), nullable=True)
 
 
 # ──────────────────────────────────────────────
@@ -140,7 +187,7 @@ class WorkerProfile(db.Model):
     vehicle_id = db.Column(db.String(20), nullable=True)
     latitude = db.Column(db.Float, default=18.0675)
     longitude = db.Column(db.Float, default=83.4094)
-    status = db.Column(db.String(20), default='Idle', nullable=False) # Active / Idle / Off-Duty
+    status = db.Column(db.String(20), default='Idle', nullable=False)  # Active / Idle / Off-Duty
     performance_rating = db.Column(db.Float, default=5.0, nullable=False)
     # v2: Geo-fencing
     sector_polygon = db.Column(db.Text, nullable=True)                # JSON polygon string
@@ -149,8 +196,8 @@ class WorkerProfile(db.Model):
     geofence_violation = db.Column(db.Boolean, default=False, nullable=False)
     # v2: Worker Safety & Compliance (SBM Grameen II)
     ppe_compliance = db.Column(db.Boolean, default=False, nullable=False)     # PPE kit issued & used
-    training_completed = db.Column(db.Boolean, default=False, nullable=False) # Safety training completed
-    insurance_enrolled = db.Column(db.Boolean, default=False, nullable=False) # PMJAY/insurance enrolled
+    training_completed = db.Column(db.Boolean, default=False, nullable=False)  # Safety training completed
+    insurance_enrolled = db.Column(db.Boolean, default=False, nullable=False)  # PMJAY/insurance enrolled
     insurance_policy_no = db.Column(db.String(50), nullable=True)              # Policy number
     last_training_date = db.Column(db.DateTime, nullable=True)                 # Last training date
     last_medical_checkup = db.Column(db.DateTime, nullable=True)               # Last medical checkup
@@ -160,6 +207,7 @@ class WorkerProfile(db.Model):
     picker_id_card = db.Column(db.String(50), nullable=True)        # recognition ID
 
     user = db.relationship('User', backref=db.backref('worker_profile', uselist=False))
+
 
 # ──────────────────────────────────────────────
 # LIVE TELEMETRY HISTORY (per-ping level snapshots)
@@ -199,10 +247,15 @@ class IncidentLog(db.Model):
 
     bin = db.relationship('SmartBin', backref=db.backref('incidents', lazy=True))
 
+
 # ──────────────────────────────────────────────
 # v2: AUDIT TRAIL LOG (Security Ledger)
 # ──────────────────────────────────────────────
 class AuditLog(db.Model):
+    __table_args__ = (
+        # Hot path: Razorpay webhook dedupe (action + target) + admin audit view.
+        db.Index('ix_audit_action_target', 'action', 'target'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     username = db.Column(db.String(100), nullable=True)       # denormalized for immutability
@@ -215,6 +268,7 @@ class AuditLog(db.Model):
 
     user = db.relationship('User', backref=db.backref('audit_logs', lazy=True))
 
+
 # ──────────────────────────────────────────────
 # v2: SENSOR HEALTH (Predictive Maintenance)
 # ──────────────────────────────────────────────
@@ -222,13 +276,14 @@ class SensorHealth(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), unique=True, nullable=False)
     battery_voltage = db.Column(db.Float, default=3.7, nullable=False)   # Volts
-    calibration_drift = db.Column(db.Float, default=0.0, nullable=False) # % drift from baseline
+    calibration_drift = db.Column(db.Float, default=0.0, nullable=False)  # % drift from baseline
     last_ping = db.Column(db.DateTime, default=utcnow)
     fault_flag = db.Column(db.Boolean, default=False, nullable=False)
     fault_reason = db.Column(db.String(200), nullable=True)
     maintenance_scheduled = db.Column(db.Boolean, default=False, nullable=False)
 
     bin = db.relationship('SmartBin', backref=db.backref('sensor_health', uselist=False))
+
 
 # ──────────────────────────────────────────────
 # v2: OFFLOAD LOG (Irreversible Dump Manifest)
@@ -246,6 +301,7 @@ class OffloadLog(db.Model):
 
     worker = db.relationship('WorkerProfile', backref=db.backref('offload_logs', lazy=True))
 
+
 # ──────────────────────────────────────────────
 # v2: ANONYMOUS ILLEGAL DUMP REPORT
 # ──────────────────────────────────────────────
@@ -259,6 +315,7 @@ class IllegalDumpReport(db.Model):
     ward = db.Column(db.String(100), nullable=True, index=True)
     status = db.Column(db.String(20), default='Pending', nullable=False)
     timestamp = db.Column(db.DateTime, default=utcnow, index=True)
+
 
 # ──────────────────────────────────────────────
 # v2: 4-STREAM WASTE DECLARATION
@@ -279,8 +336,11 @@ class WasteDeclaration(db.Model):
     hazardous_kg = db.Column(db.Float, default=0.0, nullable=False)     # Batteries / E-waste / Bulbs
     ward = db.Column(db.String(100), nullable=True)
     timestamp = db.Column(db.DateTime, default=utcnow)
+    # v3: Plausibility flag — set when declared kg exceeds ward/household norms.
+    flagged_outlier = db.Column(db.Boolean, default=False, nullable=False)
 
     user = db.relationship('User', backref=db.backref('waste_declarations', lazy=True))
+
 
 # ──────────────────────────────────────────────
 # v2: BULK WASTE GENERATOR (BWG) LEDGER
@@ -303,6 +363,7 @@ class BWGDeclaration(db.Model):
 
     user = db.relationship('User', backref=db.backref('bwg_declarations', lazy=True))
 
+
 # ──────────────────────────────────────────────
 # v2: PAY-AS-YOU-THROW (PAYT) INVOICE
 # ──────────────────────────────────────────────
@@ -314,11 +375,11 @@ class PAYTInvoice(db.Model):
     bin_pickups = db.Column(db.Integer, default=0, nullable=False)
     segregation_kg = db.Column(db.Float, default=0.0, nullable=False)  # compostable+recyclable (exempt)
     landfill_kg = db.Column(db.Float, default=0.0, nullable=False)    # residual (taxed)
-    compliance_score = db.Column(db.Float, default=100.0, nullable=False) # 0-100% segregated
-    penalty_multiplier = db.Column(db.Float, default=1.0, nullable=False) # 1.0 = full compliance
+    compliance_score = db.Column(db.Float, default=100.0, nullable=False)  # 0-100% segregated
+    penalty_multiplier = db.Column(db.Float, default=1.0, nullable=False)  # 1.0 = full compliance
     base_amount_rs = db.Column(db.Float, default=0.0, nullable=False)
     amount_rs = db.Column(db.Float, default=0.0, nullable=False)        # ₹ amount (after penalty)
-    status = db.Column(db.String(20), default='Unpaid', nullable=False) # Unpaid / Paid / Waived
+    status = db.Column(db.String(20), default='Unpaid', nullable=False)  # Unpaid / Paid / Waived
     issued_at = db.Column(db.DateTime, default=utcnow)
     paid_at = db.Column(db.DateTime, nullable=True)
     transaction_ref = db.Column(db.String(120), nullable=True)  # UPI ref / RRN / Razorpay payment id
@@ -341,8 +402,13 @@ class PAYTInvoice(db.Model):
     refund_id = db.Column(db.String(64), nullable=True, index=True)
     refunded_at = db.Column(db.DateTime, nullable=True)
     refund_reason = db.Column(db.String(200), nullable=True)
+    # v3: Billing integrity — only worker-verified weights drive invoice amounts.
+    billing_status = db.Column(db.String(20), default='Self-Reported', nullable=False)  # Self-Reported / Verified / Disputed
+    verified_weight_kg = db.Column(db.Float, nullable=True)
+    discrepancy_pct = db.Column(db.Float, nullable=True)
 
     user = db.relationship('User', backref=db.backref('payt_invoices', lazy=True))
+
 
 # ──────────────────────────────────────────────
 # v2: OTA FIRMWARE RELEASE
@@ -355,7 +421,7 @@ class FirmwareRelease(db.Model):
     description = db.Column(db.Text, nullable=True)
     target_bins = db.Column(db.Text, nullable=True)                     # comma-separated hw_ids or "ALL"
     pushed_at = db.Column(db.DateTime, nullable=True)
-    push_status = db.Column(db.String(20), default='Pending', nullable=False) # Pending / Pushed / Failed
+    push_status = db.Column(db.String(20), default='Pending', nullable=False)  # Pending / Pushed / Failed
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)
 

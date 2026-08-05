@@ -19,7 +19,6 @@ class PlaywrightHelpers:
         self.page.wait_for_url("**/dashboard", timeout=10000)
 
     def login_admin(self, app):
-        from conftest import _complete_mfa
         from app import create_app
         application = create_app()
         with application.app_context():

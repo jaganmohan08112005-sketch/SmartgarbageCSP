@@ -1,24 +1,44 @@
-import sys
 import json
 import pytest
 from app import create_app, db
-from app.models import User, Complaint, BWGDeclaration, WorkerProfile, Notification, SmartBin
+from app.models import User, Complaint, Notification, SmartBin
 from werkzeug.security import generate_password_hash
 
 
 @pytest.fixture
 def app():
-    fd, path = __import__('tempfile').mkstemp(suffix='.db')
     import os
-    os.close(fd)
-    a = create_app()
-    a.config['TESTING'] = True
-    a.config['WTF_CSRF_ENABLED'] = False
-    a.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{path}'
-    with a.app_context():
-        db.create_all()
-        yield a
-        db.session.remove()
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    # Pass the URI at CREATION time (test_config) so the SQLAlchemy engine
+    # binds to the isolated temp/CI DB from the start. Mutating
+    # SQLALCHEMY_DATABASE_URI after create_app() is too late: the demo-seeder
+    # inside create_app already touched the DB, leaving the engine bound to the
+    # stale default sqlite:///garbage.db (whose schema lacks newer columns).
+    if test_db_url:
+        # Postgres mode (CI parity job): shared DB needs per-test isolation.
+        a = create_app(test_config={
+            'TESTING': True,
+            'WTF_CSRF_ENABLED': False,
+            'SQLALCHEMY_DATABASE_URI': test_db_url,
+        })
+        with a.app_context():
+            db.drop_all()
+            db.create_all()
+            yield a
+            db.session.remove()
+            db.drop_all()
+    else:
+        fd, path = __import__('tempfile').mkstemp(suffix='.db')
+        os.close(fd)
+        a = create_app(test_config={
+            'TESTING': True,
+            'WTF_CSRF_ENABLED': False,
+            'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
+        })
+        with a.app_context():
+            db.create_all()
+            yield a
+            db.session.remove()
 
 
 @pytest.fixture
@@ -130,7 +150,7 @@ def test_iot_telemetry_ingestion(client, app):
     with app.app_context():
         if not SmartBin.query.filter_by(hardware_id='BIN-402').first():
             db.session.add(SmartBin(hardware_id='BIN-402', latitude=18.05, longitude=83.40,
-                                 level=96, temperature=71.0, methane=640.0, ward='Ward 1 - MVGR College Area'))
+                                    level=96, temperature=71.0, methane=640.0, ward='Ward 1 - MVGR College Area'))
             db.session.commit()
     r = client.post('/api/bin-telemetry', json={
         'hardware_id': 'BIN-402', 'level': 96, 'temperature': 71.0,

@@ -23,6 +23,18 @@
             </div>
         </div>
 
+        <!-- Proactive Dispatch Queue (ML forecast ranked by hours-to-overflow) -->
+        <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-4 border-danger">
+            <h5 class="fw-bold mb-1 text-dark d-flex align-items-center justify-content-between">
+                <span>🚨 {{ _('Proactive Dispatch Queue') }}</span>
+                <span class="badge bg-danger rounded-pill small" id="dispatchCount">0</span>
+            </h5>
+            <p class="text-muted small mb-2">{{ _('Bins the AI forecast says will overflow soonest — accept one to claim it for your truck.') }}</p>
+            <div class="list-group gap-2" id="dispatchQueueList">
+                <div class="text-center py-3 text-muted small" id="dispatchQueueEmpty">{{ _('Loading queue…') }}</div>
+            </div>
+        </div>
+
         <!-- Task Checklist queue (High contrast mobile responsive) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
@@ -174,6 +186,46 @@
     </div>
 </div>
 
+<!-- Close-the-loop modal: a bin may ONLY be cleared with a live After-photo
+     + on-site GPS. The server rejects clears without either (resolve_bin). -->
+<div class="modal fade" id="clearBinModal" tabindex="-1" aria-labelledby="clearBinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white border-0">
+                <h5 class="modal-title fw-bold" id="clearBinModalLabel">📸 {{ _('Clear Bin requires After-photo') }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">{{ _('Upload a live photo of the cleared bin to close this ticket') }}.</p>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">📍 {{ _('Device Coordinates') }}</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="afterGpsBtn" onclick="captureClearGps()">🔄 {{ _('Sync GPS') }}</button>
+                        <span id="afterGpsStatus" class="small text-muted">{{ _('GPS not synced — required') }}</span>
+                    </div>
+                    <input type="hidden" id="afterLat">
+                    <input type="hidden" id="afterLon">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary" for="afterPhotoInput">📷 {{ _('After Photo') }} <span class="text-danger">*</span></label>
+                    <input type="file" id="afterPhotoInput" accept="image/*" capture="environment"
+                           class="form-control" aria-label="{{ _('After Photo') }}">
+                    <small class="form-text text-muted">{{ _('Camera not available — choose from gallery') }}</small>
+                </div>
+                <div id="afterPhotoPreview" class="mt-2 d-none">
+                    <img id="afterPhotoImg" alt="After-photo preview" class="rounded-3 border" style="max-height:160px;max-width:100%;">
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-secondary py-1.5 px-4 rounded-pill" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success py-1.5 px-4 rounded-pill fw-bold" id="afterSubmitBtn" onclick="submitClearEvidence()">
+                    ✔ {{ _('Submit After-photo') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="application/json" id="task-bins-data">
 {{ task_bins_data|tojson }}
 </script>
@@ -189,7 +241,7 @@
         });
     });
     document.querySelectorAll('.clear-btn').forEach(btn => {
-        btn.addEventListener('click', () => clearBinCheckpoint(btn.dataset.hwId));
+        btn.addEventListener('click', () => openClearModal(btn.dataset.hwId));
     });
 
     // Initialize Leaflet Map focused on Chintalavalasa Junction
@@ -249,49 +301,225 @@
         }).addTo(map);
     }
 
-    // Tapping Mark as Cleared checkpoint trigger
-    async function clearBinCheckpoint(hwId) {
-        if (!confirm(`Are you sure you want to empty Smart Bin ${hwId}?`)) return;
+    // ── Proactive dispatch queue ──
+    const dispatchList = document.getElementById('dispatchQueueList');
+    const dispatchCount = document.getElementById('dispatchCount');
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
 
-        const response = await fetch(`/resolve-bin/${hwId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+    function dispatchToast(msg, isError) {
+        const box = document.getElementById('dispatch-toast-box') || (() => {
+            const d = document.createElement('div');
+            d.id = 'dispatch-toast-box';
+            d.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:1080;max-width:92vw;';
+            document.body.appendChild(d);
+            return d;
+        })();
+        const t = document.createElement('div');
+        t.style.cssText = 'background:' + (isError ? '#b02a37' : '#0f5132') + ';color:#fff;padding:10px 18px;' +
+            'border-radius:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.25);margin-bottom:8px;text-align:center;';
+        t.textContent = msg;
+        box.appendChild(t);
+        setTimeout(() => t.remove(), 5000);
+    }
+
+    async function refreshDispatchQueue() {
+        try {
+            const res = await fetch('/api/dispatch/queue');
+            if (!res.ok) return;
+            const data = await res.json();
+            renderDispatchQueue(data.bins || []);
+        } catch (e) { console.warn('dispatch queue refresh failed', e); }
+    }
+
+    // Ward/hardware names are DB-controlled (citizen/seed input) — escape
+    // before injecting into innerHTML (same discipline as admin.js escapeHtml).
+    function dispatchEscape(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[c]);
+    }
+
+    function renderDispatchQueue(bins) {
+        if (!dispatchList) return;
+        if (dispatchCount) dispatchCount.textContent = bins.length;
+        if (!bins.length) {
+            dispatchList.innerHTML = '<div class="text-center py-3 text-muted small">✅ No bins in the proactive queue right now.</div>';
+            return;
+        }
+        dispatchList.innerHTML = '';
+        bins.forEach(b => {
+            const el = document.createElement('div');
+            el.className = 'list-group-item rounded-3 border p-3 bg-light';
+            el.id = 'dispatch-card-' + b.hardware_id;
+            const etaTxt = (b.overflow_eta_hours !== null && b.overflow_eta_hours !== undefined)
+                ? b.overflow_eta_hours + ' h' : '—';
+            const hwEsc = dispatchEscape(b.hardware_id);
+            let action = '';
+            if (b.dispatch_status === 'assigned' && b.mine) {
+                action = '<span class="badge bg-success flex-grow-1 py-2">✔ Assigned to you</span>' +
+                    `<button class="btn btn-sm btn-outline-danger flex-grow-1 fw-bold rounded-pill dispatch-complete" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">✔ Mark Complete</button>`;
+            } else if (b.dispatch_status === 'assigned') {
+                action = '<span class="badge bg-secondary flex-grow-1 py-2">🔒 Taken by another truck</span>';
+            } else {
+                action = `<button class="btn btn-sm btn-danger flex-grow-1 fw-bold rounded-pill dispatch-accept" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">🚨 Accept Dispatch</button>`;
+            }
+            el.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold text-dark mb-0">${dispatchEscape(b.hardware_id)}</h6>
+                    <span class="badge ${b.urgent ? 'bg-danger' : 'bg-warning text-dark'}">⏱ ${etaTxt}</span>
+                </div>
+                <p class="text-muted small mb-2">📍 ${dispatchEscape(b.ward)} · ${b.level}% full</p>
+                <div class="d-flex gap-2">${action}</div>`;
+            dispatchList.appendChild(el);
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        const accept = e.target.closest('.dispatch-accept');
+        if (accept) { dispatchAction('/api/dispatch/accept', accept.dataset.binId, accept.dataset.hw); return; }
+        const done = e.target.closest('.dispatch-complete');
+        if (done) { dispatchAction('/api/dispatch/complete', done.dataset.binId, done.dataset.hw); }
+    });
+
+    async function dispatchAction(url, binId, hw) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+                },
+                body: JSON.stringify({ bin_id: Number(binId) })
+            });
+            if (res.status === 409) {
+                dispatchToast('This bin was just taken by another truck.', true);
+            } else if (!res.ok) {
+                dispatchToast('Action failed — try again.', true);
+            } else {
+                dispatchToast(url.endsWith('/accept')
+                    ? `🚨 Dispatch accepted for ${hw}. Drive safely!`
+                    : `✔ Dispatch for ${hw} marked complete.`);
+            }
+            refreshDispatchQueue();
+        } catch (e) { console.warn('dispatch action failed', e); }
+    }
+
+    // Live nudge: a bin just crossed the 6h overflow forecast threshold.
+    if (typeof io !== 'undefined') {
+        const dSocket = io({ transports: ['websocket', 'polling'] });
+        dSocket.on('dispatch_nudge', (data) => {
+            refreshDispatchQueue();
+            if (data && data.hardware_id) {
+                dispatchToast(`🚨 ${data.hardware_id} forecast to overflow in ~${data.overflow_eta_hours}h — dispatch now!`);
             }
         });
+        dSocket.on('dispatch_update', () => refreshDispatchQueue());
+    }
 
-        if (response.ok) {
-            const data = await response.json();
-            alert(data.message);
-            
-            // Remove routing vector line from map
-            if (currentNavLine) {
-                map.removeLayer(currentNavLine);
-            }
-            
-            // Remove circle marker or update color to safe 🟢
-            if (markersList[hwId]) {
-                markersList[hwId].setStyle({
-                    fillColor: '#2ECC71'
-                });
-            }
+    refreshDispatchQueue();
 
-            // Remove card from task queue
-            const card = document.getElementById(`task-card-${hwId}`);
-            if (card) {
-                card.remove();
-            }
+    // ── Close-the-loop: clear a bin with After-photo + on-site GPS ──
+    // The old confirm() + bare POST let a driver mark a bin cleared from down
+    // the street. The server now rejects clears without a live After-photo and
+    // GPS within range — this modal collects both before submitting multipart.
+    let clearTargetHw = null;
 
-            // Decrement active task counter badge
-            const countBadge = document.getElementById('taskCount');
-            if (countBadge) {
-                let count = parseInt(countBadge.innerText);
-                if (count > 0) {
-                    countBadge.innerText = `${count - 1} Pending`;
+    function openClearModal(hwId) {
+        clearTargetHw = hwId;
+        document.getElementById('afterLat').value = '';
+        document.getElementById('afterLon').value = '';
+        document.getElementById('afterPhotoInput').value = '';
+        document.getElementById('afterPhotoPreview').classList.add('d-none');
+        const st = document.getElementById('afterGpsStatus');
+        if (st) { st.textContent = '📍 {{ _('GPS not synced — required') }}'; st.className = 'small text-muted'; }
+        const m = document.getElementById('clearBinModal');
+        if (m) bootstrap.Modal.getOrCreateInstance(m).show();
+        captureClearGps();
+    }
+
+    function captureClearGps() {
+        const st = document.getElementById('afterGpsStatus');
+        if (!navigator.geolocation) {
+            if (st) { st.textContent = '❌ {{ _('GPS required to file a report') }}'; st.className = 'small text-danger fw-bold'; }
+            return;
+        }
+        if (st) { st.textContent = '⏳ {{ _('Requesting GPS access...') }}'; st.className = 'small text-warning fw-bold'; }
+        navigator.geolocation.getCurrentPosition((pos) => {
+            document.getElementById('afterLat').value = pos.coords.latitude.toFixed(6);
+            document.getElementById('afterLon').value = pos.coords.longitude.toFixed(6);
+            if (st) { st.textContent = `✅ (${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)})`; st.className = 'small text-success fw-bold'; }
+        }, (err) => {
+            document.getElementById('afterLat').value = '';
+            document.getElementById('afterLon').value = '';
+            if (st) { st.textContent = '❌ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}'; st.className = 'small text-danger fw-bold'; }
+        }, { timeout: 5000, enableHighAccuracy: true });
+    }
+
+    document.getElementById('afterPhotoInput').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        const preview = document.getElementById('afterPhotoPreview');
+        const img = document.getElementById('afterPhotoImg');
+        if (file && preview && img) {
+            img.src = URL.createObjectURL(file);
+            preview.classList.remove('d-none');
+        }
+    });
+
+    async function submitClearEvidence() {
+        const lat = document.getElementById('afterLat').value;
+        const lon = document.getElementById('afterLon').value;
+        const photo = document.getElementById('afterPhotoInput').files[0];
+        const btn = document.getElementById('afterSubmitBtn');
+        const st = document.getElementById('afterGpsStatus');
+
+        if (!clearTargetHw) return;
+        if (!photo) {
+            dispatchToast('📸 {{ _('Clear Bin requires After-photo') }} — {{ _('Upload a live photo of the cleared bin to close this ticket') }}.', true);
+            return;
+        }
+        if (!lat || !lon) {
+            if (st) { st.textContent = '❌ {{ _('GPS required to file a report') }}'; st.className = 'small text-danger fw-bold'; }
+            dispatchToast('📍 {{ _('Your GPS must be within range of the bin') }}.', true);
+            captureClearGps();
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.innerHTML = '⏳ {{ _('Submitting…') }}'; }
+        const fd = new FormData();
+        fd.append('after_photo', photo);
+        fd.append('lat', lat);
+        fd.append('lon', lon);
+        try {
+            // CSRF guard: every POST must carry the session token — the
+            // dispatch fetches above send X-CSRFToken; without it Flask-WTF
+            // rejects this 400 and NO bin can ever be cleared from the UI.
+            const res = await fetch(`/resolve-bin/${clearTargetHw}`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfMeta ? csrfMeta.content : '' },
+                body: fd
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                dispatchToast((data && data.message) || '❌ {{ _('Clear rejected') }}.', true);
+            } else {
+                dispatchToast('✔ ' + ((data && data.message) || '{{ _('Bin cleared with verified evidence') }}!'));
+                const m = document.getElementById('clearBinModal');
+                if (m) bootstrap.Modal.getInstance(m)?.hide();
+                // Update map marker + task card
+                if (markersList[clearTargetHw]) markersList[clearTargetHw].setStyle({ fillColor: '#2ECC71' });
+                const card = document.getElementById(`task-card-${clearTargetHw}`);
+                if (card) card.remove();
+                const countBadge = document.getElementById('taskCount');
+                if (countBadge) {
+                    let count = parseInt(countBadge.innerText);
+                    if (count > 0) countBadge.innerText = `${count - 1} {{ _('Pending') }}`;
                 }
+                refreshDispatchQueue();
             }
-        } else {
-            alert("Error updating bin checkpoint. Please try again.");
+        } catch (e) {
+            dispatchToast('❌ {{ _('Could not clear bin — check connection and retry') }}.', true);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '✔ {{ _('Submit After-photo') }}'; }
         }
     }
 </script>

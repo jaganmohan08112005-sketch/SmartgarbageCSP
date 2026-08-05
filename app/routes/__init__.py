@@ -13,6 +13,7 @@ from flask import (Blueprint, request, url_for, session, flash, current_app)
 from werkzeug.utils import secure_filename
 import requests
 
+
 # ──────────────────────────────────────────────
 # PHONE VALIDATION HELPER
 # ──────────────────────────────────────────────
@@ -35,24 +36,25 @@ def validate_indian_phone(phone):
     if len(set(digits)) == 1:
         return None
     # Reject simple ascending/descending sequences: 1234567890, 9876543210
-    asc  = ''.join(str((int(digits[0]) + i) % 10) for i in range(10))
+    asc = ''.join(str((int(digits[0]) + i) % 10) for i in range(10))
     desc = ''.join(str((int(digits[0]) - i) % 10) for i in range(10))
     if digits == asc or digits == desc:
         return None
     return f'+91{digits}'
 
+
 # Ensure UTF-8 stdout
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-from .. import db, limiter, csrf, current_app
-from ..models import (Schedule, Complaint, User, SmartBin, WorkerProfile, IncidentLog,
-                     AuditLog, SensorHealth, OffloadLog, IllegalDumpReport,
-                     WasteDeclaration, BWGDeclaration, PAYTInvoice, FirmwareRelease,
-                     Notification, Webhook, OfflineDelivery, utcnow)
-from ..ml_model import predict_miss, predict_overflow_eta_hours
+from .. import db
+from ..models import (Complaint, ComplaintStatusLog, User, SmartBin, WorkerProfile, IncidentLog,
+                      AuditLog, SensorHealth, OffloadLog,
+                      WasteDeclaration, BWGDeclaration,
+                      Webhook, OfflineDelivery, utcnow)
 
 logger = structlog.get_logger("smartgarbage.routes")
+
 
 # ──────────────────────────────────────────────
 # OTP HASHING HELPER
@@ -137,6 +139,7 @@ def _upload_to_supabase(data, filename, prefix):
 MAX_IMAGE_DIM = 1280      # longest edge, px
 JPEG_QUALITY = 82         # good visual quality, ~5-10x smaller than phone photos
 
+
 def save_compressed_photo(file_storage, prefix):
     """Save an uploaded photo compressed + EXIF-stripped, then persist it.
 
@@ -158,7 +161,13 @@ def save_compressed_photo(file_storage, prefix):
     try:
         from PIL import Image
         import io
-        img = Image.open(file_storage.stream if hasattr(file_storage, 'stream') else file_storage)
+        # Copy into a private buffer before PIL touches it: Pillow 12 takes
+        # ownership of the file-like passed to Image.open() and closes it when
+        # the image is closed/GC'd. Opening the request's own stream directly
+        # would leave file_storage closed for any later reader.
+        file_storage.seek(0)
+        src = io.BytesIO(file_storage.read())
+        img = Image.open(src)
         img = img.convert('RGB')  # drop alpha + any exotic modes
         img.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM))
         buf = io.BytesIO()
@@ -167,8 +176,15 @@ def save_compressed_photo(file_storage, prefix):
         data = buf.getvalue()
     except Exception as e:
         current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
-        file_storage.seek(0)
-        data = file_storage.read()
+        try:
+            file_storage.seek(0)
+            data = file_storage.read()
+        except Exception:
+            data = None
+
+    if data is None:
+        current_app.logger.error("Photo unreadable for %s", filename)
+        return None
 
     # Storage priority: Supabase > Cloudinary > local disk.
     # Supabase is preferred when SUPABASE_URL + key are set (managed, survives restarts).
@@ -197,28 +213,29 @@ def save_compressed_photo(file_storage, prefix):
         f.write(data)
     return f"uploads/{filename}"
 
+
 main = Blueprint('main', __name__)
 
 # ──────────────────────────────────────────────
 # CONSTANTS & CONFIG
 # ──────────────────────────────────────────────
 WARD_COORDINATES = {
-    "Ward 1 - MVGR College Area":          {"lat": 18.0552, "lon": 83.4051},
-    "Ward 2 - Chintalavalasa Junction":    {"lat": 18.0675, "lon": 83.4094},
-    "Ward 3 - RTC Colony":                 {"lat": 18.0702, "lon": 83.4153},
-    "Ward 4 - Ramalayam Street":           {"lat": 18.0650, "lon": 83.4005},
-    "Ward 5 - Sai Nagar":                  {"lat": 18.0751, "lon": 83.4201},
+    "Ward 1 - MVGR College Area": {"lat": 18.0552, "lon": 83.4051},
+    "Ward 2 - Chintalavalasa Junction": {"lat": 18.0675, "lon": 83.4094},
+    "Ward 3 - RTC Colony": {"lat": 18.0702, "lon": 83.4153},
+    "Ward 4 - Ramalayam Street": {"lat": 18.0650, "lon": 83.4005},
+    "Ward 5 - Sai Nagar": {"lat": 18.0751, "lon": 83.4201},
 }
 DEFAULT_LAT = 18.0675
 DEFAULT_LON = 83.4094
 
 # Geo-fence sector polygons per vehicle (bounding box format: [[lat,lon], ...])
 SECTOR_POLYGONS = {
-    "CV-01": [[18.0530,83.4020],[18.0530,83.4080],[18.0590,83.4080],[18.0590,83.4020]],
-    "CV-02": [[18.0650,83.4060],[18.0650,83.4120],[18.0710,83.4120],[18.0710,83.4060]],
-    "CV-03": [[18.0680,83.4120],[18.0680,83.4190],[18.0740,83.4190],[18.0740,83.4120]],
-    "CV-04": [[18.0620,83.3970],[18.0620,83.4030],[18.0680,83.4030],[18.0680,83.3970]],
-    "CV-05": [[18.0720,83.4160],[18.0720,83.4240],[18.0790,83.4240],[18.0790,83.4160]],
+    "CV-01": [[18.0530, 83.4020], [18.0530, 83.4080], [18.0590, 83.4080], [18.0590, 83.4020]],
+    "CV-02": [[18.0650, 83.4060], [18.0650, 83.4120], [18.0710, 83.4120], [18.0710, 83.4060]],
+    "CV-03": [[18.0680, 83.4120], [18.0680, 83.4190], [18.0740, 83.4190], [18.0740, 83.4120]],
+    "CV-04": [[18.0620, 83.3970], [18.0620, 83.4030], [18.0680, 83.4030], [18.0680, 83.3970]],
+    "CV-05": [[18.0720, 83.4160], [18.0720, 83.4240], [18.0790, 83.4240], [18.0790, 83.4160]],
 }
 DUMP_YARDS = ["YARD-A (Vizianagaram Central)", "YARD-B (East Processing Plant)", "YARD-C (North Recycling Hub)"]
 
@@ -236,6 +253,7 @@ def get_wmo_phrase(code):
     if code in [95, 96, 99]: return "Thunderstorm Alert"
     return "Normal Seasonal Conditions"
 
+
 def point_in_polygon(lat, lon, polygon):
     """Ray-casting algorithm to test if point is inside polygon."""
     n = len(polygon)
@@ -249,6 +267,7 @@ def point_in_polygon(lat, lon, polygon):
             inside = not inside
         j = i
     return inside
+
 
 def fit_length(value, max_len):
     """Truncate a string to a column's VARCHAR(n) limit (Postgres parity).
@@ -264,13 +283,14 @@ def fit_length(value, max_len):
 
 import math
 
+
 def haversine_m(lat1, lon1, lat2, lon2):
     """Return distance in meters between two lat/lon points."""
     R = 6371000
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -305,9 +325,15 @@ def find_duplicate_complaint(ward, lat, lon, window_minutes=30, radius_m=100):
     return None
 
 
+def write_audit(action, target=None, detail=None, commit=True):
+    """Write an entry to the immutable AuditLog.
 
-def write_audit(action, target=None, detail=None):
-    """Write an entry to the immutable AuditLog."""
+    `commit=True` (default) commits the session — safe for standalone audit
+    writes. Pass `commit=False` when called INSIDE a caller-owned transaction
+    (e.g. bin_telemetry's single-commit flow): the audit row is added to the
+    pending transaction and committed by the caller, so a later failure rolls
+    back the audit too instead of leaving a partial state persisted.
+    """
     try:
         entry = AuditLog(
             user_id=session.get('user_id'),
@@ -320,7 +346,8 @@ def write_audit(action, target=None, detail=None):
             timestamp=utcnow()
         )
         db.session.add(entry)
-        db.session.commit()
+        if commit:
+            db.session.commit()
     except Exception as e:
         logger.error("audit_log_write_error", error=str(e))
 
@@ -358,6 +385,7 @@ def _record_offline_delivery(endpoint, ward=None, has_photo=False, complaint_id=
     except Exception as e:
         db.session.rollback()
         logger.error("offline_delivery_record_error", error=str(e))
+
 
 def evaluate_emergency_metrics(smart_bin):
     """Detect fire/methane hazards and queue the IncidentLog row.
@@ -401,12 +429,17 @@ def _dispatch_webhooks(event, payload):
         urls = []
     enqueue(dispatch_webhooks_job, urls, event, payload)
 
+
 def activate_compactor(smart_bin):
     """Trigger solar-powered mechanical compactor for bin (no commit — caller commits)."""
     smart_bin.last_compacted_at = utcnow()
     smart_bin.level = max(0, int(smart_bin.level * 0.7))
+    # commit=False: this runs inside the caller's telemetry transaction — the
+    # audit row joins the same commit so a later failure rolls it back too.
     write_audit("PRE_COMPACTION", target=smart_bin.hardware_id,
-                detail=f"Compactor activated at 70%+ fill, level reduced to {smart_bin.level}%")
+                detail=f"Compactor activated at 70%+ fill, level reduced to {smart_bin.level}%",
+                commit=False)
+
 
 def check_sensor_faults():
     """Auto-flag bins that haven't pinged in 24h as Sensor Fault."""
@@ -440,6 +473,7 @@ def check_sensor_faults():
                                            description=f"Sensor Fault: {b.hardware_id} silent >24h. Maintenance scheduled."))
     db.session.commit()
 
+
 def check_decomposition_timers():
     """Override ultrasonic status → 'Pending Clearance' (🟡 Yellow) for any bin
     that has stayed above 10% fill for more than 48h without being cleared."""
@@ -467,27 +501,8 @@ def check_decomposition_timers():
 # ──────────────────────────────────────────────
 # ACCESS DECORATORS  (see app/auth.py for shared impl)
 # ──────────────────────────────────────────────
-from ..auth import login_required, admin_required, worker_required, superadmin_required, roles_required
 
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 1 — HOME / WEATHER
-# ═══════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 2 — AUTHENTICATION
-# ═══════════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 2a — PASSWORD RESET
-# ═══════════════════════════════════════════════════════════════════
 def send_reset_email(user_email, user_id):
     """Generate a password-reset token and send it via SMTP or flask-mailman."""
     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
@@ -500,6 +515,8 @@ def send_reset_email(user_email, user_id):
     try:
         from flask_mailman import Message
         msg = Message(subject, recipients=[user_email], body=body)
+        # mail is the app-wide flask-mailman instance from app/__init__.py
+        from .. import mail
         mail.send(msg)
         return True
     except Exception as e:
@@ -507,16 +524,20 @@ def send_reset_email(user_email, user_id):
         return False
 
 
-
-
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 3 — CITIZEN DASHBOARD
-# ═══════════════════════════════════════════════════════════════════
 def _is_local_request():
-    host = request.host.split(':')[0] if ':' in request.host else request.host
-    return host in ('127.0.0.1', 'localhost', '0.0.0.0')
+    """True only when the app is running in DEBUG/TEST mode or from loopback.
+
+    Debug/Testing mode is the primary signal: it's set by the developer, not
+    by the incoming request. For localhost development without debug mode,
+    we also trust loopback source IPs (127.0.0.1 / ::1) so the dev OTP is
+    visible on screen during local testing."""
+    try:
+        from flask import request
+        remote = request.remote_addr or ''
+        is_loopback = remote in ('127.0.0.1', '::1') or remote.startswith('::ffff:127.0.')
+    except Exception:
+        is_loopback = False
+    return bool(current_app.debug or current_app.testing or is_loopback)
 
 
 def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
@@ -531,7 +552,6 @@ def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
     flash("MFA required. Enter the OTP sent to your registered contact.", "success")
 
 
-
 # Citizen Green-Points leaderboard (ward-scoped, privacy-conscious:
 # usernames only, never phone numbers). Powers the dashboard "Eco Champions" card.
 
@@ -540,11 +560,7 @@ def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
 # ════════════════════════════════════════════════
 
 
-
-
 # Citizen real-time notifications (SSE push for complaint status changes)
-
-
 
 
 def _notify_status_change(complaint):
@@ -567,22 +583,206 @@ def _notify_status_change(complaint):
             complaint.ward or 'your area', complaint.status)
 
 
+# ──────────────────────────────────────────────
+# CITIZEN COMPLAINT TRACKING (shareable /track/<token>)
+# A signed, expiring token (URLSafeTimedSerializer over the complaint id) is
+# the ONLY way to reach a complaint's tracking page — complaints can't be
+# enumerated because guessing /track/<id> fails signature verification (and
+# invalid + expired tokens both 404, so an attacker can't probe which ids
+# exist). The link is SMS'd to the reporter at filing time, shown on the
+# success page, and linked from the dashboard.
+# ──────────────────────────────────────────────
+TRACK_TOKEN_MAX_AGE = 90 * 24 * 3600  # 90 days: complaints may be tracked long after filing
+
+
+def make_complaint_token(complaint_id):
+    """Sign a complaint id into a shareable tracking token (90-day expiry)."""
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    return serializer.dumps(str(complaint_id), salt='complaint-track-salt')
+
+
+def verify_complaint_token(token):
+    """Return the complaint id for a valid token, or None when tampered/expired.
+
+    Returns None for BOTH invalid signatures and expired tokens so an attacker
+    can't distinguish "bad signature" from "id exists but token expired" —
+    the caller 404s either way.
+    """
+    if not token:
+        return None
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        value = serializer.loads(token, salt='complaint-track-salt',
+                                 max_age=TRACK_TOKEN_MAX_AGE)
+        return int(value)
+    except Exception:
+        return None
+
+
+def record_complaint_event(complaint, status, note=None, commit=True):
+    """Append a status-timeline event to a complaint's history.
+
+    One row per transition; the /track page renders these in order. `commit`
+    defaults to True for standalone writes; pass False inside a caller-owned
+    transaction (e.g. resolve_bin's single-commit flow).
+    """
+    entry = ComplaintStatusLog(
+        complaint_id=complaint.id,
+        status=fit_length(status, 20),
+        note=fit_length(note, 300) if note else None,
+        created_at=utcnow(),
+    )
+    db.session.add(entry)
+    if commit:
+        db.session.commit()
+    return entry
+
+
+def _ward_sla_hours():
+    """Average resolution time (hours) per ward, from resolved complaints.
+
+    SQL aggregate (SQLite/Postgres parity) so the SLA estimate stays cheap as
+    complaints grow; cached in Redis for 5 minutes. Wards with no resolved
+    complaints simply don't appear — the track page falls back to the standard
+    48h SLA. Uses resolved_at - created_at so the estimate reflects ACTUAL
+    resolution, not the nominal deadline.
+    """
+    from sqlalchemy import func
+    cached = cache_get("ward_sla:v1")
+    if cached is not None:
+        return cached
+    created = Complaint.created_at
+    resolved = Complaint.resolved_at
+    if db.engine.dialect.name == 'sqlite':
+        delta_h = (func.julianday(resolved) - func.julianday(created)) * 24.0
+    else:
+        delta_h = (func.extract('epoch', resolved) - func.extract('epoch', created)) / 3600.0
+    rows = db.session.query(
+        Complaint.ward,
+        func.avg(delta_h),
+    ).filter(
+        Complaint.status == 'Resolved',
+        Complaint.resolved_at.isnot(None),
+        Complaint.created_at.isnot(None),
+    ).group_by(Complaint.ward).all()
+    sla = {ward: round(float(avg_h), 1) for ward, avg_h in rows if avg_h is not None}
+    cache_set("ward_sla:v1", sla, ttl_seconds=300)
+    return sla
+
+
+def _send_tracking_link(complaint):
+    """SMS/WhatsApp the reporter their complaint's signed tracking link.
+
+    Best-effort and never raises: a missing phone just logs and returns.
+    Localhost requests skip the send entirely (dev shouldn't hit real
+    numbers). The gateway call runs in the RQ background queue (inline
+    fallback without Redis) so filing a complaint never blocks on Twilio.
+    """
+    if _is_local_request():
+        return
+    user = User.query.get(complaint.user_id) if complaint.user_id else None
+    phone = (user.phone if user else None) or complaint.phone
+    email = user.email if user else None
+    if not phone and not email:
+        return
+    token = make_complaint_token(complaint.id)
+    track_url = url_for('main.track_complaint', token=token, _external=True)
+    from ..jobs import enqueue, send_tracking_link_job
+    enqueue(send_tracking_link_job, phone, email, complaint.id,
+            complaint.ward or 'your area', track_url)
+
+
 # 4-Stream Waste Segregation Declaration
 
 # PAYT Invoice List API
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 4 — ANONYMOUS ILLEGAL DUMP REPORT
-# ═══════════════════════════════════════════════════════════════════
 
 # ──────────────────────────────────────────────
 # OMNICHANNEL HELPERS (WhatsApp / Telegram bot)
 # ──────────────────────────────────────────────
+# ──────────────────────────────────────────────
+# GPS ANTI-SPAM VERIFICATION (fake-report defense)
+# 1. The client must supply a real device position (no default-coords fallback).
+# 2. When a complaint photo carries EXIF GPS, the server cross-checks it
+#    against the submitted device position — a mismatch beyond
+#    GPS_VERIFY_RADIUS_M blocks the submission (screenshots / internet photos
+#    geotagged elsewhere are rejected).
+# 3. An AI image-verification hook (placeholder) runs so a real CV model can
+#    be swapped in later without touching the route.
+# ──────────────────────────────────────────────
+# 100m default: real GPS fixes jitter ~10-30m and EXIF GPS is often recorded
+# slightly before/after shutter press, so a tighter bound would reject
+# legitimate on-site reports. Configurable per deployment.
+GPS_VERIFY_RADIUS_M = int(os.environ.get('GPS_VERIFY_RADIUS_M', '100'))
+
+
+def _photo_gps_from_upload(file_storage):
+    """Extract EXIF GPS (lat, lon) from an uploaded photo BEFORE compression
+    strips it. Rewinds the stream so save_compressed_photo() can still read it.
+    Returns None when the photo has no GPS tags (common when location is off
+    or the image was processed) — the caller then skips the cross-check."""
+    try:
+        from PIL import Image
+        import io
+        file_storage.seek(0)
+        # Copy to an independent buffer: Pillow 12 takes ownership of the
+        # file-like passed to Image.open() and img.close() closes it. Closing
+        # the request's own stream here would poison it for the later readers
+        # (_ai_verify_photo, save_compressed_photo) and reject every photo
+        # complaint with 'I/O operation on closed file'.
+        buf = io.BytesIO(file_storage.read())
+        img = Image.open(buf)
+        gps = _extract_gps_from_exif(img)
+        img.close()          # closes only our copy
+        file_storage.seek(0)  # rewind the original for the next consumer
+        return gps
+    except Exception as e:
+        logger.error("photo_gps_extract_error", error=str(e))
+        try:
+            file_storage.seek(0)
+        except Exception:
+            pass
+        return None
+
+
+def _ai_verify_photo(file_storage):
+    """AI image-verification placeholder (anti-fake-report pipeline).
+
+    Real-world hook: a CV classifier (garbage vs. no-garbage) would run here
+    and return (verified, note). The placeholder validates the file is a
+    decodable image (PIL) and returns (True, 'AI verification pending') so the
+    pipeline is wired end-to-end and a model can be dropped in later.
+    Returns (bool, note) and never raises.
+    """
+    try:
+        from PIL import Image
+        import io
+        file_storage.seek(0)
+        # Same independence trick as _photo_gps_from_upload: Pillow 12 closes
+        # the file-like it opened on img.close(), so verify a private copy and
+        # leave the request stream open for save_compressed_photo().
+        buf = io.BytesIO(file_storage.read())
+        img = Image.open(buf)
+        img.verify()
+        img.close()          # closes only our copy
+        file_storage.seek(0)  # rewind the original for the next consumer
+        return True, 'AI verification pending'
+    except Exception as e:
+        logger.error("ai_photo_verify_error", error=str(e))
+        try:
+            file_storage.seek(0)
+        except Exception:
+            pass
+        return False, f'Image could not be verified: {e}'
+
+
 def _extract_gps_from_exif(img):
     """Return (lat, lon) decimal degrees read from a PIL image's EXIF GPS tags."""
     try:
         from PIL.ExifTags import GPSTAGS, TAGS
-        exif = img._getexif()
+        # getexif() (Pillow 9+) supersedes the private _getexif(); on Pillow 12
+        # _getexif is deprecated and warns on every parse.
+        exif = img.getexif()
         if not exif:
             return None
         gps = {}
@@ -592,6 +792,7 @@ def _extract_gps_from_exif(img):
                     gps[GPSTAGS.get(t, t)] = v
         if 'GPSLatitude' not in gps or 'GPSLongitude' not in gps:
             return None
+
         def _to_deg(value):
             d, m, s = value
             return float(d) + float(m) / 60.0 + float(s) / 3600.0
@@ -605,6 +806,7 @@ def _extract_gps_from_exif(img):
     except Exception as e:
         logger.error("gps_exif_parse_error", error=str(e))
         return None
+
 
 def _download_illegal_media(media_url, auth=None):
     """Download a remote image, extract native GPS from EXIF, strip EXIF, and
@@ -620,7 +822,7 @@ def _download_illegal_media(media_url, auth=None):
         clean = io.BytesIO()
         img.save(clean, format=img.format or 'JPEG')
         clean.seek(0)
-        filename = f"illegal_{random.randint(10000,99999)}.jpg"
+        filename = f"illegal_{random.randint(10000, 99999)}.jpg"
         path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         with open(path, 'wb') as f:
             f.write(clean.read())
@@ -628,6 +830,7 @@ def _download_illegal_media(media_url, auth=None):
     except Exception as e:
         logger.error("media_download_error", error=str(e))
         return None, None
+
 
 # ──────────────────────────────────────────────
 # WEBHOOK VERIFICATION (Twilio / Telegram)
@@ -766,36 +969,6 @@ def _verify_razorpay_webhook_signature():
     return hmac.compare_digest(provided, expected)
 
 
-
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 4b — DEV SANDBOX: simulate WhatsApp / Telegram bots in-browser
-# (no real Twilio/Telegram account needed — drives the public webhooks)
-# ═══════════════════════════════════════════════════════════════════
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 5 — BWG COMMERCIAL LEDGER
-# ═══════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 6 — SCHEDULE
-# ═══════════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 7 — COMPLAINT REPORTING
-# ═══════════════════════════════════════════════════════════════════
-
-# ═════════════════════════════════════════════════════════════════
-# SECTION 8b — WARD COMMITTEE / GRAM SABHA TRANSPARENCY VIEW
-# (Read-only, no login — civic accountability per waste-governance norms)
-# ═════════════════════════════════════════════════════════════════
-
-# ═════════════════════════════════════════════════════════════════
-# SECTION 8 — ADMIN CONSOLE
-# ═════════════════════════════════════════════════════════════════
-
 # ──────────────────────────────────────────────
 # OVERFLOW FORECAST (ML fill-rate) — proactive dispatch
 # SmartBin.overflow_eta_hours is written by predict_overflow_eta_hours() on
@@ -823,11 +996,6 @@ def _forecast_priority(b):
 # their current level hasn't hit 80% yet (proactive dispatch).
 
 
-
-
-
-
-
 # Webhook configuration
 
 # Complaint resolution
@@ -840,33 +1008,8 @@ def _forecast_priority(b):
 # ──────────────────────────────────────────────
 
 
-
-
-
-
-
-
 # Admin approves BWG pickup request
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 9 — AUDIT TRAIL (Super-Admin)
-# ═══════════════════════════════════════════════════════════════════
-
-# ──────────────────────────────────────────────
-# SECTION 9b — SUPER-ADMIN CONSOLE
-# (Only reachable via @superadmin_required — the sanctioned way to
-#  create admin accounts now that public self-registration is citizen/worker only)
-# ──────────────────────────────────────────────
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 10 — OTA FIRMWARE HUB
-# ═══════════════════════════════════════════════════════════════════
-
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 11 — SANITATION WORKER PORTAL
-# ═══════════════════════════════════════════════════════════════════
 
 # Mark bin as cleared (worker duty — not citizen-accessible, which previously
 # let any logged-in user reset bins, resolve ward complaints and farm points)
@@ -880,9 +1023,6 @@ def _forecast_priority(b):
 
 # Worker issue reporter
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 11.5 — IoT BIN TELEMETRY INGESTION
-# ═══════════════════════════════════════════════════════════════════
 def _recompute_bin_status(level):
     """Derive Safe / Warning / Critical status from fill level."""
     if level >= 80:
@@ -892,17 +1032,22 @@ def _recompute_bin_status(level):
     return "Safe"
 
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 12 — ANALYTICS & COMPLIANCE
-# ═══════════════════════════════════════════════════════════════════
 def _compute_analytics():
     """Aggregate all analytics metrics. Shared by the page and the JSON API so
     no server data has to be embedded inside the template's <script>.
 
     All aggregates run in SQL (COALESCE over SUM) instead of pulling every
     WasteDeclaration row into Python — the previous full-table scan would OOM
-    the 1 GB Fly VM once declarations grow to tens of thousands of rows."""
+    the 1 GB Fly VM once declarations grow to tens of thousands of rows.
+
+    Cached in Redis with a 60s TTL: the analytics page + JSON API are read
+    frequently but the underlying data changes slowly, so a 60s cache removes
+    the per-load full-table scans without staleness concerns."""
     from sqlalchemy import func
+    _cache_key = "analytics:v1"
+    _cached = cache_get(_cache_key)
+    if _cached is not None:
+        return _cached
     bins = SmartBin.query.all()
     row = db.session.query(
         func.coalesce(func.sum(WasteDeclaration.wet_kg), 0.0),
@@ -944,13 +1089,14 @@ def _compute_analytics():
         "trees_equivalent": round(co2_saved_tonnes * 45, 1),
     }
     bins_json = [{"lat": b.latitude, "lon": b.longitude, "level": b.level} for b in bins]
-    return {
+    result = {
         "circular": circular_economy,
         "carbon": carbon_data,
         "bins": bins_json,
         "trends": generation_trends,
     }
-
+    cache_set(_cache_key, result, ttl_seconds=60)
+    return result
 
 
 # State-Portal Compliance Export (SWM Rules 2026 mandated indicators)
@@ -982,7 +1128,6 @@ def _state_portal_indicators():
     }
 
 
-
 # Trend-over-time analytics: monthly segregation % per ward
 
 # ESG/CSRD Compliance Export data endpoint (data for client-side jsPDF)
@@ -1011,7 +1156,6 @@ def _csrd_payload():
             "timestamp": a.timestamp.isoformat()
         } for a in all_audits]
     }
-
 
 
 def _performance_pdf_bytes():
@@ -1138,8 +1282,6 @@ def _payt_receipt_pdf_bytes(invoice):
     return buf.getvalue(), filename
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════
 # ASYNC EXPORT GENERATION (RQ background queue)
 # The heavy PDF/CSV/JSON export builds run in the job queue so admin requests
@@ -1149,15 +1291,6 @@ def _payt_receipt_pdf_bytes(invoice):
 # ═══════════════════════════════════════════════════════════════════
 
 
-
-
-
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 13 — PWA STATIC ROUTES
-# ═══════════════════════════════════════════════════════════════════
-
-
-
 # Offline fallback page (served by the service worker when navigation fails).
 
 
@@ -1165,10 +1298,6 @@ def _payt_receipt_pdf_bytes(invoice):
 
 
 # Deep health check endpoint for deployment orchestrators.
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1229,9 +1358,9 @@ def send_sms_via_twilio(to_number, body):
     prefix for WhatsApp conversations, so we mirror it onto the To address.
     """
     sid = os.environ.get('TWILIO_ACCOUNT_SID')
-    auth = os.environ.get('TWILIO_AUTH_TOKEN')
+    auth_token = os.environ.get('TWILIO_AUTH_TOKEN')
     sender = os.environ.get('TWILIO_WHATSAPP_NUMBER') or os.environ.get('TWILIO_FROM_NUMBER')
-    if not sid or not auth or not sender:
+    if not sid or not auth_token or not sender:
         return False
     try:
         url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
@@ -1292,9 +1421,9 @@ def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachme
         logger.error("smtp_email_error", error=str(e))
         return False
 
+
 # ═══════════════════════════════════════════════════════════════════
 # ROUTE REGISTRATION — submodules attach their handlers to `main`.
 # (imported last: they only need names defined above)
 # ═══════════════════════════════════════════════════════════════════
-from . import auth, citizen, admin, worker, iot, webhook, analytics, public
-
+from . import auth, citizen, admin, worker, iot, webhook, analytics, public  # noqa: F401  (side-effect: registers routes on `main`)

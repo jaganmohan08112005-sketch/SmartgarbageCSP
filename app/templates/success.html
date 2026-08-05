@@ -1,13 +1,61 @@
-
 {% extends 'base.html' %}
 {% block content %}
-<div class="text-center mt-5">
-    <div class="alert alert-success d-inline-block p-4">
-        <h3>🎉 {{ _('Complaint Submitted Successfully!') }}</h3>
-        <p class="mb-0">{{ _('The sanitation control room has been alerted. You can review updates from the administrator panel.') }}</p>
+<div class="container py-5">
+    <div class="text-center mb-4">
+        <span class="sg-icon-lg">🎉</span>
+        <h3 class="fw-bold text-success">{{ _('Complaint Submitted Successfully!') }}</h3>
+        <p class="text-muted">{{ _('The sanitation control room has been alerted. Track your complaint live — no login needed.') }}</p>
     </div>
-    <div class="mt-3">
-        <a href="/" class="btn btn-primary">{{ _('Return Home') }}</a>
+
+    {% if track_url %}
+    <div class="row justify-content-center mb-4">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm bg-white p-4">
+                <h6 class="fw-bold text-dark mb-2">🔎 {{ _('Your Tracking Link') }}</h6>
+                <p class="text-muted small mb-3">
+                    {{ _('Keep this link safe — it shows your complaint status and ward resolution time. We have also sent it to your phone by SMS.') }}
+                </p>
+                <div class="input-group">
+                    <input type="text" class="form-control" readonly value="{{ track_url }}" id="trackUrlInput"
+                           aria-label="{{ _('Tracking link') }}">
+                    <button class="btn btn-success rounded-end" type="button" onclick="copyTrackUrl()">
+                        <i class="fa-solid fa-copy me-1"></i>{{ _('Copy') }}
+                    </button>
+                </div>
+                <div class="d-grid gap-2 mt-3">
+                    <a href="{{ track_url }}" class="btn btn-outline-success rounded-pill" target="_blank">
+                        {{ _('Track Complaint Status') }} →
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-center">
+        <a href="/" class="btn btn-primary rounded-pill px-4">{{ _('Return Home') }}</a>
     </div>
 </div>
+
+<script>
+function copyTrackUrl() {
+    const input = document.getElementById('trackUrlInput');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    const done = () => {
+        // Inline feedback — no dependency on page-specific toast helpers.
+        const btn = document.querySelector('[onclick="copyTrackUrl()"]');
+        if (!btn) return;
+        const original = btn.innerHTML;
+        btn.innerHTML = '✅ ' + (btn.dataset.copied || 'Copied');
+        setTimeout(() => { btn.innerHTML = original; }, 2000);
+    };
+    try {
+        navigator.clipboard.writeText(input.value).then(done).catch(done);
+    } catch (e) {
+        done();
+    }
+}
+</script>
 {% endblock %}

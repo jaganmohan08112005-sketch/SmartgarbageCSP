@@ -15,6 +15,10 @@
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f5132">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,70 +38,21 @@
             });
         }
     </script>
-    <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: linear-gradient(135deg, #f4f7f6 0%, #e9ecef 100%);
-            min-height: 100vh;
-        }
-        
-        /* Green header bar */
-        .sg-green-header {
-            background: linear-gradient(90deg, #0f5132 0%, #1e8449 100%);
-            box-shadow: 0 2px 8px rgba(15, 81, 50, 0.3);
-            z-index: 1030;
-        }
-        
-        .sg-green-header .navbar-brand:hover {
-            color: #fff !important;
-            text-decoration: none;
-        }
-        
-        /* Language toggle button styling */
-        .sg-lang-btn {
-            min-width: 48px;
-            height: 36px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        /* Green header buttons */
-        .sg-green-header .btn-outline-light:hover {
-            background: rgba(255,255,255,0.15);
-        }
-        
-        .sg-green-header .btn-warning:hover {
-            background: #fbbf24;
-            color: #000 !important;
-        }
-    </style>
 </head>
 <body>
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
-    <div class="sg-green-header">
-        <div class="container d-flex align-items-center justify-content-between py-2">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold text-white text-decoration-none" href="/">
-                <span class="brand-mark">🗑️</span>
-                <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
-            </a>
-            <div class="d-flex align-items-center gap-2">
-                {% if not current_user.is_authenticated %}
-                <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
-                <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
-                {% endif %}
-                <button class="sg-dark-toggle" id="darkModeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
-                    <span id="darkModeIcon">🌙</span>
-                </button>
-            </div>
-        </div>
-    </div>
-    <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top" aria-label="Main navigation">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
-                <span class="brand-mark">🗑️</span>
-                <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/" aria-label="SmartGarbage Chintalavalasa home">
+                <!-- Official emblem mark: national-flag tricolor ring keeps the
+                     municipal-brand look without a binary asset to maintain. -->
+                <span class="brand-mark" aria-hidden="true">🗑️</span>
+                <span class="d-flex flex-column lh-sm">
+                    <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
+                    <small class="sg-dept-sub d-none d-md-block">{{ _('Directorate of Waste Management & Sanitation') }}</small>
+                </span>
             </a>
+            <span class="sg-header-divider d-none d-lg-block" aria-hidden="true"></span>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbarLayout" aria-controls="mainNavbarLayout" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -125,7 +80,7 @@
                             <a class="nav-link text-warning fw-bold px-3 {% if '/admin' in request.path %}active{% endif %}" href="/admin"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Admin Control Center') }}</a>
                         </li>
                         {% endif %}
-                        {% if current_user.role in ['admin', 'worker', 'citizen'] %}
+                        {% if current_user.role == 'admin' %}
                         <li class="nav-item">
                             <a class="nav-link px-3 {% if '/analytics' in request.path %}active{% endif %}" href="/analytics"><i class="fa-solid fa-chart-line me-1"></i>{{ _('Analytics') }}</a>
                         </li>
@@ -145,18 +100,43 @@
                         <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
                     </li>
                 </ul>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
                     {% if current_user.is_authenticated %}
                         <a class="nav-link text-danger px-3" href="/logout"><i class="fa-solid fa-right-from-bracket me-1"></i>{{ _('Logout') }}</a>
                     {% else %}
                         <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
                         <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
                     {% endif %}
-                    {% if lang == 'en' %}
-                    <a class="sg-lang-btn ms-1" href="/set-lang/te?next={{ request.path }}" title="Switch to Telugu" data-lang="te">తె</a>
-                    {% else %}
-                    <a class="sg-lang-btn ms-1" href="/set-lang/en?next={{ request.path }}" title="Switch to English" data-lang="en">EN</a>
-                    {% endif %}
+                    <!-- Shown to everyone: /report-illegal is anonymous and queues offline reports too.
+                         The badge only surfaces a client-side IndexedDB count, so no auth is needed. -->
+                    <button type="button" class="sg-sync-badge d-none" id="syncPendingBadge"
+                            title="{{ _('Reports saved offline are waiting to sync. Click to sync now.') }}"></button>
+
+                    <!-- Accessibility toolbar: text-resize + high-contrast (WCAG AA) -->
+                    <div class="sg-a11y-toolbar d-flex align-items-center gap-1" role="group" aria-label="{{ _('Accessibility') }}">
+                        <button type="button" class="sg-a11y-btn" id="textSmallerBtn" title="{{ _('Decrease text size') }}" aria-label="{{ _('Decrease text size') }}" aria-controls="main-content">A−</button>
+                        <button type="button" class="sg-a11y-btn sg-a11y-btn-default" id="textResetBtn" title="{{ _('Reset text size') }}" aria-label="{{ _('Reset text size') }}" aria-controls="main-content">A</button>
+                        <button type="button" class="sg-a11y-btn" id="textBiggerBtn" title="{{ _('Increase text size') }}" aria-label="{{ _('Increase text size') }}" aria-controls="main-content">A+</button>
+                        <button type="button" class="sg-a11y-btn" id="contrastToggleBtn" title="{{ _('High contrast') }}" aria-label="{{ _('High contrast') }}" aria-pressed="false">🌓</button>
+                    </div>
+
+                    <!-- Grievance hotline badge (Open311-style) -->
+                    <a class="sg-hotline d-none d-xl-inline-flex" href="tel:18001199111" title="{{ _('Grievance Hotline') }}">
+                        <i class="fa-solid fa-headset me-1" aria-hidden="true"></i>
+                        <span>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></span>
+                    </a>
+
+                    <!-- Language selector: dropdown so the full set of languages is visible (mandatory for gov portals) -->
+                    <div class="sg-lang-dropdown dropdown">
+                        <button class="sg-lang-btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                                aria-expanded="false" title="{{ _('Language') }}" aria-label="{{ _('Language') }}">
+                            {% if lang == 'en' %}EN{% else %}తె{% endif %}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow rounded-3">
+                            <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="/set-lang/en?next={{ request.path }}" data-lang="en">🇬🇧 English</a></li>
+                            <li><a class="dropdown-item {% if lang == 'te' %}active{% endif %}" href="/set-lang/te?next={{ request.path }}" data-lang="te">🇮🇳 తెలుగు</a></li>
+                        </ul>
+                    </div>
                     <button class="sg-dark-toggle" id="darkModeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
                         <span id="darkModeIcon">🌙</span>
                     </button>
@@ -192,7 +172,6 @@
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");
             const menu = document.getElementById("mainNavbarLayout");
-            const desktopMenu = document.getElementById("desktop-menu-container");
             
             if (toggler && menu) {
                 toggler.addEventListener("click", () => {
@@ -203,12 +182,6 @@
                     } else {
                         (bootstrap.Collapse.getInstance(menu) || new bootstrap.Collapse(menu)).show();
                     }
-                });
-            }
-            
-            if (toggler && desktopMenu) {
-                toggler.addEventListener("click", () => {
-                    desktopMenu.classList.toggle("show");
                 });
             }
 
@@ -240,9 +213,47 @@
                     }
                 });
             }
+
+            // ── Accessibility toolbar: text-resize + high-contrast (WCAG AA) ──
+            // Scales the root font-size in steps (100/112.5/125%) and toggles a
+            // high-contrast stylesheet. Persisted in localStorage so the choice
+            // survives navigation (gov-portal users expect the setting to stick).
+            const TEXT_STEPS = [100, 112.5, 125];
+            const applyTextSize = (step) => {
+                document.documentElement.style.fontSize = step + '%';
+                localStorage.setItem('sgTextSize', String(step));
+            };
+            let textSize = parseInt(localStorage.getItem('sgTextSize') || '100', 10);
+            applyTextSize(textSize);
+            const smallerBtn = document.getElementById('textSmallerBtn');
+            const biggerBtn = document.getElementById('textBiggerBtn');
+            const resetBtn = document.getElementById('textResetBtn');
+            const contrastBtn = document.getElementById('contrastToggleBtn');
+            if (smallerBtn) smallerBtn.addEventListener('click', () => {
+                textSize = TEXT_STEPS[Math.max(0, TEXT_STEPS.indexOf(textSize) - 1)];
+                applyTextSize(textSize);
+            });
+            if (biggerBtn) biggerBtn.addEventListener('click', () => {
+                textSize = TEXT_STEPS[Math.min(TEXT_STEPS.length - 1, TEXT_STEPS.indexOf(textSize) + 1)];
+                applyTextSize(textSize);
+            });
+            if (resetBtn) resetBtn.addEventListener('click', () => { textSize = 100; applyTextSize(100); });
+            const applyContrast = (on) => {
+                document.documentElement.setAttribute('data-contrast', on ? 'true' : 'false');
+                localStorage.setItem('sgHighContrast', on ? '1' : '0');
+                if (contrastBtn) contrastBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            };
+            if (contrastBtn) {
+                const savedContrast = localStorage.getItem('sgHighContrast') === '1';
+                applyContrast(savedContrast);
+                contrastBtn.addEventListener('click', () => {
+                    applyContrast(document.documentElement.getAttribute('data-contrast') !== 'true');
+                });
+            }
         });
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js">
     </script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

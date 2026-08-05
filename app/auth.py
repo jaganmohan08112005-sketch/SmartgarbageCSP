@@ -1,6 +1,5 @@
 from functools import wraps
 from flask import session, redirect, url_for, abort
-from werkzeug.exceptions import Forbidden
 
 
 def roles_required(*allowed_roles):

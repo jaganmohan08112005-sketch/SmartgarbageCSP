@@ -40,11 +40,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetEl = document.getElementById(sectionId);
         if (targetEl) {
             targetEl.classList.add('active');
+            // Lazy-init Leaflet maps once their section becomes visible — the
+            // IntersectionObserver below never fires for display:none sections.
+            if (sectionId === 'gis-section') initMaps();
+            if (sectionId === 'fleet-section') { initFleetMap(); loadFleetLocations(); }
             const yOffset = -100;
             const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: 'smooth' });
+            // Leaflet needs a size recalculation after display:none -> block.
+            setTimeout(() => {
+                if (sectionId === 'gis-section' && map) map.invalidateSize();
+                if (sectionId === 'fleet-section' && fleetMap) fleetMap.invalidateSize();
+            }, 60);
         }
     }
+
+    // Expose for the mobile section jumper (<select onchange=setActive(...)>).
+    window.setActive = setActive;
 
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
@@ -106,7 +118,10 @@ let leafletLoaded = false;
 async function ensureLeafletAndSocket() {
     if (leafletLoaded) return;
     await loadScript(LEAFLET_JS);
-    await loadScript(SOCKET_IO_JS);
+    // base.html already loads socket.io on every page — don't fetch it twice.
+    if (typeof io === 'undefined') {
+        await loadScript(SOCKET_IO_JS);
+    }
     leafletLoaded = true;
 }
 
@@ -205,7 +220,10 @@ async function toggleCompactor() {
     const sw = document.getElementById('modalCompactorSwitch');
     const label = document.getElementById('modalCompactor');
     try {
-        const res = await fetch('/admin/toggle-compactor/' + currentBinHwId, {method: 'POST'});
+        const res = await fetch('/admin/toggle-compactor/' + currentBinHwId, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+        });
         const data = await res.json();
         if (!data.success) throw new Error('toggle failed');
         const enabled = data.precompaction_enabled;
@@ -218,32 +236,94 @@ async function toggleCompactor() {
     }
 }
 
-// Dijkstra route optimize caller
+// TSP route optimizer caller (nearest-neighbour + 2-opt on the server)
 async function executeRoutingDispatch() {
-    const response = await fetch('/api/route-optimize');
-    if (!response.ok) return;
-    const data = await response.json();
-    if (data.route && data.route.length > 0) {
+    const btn = document.getElementById('optimizeBtn');
+    const originalLabel = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Optimizing…'; }
+    try {
+        // Ensure the GIS map is ready so we can draw the route on it.
+        // (setActive already lazy-inits maps; await a tick so that init lands.)
+        if (!map) {
+            setActive('gis-section');
+            await new Promise(r => setTimeout(r, 120));
+        }
+        if (!map) await initMaps();
+        const response = await fetch('/api/route-optimize');
+        if (!response.ok) { showToast('⚠️ Routing service unavailable.'); return; }
+        const data = await response.json();
+        const emptyEl = document.getElementById('routingEmpty');
+        const infoBanner = document.getElementById('routingInfo');
+        if (emptyEl) emptyEl.classList.add('d-none');
+        if (infoBanner) infoBanner.classList.remove('d-none');
+
+        const stops = (data.route || []).filter(n => n.label && n.label !== 'Municipal HQ (Depot)');
+        if (!stops.length) {
+            // No critical bins today — show a helpful empty state instead of nothing.
+            if (currentRouteLine) { map.removeLayer(currentRouteLine); currentRouteLine = null; }
+            document.getElementById('routeCount').innerText = '0';
+            document.getElementById('routeDistance').innerText = '0 km';
+            document.getElementById('routeCo2').innerText = '0 kg';
+            document.getElementById('routeFuel').innerText = '₹0';
+            document.getElementById('routeHours').innerText = '0 h';
+            document.getElementById('routePathText').innerText = '✅ All bins within safe levels — no route needed today.';
+            document.getElementById('routeStatsText').innerText = data.message || 'Run the telemetry simulator to create hotspots.';
+            return;
+        }
+
         if (currentRouteLine) { map.removeLayer(currentRouteLine); }
         const coords = data.route.map(node => [node.lat, node.lon]);
         currentRouteLine = L.polyline(coords, { color: '#2C3E50', weight: 5, opacity: 0.75, dashArray: '10, 10' }).addTo(map);
         map.fitBounds(currentRouteLine.getBounds());
-        const infoBanner = document.getElementById('routingInfo');
-        infoBanner.classList.remove('d-none');
-        document.getElementById('routeCount').innerText = data.critical_count;
-        document.getElementById('routeDistance').innerText = data.total_distance_km;
-        const labels = data.route.map(node => node.label);
-        document.getElementById('routePathText').innerHTML = `<b>Sequenced Pickups Route:</b> ${labels.join(' ➔ ')}` + (data.co2_saved_kg ? ` &nbsp;|&nbsp; 🌿 <b>${data.co2_saved_kg} kg CO₂ saved</b> vs fixed routes` : '');
-        showToast(`✅ <strong>Route Optimized!</strong> Distance: ${data.total_distance_km} km across ${data.critical_count} critical bins.<br>🌿 CO₂ saved: ${data.co2_saved_kg || 0} kg`);
+
+        document.getElementById('routeCount').innerText = data.critical_count ?? stops.length;
+        document.getElementById('routeDistance').innerText = `${data.total_distance || 0} km`;
+        document.getElementById('routeCo2').innerText = `${data.co2_saved_kg || 0} kg`;
+        document.getElementById('routeFuel').innerText = `₹${data.fuel_saved_rs || 0}`;
+        document.getElementById('routeHours').innerText = `${data.manpower_saved_hours || data.manpower_hours || 0} h`;
+        const labels = data.route.map(node =>
+            node.label === 'Municipal HQ (Depot)'
+                ? node.label
+                : (node.overflow_eta_hours != null
+                    ? `${node.label} (⏳${node.overflow_eta_hours}h)`
+                    : node.label)
+        );
+        document.getElementById('routePathText').innerHTML =
+            `<b>Sequenced Pickups Route:</b> ${labels.join(' ➔ ')}`;
+        document.getElementById('routeStatsText').innerHTML =
+            `Optimized with <code>${data.optimized_with || 'auto'}</code>`;
+        showToast(`✅ <strong>Route Optimized!</strong> ${stops.length} bins, ${data.total_distance || 0} km · 🌿 ${data.co2_saved_kg || 0} kg CO₂ · ⛽ ₹${data.fuel_saved_rs || 0} fuel saved`);
+    } catch (e) {
+        console.error('Route optimize failed:', e);
+        showToast('⚠️ Could not optimize route: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = originalLabel; }
     }
 }
 
-function simulateAnomalyTrigger() {
-    const criticalBin = smartBins.find(b => b.hardware_id === "BIN-302");
+async function simulateAnomalyTrigger() {
+    // Seeded as BIN-EMG-302 (kept distinct from the generated BIN-3xx scheme).
+    // Make sure the map is up even if the user lands here without visiting GIS first,
+    // and that bin telemetry has loaded (the initial /api/bins fetch is async).
+    if (!map) await initMaps();
+    if (!smartBins.length) {
+        try {
+            const res = await fetch('/api/bins');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            smartBins = await res.json();
+            if (map && smartBins.length) buildBinMarkers();
+        } catch (e) {
+            console.error('Bin data load failed:', e);
+        }
+    }
+    const criticalBin = smartBins.find(b => b.hardware_id === "BIN-EMG-302") ||
+                        smartBins.find(b => b.status === "Critical");
     if (criticalBin && binMarkers[criticalBin.hardware_id]) {
         map.setView([criticalBin.latitude, criticalBin.longitude], 16);
         binMarkers[criticalBin.hardware_id].openPopup();
-        showToast("⚠️ <strong>Simulated Incident:</strong> High temperature (72.1°C) and hazardous methane (850 ppm) breached at BIN-302 — webhooks dispatched.");
+        showToast(`⚠️ <strong>Simulated Incident:</strong> ${criticalBin.temperature}°C / ${criticalBin.methane} ppm breached at ${criticalBin.hardware_id} — webhooks dispatched.`);
+    } else {
+        showToast("No critical bin to simulate — seed demo data first.");
     }
 }
 
@@ -351,6 +431,72 @@ function loadReports(){
 
 document.addEventListener('DOMContentLoaded', loadReports);
 
+// ---- Job Queue Health (duration / retries / dead-letter KPIs) ----
+function renderQueueHealth(data) {
+    const kpisEl = document.getElementById('queueHealthKpis');
+    if (kpisEl && data.kpis) {
+        const k = data.kpis;
+        const dlPct = Number(k.dead_letter_rate || 0);
+        const dlClass = dlPct > 5 ? 'text-danger' : '';
+        kpisEl.innerHTML = `
+            <div class="col-md-3 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">Jobs Run</div>
+                    <div class="fs-4 fw-bold">${k.jobs_run ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🔄 Retries</div>
+                    <div class="fs-4 fw-bold">${k.retries ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">💀 Dead-lettered</div>
+                    <div class="fs-4 fw-bold ${dlClass}">${k.dead_lettered ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">⏱️ Avg Duration</div>
+                    <div class="fs-4 fw-bold">${(k.avg_duration_s ?? 0).toFixed(2)}s</div>
+                </div>
+            </div>`;
+    }
+    const body = document.getElementById('queueHealthBody');
+    if (!body) return;
+    const rows = (data.kpis && data.kpis.per_function) || [];
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+            'No job runs recorded yet — trigger a dunning run or SMS to see instrumentation.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map(f => {
+        const dlPct = Number(f.dead_letter_rate || 0);
+        const dlClass = dlPct > 5 ? 'text-danger' : '';
+        return `<tr>
+            <td><code>${escapeHtml(f.func)}</code></td>
+            <td>${f.runs}</td>
+            <td class="${f.failed > 0 ? 'text-danger' : ''}">${f.failed}</td>
+            <td>${f.retries}</td>
+            <td class="${f.dead_lettered > 0 ? 'text-danger' : ''}">${f.dead_lettered}</td>
+            <td class="small text-muted">${Number(f.avg_duration_s || 0).toFixed(2)}s</td>
+            <td class="small ${dlClass}">${dlPct.toFixed(2)}%</td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadQueueHealth() {
+    try {
+        const res = await fetch('/api/jobs/status');
+        if (!res.ok) return;
+        renderQueueHealth(await res.json());
+    } catch (e) {
+        console.warn('queue health load failed', e);
+    }
+}
+
 // ---- Live updates via Socket.IO (deferred until socket loaded) ----
 function connectLive() {
     if (typeof io === 'undefined') { console.warn('socket.io client not loaded'); return; }
@@ -370,9 +516,119 @@ function connectLive() {
     socket.on('fleet_update', (payload) => {
         if (payload && payload.fleet) { if (typeof fleetMap !== 'undefined' && fleetMap) loadFleetLocations(); }
     });
+
+    socket.on('dispatch_nudge', (data) => {
+        // A bin just crossed the 6h overflow threshold — refresh the queue
+        // and surface a toast so the control room can nudge drivers.
+        refreshDispatchQueue();
+        if (data && data.hardware_id) {
+            showToast(`🚨 <strong>${data.hardware_id}</strong> forecast to overflow in ~${data.overflow_eta_hours}h — workers nudged.`);
+        }
+    });
+
+    socket.on('dispatch_update', () => refreshDispatchQueue());
 }
 
-// Auto-initialize maps when GIS map enters viewport
+// ---- Proactive dispatch queue (admin control room) ----
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
+function renderDispatchQueue(bins) {
+    const body = document.getElementById('dispatchQueueBody');
+    const kpis = document.getElementById('dispatchKpis');
+    const navCount = document.getElementById('dispatchNavCount');
+    if (!body) return;
+
+    if (navCount) navCount.textContent = bins.length;
+    if (kpis) {
+        const urgent = bins.filter(b => b.urgent).length;
+        const pending = bins.filter(b => b.dispatch_status === 'pending' || b.dispatch_status === 'available').length;
+        const assigned = bins.filter(b => b.dispatch_status === 'assigned').length;
+        kpis.innerHTML = `
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">Forecast Bins</div>
+                    <div class="fs-4 fw-bold">${bins.length}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">⚠️ Urgent (&lt;24h)</div>
+                    <div class="fs-4 fw-bold text-danger">${urgent}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🚛 Assigned</div>
+                    <div class="fs-4 fw-bold text-success">${assigned} / ${bins.length}</div>
+                </div>
+            </div>`;
+    }
+
+    if (!bins.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">✅ No bins in the proactive queue right now.</td></tr>';
+        return;
+    }
+    body.innerHTML = bins.map(b => {
+        const eta = (b.overflow_eta_hours !== null && b.overflow_eta_hours !== undefined)
+            ? b.overflow_eta_hours + ' h' : '—';
+        let badge;
+        if (b.dispatch_status === 'assigned') badge = '<span class="badge bg-success">Assigned</span>';
+        else if (b.dispatch_status === 'pending') badge = '<span class="badge bg-warning text-dark">Queued</span>';
+        else badge = '<span class="badge bg-secondary">Available</span>';
+        const workerTxt = b.mine ? 'You' : (b.assigned_worker_id ? '#' + b.assigned_worker_id : '—');
+        return `<tr>
+            <td><strong>${escapeHtml(b.hardware_id)}</strong></td>
+            <td class="small">${escapeHtml(b.ward)}</td>
+            <td><span class="badge ${b.level >= 80 ? 'bg-danger' : 'bg-light text-dark'}">${b.level}%</span></td>
+            <td>${b.urgent ? '<span class="text-danger fw-bold">⏱ ' + eta + '</span>' : eta}</td>
+            <td>${badge}</td>
+            <td class="small">${workerTxt}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function refreshDispatchQueue() {
+    try {
+        const res = await fetch('/api/dispatch/queue');
+        if (!res.ok) return;
+        const data = await res.json();
+        renderDispatchQueue(data.bins || []);
+    } catch (e) {
+        console.warn('dispatch queue refresh failed', e);
+    }
+}
+
+
+// Refetch bin telemetry and rebuild markers (GIS "Refresh Telemetry" button).
+async function refreshBinMarkers() {
+    try {
+        const res = await fetch('/api/bins');
+        if (!res.ok) { showToast('⚠️ Could not refresh telemetry.'); return; }
+        smartBins = await res.json();
+        if (map && smartBins.length) buildBinMarkers();
+        showToast('✅ Telemetry refreshed — ' + smartBins.length + ' bins.');
+    } catch (e) {
+        console.error('Telemetry refresh failed:', e);
+        showToast('⚠️ Telemetry refresh failed.');
+    }
+}
+
+// Mobile section jumper: in-page sections use setActive(), external pages navigate.
+function adminMobileJump(selectEl) {
+    const v = selectEl.value;
+    if (!v) return;
+    if (v.startsWith('/')) {
+        window.location.href = v;
+        return;
+    }
+    if (typeof setActive === 'function') setActive(v);
+}
+
+// Auto-initialize maps when GIS map enters viewport (fallback for deep links)
 const gisObserver = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) { initMaps(); gisObserver.disconnect(); } });
 }, { rootMargin: '0px', threshold: 0.1 });
@@ -391,3 +647,77 @@ window.loadFleetLocations = loadFleetLocations;
 window.sendWhatsApp = sendWhatsApp;
 window.sendTelegram = sendTelegram;
 window.toggleCompactor = toggleCompactor;
+window.refreshBinMarkers = refreshBinMarkers;
+window.refreshDispatchQueue = refreshDispatchQueue;
+window.adminMobileJump = adminMobileJump;
+window.loadQueueHealth = loadQueueHealth;
+
+// Auto-load the dispatch queue when the control room opens.
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('dispatchQueueBody')) refreshDispatchQueue();
+});
+
+// Auto-load queue-health KPIs when the control room opens.
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('queueHealthKpis')) loadQueueHealth();
+});
+
+// ---- Admin notification bell (dead-letter alerts + status pushes) ----
+let adminNotifRefreshTimer = null;
+
+function toggleAdminNotifications() {
+    const panel = document.getElementById('adminNotifPanel');
+    if (!panel) return;
+    const showing = !panel.classList.contains('d-none');
+    panel.classList.toggle('d-none', showing);
+    if (!showing) loadAdminNotifications();
+}
+
+async function loadAdminNotifications() {
+    try {
+        const res = await fetch('/api/notifications');
+        if (!res.ok) return;
+        const notes = await res.json();
+        const list = document.getElementById('adminNotifList');
+        const badge = document.getElementById('adminNotifBadge');
+        if (!list) return;
+        const unread = notes.filter(n => !n.read).length;
+        if (badge) {
+            badge.textContent = unread;
+            badge.classList.toggle('d-none', unread === 0);
+        }
+        if (!notes.length) {
+            list.innerHTML = '<div class="text-center text-muted small py-3">No notifications yet.</div>';
+            return;
+        }
+        list.innerHTML = notes.map(n => `
+            <a href="${escapeHtml(n.link || '/admin')}" class="d-block text-decoration-none text-dark rounded-3 px-2 py-2 mb-1 ${n.read ? '' : 'bg-light'}" style="${n.read ? 'opacity:0.7;' : ''}">
+                <div class="small">${escapeHtml(n.message)}</div>
+                <div class="text-muted" style="font-size:0.7rem;">${n.created_at ? escapeHtml(String(n.created_at).replace('T', ' ').slice(0, 19)) : ''}</div>
+            </a>`).join('');
+    } catch (e) {
+        console.warn('admin notifications load failed', e);
+    }
+}
+
+async function markAdminNotificationsRead() {
+    try {
+        await fetch('/api/notifications/mark-read', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+        });
+        const badge = document.getElementById('adminNotifBadge');
+        if (badge) badge.classList.add('d-none');
+        loadAdminNotifications();
+    } catch (e) {
+        console.warn('mark admin notifications read failed', e);
+    }
+}
+
+// Refresh the bell periodically so dead-letter alerts surface without a reload.
+if (document.getElementById('adminNotifBadge')) {
+    adminNotifRefreshTimer = setInterval(loadAdminNotifications, 30000);
+}
+
+window.toggleAdminNotifications = toggleAdminNotifications;
+window.markAdminNotificationsRead = markAdminNotificationsRead;

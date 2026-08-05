@@ -47,7 +47,27 @@ fly secrets set \
   DATABASE_URL="postgresql://postgres.[ref]:[pw]@...pooler.supabase.com:5432/postgres" \
   SUPABASE_URL="https://xyz.supabase.co" \
   SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
-  IOT_TELEMETRY_SECRET="$(openssl rand -hex 32)"
+  IOT_TELEMETRY_SECRET="$(openssl rand -hex 32)" \
+  REDIS_URL="redis://:your-redis-password@your-region.upstash.io:6379" \
+  TWILIO_ACCOUNT_SID="AC..." \
+  TWILIO_AUTH_TOKEN="..." \
+  TWILIO_FROM_NUMBER="+1..." \
+  TWILIO_WHATSAPP_NUMBER="whatsapp:+1..." \
+  RAZORPAY_KEY_ID="rzp_live_..." \
+  RAZORPAY_KEY_SECRET="..." \
+  RAZORPAY_WEBHOOK_SECRET="$(openssl rand -hex 32)"
+
+> `REDIS_URL` is recommended when running more than one machine/worker — it
+> makes rate-limit counters shared across instances (the app falls back to
+> in-memory counters when unset). Twilio vars enable SMS/WhatsApp OTP and
+> complaint status alerts; leave them unset to fall back to email/dev display.
+
+## Background job queue (RQ)
+
+SMS/WhatsApp sends, webhook dispatch, export generation and PAYT dunning run
+through an RQ worker over the same `REDIS_URL` (the Dockerfile starts
+`python worker.py` alongside gunicorn). Without `REDIS_URL` every job executes
+inline, so local dev and the test-suite need no extra process.
 
 # Deploy
 fly deploy

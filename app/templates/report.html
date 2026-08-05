@@ -9,7 +9,7 @@
                 <p class="text-muted small">{{ _('Fill out the ticket below. GPS coordinates and photographic evidence are highly encouraged to accelerate resolution.') }}</p>
             </div>
             
-            <form method="POST" action="/report" enctype="multipart/form-data">
+            <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- User Contact Segment -->
                 <div class="row g-3 mb-3">
@@ -66,10 +66,17 @@
                     <input name="address" class="form-control" placeholder="{{ _('Door No, Street Name, Landmark') }}" required>
                 </div>
 
-                <!-- Describe details -->
+                <!-- Describe details (with voice-to-text for low-literacy users) -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Describe the Issue') }}</label>
-                    <textarea name="description" class="form-control" rows="3" placeholder="{{ _('Provide details about the missed garbage collection...') }}" required></textarea>
+                    <label class="form-label fw-bold text-secondary" for="repDescription">{{ _('Describe the Issue') }}</label>
+                    <div class="input-group">
+                        <textarea name="description" id="repDescription" class="form-control" rows="3" placeholder="{{ _('Provide details about the missed garbage collection...') }}" required></textarea>
+                        <button type="button" class="btn btn-outline-primary sg-mic-btn d-none" id="repMicBtn"
+                                title="{{ _('Speak your description') }}" aria-label="{{ _('Speak your description') }}">
+                            🎤
+                        </button>
+                    </div>
+                    <small class="form-text text-muted sg-mic-hint d-none" id="repMicHint">🎤 {{ _('Speak your description') }}</small>
                 </div>
 
                 <!-- Attachment Proof -->
@@ -129,20 +136,85 @@
                 
                 latInput.value = lat;
                 lonInput.value = lon;
+                latInput.classList.remove('is-invalid');
+                lonInput.classList.remove('is-invalid');
                 
                 geoStatus.textContent = "✅ Coordinates successfully synced!";
                 geoStatus.className = "text-success small fw-bold";
             },
             (error) => {
                 console.warn("GPS error:", error);
-                geoStatus.textContent = "⚠️ Permission denied or timeout. Using defaults.";
-                geoStatus.className = "text-secondary small";
-                // Populate with central Chintalavalasa coordinates as fallback
-                latInput.value = "18.067500";
-                lonInput.value = "83.409400";
+                // NO default-coords fallback: a fake reporter who refuses
+                // location must not get valid-looking coordinates. The submit
+                // handler below blocks the form until a real fix is captured.
+                latInput.value = "";
+                lonInput.value = "";
+                geoStatus.textContent = "⚠️ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}";
+                geoStatus.className = "text-danger small fw-bold";
             },
             { timeout: 5000, enableHighAccuracy: true }
         );
     }
+
+    // Block submission without a live device position (anti-spam).
+    const repForm = document.querySelector('form[action="/report"]');
+    if (repForm) {
+        repForm.addEventListener('submit', (e) => {
+            const lat = repForm.querySelector('[name="latitude"]');
+            const lon = repForm.querySelector('[name="longitude"]');
+            if (!lat || !lat.value || !lon || !lon.value) {
+                e.preventDefault();
+                const st = document.getElementById('geoStatus');
+                if (st) {
+                    st.textContent = "❌ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}";
+                    st.className = 'text-danger small fw-bold';
+                }
+                if (lat) lat.classList.add('is-invalid');
+                if (lon) lon.classList.add('is-invalid');
+                captureGPSCoordinates();
+            }
+        });
+    }
+
+    // ── Voice-to-text (progressive enhancement: hidden when unsupported) ──
+    (function setupVoiceInput() {
+        const mic = document.getElementById('repMicBtn');
+        const hint = document.getElementById('repMicHint');
+        const field = document.getElementById('repDescription');
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!mic || !field || !SR) return;
+        mic.classList.remove('d-none');
+        if (hint) hint.classList.remove('d-none');
+        const rec = new SR();
+        rec.lang = 'te-IN';
+        rec.interimResults = false;
+        rec.maxAlternatives = 1;
+        mic.addEventListener('click', () => {
+            if (mic.classList.contains('listening')) {
+                rec.stop();
+                mic.classList.remove('listening');
+                if (hint) hint.textContent = '🎤 {{ _('Speak your description') }}';
+                return;
+            }
+            try {
+                rec.start();
+                mic.classList.add('listening');
+                if (hint) hint.textContent = '🎤 {{ _('Listening… tap again to stop') }}';
+            } catch (e) {
+                mic.classList.remove('listening');
+            }
+        });
+        rec.onresult = (e) => {
+            const text = e.results[0][0].transcript;
+            field.value = (field.value ? field.value + ' ' : '') + text;
+            mic.classList.remove('listening');
+            if (hint) hint.textContent = '🎤 {{ _('Speak your description') }}';
+        };
+        rec.onerror = () => {
+            mic.classList.remove('listening');
+            if (hint) hint.textContent = '⚠️ {{ _('Voice input not supported on this browser') }}';
+        };
+        rec.onend = () => mic.classList.remove('listening');
+    })();
 </script>
 {% endblock %}

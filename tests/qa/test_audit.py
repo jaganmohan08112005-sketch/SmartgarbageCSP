@@ -3,8 +3,7 @@ import os
 import sqlite3
 
 import pytest
-from app import create_app, db
-from app.models import User, SmartBin, Schedule, Complaint, WorkerProfile
+from app.models import User, Complaint, WorkerProfile
 
 
 class TestAssetLinkage:
@@ -42,7 +41,10 @@ class TestAssetLinkage:
 
 class TestDatabaseSchema:
     def test_sqlite_file_is_writable(self, app):
-        path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
+        uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        if not uri.startswith("sqlite:///"):
+            pytest.skip("SQLite-only probe — current DB is not SQLite")
+        path = uri.replace("sqlite:///", "")
         assert os.path.exists(path)
         conn = sqlite3.connect(path)
         conn.execute("PRAGMA foreign_keys = ON")
@@ -57,12 +59,18 @@ class TestDatabaseSchema:
         from app import db as sa_db
         with app.app_context():
             with sa_db.session.connection() as conn:
-                conn.exec_driver_sql("PRAGMA foreign_keys = ON")
+                if conn.dialect.name == "sqlite":
+                    # SQLite defers FK enforcement until per-connection PRAGMA;
+                    # Postgres enforces FKs natively (no setup needed).
+                    conn.exec_driver_sql("PRAGMA foreign_keys = ON")
                 with pytest.raises(Exception):
-                    conn.exec_driver_sql(
-                        "INSERT INTO complaint (name, phone, ward, address, description, status, user_id) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        ("x", "+919876543210", "Ward 1", "addr", "desc", "Pending", 999999),
+                    conn.execute(
+                        text(
+                            "INSERT INTO complaint (name, phone, ward, address, description, status, user_id) "
+                            "VALUES (:name, :phone, :ward, :address, :description, :status, :uid)"
+                        ),
+                        {"name": "x", "phone": "+919876543210", "ward": "Ward 1",
+                         "address": "addr", "description": "desc", "status": "Pending", "uid": 999999},
                     )
 
     def test_fk_worker_profile_points_to_user(self, app):

@@ -8,7 +8,7 @@ from flask import (current_app, flash, jsonify, redirect, render_template, reque
 
 from werkzeug.utils import secure_filename
 
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 
 from ..models import (AuditLog, BWGDeclaration, Complaint, FirmwareRelease, IllegalDumpReport, IncidentLog, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
 
@@ -18,9 +18,8 @@ from ..auth import admin_required, login_required, superadmin_required
 
 from .. import db, socketio
 
-from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _forecast_priority, _notify_status_change, check_decomposition_timers, check_sensor_faults, fit_length, main, point_in_polygon, validate_indian_phone, write_audit)
+from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _forecast_priority, _notify_status_change, fit_length, main, point_in_polygon, record_complaint_event, validate_indian_phone, write_audit)
 
-import app.routes as _routes  # call-time: honors test monkeypatches
 
 @main.route('/api/illegal-reports')
 @admin_required
@@ -42,11 +41,14 @@ def api_illegal_reports():
         for r in rows
     ])
 
+
 @main.route('/admin')
 @admin_required
 def admin():
-    check_sensor_faults()  # Auto-flag stale sensors on every admin load
-    check_decomposition_timers()  # Force 🟡 Pending Clearance on >48h stagnant bins
+    # NOTE: check_sensor_faults()/check_decomposition_timers() were REMOVED
+    # from the per-load path — they ran 2 full-table scans + 2N queries on
+    # EVERY admin page load. They now run on a 15-minute scheduled RQ job
+    # (see jobs.py: maintenance_job) so the admin dashboard stays fast.
     complaints = Complaint.query.order_by(Complaint.id.desc()).all()
     bins = SmartBin.query.all()
     workers = WorkerProfile.query.all()
@@ -77,6 +79,7 @@ def admin():
                            dump_yards=DUMP_YARDS,
                            is_superadmin=(current_user.is_superadmin if current_user else False))
 
+
 @main.route('/api/route-optimize')
 @login_required
 def route_optimize():
@@ -93,11 +96,11 @@ def route_optimize():
     depot = {"lat": DEFAULT_LAT, "lon": DEFAULT_LON, "label": "Municipal HQ (Depot)"}
     if not critical_bins:
         return jsonify({"route": [depot], "total_distance": 0,
-                         "message": "No critical bins today.", "optimized_with": "none"})
+                        "message": "No critical bins today.", "optimized_with": "none"})
 
     nodes = [{"lat": b.latitude, "lon": b.longitude, "label": b.hardware_id,
-               "ward": b.ward, "level": b.level,
-               "overflow_eta_hours": b.overflow_eta_hours} for b in critical_bins]
+              "ward": b.ward, "level": b.level,
+              "overflow_eta_hours": b.overflow_eta_hours} for b in critical_bins]
 
     # ── Distance helpers ──────────────────────────────────────
     def haversine_km(la1, lo1, la2, lo2):
@@ -105,8 +108,8 @@ def route_optimize():
         phi1, phi2 = math.radians(la1), math.radians(la2)
         dphi = math.radians(la2 - la1)
         dlmb = math.radians(lo2 - lo1)
-        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlmb/2)**2
-        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        a = math.sin(dphi / 2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2)**2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     # Shared session for road-distance calls (created lazily on first use).
     _osrm_session = None
@@ -115,11 +118,10 @@ def route_optimize():
         """Real road-network distance via OSRM. Falls back to Haversine on any error."""
         nonlocal _osrm_session
         try:
-            import requests
             if _osrm_session is None:
                 _osrm_session = requests.Session()  # reuse connections (fast)
             url = (f"https://router.project-osrm.org/route/v1/driving/"
-                 f"{a['lon']},{a['lat']};{b['lon']},{b['lat']}?overview=false")
+                   f"{a['lon']},{a['lat']};{b['lon']},{b['lat']}?overview=false")
             r = _osrm_session.get(url, timeout=2)
             if r.status_code == 200:
                 return r.json()["routes"][0]["distance"] / 1000.0
@@ -137,7 +139,6 @@ def route_optimize():
     n = len(nodes)
     use_road = False
     try:
-        import requests
         import time as _time
         _probe = requests.Session()
         _t0 = _time.time()
@@ -146,7 +147,7 @@ def route_optimize():
     except Exception:
         use_road = False
 
-    dist = [[0.0]*n for _ in range(n)]
+    dist = [[0.0] * n for _ in range(n)]
     if use_road:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         with ThreadPoolExecutor(max_workers=8) as _ex:
@@ -188,15 +189,16 @@ def route_optimize():
         improved = True
         while improved:
             improved = False
-            for a in range(len(tour)-1):
-                for b in range(a+1, len(tour)):
+            for a in range(len(tour) - 1):
+                for b in range(a + 1, len(tour)):
                     if b - a == 1:
                         continue
-                    new = tour[:a+1] + tour[a+1:b+1][::-1] + tour[b+1:]
+                    new = tour[:a + 1] + tour[a + 1:b + 1][::-1] + tour[b + 1:]
+
                     def cost(t):
                         c = dist[t[-1]][t[0]]
-                        for k in range(len(t)-1):
-                            c += dist[t[k]][t[k+1]]
+                        for k in range(len(t) - 1):
+                            c += dist[t[k]][t[k + 1]]
                         return c
                     if cost(new) < cost(tour) - 1e-9:
                         tour = new
@@ -210,7 +212,7 @@ def route_optimize():
         unvisited = list(range(n))
         while unvisited:
             cidx = min(unvisited, key=lambda k: dist[k][0] if current is depot
-                        else haversine_km(current["lat"], current["lon"], nodes[k]["lat"], nodes[k]["lon"]))
+                       else haversine_km(current["lat"], current["lon"], nodes[k]["lat"], nodes[k]["lon"]))
             order.append(cidx)
             current = nodes[cidx]
             unvisited.remove(cidx)
@@ -227,17 +229,30 @@ def route_optimize():
             seg = road_km(prev, node) if use_road else haversine_km(prev["lat"], prev["lon"], node["lat"], node["lon"])
         total += seg
         route.append(node)
-        prev, prev_idx = node, idx
+        prev = node
     back = road_km(prev, depot) if use_road else haversine_km(prev["lat"], prev["lon"], depot["lat"], depot["lon"])
     total += back
     route.append(depot)
 
+    # ── Resource-savings dashboard: show exactly what dynamic routing buys ──
+    # vs. the static 45 km/day baseline the municipality used to run. Fuel at
+    # ₹62/km (diesel + wear, urban collection truck average) and manpower at
+    # ~24 km/h effective service speed + 4 min per stop.
     traditional_km = 45.0
-    co2_saved_kg = round(max(0, traditional_km - total) * 0.21, 2)
-    write_audit("ROUTE_OPTIMIZE", detail=f"Optimized route ({method}): {round(total,2)}km, {len(critical_bins)} critical bins.")
+    saved_km = max(0.0, traditional_km - total)
+    co2_saved_kg = round(saved_km * 0.21, 2)
+    fuel_saved_rs = round(saved_km * 62.0, 2)
+    manpower_hours = round(total / 24.0 + len(critical_bins) * (4.0 / 60.0), 2)
+    traditional_hours = round(traditional_km / 24.0 + len(critical_bins) * (4.0 / 60.0), 2)
+    manpower_saved_hours = round(max(0.0, traditional_hours - manpower_hours), 2)
+    write_audit("ROUTE_OPTIMIZE", detail=f"Optimized route ({method}): {round(total, 2)}km, {len(critical_bins)} critical bins, ~₹{fuel_saved_rs} fuel saved.")
     return jsonify({"route": route, "total_distance": round(total, 2),
-                     "critical_count": len(critical_bins), "co2_saved_kg": co2_saved_kg,
-                     "optimized_with": method})
+                    "critical_count": len(critical_bins), "co2_saved_kg": co2_saved_kg,
+                    "fuel_saved_rs": fuel_saved_rs,
+                    "manpower_hours": manpower_hours,
+                    "manpower_saved_hours": manpower_saved_hours,
+                    "optimized_with": method})
+
 
 @main.route('/api/overflow-forecast')
 @admin_required
@@ -275,6 +290,7 @@ def overflow_forecast():
     rows.sort(key=lambda r: (r["overflow_eta_hours"], -r["level"]))
     return jsonify({"bins": rows, "urgent_threshold_hours": FORECAST_URGENT_HOURS})
 
+
 @main.route('/api/fleet-location')
 @admin_required
 def fleet_location():
@@ -306,6 +322,31 @@ def fleet_location():
 
     return jsonify(fleet)
 
+
+def _is_ssrf_blocked(hostname):
+    """True when a hostname resolves to a private/loopback/link-local IP.
+
+    SSRF guard: an admin could register `http://169.254.169.254/` (cloud
+    metadata) and the dispatch_webhooks_job would POST to it, leaking cloud
+    credentials. Resolve the hostname and reject any IP in the RFC1918
+    private, loopback, link-local, or metadata ranges.
+    """
+    import ipaddress
+    try:
+        import socket
+        infos = socket.getaddrinfo(hostname, None)
+        for info in infos:
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_multicast or ip.is_reserved
+                    or ip.is_unspecified):
+                return True
+        return False
+    except Exception:
+        # DNS failure — treat as blocked (fail closed).
+        return True
+
+
 @main.route('/api/webhooks', methods=['POST'])
 @admin_required
 def configure_webhooks():
@@ -319,6 +360,11 @@ def configure_webhooks():
                 return redirect(url_for('main.admin'))
             if not parsed_url.hostname:
                 flash('Invalid webhook URL: hostname is required.', 'error')
+                return redirect(url_for('main.admin'))
+            # SSRF guard: reject URLs that resolve to private/loopback/link-local
+            # IPs (cloud metadata, internal services, localhost).
+            if _is_ssrf_blocked(parsed_url.hostname):
+                flash('Invalid webhook URL: private/loopback addresses are not allowed.', 'error')
                 return redirect(url_for('main.admin'))
         except Exception:
             flash('Invalid webhook URL format.', 'error')
@@ -337,12 +383,14 @@ def configure_webhooks():
             flash(f"Webhook registered: {url}", "success")
     return redirect(url_for('main.admin'))
 
+
 @main.route('/resolve/<int:id>')
 @admin_required
 def resolve_complaint(id):
     complaint = Complaint.query.get_or_404(id)
     if complaint.status != 'Resolved':
         complaint.status = 'Resolved'
+        complaint.resolved_at = utcnow()
         # Push an in-app notification to the reporting citizen
         if complaint.user_id:
             note = Notification(
@@ -352,11 +400,15 @@ def resolve_complaint(id):
             )
             db.session.add(note)
         db.session.commit()
+        # Citizen-tracking timeline: the resolution is a first-class event
+        record_complaint_event(complaint, 'Resolved',
+                               'Resolved by the sanitation control room.')
         # Out-of-band status alert (WhatsApp / SMS / email fallback)
         _notify_status_change(complaint)
         write_audit("RESOLVE_COMPLAINT", target=f"Complaint #{id}", detail=f"Ward: {complaint.ward}")
         flash(f"Complaint #{id} resolved.", "success")
     return redirect(url_for('main.admin'))
+
 
 @main.route('/admin/run-dunning', methods=['POST'])
 @admin_required
@@ -369,12 +421,14 @@ def run_dunning():
         flash("Dunning run enqueued in the background.", 'success')
     return redirect(url_for('main.admin'))
 
+
 @main.route('/admin/failed-jobs')
 @admin_required
 def failed_jobs_dashboard():
     from ..jobs import failed_jobs
     jobs = failed_jobs()
     return render_template('failed_jobs.html', jobs=jobs, job_count=len(jobs))
+
 
 @main.route('/api/jobs/status')
 @admin_required
@@ -393,6 +447,7 @@ def jobs_status():
         return body, 200, {'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'}
     return jsonify(queue_status())
 
+
 @main.route('/admin/failed-jobs/requeue/<job_id>', methods=['POST'])
 @admin_required
 def failed_job_requeue(job_id):
@@ -404,6 +459,7 @@ def failed_job_requeue(job_id):
           "success" if ok else "error")
     return redirect(url_for('main.failed_jobs_dashboard'))
 
+
 @main.route('/admin/failed-jobs/delete/<job_id>', methods=['POST'])
 @admin_required
 def failed_job_delete(job_id):
@@ -414,6 +470,7 @@ def failed_job_delete(job_id):
           else f"Could not delete job {job_id}.", "success" if ok else "error")
     return redirect(url_for('main.failed_jobs_dashboard'))
 
+
 @main.route('/admin/failed-jobs/clear', methods=['POST'])
 @admin_required
 def failed_jobs_clear():
@@ -422,6 +479,7 @@ def failed_jobs_clear():
     write_audit("FAILED_JOBS_CLEAR", detail=f"{n} job(s) purged")
     flash(f"Cleared {n} failed job(s) from the dead-letter queue.", "success")
     return redirect(url_for('main.failed_jobs_dashboard'))
+
 
 @main.route('/admin/bwg-approve/<int:id>')
 @admin_required
@@ -500,6 +558,7 @@ def payt_refund(inv_id):
     flash(f"Invoice #{inv_id} refunded (refund {refund_id}).", "success")
     return redirect(url_for('main.admin'))
 
+
 @main.route('/admin/offline-deliveries')
 @admin_required
 def offline_deliveries():
@@ -530,6 +589,7 @@ def offline_deliveries():
                            week=week, month=month, photos=photos, retried=retried,
                            top_wards=top_wards)
 
+
 @main.route('/admin/audit')
 @superadmin_required
 def audit_trail():
@@ -538,6 +598,9 @@ def audit_trail():
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
     return render_template('audit_log.html', logs=logs, is_superadmin=True)
 
+
+# Super-admin console: the sanctioned way to create admin accounts now that
+# public self-registration is citizen/worker only. @superadmin_required gates it.
 @main.route('/admin/super', methods=['GET', 'POST'])
 @superadmin_required
 def super_admin():
@@ -561,8 +624,8 @@ def super_admin():
                     flash('Enter a valid Indian mobile number for the admin.', 'error')
                 else:
                     new_admin = User(username=username,
-                                   password_hash=generate_password_hash(password),
-                                   role='admin', phone=phone, is_approved=True)
+                                     password_hash=generate_password_hash(password),
+                                     role='admin', phone=phone, is_approved=True)
                     db.session.add(new_admin)
                     db.session.commit()
                     write_audit("SUPER_CREATE_ADMIN", target=username,
@@ -599,12 +662,14 @@ def super_admin():
     users = User.query.order_by(User.id).all()
     return render_template('super_admin.html', users=users, session_user_id=session.get('user_id'))
 
+
 @main.route('/admin/firmware')
 @admin_required
 def firmware_hub():
     releases = FirmwareRelease.query.order_by(FirmwareRelease.created_at.desc()).all()
     bins = SmartBin.query.all()
     return render_template('firmware.html', releases=releases, bins=bins)
+
 
 @main.route('/admin/firmware/upload', methods=['POST'])
 @admin_required
@@ -643,6 +708,7 @@ def firmware_upload():
     flash(f"Firmware v{version} uploaded successfully. Ready to push.", "success")
     return redirect(url_for('main.firmware_hub'))
 
+
 @main.route('/api/ota/<hw_id>', methods=['POST'])
 @admin_required
 def ota_push(hw_id):
@@ -667,6 +733,7 @@ def ota_push(hw_id):
         db.session.commit()
         return jsonify({"success": False, "message": f"OTA push to {hw_id} failed. Bin may be offline."}), 503
 
+
 @main.route('/admin/toggle-compactor/<string:hw_id>', methods=['POST'])
 @admin_required
 def toggle_compactor(hw_id):
@@ -677,6 +744,7 @@ def toggle_compactor(hw_id):
                 detail=f"Solar pre-compaction {'ENABLED' if smart_bin.precompaction_enabled else 'DISABLED'}.")
     return jsonify({"success": True, "hardware_id": hw_id,
                     "precompaction_enabled": smart_bin.precompaction_enabled})
+
 
 @main.route('/api/bins')
 @login_required

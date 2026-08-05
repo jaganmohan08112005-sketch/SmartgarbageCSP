@@ -1,4 +1,4 @@
-﻿from app.models import User, Complaint, BWGDeclaration, WorkerProfile, Notification, utcnow
+from app.models import User, Complaint, BWGDeclaration, Notification, utcnow
 from werkzeug.security import generate_password_hash
 from app import db, create_app, socketio
 import json as _json
@@ -37,12 +37,14 @@ def _make_user(app, username, role='citizen', phone=None, password='testpass123'
         db.session.commit()
         return u.id
 
+
 def _login_admin(client, app, username, password='testpass123'):
     client.post('/login', data={'username': username, 'password': password}, follow_redirects=False)
     # OTPs are stored hashed — read the plaintext dev OTP from the session.
     with client.session_transaction() as sess:
         otp = sess.get('dev_otp')
     client.post('/mfa-verify', data={'otp': otp}, follow_redirects=False)
+
 
 # ── Login lockout after repeated failures ──────────────────────
 def test_login_lockout_after_failures(client, app):
@@ -52,7 +54,7 @@ def test_login_lockout_after_failures(client, app):
         client.post('/login', data={'username': 'lockuser', 'password': 'wrong'})
     # The 11th attempt uses the CORRECT password — account must still be locked.
     r = client.post('/login', data={'username': 'lockuser', 'password': 'rightpass123'},
-                       follow_redirects=True)
+                    follow_redirects=True)
     body = r.data.lower()
     assert b'locked' in body, f"expected lockout flash, got: {body[:400]}"
     with app.app_context():
@@ -68,7 +70,7 @@ def test_login_success_resets_failures(client, app):
     for _ in range(3):
         client.post('/login', data={'username': 'resetlock', 'password': 'wrong'})
     r = client.post('/login', data={'username': 'resetlock', 'password': 'rightpass123'},
-                       follow_redirects=False)
+                    follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
         u = U.query.filter_by(username='resetlock').first()
@@ -91,7 +93,20 @@ def test_citizen_cannot_resolve_bin(client, app):
     assert r.status_code == 403
 
 
-def test_worker_can_resolve_bin(client, app):
+def _make_jpeg_bytes():
+    """Return a tiny in-memory JPEG for multipart uploads in tests."""
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new('RGB', (200, 120), (120, 200, 80)).save(buf, format='JPEG')
+    buf.seek(0)
+    return buf
+
+
+def test_worker_can_resolve_bin_with_after_photo_and_gps(client, app):
+    """Close-the-loop: a worker clearing a bin MUST submit a live After-photo
+    AND device GPS within CLEAR_RADIUS_M of the bin — the clear is accepted
+    and the evidence path is persisted on the bin."""
     from app.models import SmartBin, WorkerProfile
     uid = _make_user(app, 'reswork', role='worker')
     with app.app_context():
@@ -102,9 +117,150 @@ def test_worker_can_resolve_bin(client, app):
         db.session.add(b)
         db.session.commit()
     _login_admin(client, app, 'reswork')
-    r = client.post('/resolve-bin/BIN-RES-2', follow_redirects=False)
+    r = client.post('/resolve-bin/BIN-RES-2',
+                    data={'after_photo': (_make_jpeg_bytes(), 'after.jpg'),
+                          'lat': '18.05', 'lon': '83.40'},
+                    content_type='multipart/form-data', follow_redirects=False)
     assert r.status_code == 200
     assert r.get_json().get('success') is True
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='BIN-RES-2').first()
+        assert b.level == 0 and b.status == 'Safe'
+        assert b.after_photo is not None and 'after' in b.after_photo
+
+
+def test_resolve_bin_requires_after_photo(client, app):
+    """Close-the-loop: clearing a bin without an After-photo is REJECTED (400)
+    — a driver can no longer tap 'Cleared' from down the street."""
+    from app.models import SmartBin, WorkerProfile
+    uid = _make_user(app, 'reswork2', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=uid, vehicle_id='CV-98', status='Active'))
+        db.session.add(SmartBin(hardware_id='BIN-RES-3', latitude=18.05, longitude=83.40,
+                                level=90, status='Critical',
+                                ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    _login_admin(client, app, 'reswork2')
+    r = client.post('/resolve-bin/BIN-RES-3',
+                    data={'lat': '18.05', 'lon': '83.40'},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 400
+    assert r.get_json().get('success') is False
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='BIN-RES-3').first()
+        assert b.level == 90  # unchanged — clear rejected
+
+
+def test_resolve_bin_rejects_gps_out_of_range(client, app):
+    """Close-the-loop: worker GPS far from the bin (e.g. cleared from across
+    town) is REJECTED even with a photo — the ticket only closes on-site."""
+    from app.models import SmartBin, WorkerProfile
+    uid = _make_user(app, 'reswork3', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=uid, vehicle_id='CV-97', status='Active'))
+        db.session.add(SmartBin(hardware_id='BIN-RES-4', latitude=18.05, longitude=83.40,
+                                level=90, status='Critical',
+                                ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    _login_admin(client, app, 'reswork3')
+    r = client.post('/resolve-bin/BIN-RES-4',
+                    data={'after_photo': (_make_jpeg_bytes(), 'after.jpg'),
+                          'lat': '18.5', 'lon': '84.0'},  # ~56km away
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 400
+    assert r.get_json().get('success') is False
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='BIN-RES-4').first()
+        assert b.level == 90  # unchanged — clear rejected
+
+
+def test_report_requires_gps_server_side(client, app):
+    """Anti-spam: /report rejects a submission with NO device coordinates even
+    when the client tries to bypass the browser check (no default-coords
+    fallback server-side either)."""
+    _make_user(app, 'nogpscit')
+    client.post('/login', data={'username': 'nogpscit', 'password': 'testpass123'},
+                follow_redirects=False)
+    r = client.post('/report', data={
+        'name': 'nogpscit', 'phone': '+919876543214',
+        'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+        'description': 'Overflow', 'report_time': '2026-07-18T10:00'
+    }, follow_redirects=False)
+    assert r.status_code == 302  # bounced back to the form
+    with app.app_context():
+        assert Complaint.query.filter_by(name='nogpscit').first() is None
+
+
+def test_report_photo_gps_mismatch_blocked(client, app, monkeypatch):
+    """Anti-spam: a photo geotagged far from the submitter's device position is
+    a screenshot / internet image — the submission is blocked server-side."""
+    import app.routes.citizen as citizen_mod
+    _make_user(app, 'exifcit')
+    client.post('/login', data={'username': 'exifcit', 'password': 'testpass123'},
+                follow_redirects=False)
+    # Simulate a photo whose EXIF GPS is ~2km from the reported device position.
+    monkeypatch.setattr(citizen_mod, '_photo_gps_from_upload',
+                        lambda file: (18.10, 83.45))
+    r = client.post('/report',
+                    data={'name': 'exifcit', 'phone': '+919876543215',
+                          'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+                          'description': 'Overflow', 'latitude': '18.05',
+                          'longitude': '83.40', 'report_time': '2026-07-18T10:00',
+                          'photo': (_make_jpeg_bytes(), 'shot.jpg')},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 302  # bounced back with the mismatch message
+    with app.app_context():
+        assert Complaint.query.filter_by(name='exifcit').first() is None
+
+
+def test_report_photo_gps_match_accepted(client, app, monkeypatch):
+    """Anti-spam: a photo geotagged AT the device position passes the
+    cross-check and the complaint is filed normally."""
+    import app.routes.citizen as citizen_mod
+    _make_user(app, 'exifok')
+    client.post('/login', data={'username': 'exifok', 'password': 'testpass123'},
+                follow_redirects=False)
+    monkeypatch.setattr(citizen_mod, '_photo_gps_from_upload',
+                        lambda file: (18.05, 83.40))  # matches device coords
+    r = client.post('/report',
+                    data={'name': 'exifok', 'phone': '+919876543216',
+                          'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+                          'description': 'Overflow', 'latitude': '18.05',
+                          'longitude': '83.40', 'report_time': '2026-07-18T10:00',
+                          'photo': (_make_jpeg_bytes(), 'shot.jpg')},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code in (200, 302)
+    with app.app_context():
+        assert Complaint.query.filter_by(name='exifok').first() is not None
+
+
+def test_report_photo_upload_succeeds_with_real_pipeline(client, app):
+    """Regression: the REAL photo pipeline (_photo_gps_from_upload ->
+    _ai_verify_photo -> save_compressed_photo) must accept a valid JPEG and
+    file the complaint.
+
+    Pillow 12 takes ownership of the file-like handed to Image.open() and
+    img.close() closes it — which used to poison the request's upload stream
+    ('I/O operation on closed file') and reject EVERY photo complaint. The
+    earlier photo tests monkeypatched _photo_gps_from_upload (skipping the
+    stream-closer), so this runs the true chain with zero monkeypatching.
+    """
+    _make_user(app, 'photocit')
+    client.post('/login', data={'username': 'photocit', 'password': 'testpass123'},
+                follow_redirects=False)
+    r = client.post('/report',
+                    data={'name': 'photocit', 'phone': '+919876543217',
+                          'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+                          'description': 'Overflow with photo evidence',
+                          'latitude': '18.05', 'longitude': '83.40',
+                          'report_time': '2026-08-03T10:00',
+                          'photo': (_make_jpeg_bytes(), 'shot.jpg')},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code in (200, 302)  # not bounced back to the form
+    with app.app_context():
+        comp = Complaint.query.filter_by(name='photocit').first()
+        assert comp is not None, 'photo complaint was rejected'
+        assert comp.photo is not None and 'uploads/' in comp.photo
 
 
 # ── Telemetry audit only on state change (no per-ping bloat) ──
@@ -144,12 +300,14 @@ def test_proxy_fix_uses_forwarded_for(client, app):
         assert log is not None
         assert log.ip_address == '203.0.113.7', f"got {log.ip_address}"
 
+
 # ── CSRF enforcement on POST ─────────────────────────────────
 def test_register_requires_csrf(client, app):
     app.config['WTF_CSRF_ENABLED'] = True
     r = client.post('/register', data={'username': 'csrfuser',
-                                      'password': 'testpass123', 'phone': '+919876543202'})
+                                       'password': 'testpass123', 'phone': '+919876543202'})
     assert r.status_code in (400, 302)
+
 
 # ── Superadmin gating: regular admin cannot reach /admin/audit ──
 def test_audit_requires_superadmin(client, app):
@@ -157,6 +315,7 @@ def test_audit_requires_superadmin(client, app):
     client.post('/login', data={'username': 'regadmin', 'password': 'testpass123'})
     r = client.get('/admin/audit', follow_redirects=False)
     assert r.status_code in (302, 303, 403)
+
 
 # ── Complaint lifecycle ───────────────────────────────────────
 def test_complaint_lifecycle(client, app):
@@ -172,15 +331,16 @@ def test_complaint_lifecycle(client, app):
     with app.app_context():
         c = Complaint.query.filter_by(name='complainer').first()
         assert c is not None
-        assert c.status == 'Pending'
+        assert c.status == 'Submitted'
+
 
 # ── BWG approval flow (admin + MFA) ──────────────────────────
 def test_bwg_approval_flow(client, app):
     uid = _make_user(app, 'bwguser')
     with app.app_context():
         decl = BWGDeclaration(user_id=uid, entity_name='Test Mall', entity_type='commercial',
-                               composting_kg=10, recyclable_kg=10, landfill_kg=10,
-                               request_bulk_pickup=True, pickup_status='Pending')
+                              composting_kg=10, recyclable_kg=10, landfill_kg=10,
+                              request_bulk_pickup=True, pickup_status='Pending')
         db.session.add(decl)
         db.session.commit()
         did = decl.id
@@ -190,6 +350,7 @@ def test_bwg_approval_flow(client, app):
     assert r3.status_code == 302
     with app.app_context():
         assert BWGDeclaration.query.get(did).pickup_status == 'Approved'
+
 
 # ── Picker self-registration (informal worker) ──────────────
 def test_picker_registration(client, app):
@@ -205,10 +366,11 @@ def test_picker_registration(client, app):
         assert u.worker_profile is not None
         assert u.worker_profile.is_informal_picker is True
 
+
 # ── Webhook signature verification (Twilio-style) ───────────
 def test_whatsapp_webhook_rejects_bad_signature(client, app):
     r = client.post('/webhook/whatsapp', data={'From': 'whatsapp:+919876543205',
-                                                 'Body': 'test dump'})
+                                               'Body': 'test dump'})
     assert r.status_code in (403, 400, 200)
 
 
@@ -218,11 +380,11 @@ def test_whatsapp_webhook_enforces_signature_when_configured(client, app, monkey
     monkeypatch.setenv('TWILIO_AUTH_TOKEN', 'tok')
     # No signature header -> 403
     r = client.post('/webhook/whatsapp', data={'From': 'whatsapp:+919876543205',
-                                                'Body': 'test dump'})
+                                               'Body': 'test dump'})
     assert r.status_code == 403
     # Wrong signature header -> 403
     r = client.post('/webhook/whatsapp', data={'From': 'whatsapp:+919876543205',
-                                                'Body': 'test dump'},
+                                               'Body': 'test dump'},
                     headers={'X-Twilio-Signature': 'AAAA'})
     assert r.status_code == 403
 
@@ -236,7 +398,7 @@ def test_whatsapp_webhook_enforces_signature_when_configured(client, app, monkey
                                                    'Body': 'test dump'}.items()))
     sig = base64.b64encode(hmac.new(b'tok', (url + params).encode(), hashlib.sha1).digest()).decode()
     r = client.post('/webhook/whatsapp', data={'From': 'whatsapp:+919876543205',
-                                                'Body': 'test dump'},
+                                               'Body': 'test dump'},
                     headers={'X-Twilio-Signature': sig})
     assert r.status_code == 200
 
@@ -605,6 +767,55 @@ def test_dunning_job_creates_and_dedupes_reminders(app):
         assert Notification.query.filter_by(user_id=uid).count() == 1
 
 
+# ── PAYT seed script: realistic ledger for demos ─────────────
+def test_seed_payt_invoices_creates_realistic_mix(app):
+    """scripts/seed_payt_invoices.py populates several citizens with a mixed
+    Paid/Unpaid/Waived/Refunded history, amounts that mirror the app's billing
+    formula, and dunning-eligible overdue invoices — idempotently."""
+    from datetime import timedelta
+    import scripts.seed_payt_invoices as seed_mod
+    from app.models import PAYTInvoice
+    from app.jobs import dunning_job
+
+    summary = seed_mod.seed_payt_invoices(app=app, months=5, force=True)
+    # 7 citizens × 5 trailing months, statuses by month: 19 Paid, 14 Unpaid,
+    # 1 Waived (unpaid, forgiven) and 1 Refunded (paid, Razorpay-reversed).
+    assert summary['invoices'] == 35
+    assert summary['created'] == 35
+    assert summary['citizens'] == 7
+    assert summary['by_status']['Paid'] == 19
+    assert summary['by_status']['Unpaid'] == 14
+    assert summary['by_status']['Waived'] == 1
+    assert summary['by_status']['Refunded'] == 1
+    assert summary['dunning_eligible'] >= 1
+
+    # Idempotent re-run adds nothing.
+    summary2 = seed_mod.seed_payt_invoices(app=app, months=5)
+    assert summary2['created'] == 0
+    assert summary2['skipped'] == 35
+
+    # Amounts follow the real billing rule: base = kg × ₹1.5, penalty from
+    # compliance (1.0x..2.0x); paid invoices carry a ref + paid_at; refunded
+    # ones carry a Razorpay refund id.
+    with app.app_context():
+        paid = PAYTInvoice.query.filter_by(status='Paid').first()
+        assert paid.amount_rs == round(round(paid.weight_kg * 1.5, 2) * paid.penalty_multiplier, 2)
+        assert paid.penalty_multiplier == round(1.0 + (100.0 - paid.compliance_score) / 100.0, 2)
+        assert paid.transaction_ref and paid.paid_at is not None
+        refunded = PAYTInvoice.query.filter_by(status='Refunded').first()
+        assert refunded.refund_id and refunded.refunded_at is not None
+        assert refunded.payment_method == 'Razorpay'
+        waived = PAYTInvoice.query.filter_by(status='Waived').first()
+        assert waived.refund_reason and waived.paid_at is None
+        # Older Unpaid invoices (June/July, issued > 30 days ago) exist and the
+        # dunning sweep flags exactly the same set the seed counts.
+        assert dunning_job(grace_days=30) == summary['dunning_eligible']
+        overdue_unpaid = PAYTInvoice.query.filter(
+            PAYTInvoice.status == 'Unpaid',
+            PAYTInvoice.issued_at < utcnow() - timedelta(days=30)).count()
+        assert overdue_unpaid >= 1
+
+
 def test_async_export_request_and_result(client, app):
     """Export generation runs through the job queue; the request/status/result
     flow works inline when Redis is absent (tests)."""
@@ -622,6 +833,7 @@ def test_async_export_request_and_result(client, app):
     assert 'text/csv' in r3.headers.get('Content-Type', '')
     assert 'indicator,value' in r3.get_data(as_text=True)
 
+
 # ── State-portal compliance export (admin) ──────────────────
 def test_state_portal_export(client, app):
     _make_user(app, 'expadmin', role='admin')
@@ -632,6 +844,7 @@ def test_state_portal_export(client, app):
         import json
         data = json.loads(r.data)
         assert 'indicators' in data
+
 
 # ── Trend-over-time segregation API (admin) ─────────────
 def test_trend_segregation_api(client, app):
@@ -696,6 +909,7 @@ def test_weather_status_cached_within_ttl(monkeypatch):
 
     class _FakeResp:
         ok = True
+
         def json(self):
             return {'current_condition': [{'weatherDesc': [{'value': 'Clear'}]}]}
 
@@ -721,6 +935,7 @@ def test_weather_status_refetches_after_ttl_expiry(monkeypatch):
 
     class _FakeResp:
         ok = True
+
         def json(self):
             return {'current_condition': [{'weatherDesc': [{'value': 'Rain'}]}]}
 
@@ -764,6 +979,7 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
 
     class _FakeResp:
         status_code = 200
+
         def json(self):
             return {'current': {'temperature_2m': 30, 'relative_humidity_2m': 70,
                                 'wind_speed_10m': 12, 'weather_code': 0}}
@@ -787,6 +1003,7 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
     assert r2.status_code == 200
     assert fetch_calls['n'] == 1  # warm cache → no second network call
     assert _json.loads(r2.data) == body1
+
 
 # ── Complaint resolution pushes a notification to citizen ──
 def test_resolve_sends_status_sms_and_whatsapp_prefix(client, app, monkeypatch):
@@ -846,6 +1063,179 @@ def test_resolve_pushes_notification(client, app):
     with app.app_context():
         assert Notification.query.filter_by(user_id=cid).count() == 1
 
+
+# ── Citizen complaint tracking: signed token + timeline + ward SLA ──
+def test_tracking_token_roundtrip_and_tamper(app):
+    """The tracking token is a signed complaint id: it verifies back to the
+    id, but a tampered signature (or a token for a different salt) never
+    resolves — complaints can't be enumerated."""
+    from app.routes import make_complaint_token, verify_complaint_token
+    with app.app_context():
+        token = make_complaint_token(42)
+        assert verify_complaint_token(token) == 42
+        # Flipping a character breaks the signature → None, not an exception.
+        tampered = token[:-1] + ('A' if token[-1] != 'A' else 'B')
+        assert verify_complaint_token(tampered) is None
+        assert verify_complaint_token('not-a-real-token') is None
+        assert verify_complaint_token('') is None
+
+
+def test_tracking_token_expires_after_max_age(app):
+    """Expired tokens verify to None so old links 404 instead of leaking data."""
+    import app.routes as routes_mod
+    from app.routes import make_complaint_token, verify_complaint_token
+    with app.app_context():
+        token = make_complaint_token(7)
+        assert verify_complaint_token(token) == 7
+        # Force max_age negative → every token is instantly expired (a token
+        # signed moments ago can carry a 0.0 age, so 0 wouldn't reliably trip).
+        original = routes_mod.TRACK_TOKEN_MAX_AGE
+        try:
+            routes_mod.TRACK_TOKEN_MAX_AGE = -1
+            assert verify_complaint_token(token) is None
+        finally:
+            # Restore — this module constant is process-global and other tests
+            # mint tokens too; leaving it negative would expire THEIR tokens.
+            routes_mod.TRACK_TOKEN_MAX_AGE = original
+
+
+def test_track_page_renders_timeline_and_ward_sla(client, app):
+    """The public /track/<token> page shows the status timeline and the
+    ward's average resolution time (computed from resolved complaints)."""
+    from app.routes import make_complaint_token
+    from datetime import timedelta
+    cid = _make_user(app, 'trackciti')
+    filed = utcnow() - timedelta(hours=6)
+    with app.app_context():
+        comp = Complaint(
+            name='trackciti', phone='+919876543210',
+            ward='Ward 1 - MVGR College Area', address='Gate',
+            description='Overflow bin near the college gate', status='Resolved',
+            user_id=cid, created_at=filed, resolved_at=utcnow(),
+        )
+        db.session.add(comp)
+        db.session.commit()
+        cid2 = comp.id
+        from app.models import ComplaintStatusLog
+        db.session.add(ComplaintStatusLog(complaint_id=cid2, status='Submitted',
+                                          created_at=filed))
+        db.session.add(ComplaintStatusLog(complaint_id=cid2, status='Resolved',
+                                          created_at=utcnow()))
+        db.session.commit()
+        token = make_complaint_token(cid2)
+    r = client.get(f'/track/{token}')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert f'Ticket #{cid2}' in body
+    assert 'Submitted' in body and 'Resolved' in body
+    assert 'Avg. resolution time in this ward' in body
+    # Exactly 6h between created_at and resolved_at → the ward average renders
+    # as "6.0 h" (a weak `'h' in body` check would pass even without the SLA).
+    assert '6.0 h' in body
+
+
+def test_track_page_rejects_invalid_and_unknown_tokens(client, app):
+    """Invalid tokens 404 (no complaint leakage) — the track page is public
+    but only reachable with a valid signature."""
+    assert client.get('/track/garbage-token').status_code == 404
+    assert client.get('/track/').status_code == 404
+    # A valid signature for a complaint id that doesn't exist → 404 too.
+    from app.routes import make_complaint_token
+    with app.app_context():
+        ghost = make_complaint_token(999999)
+    assert client.get(f'/track/{ghost}').status_code == 404
+
+
+def test_report_auto_sms_tracks_link(client, app, monkeypatch):
+    """Filing a complaint SMSes the reporter a signed /track/ link via the
+    existing Twilio path (WhatsApp prefix mirrored when configured)."""
+    cid = _make_user(app, 'trackreporter', phone='+919876543211')
+    client.post('/login', data={'username': 'trackreporter', 'password': 'testpass123'},
+                follow_redirects=False)
+    sent = {}
+    monkeypatch.setenv('TWILIO_ACCOUNT_SID', 'ACtest')
+    monkeypatch.setenv('TWILIO_AUTH_TOKEN', 'tok')
+    monkeypatch.setenv('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
+
+    def fake_post(url, data=None, auth=None, timeout=None):
+        sent.update({'to': data.get('To'), 'body': data.get('Body')})
+        return type('R', (), {'status_code': 201})()
+
+    import app.routes as routes
+    monkeypatch.setattr(routes.requests, 'post', fake_post)
+    monkeypatch.setattr(routes, '_is_local_request', lambda: False)
+
+    r = client.post('/report', data={
+        'name': 'trackreporter', 'phone': '+919876543211',
+        'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+        'description': 'Overflow', 'latitude': '18.05', 'longitude': '83.40',
+        'report_time': '2026-08-03T10:00'
+    }, follow_redirects=True)
+    assert r.status_code in (200, 302)
+    # The SMS body must contain a signed /track/ link.
+    assert sent.get('to') == 'whatsapp:+919876543211'
+    assert '/track/' in sent.get('body', '')
+    # And the success page exposes the same link for copying.
+    with app.app_context():
+        comp = Complaint.query.filter_by(user_id=cid).first()
+        assert comp is not None
+        from app.models import ComplaintStatusLog
+        assert ComplaintStatusLog.query.filter_by(
+            complaint_id=comp.id, status='Submitted').count() == 1
+
+
+def test_resolve_records_timeline_event_and_resolved_at(client, app):
+    """Admin resolve appends a Resolved timeline event and stamps resolved_at
+    (the SLA estimator reads resolved_at - created_at)."""
+    from app.models import ComplaintStatusLog
+    cid = _make_user(app, 'reslogciti')
+    with app.app_context():
+        comp = Complaint(
+            name='reslogciti', phone='+919876543212',
+            ward='Ward 1 - MVGR College Area', address='Gate',
+            description='Overflow', status='Submitted', user_id=cid,
+        )
+        db.session.add(comp)
+        db.session.commit()
+        comp_id = comp.id
+    _make_user(app, 'reslogadmin', role='admin')
+    _login_admin(client, app, 'reslogadmin')
+    r = client.get(f'/resolve/{comp_id}', follow_redirects=False)
+    assert r.status_code == 302
+    with app.app_context():
+        comp = Complaint.query.get(comp_id)
+        assert comp.status == 'Resolved'
+        assert comp.resolved_at is not None
+        assert ComplaintStatusLog.query.filter_by(
+            complaint_id=comp_id, status='Resolved').count() == 1
+
+
+def test_sla_escalation_records_timeline_event(app):
+    """The SLA-escalation sweep records an Escalated timeline event so the
+    citizen sees why their complaint moved out of the normal flow."""
+    from app.models import ComplaintStatusLog
+    from datetime import timedelta
+    cid = _make_user(app, 'slaescciti')
+    with app.app_context():
+        comp = Complaint(
+            name='slaescciti', phone='+919876543213',
+            ward='Ward 1 - MVGR College Area', address='Gate',
+            description='Overflow', status='Submitted', user_id=cid,
+            sla_deadline=utcnow() - timedelta(hours=1),
+        )
+        db.session.add(comp)
+        db.session.commit()
+        comp_id = comp.id
+    from app.jobs import sla_escalation_job
+    escalated = sla_escalation_job()
+    assert escalated >= 1
+    with app.app_context():
+        comp = Complaint.query.get(comp_id)
+        assert comp.status == 'Escalated'
+        assert ComplaintStatusLog.query.filter_by(
+            complaint_id=comp_id, status='Escalated').count() == 1
+
+
 # ── Citizen notifications list + mark-read (real-time push data layer) ──
 def test_notifications_list_and_markread(client, app):
     cid = _make_user(app, 'notifuser')
@@ -872,7 +1262,7 @@ def test_route_optimize_tsp(client, app):
         for hid, lat, lon in [('TSP-1', 18.05, 83.40), ('TSP-2', 18.06, 83.41), ('TSP-3', 18.07, 83.42)]:
             if not SmartBin.query.filter_by(hardware_id=hid).first():
                 db.session.add(SmartBin(hardware_id=hid, latitude=lat, longitude=lon,
-                                     level=90, ward='Ward 1 - MVGR College Area'))
+                                        level=90, ward='Ward 1 - MVGR College Area'))
         db.session.commit()
     client.post('/login', data={'username': 'tspadmin', 'password': 'testpass123'})
     r = client.get('/api/route-optimize', follow_redirects=False)
@@ -883,13 +1273,14 @@ def test_route_optimize_tsp(client, app):
         assert 'route' in d and 'total_distance' in d
         assert d['optimized_with'].startswith('networkx') or d['optimized_with'].startswith('greedy')
 
+
 # ── Green-Points leaderboard endpoint (Phase E) ──
 def test_green_points_leaderboard(client, app):
     import json
     _make_user(app, 'eco_champ', green_points=150)
     _make_user(app, 'eco_low', green_points=40)
     _make_user(app, 'eco_zero', green_points=0)
-    cid = _make_user(app, 'eco_login')
+    _make_user(app, 'eco_login')
     client.post('/login', data={'username': 'eco_login', 'password': 'testpass123'})
     r = client.get('/api/leaderboard', follow_redirects=False)
     assert r.status_code == 200
@@ -988,7 +1379,6 @@ def test_predict_overflow_eta_hours_heuristic_without_fill_model(app, monkeypatc
 def test_predict_overflow_eta_hours_none_for_empty_or_faulty(app, monkeypatch):
     import app.ml_model as ml
     monkeypatch.setattr(ml, 'fill_model', None)
-    from datetime import datetime, timezone, timedelta
     with app.app_context():
         from app.models import SmartBin
         empty = SmartBin(hardware_id='ETA-2', latitude=18.06, longitude=83.41,
@@ -1139,15 +1529,14 @@ def test_illegal_report_compresses_photo(client, app):
     Image.new('RGBA', (4000, 3000), (200, 50, 10, 255)).save(buf, format='PNG')
     buf.seek(0)
     r = client.post('/report-illegal',
-                  data={'category': 'e-waste', 'photo': (buf, 'big.png')},
-                  content_type='multipart/form-data')
+                    data={'category': 'e-waste', 'photo': (buf, 'big.png')},
+                    content_type='multipart/form-data')
     assert r.status_code in (200, 302)
     with app.app_context():
         from app.models import IllegalDumpReport
         rep = IllegalDumpReport.query.order_by(IllegalDumpReport.id.desc()).first()
         assert rep and rep.scrubbed_photo
     # The saved file must be a small JPEG, not a multi-MB raw PNG.
-    from app import create_app
     saved = rep.scrubbed_photo.split('/', 1)[-1]
     path = os.path.join(create_app().config['UPLOAD_FOLDER'], saved)
     assert os.path.exists(path), path
@@ -1170,10 +1559,13 @@ def test_photo_storage_local_fallback(app, monkeypatch):
     class FakeFile:
         def __init__(self, b, name):
             self._b = b; self.filename = name
+
         def read(self):
             return self._b.getvalue()
+
         def seek(self, p):
             return None
+
         @property
         def stream(self):
             return self._b
@@ -1199,10 +1591,13 @@ def test_photo_storage_cloudinary_url(app, monkeypatch):
     class FakeFile:
         def __init__(self, b, name):
             self._b = b; self.filename = name
+
         def read(self):
             return self._b.getvalue()
+
         def seek(self, p):
             return None
+
         @property
         def stream(self):
             return self._b
@@ -1218,7 +1613,7 @@ def test_photo_storage_cloudinary_url(app, monkeypatch):
             return fake_result
 
     fake_cloudinary = types.SimpleNamespace(uploader=FakeUploader,
-                                             config=lambda **k: None)
+                                            config=lambda **k: None)
     # Force the lazy `import cloudinary` / `import cloudinary.uploader` inside
     # save_compressed_photo to resolve to our fakes.
     monkeypatch.setitem(sys.modules, 'cloudinary', fake_cloudinary)
@@ -1255,7 +1650,7 @@ def test_predict_miss_heuristic_fallback_when_no_model(app, monkeypatch):
 
 # ── PAYT UPI payment-confirmation step ──────────────────────
 def test_payt_confirm_marks_invoice_paid(client, app):
-    from app.models import User, PAYTInvoice
+    from app.models import PAYTInvoice
     uid = _make_user(app, 'payer', role='citizen')
     with app.app_context():
         inv = PAYTInvoice(user_id=uid, period='July 2026', weight_kg=10.0,
@@ -1279,9 +1674,9 @@ def test_payt_confirm_marks_invoice_paid(client, app):
 
 
 def test_payt_confirm_rejects_other_user(client, app):
-    from app.models import User, PAYTInvoice
+    from app.models import PAYTInvoice
     uid = _make_user(app, 'payer2', role='citizen')
-    intruder = _make_user(app, 'intruder', role='citizen')
+    _make_user(app, 'intruder', role='citizen')
     with app.app_context():
         inv = PAYTInvoice(user_id=uid, period='July 2026', weight_kg=10.0,
                           amount_rs=42.0, status='Unpaid')
@@ -1316,7 +1711,7 @@ def test_analytics_page_admin_ok(client, app):
 def test_payt_pay_page_rejects_other_user(client, app):
     from app.models import PAYTInvoice
     owner = _make_user(app, 'paytowner', role='citizen')
-    snoop = _make_user(app, 'paytsnoop', role='citizen')
+    _make_user(app, 'paytsnoop', role='citizen')
     with app.app_context():
         inv = PAYTInvoice(user_id=owner, period='Aug 2026', weight_kg=10.0,
                           amount_rs=42.0, status='Unpaid')
@@ -1362,6 +1757,7 @@ def test_payt_pay_page_creates_razorpay_order(client, app, monkeypatch):
     uid, inv_id = _payt_invoice(app, 'rzpowner')
 
     captured = {}
+
     def fake_post(url, json=None, auth=None, timeout=None):
         captured['url'] = url
         captured['amount_paise'] = json.get('amount')
@@ -1604,7 +2000,6 @@ def test_razorpay_webhook_payment_failed_ignores_paid_and_unknown(client, app, m
     monkeypatch.setenv('RAZORPAY_WEBHOOK_SECRET', 'whsec_test')
     # _payt_invoice hardcodes status='Unpaid', so build the already-paid
     # invoice directly (the late-failure scenario needs a Paid invoice).
-    from app.models import PAYTInvoice
     uid = _make_user(app, 'rzpwnlate')
     with app.app_context():
         inv = PAYTInvoice(user_id=uid, period='Sep 2026', weight_kg=10.0,
@@ -1734,7 +2129,7 @@ def test_payt_receipt_download_owner_only(client, app):
     PDF attachment; a snooper is 403; unpaid invoices redirect back."""
     from app.models import PAYTInvoice
     owner = _make_user(app, 'rcptowner')
-    snoop = _make_user(app, 'rcptsnoop')
+    _make_user(app, 'rcptsnoop')
     with app.app_context():
         inv = PAYTInvoice(user_id=owner, period='Oct 2026', weight_kg=10.0,
                           amount_rs=42.0, status='Paid',
@@ -1888,17 +2283,23 @@ def test_send_email_with_pdf_attachment(app, monkeypatch):
     monkeypatch.setenv('MAIL_PASSWORD', 'secret')
 
     captured = {}
+
     class _FakeSMTP:
         def __init__(self, *a, **k):
             pass
+
         def __enter__(self):
             return self
+
         def __exit__(self, *a):
             return False
+
         def starttls(self):
             return None
+
         def login(self, u, p):
             captured['login'] = (u, p)
+
         def sendmail(self, frm, to, msg):
             captured['to'] = to
             captured['msg'] = msg
@@ -1996,6 +2397,7 @@ def test_admin_refunds_paid_invoice_via_razorpay_api(client, app, monkeypatch):
     _login_admin(client, app, 'refundadm')
 
     captured = {}
+
     def fake_post(url, json=None, auth=None, timeout=None):
         captured['url'] = url
         captured['amount_paise'] = json.get('amount')
@@ -2038,6 +2440,7 @@ def test_admin_refund_is_idempotent(client, app, monkeypatch):
         db.session.commit()
 
     calls = []
+
     def fake_post(url, json=None, auth=None, timeout=None):
         calls.append(url)
         return type('R', (), {'raise_for_status': lambda self: None,
@@ -2068,6 +2471,7 @@ def test_admin_refund_rejects_upi_paid_and_unpaid(client, app, monkeypatch):
     _login_admin(client, app, 'refundadm3')
 
     calls = []
+
     def fake_post(url, json=None, auth=None, timeout=None):
         calls.append(url)
         return type('R', (), {'raise_for_status': lambda self: None,
@@ -2239,6 +2643,7 @@ def test_closed_invoice_pay_page_redirects_without_order(client, app, monkeypatc
     client.post('/login', data={'username': 'rzpclosed', 'password': 'testpass123'})
 
     order_calls = []
+
     def fake_create(inv):
         order_calls.append(inv.id)
         return 'order_NEW'

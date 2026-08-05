@@ -166,7 +166,11 @@ async function queueFormSubmission(url, method, payload) {
         method,
         body: payload.body,
         photos: payload.photos || [],
-        hasPhoto: (payload.photos || []).length > 0,
+        // Stored as a NUMBER (0/1), not a boolean: IndexedDB only accepts
+        // number/string/Date/binary/array as keys, so a `true` value would
+        // never enter the hasPhotoIdx index and index.count() below would
+        // throw DataError — silently killing the pending-sync badge.
+        hasPhoto: (payload.photos || []).length > 0 ? 1 : 0,
         attempts: 0,
         timestamp: Date.now()
     });
@@ -209,7 +213,7 @@ async function countQueuedSubmissions() {
     // photo count degrades to 0 rather than throwing synchronously.
     const index = store.indexNames.contains(OFFLINE_PHOTO_INDEX)
         ? store.index(OFFLINE_PHOTO_INDEX) : null;
-    const photosReq = index ? index.count(true) : null;  // key === true
+    const photosReq = index ? index.count(1) : null;  // key === 1 (number-encoded)
     return new Promise((resolve, reject) => {
         tx.oncomplete = () => resolve({
             total: totalReq.result,
