@@ -79,9 +79,38 @@ Update `render.yaml` (already configured for starter plan + Supabase env vars):
 
 1. In Render dashboard → New Web Service → connect repo
 2. Set `plan: starter`
-3. Add env vars: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SECRET_KEY`, `IOT_TELEMETRY_SECRET`
+3. Add env vars: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SECRET_KEY`, `IOT_TELEMETRY_SECRET`, `REDIS_URL` (Upstash free tier)
 4. Remove the Render managed Postgres database (Supabase is your DB now)
 5. Deploy
+
+### Background jobs on Render (important)
+
+Background jobs (SMS/WhatsApp sends, webhook dispatch, export generation, PAYT
+dunning, retention/sweeps) run through an RQ worker on `REDIS_URL`. Two paths:
+
+- **Blueprint (recommended):** `render.yaml` defines a `smartgarbage-worker`
+  service (runs `python worker.py`). If your service was created from this
+  blueprint, that worker executes the queue automatically.
+- **Native-Python services (the current live one):** Render created it as a
+  native Python service, so it ignores `render.yaml` and the Dockerfile, and
+  starts `gunicorn app:app`. The app detects this: when `REDIS_URL` is set,
+  `wsgi.py` runs the RQ worker in an in-process thread (set
+  `RQ_IN_PROCESS_WORKER=false` to disable when a dedicated worker exists).
+  The Docker path spawns `python worker.py` itself and sets that flag for you.
+
+Without `REDIS_URL` every job executes inline, so local dev and the test-suite
+need no extra process.
+
+### Start Command (native-Python services)
+
+If the live service is native Python, set its Start Command to:
+
+```
+gunicorn wsgi:app --bind 0.0.0.0:$PORT -w 1 --timeout 120
+```
+
+(`wsgi:app` triggers the same boot path as `app:app` — migrations + the
+in-process worker — and binds the port Render routes to.)
 
 ## 6. Seed Data (local / staging only)
 
