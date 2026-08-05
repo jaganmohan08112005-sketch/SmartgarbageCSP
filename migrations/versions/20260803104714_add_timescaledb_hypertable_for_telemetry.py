@@ -21,14 +21,24 @@ def upgrade() -> None:
     # Convert BinTelemetryLog into a TimescaleDB hypertable when the extension
     # is available (Supabase / self-hosted Postgres with timescaledb enabled).
     # On SQLite or Postgres without timescaledb, the table is unchanged.
+    #
+    # The extension DDL must run inside a SAVEPOINT (begin_nested). env.py
+    # wraps ALL migrations in ONE transaction, and PostgreSQL aborts the whole
+    # transaction after any statement error. On vanilla Postgres (Supabase has
+    # no timescaledb) CREATE EXTENSION raises; caught by the except below, but
+    # without a savepoint the outer transaction is left "aborted", so every
+    # migration after this one fails with "current transaction is aborted" and
+    # `flask db upgrade` exits non-zero at container boot. A savepoint rolls
+    # back only itself, keeping the alembic transaction healthy.
     conn = op.get_bind()
     try:
-        conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS timescaledb"))
-        conn.execute(sa.text("""
-            SELECT create_hypertable('bin_telemetry_log', 'timestamp',
-                                     chunk_time_interval => INTERVAL '7 days',
-                                     if_not_exists => TRUE);
-        """))
+        with conn.begin_nested():
+            conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS timescaledb"))
+            conn.execute(sa.text("""
+                SELECT create_hypertable('bin_telemetry_log', 'timestamp',
+                                         chunk_time_interval => INTERVAL '7 days',
+                                         if_not_exists => TRUE);
+            """))
     except Exception:
         # timescaledb extension not available (SQLite, non-Timescale Postgres).
         # The existing index on (bin_id, timestamp) still serves point queries.
@@ -38,6 +48,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     conn = op.get_bind()
     try:
-        conn.execute(sa.text("SELECT drop_hypertable('bin_telemetry_log', if_exists => TRUE);"))
+        with conn.begin_nested():
+            conn.execute(sa.text("SELECT drop_hypertable('bin_telemetry_log', if_exists => TRUE);"))
     except Exception:
         pass
