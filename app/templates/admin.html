@@ -361,6 +361,7 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-sm btn-outline-warning rounded-pill">📣 {{ _('Run Dunning') }}</button>
                     </form>
+                    <a href="/admin/route-sheet.pdf" class="btn btn-sm btn-outline-info rounded-pill" title="Printable A5 route sheet for current dispatch assignments">🖨️ {{ _('Route Sheet PDF') }}</a>
                     <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadQueueHealth()">🔄 {{ _('Refresh') }}</button>
                 </div>
             </div>

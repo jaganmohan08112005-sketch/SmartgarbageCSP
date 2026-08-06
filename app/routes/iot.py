@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import os
+import time
 from datetime import timedelta as _TD
 
 from flask import (current_app, jsonify, request)
@@ -13,7 +14,9 @@ from .. import csrf, db, limiter, socketio
 
 from ..auth import admin_required
 
-from . import (FORECAST_ALERT_HOURS, _recompute_bin_status, activate_compactor, evaluate_emergency_metrics, fit_length, logger, main, write_audit)
+from . import (FORECAST_ALERT_HOURS, _recompute_bin_status, activate_compactor,
+               evaluate_emergency_metrics, fit_length, haversine_m, logger, main,
+               write_audit)
 
 import app.routes as _routes  # call-time: honors test monkeypatches
 
@@ -143,6 +146,42 @@ def bin_telemetry():
     except (ValueError, TypeError):
         return jsonify({"success": False, "message": "Invalid numeric telemetry value."}), 400
 
+    # ── Replay protection: optional device clock (unix seconds). When a frame
+    # carries `ts`, reject anything older than 5 minutes — an intercepted HMAC
+    # frame replayed later must not re-trigger state changes. Devices without
+    # a clock omit it (HMAC + per-device key still gate entry). ──
+    ts = data.get('ts')
+    if ts is not None:
+        try:
+            if abs(int(time.time()) - int(ts)) > 300:
+                return jsonify({"success": False, "message": "Stale frame."}), 403
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "message": "Invalid ts."}), 400
+
+    # ── GPS-drift guard: a stationary bin can't jump. Coordinates more than
+    # 2 km from the last known position are rejected (audited, so a stolen or
+    # relocated bin surfaces) instead of silently mis-rendering on the map. ──
+    if (data.get('latitude') is not None and data.get('longitude') is not None
+            and smart_bin.latitude is not None and smart_bin.longitude is not None):
+        try:
+            new_lat, new_lon = float(data['latitude']), float(data['longitude'])
+            if haversine_m(smart_bin.latitude, smart_bin.longitude,
+                           new_lat, new_lon) > 2000:
+                write_audit("BIN_GPS_ANOMALY", target=hw_id,
+                            detail=f"Rejected {new_lat},{new_lon} (>2 km from last known position)")
+            else:
+                smart_bin.latitude, smart_bin.longitude = new_lat, new_lon
+        except (ValueError, TypeError):
+            pass  # malformed coords: keep the last known position
+
+    # ── Lid-state ingest: an open lid is a service event, not an emergency. ──
+    if data.get('lid_open') is not None:
+        new_lid = bool(data.get('lid_open'))
+        if new_lid != bool(smart_bin.lid_open):
+            write_audit("BIN_LID_STATE", target=hw_id,
+                        detail="Lid open" if new_lid else "Lid closed")
+        smart_bin.lid_open = new_lid
+
     smart_bin.status = _recompute_bin_status(smart_bin.level)
     smart_bin.last_updated = utcnow()
 
@@ -203,9 +242,31 @@ def bin_telemetry():
                 (now - smart_bin.last_compacted_at).total_seconds() > 3600):
             activate_compactor(smart_bin)
 
-    # A live ping clears any previous "Sensor Fault" flag and its
-    # predictive-maintenance record so the bin returns to healthy state.
-    if smart_bin.sensor_fault:
+    # ── Stuck-sensor classifier (environmental noise). A constant >=95% level
+    # across the last 5 pings is far more likely a blocked ultrasonic sensor
+    # (cardboard, rain, debris) than genuine overflow — flag it as a sensor
+    # fault (which suppresses the auto-dispatch below) instead of dispatching
+    # a truck. The NEXT ping with a changed reading self-heals via the clear
+    # branch. ──
+    _history = (BinTelemetryLog.query
+                .filter_by(bin_id=smart_bin.id)
+                .order_by(BinTelemetryLog.timestamp.desc())
+                .limit(5).all())
+    _was_faulted = smart_bin.sensor_fault
+    _stuck = (len(_history) >= 5 and (smart_bin.level or 0) >= 95
+              and len({h.level for h in _history}) == 1)
+    if _stuck:
+        smart_bin.sensor_fault = True
+        _sh = SensorHealth.query.filter_by(bin_id=smart_bin.id).first()
+        if _sh:
+            _sh.fault_flag = True
+            _sh.fault_reason = "Stuck sensor: constant level across 5 pings (possible blockage)"
+        if not _was_faulted:
+            write_audit("SENSOR_SUSPICIOUS", target=hw_id,
+                        detail=f"Constant {smart_bin.level}% across 5 pings — possible blockage, dispatch suppressed")
+    elif smart_bin.sensor_fault:
+        # A live ping with a changed reading clears the previous fault so the
+        # bin returns to healthy state.
         smart_bin.sensor_fault = False
         sh = SensorHealth.query.filter_by(bin_id=smart_bin.id).first()
         if sh:
@@ -226,7 +287,8 @@ def bin_telemetry():
     # the crossing BEFORE the commit so the auto-queued Pending dispatch
     # assignment persists in the same single transaction as the telemetry.
     eta = smart_bin.overflow_eta_hours
-    crossed_alert = (eta is not None and eta <= FORECAST_ALERT_HOURS
+    crossed_alert = (not smart_bin.sensor_fault and eta is not None
+                     and eta <= FORECAST_ALERT_HOURS
                      and (prev_eta is None or prev_eta > FORECAST_ALERT_HOURS))
     if crossed_alert:
         existing_dispatch = DispatchAssignment.query.filter_by(bin_id=smart_bin.id).filter(

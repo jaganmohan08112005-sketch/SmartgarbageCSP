@@ -1274,6 +1274,165 @@ def test_route_optimize_tsp(client, app):
         assert d['optimized_with'].startswith('networkx') or d['optimized_with'].startswith('greedy')
 
 
+# ── Roadmap implementation: pool config, telemetry hardening, GeoJSON, SSE publish, route sheet ──
+def test_pool_engine_options_configured(app):
+    """Render/Supabase-safe pooling: pool_pre_ping revalidates idle-dropped
+    connections, pool_recycle stays under the Supabase idle timeout, and the
+    small pool + overflow ceiling never exceed the plan's connection cap."""
+    opts = app.config['SQLALCHEMY_ENGINE_OPTIONS']
+    assert opts['pool_pre_ping'] is True
+    assert opts['pool_recycle'] == 300
+    assert opts['pool_size'] == 3
+    assert opts['max_overflow'] == 2
+
+
+def test_lid_open_ingest_audits_change(client, app):
+    """Lid-state telemetry is ingested; a state change writes ONE audit row,
+    and repeating the same state does not duplicate it."""
+    from app.models import SmartBin, AuditLog
+    with app.app_context():
+        db.session.add(SmartBin(hardware_id='LID-1', latitude=18.05, longitude=83.40,
+                                level=10, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    r = client.post('/api/bin-telemetry',
+                    json={'hardware_id': 'LID-1', 'level': 10, 'lid_open': True})
+    assert r.status_code == 200
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='LID-1').first()
+        assert b.lid_open is True
+        assert AuditLog.query.filter_by(action='BIN_LID_STATE', target='LID-1').count() == 1
+    client.post('/api/bin-telemetry',
+                json={'hardware_id': 'LID-1', 'level': 10, 'lid_open': True})
+    with app.app_context():
+        assert AuditLog.query.filter_by(action='BIN_LID_STATE', target='LID-1').count() == 1
+
+
+def test_telemetry_replay_rejects_stale_frame(client, app):
+    """Frames carrying a device clock older than 5 minutes are rejected (403)
+    — an intercepted HMAC frame can't be replayed to re-trigger state."""
+    import time as _time
+    from app.models import SmartBin
+    with app.app_context():
+        db.session.add(SmartBin(hardware_id='TS-1', latitude=18.05, longitude=83.40,
+                                level=10, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    fresh = client.post('/api/bin-telemetry',
+                        json={'hardware_id': 'TS-1', 'level': 10, 'ts': int(_time.time())})
+    assert fresh.status_code == 200
+    stale = client.post('/api/bin-telemetry',
+                        json={'hardware_id': 'TS-1', 'level': 10,
+                              'ts': int(_time.time()) - 600})
+    assert stale.status_code == 403
+
+
+def test_telemetry_gps_drift_rejected_and_audited(client, app):
+    """Coordinates more than 2 km from the last known position are rejected
+    (bin kept in place) and audited as a possible theft/relocation."""
+    from app.models import SmartBin, AuditLog
+    with app.app_context():
+        db.session.add(SmartBin(hardware_id='GPS-1', latitude=18.05, longitude=83.40,
+                                level=10, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    r = client.post('/api/bin-telemetry',
+                    json={'hardware_id': 'GPS-1', 'level': 10,
+                          'latitude': 18.55, 'longitude': 84.10})  # ~80 km away
+    assert r.status_code == 200
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='GPS-1').first()
+        assert b.latitude == 18.05 and b.longitude == 83.40  # unchanged
+        assert AuditLog.query.filter_by(action='BIN_GPS_ANOMALY', target='GPS-1').count() == 1
+
+
+def test_stuck_sensor_suppresses_dispatch(client, app, monkeypatch):
+    """A constant >=95% level across 5 pings is a blocked sensor, not
+    overflow: the bin is flagged sensor_fault (amber) and NO dispatch is
+    auto-queued even when the ML forecast looks urgent."""
+    from app.models import SmartBin, BinTelemetryLog, AuditLog, DispatchAssignment
+    import app.routes.iot as iot_mod
+    monkeypatch.setattr(iot_mod, 'predict_overflow_eta_hours', lambda *a, **k: 1.0)
+    with app.app_context():
+        b = SmartBin(hardware_id='STUCK-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        for _ in range(5):
+            db.session.add(BinTelemetryLog(bin_id=b.id, level=96, timestamp=utcnow()))
+        db.session.commit()
+    r = client.post('/api/bin-telemetry', json={'hardware_id': 'STUCK-1', 'level': 96})
+    assert r.status_code == 200
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='STUCK-1').first()
+        assert b.sensor_fault is True
+        assert DispatchAssignment.query.filter_by(bin_id=b.id).count() == 0
+        assert AuditLog.query.filter_by(action='SENSOR_SUSPICIOUS', target='STUCK-1').count() == 1
+
+
+def test_bins_geojson_shape(client, app):
+    """/api/bins.geojson returns a GeoJSON FeatureCollection with lon/lat
+    coordinates (RFC 7946 order) and urgency properties for marker coloring."""
+    from app.models import SmartBin
+    with app.app_context():
+        if not SmartBin.query.filter_by(hardware_id='GJ-1').first():
+            db.session.add(SmartBin(hardware_id='GJ-1', latitude=18.05, longitude=83.40,
+                                    level=55, status='Warning',
+                                    ward='Ward 1 - MVGR College Area'))
+            db.session.commit()
+    _make_user(app, 'geoadmin', role='admin')
+    _login_admin(client, app, 'geoadmin')
+    r = client.get('/api/bins.geojson', follow_redirects=False)
+    assert r.status_code == 200
+    fc = r.get_json()
+    assert fc['type'] == 'FeatureCollection'
+    gj = [f for f in fc['features'] if f['properties']['hardware_id'] == 'GJ-1'][0]
+    assert gj['geometry']['type'] == 'Point'
+    assert gj['geometry']['coordinates'] == [83.40, 18.05]  # GeoJSON: [lon, lat]
+    assert gj['properties']['level'] == 55
+
+
+def test_route_sheet_pdf_generates(app):
+    """The ReportLab A5 route-sheet helper returns real PDF bytes (even for an
+    empty queue) — the printable driver run-card pipeline."""
+    from app.routes import _driver_route_sheet_pdf
+    pdf = _driver_route_sheet_pdf([])
+    assert pdf[:4] == b'%PDF'
+
+
+def test_publish_user_event_noop_without_redis(app):
+    """The SSE publish helper degrades to a no-op (None) without a broker —
+    the stream's DB-poll fallback covers delivery in dev/tests."""
+    from app.routes import _publish_user_event
+    assert _publish_user_event(1, 'hello') is None
+
+
+def test_notifications_stream_snapshot_then_poll(client, app, monkeypatch):
+    """Regression: the SSE stream must survive its FIRST message. The rewrite
+    dropped `nonlocal MAX_EVENTS` while still doing MAX_EVENTS -= 1 — that
+    raised UnboundLocalError on the first decrement, killing the stream for
+    every citizen (EventSource then reconnect-looped invisibly). This drives
+    the snapshot loop past the decrement AND serves a new notification via the
+    DB-poll fallback (no Redis in tests)."""
+    import time as _time
+    monkeypatch.setattr(_time, 'sleep', lambda s: None)  # no 5s waits in tests
+    cid = _make_user(app, 'streamuser')
+    with app.app_context():
+        db.session.add(Notification(user_id=cid, message="Unread note", link='/dashboard'))
+        db.session.commit()
+    client.post('/login', data={'username': 'streamuser', 'password': 'testpass123'})
+
+    resp = client.get('/api/notifications/stream', buffered=False)
+    gen = resp.response
+    first = next(gen)  # snapshot loop: yields the unread note
+    assert b'Unread note' in first
+    # Resume past MAX_EVENTS -= 1 (the scoping-bug site), then create a fresh
+    # notification for the DB-poll fallback to pick up.
+    with app.app_context():
+        db.session.add(Notification(user_id=cid, message="Fresh note", link='/dashboard'))
+        db.session.commit()
+    second = next(gen)
+    assert b'Fresh note' in second
+    gen.close()
+
+
 # ── Green-Points leaderboard endpoint (Phase E) ──
 def test_green_points_leaderboard(client, app):
     import json

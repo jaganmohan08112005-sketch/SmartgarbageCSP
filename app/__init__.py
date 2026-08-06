@@ -12,6 +12,7 @@ from flask_mailman import Mail
 from flask_login import LoginManager
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy.exc import OperationalError
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -171,6 +172,18 @@ def create_app(test_config=None):
             app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garbage.db'
             app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 
+    # Connection pooling tuned for Render + Supabase: pool_pre_ping revalidates
+    # connections Supabase idle-drops (the #1 cause of random 500s on Render),
+    # pool_recycle stays under Supabase's ~15-min idle timeout, and the small
+    # pool + hard overflow ceiling never exceed the plan's connection cap.
+    # One gunicorn worker => 3 + 2 = 5 connections is plenty for starter.
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 3,
+        'max_overflow': 2,
+    }
+
     # Ensure the upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -316,6 +329,26 @@ def create_app(test_config=None):
         app.logger.warning("bad_request: %s", e)
         return render_template('error.html', code=400,
                                message="That request could not be processed."), 400
+
+    @app.errorhandler(OperationalError)
+    def db_operational_error(e):
+        # DB dropped/stopped/full (Supabase idle-kill, storage cap). Roll back
+        # the broken transaction so the pooled connection is reusable, then
+        # degrade gracefully — stale cached data beats a raw 500.
+        app.logger.error("db_operational_error", error=str(e))
+        db.session.rollback()
+        if request.path.startswith('/api/'):
+            try:
+                from .routes import cache_get
+                cached = cache_get(f"snapshot:{request.path}")
+                if cached:
+                    return jsonify(dict(cached, degraded=True)), 503
+            except Exception:
+                pass
+            return jsonify({"error": "database_unavailable", "degraded": True,
+                            "retry_after": 30}), 503
+        return render_template('error.html', code=503,
+                               message="Data service temporarily unavailable. Auto-retrying."), 503
 
     # Register blueprints
     from .routes import main
