@@ -258,12 +258,29 @@ def bin_telemetry():
     if _stuck:
         smart_bin.sensor_fault = True
         _sh = SensorHealth.query.filter_by(bin_id=smart_bin.id).first()
-        if _sh:
-            _sh.fault_flag = True
-            _sh.fault_reason = "Stuck sensor: constant level across 5 pings (possible blockage)"
+        if _sh is None:
+            # No health record yet (e.g. seeded bin) — create one so the admin
+            # sensor-health view has a fault_reason to show (battery_voltage
+            # falls back to its column default).
+            _sh = SensorHealth(bin_id=smart_bin.id)
+            db.session.add(_sh)
+        _sh.fault_flag = True
+        _sh.fault_reason = "Stuck sensor: constant level across 5 pings (possible blockage)"
+        _sh.maintenance_scheduled = True
         if not _was_faulted:
             write_audit("SENSOR_SUSPICIOUS", target=hw_id,
                         detail=f"Constant {smart_bin.level}% across 5 pings — possible blockage, dispatch suppressed")
+            # Log a first-class incident (deduped) so the sensor-health control
+            # room lists it alongside stale-sensor incidents — the self-heal
+            # branch below resolves it on the first changed reading.
+            _existing_inc = IncidentLog.query.filter_by(
+                bin_id=smart_bin.id, incident_type="Sensor Fault", status="Active").first()
+            if _existing_inc is None:
+                db.session.add(IncidentLog(
+                    bin_id=smart_bin.id, incident_type="Sensor Fault", severity="Warning",
+                    status="Active",
+                    description=(f"Stuck sensor: {hw_id} reported a constant >=95% level "
+                                 f"across 5 pings (possible blockage). Dispatch suppressed until cleared.")))
     elif smart_bin.sensor_fault:
         # A live ping with a changed reading clears the previous fault so the
         # bin returns to healthy state.
