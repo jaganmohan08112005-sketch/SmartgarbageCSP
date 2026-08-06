@@ -84,6 +84,7 @@ JOB_RETRY_POLICIES = {
     'sweep_failed_jobs_alerts_job': (1, [300]),         # dead-letter alert sweep: single 5m retry
     'payt_receipt_job': (2, [60, 300]),                 # receipt PDF + SMTP: 1m, 5m
     'maintenance_job': (1, [300]),                      # sensor/decomp sweep: single 5m retry
+    'maintenance_overdue_escalation_job': (1, [300]),   # overdue work-order escalation: single 5m retry
     'payt_reconciliation_job': (1, [300]),              # billing reconcile: single 5m retry
     'model_retraining_job': (1, [600]),                 # ML retrain: single 10m retry
 }
@@ -1158,6 +1159,120 @@ def schedule_maintenance(interval_minutes=15):
             pass
     q.enqueue_in(timedelta(minutes=interval_minutes), maintenance_job,
                  retry=_retry_for(maintenance_job))
+
+
+# ──────────────────────────────────────────────
+# MAINTENANCE WORK-ORDER OVERDUE ESCALATION
+# ──────────────────────────────────────────────
+# Work orders carry a due_date; when it passes without completion the bin is
+# stuck in a maintenance-scheduled state that nobody is accountable for. This
+# job escalates once per order (deduped by escalated_at): the assigned worker
+# and every approved admin are notified via in-app Notification + the SSE
+# stream, and a still-faulted bin is re-flagged so the control room keeps
+# seeing it on the sensor-fault dashboard.
+@instrument
+def maintenance_overdue_escalation_job(grace_hours=0, interval_hours=24):
+    """Escalate maintenance work orders whose due_date has passed.
+
+    Deduped by the order's escalated_at column (set on first escalation), so a
+    long-overdue order notifies exactly once. Notifies the assigned worker and
+    the admin control room (in-app Notification + SSE push), and re-flags the
+    bin's sensor fault / SensorHealth record if it is still faulted so it stays
+    visible on the faulted-bin dashboard. Re-schedules its own successor (the
+    sweep_failed_jobs_alerts_job pattern) so the daily cadence survives app
+    restarts."""
+    with _app_ctx():
+        from app import db
+        from app.models import (AuditLog, IncidentLog, MaintenanceWorkOrder,
+                                Notification, SensorHealth, User, utcnow)
+        from .routes import _notify_admins, _publish_admin_alerts
+        now = utcnow()
+        cutoff = now - timedelta(hours=grace_hours)
+        stale = MaintenanceWorkOrder.query.filter(
+            MaintenanceWorkOrder.status.in_(['Scheduled', 'In Progress']),
+            MaintenanceWorkOrder.due_date.isnot(None),
+            MaintenanceWorkOrder.due_date < cutoff,
+            MaintenanceWorkOrder.escalated_at.is_(None),
+        ).all()
+        admin_ids = [u.id for u in User.query.filter_by(role='admin', is_approved=True).all()]
+        pushed = []  # (user_id, message) — SSE-pushed only AFTER the commit
+        escalated = 0
+        for o in stale:
+            b = o.bin
+            o.escalated_at = now
+            hw = b.hardware_id if b else '?'
+            due = o.due_date.isoformat() if o.due_date else '?'
+            db.session.add(AuditLog(
+                username='system', role='system', action='MAINTENANCE_OVERDUE_ESCALATED',
+                target=hw, detail=f"Work order #{o.id} past due ({due}) without completion."))
+            # Assigned worker gets the nudge on their own task list.
+            if o.worker_id:
+                w_uid = o.worker.user_id if o.worker else None
+                if w_uid:
+                    w_msg = f"⏰ Maintenance work order #{o.id} for {hw} is overdue (due {due}). Please service it today."
+                    db.session.add(Notification(user_id=w_uid, message=w_msg, link='/worker'))
+                    pushed.append((w_uid, w_msg))
+            # Control room sees the escalation too.
+            admin_msg = (f"🚨 Maintenance work order #{o.id} for {hw} is overdue "
+                         f"(due {due}) — escalation triggered.")
+            pushed.extend(_notify_admins(admin_msg, link='/admin#sensor-fault-section',
+                                         admin_ids=admin_ids))
+            # Re-flag a bin that is STILL faulted (sensor never self-healed):
+            # keep it on the faulted-bin dashboard and its health record marked
+            # for maintenance instead of silently dropping off. Create the
+            # SensorHealth row when the bin never had one (parity with
+            # check_sensor_faults, which always ensures the record exists).
+            if b and b.sensor_fault:
+                sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+                if sh:
+                    sh.fault_flag = True
+                    sh.maintenance_scheduled = True
+                else:
+                    db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                                fault_reason=f"{hw} maintenance overdue — sensor still faulted",
+                                                maintenance_scheduled=True))
+                active = IncidentLog.query.filter_by(
+                    bin_id=b.id, incident_type='Sensor Fault', status='Active').first()
+                if not active:
+                    db.session.add(IncidentLog(
+                        bin_id=b.id, incident_type='Sensor Fault', severity='Warning',
+                        status='Active',
+                        description=f"{hw} maintenance overdue — sensor still faulted."))
+            escalated += 1
+        db.session.commit()
+        # Real-time SSE push AFTER the commit (no-op without Redis): escalation
+        # toasts must never outlive a rolled-back notification write.
+        _publish_admin_alerts(pushed)
+    # Re-arm the next sweep (the dead-letter sweep's self-rescheduling pattern).
+    # Clear the stale SET-NX guard first: the startup-scheduled key (ex=24h)
+    # expires at roughly the moment this run fires, and a still-live key would
+    # block the reschedule from taking effect.
+    try:
+        r = _redis()
+        if r is not None:
+            r.delete('sg:maint-overdue:escalation')
+    except Exception:
+        pass
+    schedule_maintenance_overdue_escalation(interval_hours=interval_hours)
+    logger.info("maintenance_overdue_escalation", orders_escalated=escalated)
+    return escalated
+
+
+def schedule_maintenance_overdue_escalation(interval_hours=24):
+    """Enqueue the next maintenance overdue-escalation sweep (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:maint-overdue:escalation', '1', nx=True,
+                         ex=int(interval_hours * 3600)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(hours=interval_hours), maintenance_overdue_escalation_job,
+                 retry=_retry_for(maintenance_overdue_escalation_job))
 
 
 # ──────────────────────────────────────────────

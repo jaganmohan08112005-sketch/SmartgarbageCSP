@@ -623,6 +623,7 @@ async function loadSensorFaults() {
 // The worker pool is cached from /api/maintenance so the schedule form's
 // dropdown works even if the modal is opened before the table finishes loading.
 let maintenanceWorkers = [];
+let maintenanceOrders = [];
 
 function renderMaintenance(data) {
     const body = document.getElementById('maintenanceBody');
@@ -640,10 +641,11 @@ function renderMaintenance(data) {
         else if (o.status === 'Completed') statusBadge = '<span class="badge bg-success">✔ Completed</span>';
         const workerTxt = o.worker_name
             ? `${escapeHtml(o.worker_name)}${o.vehicle_id ? ' <span class="text-muted">(' + escapeHtml(o.vehicle_id) + ')</span>' : ''}`
-            : '<span class="text-muted">Unassigned</span>';
+            : '<span class="text-muted">🚧 Unassigned</span>';
         const action = o.status === 'Completed'
             ? '<span class="text-muted small">—</span>'
-            : `<button class="btn btn-sm btn-outline-success rounded-pill" data-maint-complete data-maint-id="${o.id}">✔ Mark Done</button>`;
+            : `<button class="btn btn-sm btn-outline-info rounded-pill" data-maint-edit data-maint-id="${o.id}" title="Edit worker / due date / notes">✏️ Edit</button>
+               <button class="btn btn-sm btn-outline-success rounded-pill" data-maint-complete data-maint-id="${o.id}">✔ Mark Done</button>`;
         return `<tr>
             <td class="small">#${o.id}</td>
             <td><code>${escapeHtml(o.hardware_id || 'bin#' + o.bin_id)}</code></td>
@@ -663,6 +665,7 @@ async function loadMaintenance() {
         if (!res.ok) return;
         const data = await res.json();
         maintenanceWorkers = data.workers || [];
+        maintenanceOrders = data.orders || [];
         renderMaintenance(data);
     } catch (e) {
         console.warn('maintenance load failed', e);
@@ -764,6 +767,65 @@ async function completeMaintenance(orderId, btn) {
     }
 }
 
+// ── Edit work order (reassign / reschedule / notes / unassign-to-pool) ──
+let editOrderId = null;
+
+function populateEditWorkers(selectedId) {
+    const sel = document.getElementById('eoWorker');
+    if (!sel) return;
+    sel.innerHTML = '<option value="0">🚧 Unassigned (pool)</option>' + maintenanceWorkers.map(w =>
+        `<option value="${w.id}"${Number(w.id) === Number(selectedId) ? ' selected' : ''}>${escapeHtml(w.name)}${w.vehicle_id ? ' (' + escapeHtml(w.vehicle_id) + ')' : ''}</option>`
+    ).join('');
+}
+
+async function openEditOrderModal(order) {
+    if (!order || !order.id) return;
+    editOrderId = order.id;
+    document.getElementById('eoId').textContent = '#' + order.id;
+    document.getElementById('eoHwId').textContent = order.hardware_id || ('bin#' + order.bin_id);
+    const due = document.getElementById('eoDueDate');
+    if (due) due.value = order.due_date ? order.due_date.replace('T', ' ').slice(0, 10) : '';
+    const notes = document.getElementById('eoNotes');
+    if (notes) notes.value = order.notes || '';
+    if (maintenanceWorkers.length === 0) await loadMaintenance();
+    populateEditWorkers(order.worker_id);
+    const m = document.getElementById('editOrderModal');
+    if (m) bootstrap.Modal.getOrCreateInstance(m).show();
+}
+
+async function submitEditOrder() {
+    const btn = document.getElementById('eoSubmitBtn');
+    if (!editOrderId || !btn) return;
+    const payload = {
+        worker_id: Number(document.getElementById('eoWorker')?.value || 0),
+        due_date: document.getElementById('eoDueDate')?.value || '',
+        notes: (document.getElementById('eoNotes')?.value || '').trim(),
+    };
+    btn.disabled = true; btn.textContent = '…';
+    try {
+        const res = await fetch('/api/maintenance/' + encodeURIComponent(editOrderId) + '/edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'edit failed');
+        showToast('✔ Work order #' + editOrderId + ' updated — changes written to the audit ledger.');
+        const m = document.getElementById('editOrderModal');
+        if (m) bootstrap.Modal.getInstance(m)?.hide();
+        editOrderId = null;
+        loadMaintenance();
+        loadSensorFaults();
+    } catch (e) {
+        showToast('⚠️ Could not update work order: ' + escapeHtml(e.message));
+    } finally {
+        btn.disabled = false; btn.textContent = '💾 Save Changes';
+    }
+}
+
 // Delegated clicks: buttons are re-rendered on every refresh, and values flow
 // through data-* attributes (never inline onclick strings) so DB-controlled
 // values can never break out into executable JS.
@@ -771,6 +833,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
         const clearBtn = e.target.closest('[data-clear-fault]');
         if (clearBtn && clearBtn.dataset.hwId) { openClearFaultModal(clearBtn.dataset.hwId); return; }
+        const editBtn = e.target.closest('[data-maint-edit]');
+        if (editBtn && editBtn.dataset.maintId) {
+            const order = maintenanceOrders.find(o => String(o.id) === editBtn.dataset.maintId);
+            openEditOrderModal(order);
+            return;
+        }
         const doneBtn = e.target.closest('[data-maint-complete]');
         if (doneBtn && doneBtn.dataset.maintId) completeMaintenance(doneBtn.dataset.maintId, doneBtn);
     });

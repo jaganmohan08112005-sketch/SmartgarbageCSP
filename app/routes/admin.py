@@ -618,6 +618,137 @@ def maintenance_api():
                     'workers': workers})
 
 
+@main.route('/api/maintenance/<int:order_id>/edit', methods=['POST'])
+@admin_required
+def maintenance_edit(order_id):
+    """Edit an open work order: reassign the worker, push the due date, update
+    notes, or drop it back into the unassigned pool.
+
+    Every change is written to the immutable audit ledger (the per-order
+    timeline shows each edit with the acting admin) rather than silently
+    overwriting the row. A single transaction commits the mutation + its
+    audits together, so the ledger can never miss an edit that happened.
+    Completed orders are immutable: their lifecycle already closed.
+
+    Accepts a PARTIAL payload — only the fields present are changed:
+      worker_id  — valid WorkerProfile id to reassign; 0 / null to unassign
+                   (back to the pool)
+      due_date   — 'YYYY-MM-DD' to push the deadline (resets the escalation
+                   window so the new deadline escalates on its own)
+      notes      — free-text maintenance notes
+    """
+    order = MaintenanceWorkOrder.query.get(order_id)
+    if order is None:
+        return jsonify({'success': False, 'message': 'Work order not found.'}), 404
+    if order.status == 'Completed':
+        return jsonify({'success': False,
+                        'message': 'Completed work orders cannot be edited.'}), 400
+    data = request.get_json(silent=True) or {}
+    target = order.bin.hardware_id if order.bin else f'WO #{order.id}'
+
+    # ── Worker reassignment / unassign-to-pool ──
+    new_worker = None
+    unassigned_to_pool = False
+    if 'worker_id' in data:
+        raw = data.get('worker_id')
+        try:
+            raw = int(raw)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': 'Invalid worker selection.'}), 400
+        if raw == 0:  # explicit unassign to the pool
+            if order.worker_id is not None:
+                old_label = (order.worker.user.username if (order.worker and order.worker.user)
+                             else f'worker #{order.worker_id}')
+                order.worker_id = None
+                unassigned_to_pool = True
+                write_audit("MAINTENANCE_WORKER_CHANGED", target=target,
+                            detail=(f"Admin {session.get('username')} moved maintenance work order "
+                                    f"#{order.id} back to the unassigned pool (was {old_label})."),
+                            commit=False)
+        else:
+            new_worker = WorkerProfile.query.get(raw)
+            if new_worker is None:
+                return jsonify({'success': False, 'message': 'Worker not found.'}), 400
+            old_label = (order.worker.user.username if (order.worker and order.worker.user)
+                         else 'unassigned pool')
+            new_label = new_worker.user.username if new_worker.user else f'worker #{new_worker.id}'
+            if order.worker_id != new_worker.id:
+                order.worker_id = new_worker.id
+                write_audit("MAINTENANCE_WORKER_CHANGED", target=target,
+                            detail=(f"Admin {session.get('username')} reassigned maintenance work "
+                                    f"order #{order.id} from {old_label} to {new_label}."),
+                            commit=False)
+
+    # ── Due-date push (resets the escalation window) ──
+    if data.get('due_date'):
+        new_due = _parse_due_date(data.get('due_date'))
+        if new_due is None:
+            return jsonify({'success': False,
+                            'message': 'A valid due date (YYYY-MM-DD) is required.'}), 400
+        old_due = order.due_date
+        order.due_date = new_due
+        was_escalated = order.escalated_at is not None
+        order.escalated_at = None
+        write_audit("MAINTENANCE_DUE_DATE_CHANGED", target=target,
+                    detail=(f"Admin {session.get('username')} moved maintenance work order "
+                            f"#{order.id} due date from "
+                            f"{old_due.strftime('%Y-%m-%d') if old_due else 'unset'} "
+                            f"to {new_due.strftime('%Y-%m-%d')}."
+                            + (" Escalation window reset." if was_escalated else "")),
+                    commit=False)
+
+    # ── Notes ──
+    if 'notes' in data:
+        new_notes = fit_length((data.get('notes') or '').strip(), 300) or None
+        if new_notes != order.notes:
+            order.notes = new_notes
+            write_audit("MAINTENANCE_NOTES_CHANGED", target=target,
+                        detail=(f"Admin {session.get('username')} updated notes on maintenance "
+                                f"work order #{order.id}."),
+                        commit=False)
+
+    # At least one field must actually change — reject a no-op edit.
+    if not data or not any(k in data for k in ('worker_id', 'due_date', 'notes')):
+        return jsonify({'success': False, 'message': 'Nothing to edit.'}), 400
+
+    db.session.commit()
+
+    # ── Notifications (published AFTER the commit — toasts must never
+    # announce an edit that rolled back) ──
+    hw = order.bin.hardware_id if order.bin else f'WO #{order.id}'
+    if new_worker is not None:
+        # The newly assigned worker gets the task on their portal instantly.
+        w_msg = (f"🔧 Maintenance work order #{order.id} for {hw} assigned to you"
+                 + (f" — due {order.due_date.strftime('%Y-%m-%d')}" if order.due_date else "") + ".")
+        try:
+            db.session.add(Notification(user_id=new_worker.user_id, message=w_msg, link='/worker'))
+            db.session.commit()
+            _publish_user_event(new_worker.user_id, w_msg)
+        except Exception:
+            db.session.rollback()
+    elif unassigned_to_pool:
+        # Unassigned: the control room should know the order is back in the pool.
+        staged = _notify_admins(
+            f"📋 Maintenance work order #{order.id} for {hw} is back in the unassigned pool.",
+            link='/admin#sensor-fault-section')
+        db.session.commit()
+        _publish_admin_alerts(staged)
+
+    # Keep the control-room work-orders table live.
+    socketio.emit('maintenance_update', {
+        'order_id': order.id,
+        'hardware_id': order.bin.hardware_id if order.bin else None,
+        'status': order.status,
+        'worker_id': order.worker_id,
+        'due_date': order.due_date.strftime('%Y-%m-%d') if order.due_date else None,
+        'notes': order.notes,
+    })
+    return jsonify({'success': True,
+                    'worker_id': order.worker_id,
+                    'due_date': order.due_date.strftime('%Y-%m-%d') if order.due_date else None,
+                    'notes': order.notes})
+
+
 @main.route('/resolve/<int:id>')
 @admin_required
 def resolve_complaint(id):
@@ -826,13 +957,86 @@ def offline_deliveries():
                            top_wards=top_wards)
 
 
+# ── Maintenance work-order lifecycle (reconstructed from the ledger) ──
+# The maintenance flows already write one audit row per lifecycle transition
+# (created / started / due-date changed / completed / overdue-escalated), each
+# embedding the work order id in `detail` as '#N'. Grouping by that marker
+# rebuilds the full per-order timeline WITHOUT a dedicated table — the audit
+# ledger IS the source of truth.
+MAINTENANCE_LIFECYCLE_ACTIONS = (
+    'MAINTENANCE_ORDER_CREATED',
+    'MAINTENANCE_STARTED',
+    'MAINTENANCE_WORKER_CHANGED',
+    'MAINTENANCE_DUE_DATE_CHANGED',
+    'MAINTENANCE_NOTES_CHANGED',
+    'MAINTENANCE_COMPLETED',
+    'MAINTENANCE_OVERDUE_ESCALATED',
+)
+
+
+def _maintenance_timelines():
+    """Per-work-order lifecycle histories, oldest-event-first.
+
+    Correlates the ledger's maintenance audit rows back to their work orders
+    via the '#N' marker every flow embeds in `detail`, then pairs each order
+    with its ordered events so the ledger page can render a chronological
+    timeline (created → started → due-date changed → completed / escalated),
+    each step with who acted and when. Only orders that still exist and have
+    at least one event are shown.
+    """
+    import re
+    _marker = re.compile(r'#(\d+)')
+    # Bounded scan (the flat ledger limits to 500 too): the most recent 2000
+    # maintenance events cover every realistic open + recently-completed order
+    # while keeping the superadmin page fast on a growing ledger.
+    rows = (AuditLog.query
+            .filter(AuditLog.action.in_(MAINTENANCE_LIFECYCLE_ACTIONS),
+                    AuditLog.detail.isnot(None))
+            .order_by(AuditLog.timestamp.desc())
+            .limit(2000)
+            .all())
+    # Chronological per-order grouping (the rows above are newest-first).
+    by_order = {}
+    for a in reversed(rows):
+        m = _marker.search(a.detail)
+        if not m:
+            continue
+        by_order.setdefault(int(m.group(1)), []).append({
+            'action': a.action,
+            'actor': a.username,
+            'role': a.role,
+            'timestamp': a.timestamp,
+            'detail': a.detail,
+        })
+    timelines = []
+    for o in MaintenanceWorkOrder.query.order_by(MaintenanceWorkOrder.id.desc()).limit(200).all():
+        events = by_order.get(o.id, [])
+        if not events:
+            continue
+        timelines.append({
+            'order': o,
+            'hardware_id': o.bin.hardware_id if o.bin else None,
+            'ward': o.bin.ward if o.bin else None,
+            'worker_name': (o.worker.user.username
+                            if (o.worker and o.worker.user) else None),
+            'status': o.status,
+            'due_date': o.due_date,
+            'notes': o.notes,
+            'events': events,
+        })
+    timelines.sort(key=lambda t: t['order'].id, reverse=True)
+    return timelines
+
+
 @main.route('/admin/audit')
 @superadmin_required
 def audit_trail():
     # Super-admin only — the audit ledger is a privileged security view.
     # (Regular admins cannot reach this; the decorator enforces it.)
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
-    return render_template('audit_log.html', logs=logs, is_superadmin=True)
+    maintenance_timelines = _maintenance_timelines()
+    return render_template('audit_log.html', logs=logs, is_superadmin=True,
+                           maintenance_timelines=maintenance_timelines)
 
 
 # Super-admin console: the sanctioned way to create admin accounts now that

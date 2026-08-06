@@ -9,9 +9,7 @@ from ..models import (Complaint, ComplaintStatusLog, Schedule, SmartBin, WasteDe
 
 from ..ml_model import predict_miss
 
-from ..auth import login_required
-
-from .. import db
+from .. import db, limiter
 
 from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _redis_client,
                _ward_sla_hours, cache_get, cache_set, get_wmo_phrase, logger, main,
@@ -71,8 +69,12 @@ def home():
     return render_template('index.html')
 
 
+# Ward collection timetables are public civic information — no login wall so
+# crawlers and anonymous residents can read them (the homepage hero links here
+# for anonymous visitors too). Nothing user-specific is rendered. The POST runs
+# the ML prediction, so it is throttled like /report to stop anonymous hammering.
 @main.route('/schedule', methods=['GET', 'POST'])
-@login_required
+@limiter.limit("30/hour")
 def schedule():
     schedules = []
     prediction = None
@@ -192,9 +194,14 @@ def robots_txt():
 def sitemap_xml():
     from flask import Response
     base = request.url_root.rstrip('/')
+    # Content is regenerated on deploy; the lastmod gives crawlers a freshness
+    # anchor even though these are static-template pages.
+    LAST_MOD = '2026-08-06'
     paths = ['/', '/schedule', '/report', '/transparency', '/register',
              '/register/picker', '/privacy']
-    urls = ''.join(f"  <url><loc>{base}{p}</loc></url>\n" for p in paths)
+    urls = ''.join(
+        f"  <url><loc>{base}{p}</loc><lastmod>{LAST_MOD}</lastmod></url>\n"
+        for p in paths)
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             + urls + '</urlset>\n')

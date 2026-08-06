@@ -518,6 +518,11 @@ class MaintenanceWorkOrder(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
     completed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    # v6: Overdue-escalation dedupe — set by the scheduled escalation job the
+    # first time the order's due_date passes without completion. The job only
+    # escalates orders where this is still NULL, so a long-overdue order
+    # notifies exactly once instead of nagging on every sweep.
+    escalated_at = db.Column(db.DateTime, nullable=True)
 
     bin = db.relationship('SmartBin', backref=db.backref('maintenance_orders', lazy=True))
     worker = db.relationship('WorkerProfile', backref=db.backref('maintenance_orders', lazy=True))

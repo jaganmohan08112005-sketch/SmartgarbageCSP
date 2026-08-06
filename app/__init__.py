@@ -438,6 +438,16 @@ def create_app(test_config=None):
     except Exception:
         pass
 
+    # Schedule daily maintenance work-order overdue escalation: notifies the
+    # assigned worker + control room (Notification + SSE) when a due date
+    # passes, and re-flags still-faulted bins. Deduped per order via
+    # escalated_at, so each overdue order notifies exactly once.
+    try:
+        from .jobs import schedule_maintenance_overdue_escalation
+        schedule_maintenance_overdue_escalation()
+    except Exception:
+        pass
+
     # Schedule the daily PAYT billing reconciliation (verified OffloadLog
     # weights vs self-reported invoices; flags >20% discrepancies for audit).
     try:

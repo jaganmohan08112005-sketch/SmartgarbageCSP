@@ -4207,3 +4207,449 @@ def test_maintenance_complete_notifies_admins(client, app):
         assert len(notes) == 1
         assert 'NTF-WO-1' in notes[0].message
         assert notes[0].link == '/admin#sensor-fault-section'
+# ── Maintenance work-order overdue escalation job ────────────
+def test_maintenance_overdue_escalation_notifies_and_refags(app):
+    """An order past its due date escalates exactly once: the assigned worker
+    and every approved admin get an in-app Notification, and a still-faulted
+    bin is re-flagged (SensorHealth + active incident) so it stays on the
+    faulted-bin dashboard. A second run is a no-op (escalated_at dedupe)."""
+    from datetime import timedelta
+    from app.jobs import maintenance_overdue_escalation_job
+    from app.models import (AuditLog, IncidentLog, MaintenanceWorkOrder,
+                            Notification, SensorHealth, SmartBin, WorkerProfile)
+    admin_uid = _make_user(app, 'escadmin1', role='admin')
+    worker_uid = _make_user(app, 'escworker1', role='worker')
+    with app.app_context():
+        wp = WorkerProfile(user_id=worker_uid, vehicle_id='CV-88', status='Active')
+        db.session.add(wp)
+        db.session.flush()
+        b = SmartBin(hardware_id='ESC-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=False,
+                                    maintenance_scheduled=False))
+        db.session.add(MaintenanceWorkOrder(bin_id=b.id, worker_id=wp.id,
+                                            created_by=admin_uid,
+                                            status='Scheduled',
+                                            due_date=utcnow() - timedelta(days=1)))
+        db.session.commit()
+        bin_id, order_id, wp_id = b.id, b.maintenance_orders[0].id, wp.id
+    with app.app_context():
+        count = maintenance_overdue_escalation_job()
+        assert count == 1
+        # Worker + admin both notified, with the correct channels.
+        w_notes = Notification.query.filter(
+            Notification.user_id == worker_uid,
+            Notification.message.contains('overdue')).all()
+        a_notes = Notification.query.filter(
+            Notification.user_id == admin_uid,
+            Notification.message.contains('overdue')).all()
+        assert len(w_notes) == 1 and w_notes[0].link == '/worker'
+        assert len(a_notes) == 1 and a_notes[0].link == '/admin#sensor-fault-section'
+        # Bin still faulted → re-flagged for maintenance + active incident.
+        sh = SensorHealth.query.filter_by(bin_id=bin_id).first()
+        assert sh.fault_flag is True and sh.maintenance_scheduled is True
+        assert IncidentLog.query.filter_by(bin_id=bin_id, incident_type='Sensor Fault',
+                                           status='Active').count() == 1
+        assert AuditLog.query.filter_by(action='MAINTENANCE_OVERDUE_ESCALATED',
+                                        target='ESC-1').count() == 1
+        # Dedupe: the second run escalates nothing new.
+        assert maintenance_overdue_escalation_job() == 0
+        assert Notification.query.filter_by(user_id=admin_uid).count() == 1
+        assert Notification.query.filter_by(user_id=worker_uid).count() == 1
+
+
+def test_maintenance_overdue_escalation_skips_future_and_completed(app):
+    """Orders with a future due date, and already-completed orders, are never
+    escalated by the sweep."""
+    from datetime import timedelta
+    from app.jobs import maintenance_overdue_escalation_job
+    from app.models import MaintenanceWorkOrder, Notification, SmartBin
+    admin_uid = _make_user(app, 'escadmin2', role='admin')
+    with app.app_context():
+        b = SmartBin(hardware_id='ESC-2', latitude=18.05, longitude=83.40,
+                     level=40, ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        db.session.add_all([
+            MaintenanceWorkOrder(bin_id=b.id, created_by=admin_uid,
+                                 status='Scheduled',
+                                 due_date=utcnow() + timedelta(days=2)),
+            MaintenanceWorkOrder(bin_id=b.id, created_by=admin_uid,
+                                 status='Completed', completed_at=utcnow(),
+                                 due_date=utcnow() - timedelta(days=1)),
+        ])
+        db.session.commit()
+    with app.app_context():
+        assert maintenance_overdue_escalation_job() == 0
+        assert Notification.query.filter_by(user_id=admin_uid).count() == 0
+
+
+def test_maintenance_overdue_escalation_skips_self_healed_bin(app):
+    """An overdue order on a bin that self-healed (sensor_fault False) still
+    escalates the notification, but does NOT re-flag the healthy bin."""
+    from datetime import timedelta
+    from app.jobs import maintenance_overdue_escalation_job
+    from app.models import (IncidentLog, MaintenanceWorkOrder, Notification,
+                            SmartBin)
+    admin_uid = _make_user(app, 'escadmin3', role='admin')
+    with app.app_context():
+        b = SmartBin(hardware_id='ESC-3', latitude=18.05, longitude=83.40,
+                     level=30, ward='Ward 1 - MVGR College Area', sensor_fault=False)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(MaintenanceWorkOrder(bin_id=b.id, created_by=admin_uid,
+                                            status='Scheduled',
+                                            due_date=utcnow() - timedelta(hours=3)))
+        db.session.commit()
+        bin_id = b.id
+    with app.app_context():
+        assert maintenance_overdue_escalation_job() == 1
+        assert len(Notification.query.filter_by(user_id=admin_uid).all()) == 1
+        assert IncidentLog.query.filter_by(bin_id=bin_id).count() == 0
+
+
+def test_schedule_maintenance_overdue_escalation_noop_without_redis(app, monkeypatch):
+    """Without a queue (local dev / pytest) the schedule helper is a no-op —
+    the escalation still runs inline when triggered, and startup never breaks."""
+    import app.jobs as jobs_mod
+    monkeypatch.setattr(jobs_mod, '_get_queue', lambda: None)
+    assert jobs_mod.schedule_maintenance_overdue_escalation() is None
+# ── Maintenance work-order lifecycle timeline (audit ledger) ──
+def _seed_lifecycle_order(app):
+    """Create a bin + fault + scheduled order (audited like clear_bin_fault), then
+    start it, returning the ids needed by the timeline/reschedule tests
+    (bin, order, worker profile, admin uid, worker uid)."""
+    from app.models import (SmartBin, SensorHealth, MaintenanceWorkOrder,
+                            WorkerProfile, AuditLog)
+    admin_uid = _make_user(app, 'tladmin', role='admin')
+    worker_uid = _make_user(app, 'tlworker', role='worker')
+    with app.app_context():
+        wp = WorkerProfile(user_id=worker_uid, vehicle_id='CV-81', status='Active')
+        db.session.add(wp)
+        db.session.flush()
+        b = SmartBin(hardware_id='TL-BIN-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor', maintenance_scheduled=True))
+        wo = MaintenanceWorkOrder(bin_id=b.id, worker_id=wp.id, created_by=admin_uid,
+                                  status='Scheduled', due_date=utcnow())
+        db.session.add(wo)
+        db.session.flush()
+        # Mirror clear_bin_fault: the created audit embeds the order id in
+        # detail, atomic with the order's own commit.
+        db.session.add(AuditLog(
+            username='tladmin', role='admin', action='MAINTENANCE_ORDER_CREATED',
+            target='TL-BIN-1',
+            detail=f"Maintenance order #{wo.id} scheduled for worker, due "
+                   f"{wo.due_date.strftime('%Y-%m-%d')}",
+            timestamp=utcnow()))
+        db.session.commit()
+        return b.id, wo.id, wp.id, admin_uid, worker_uid
+
+
+def test_maintenance_reschedule_audits_due_date_change(client, app):
+    """Rescheduling a work order updates due_date AND writes a
+    MAINTENANCE_DUE_DATE_CHANGED audit capturing the old -> new dates with the
+    acting admin — the per-order timeline shows the change, not a silent edit."""
+    from datetime import timedelta
+    from app.models import SmartBin, MaintenanceWorkOrder, AuditLog
+    bin_id, order_id, _, admin_uid, _ = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': '2026-09-15'}, follow_redirects=False)
+    assert r.status_code == 200
+    assert r.get_json()['due_date'] == '2026-09-15'
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.due_date.strftime('%Y-%m-%d') == '2026-09-15'
+        audits = AuditLog.query.filter_by(action='MAINTENANCE_DUE_DATE_CHANGED').all()
+        assert len(audits) == 1
+        assert '2026-09-15' in audits[0].detail
+        # old due was utcnow (today) — detail must capture both endpoints
+        assert audits[0].username == 'tladmin'
+
+    # Rescheduling resets the escalation window: an order escalated at the old
+    # deadline must escalate again if the NEW deadline passes unserviced.
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        wo.escalated_at = utcnow()
+        db.session.commit()
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': '2026-09-25'}, follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.escalated_at is None
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_DUE_DATE_CHANGED').count() == 2
+        assert 'Escalation window reset' in AuditLog.query.filter_by(
+            action='MAINTENANCE_DUE_DATE_CHANGED').order_by(
+            AuditLog.id.desc()).first().detail
+
+
+def test_maintenance_reschedule_validation_and_gating(client, app):
+    """Bad dates 400 with no mutation; completed orders are immutable; a
+    citizen (or any non-admin) can't reschedule at all."""
+    from app.models import MaintenanceWorkOrder, AuditLog
+    bin_id, order_id, _, _, _ = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tladmin')
+    # unparseable date
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': 'not-a-date'}, follow_redirects=False)
+    assert r.status_code == 400
+    # missing date
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={}, follow_redirects=False)
+    assert r.status_code == 400
+    # unknown order
+    r = client.post('/api/maintenance/999999/edit',
+                    json={'due_date': '2026-09-15'}, follow_redirects=False)
+    assert r.status_code == 404
+    with app.app_context():
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_DUE_DATE_CHANGED').count() == 0
+
+    # completed orders are immutable
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        wo.status = 'Completed'
+        db.session.commit()
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': '2026-09-15'}, follow_redirects=False)
+    assert r.status_code == 400
+
+    # citizen cannot reach the endpoint (logout first — the login route
+    # short-circuits when a session is already active)
+    client.get('/logout', follow_redirects=False)
+    _make_user(app, 'tlcitizen')
+    client.post('/login', data={'username': 'tlcitizen', 'password': 'testpass123'},
+                follow_redirects=False)
+    r = client.post('/api/maintenance/1/edit',
+                    json={'due_date': '2026-09-15'}, follow_redirects=False)
+    assert r.status_code == 403
+
+
+def test_audit_ledger_shows_per_order_timeline(client, app):
+    """The superadmin audit ledger renders the full per-order lifecycle:
+    created (by admin) + started (by worker) events in chronological order,
+    with the order id and bin visible."""
+    from app.models import SmartBin, MaintenanceWorkOrder
+    bin_id, order_id, wp_id, _, worker_uid = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tlworker')
+    # Worker starts the order — writes MAINTENANCE_STARTED with order id in detail
+    r = client.post(f'/api/maintenance/{order_id}/start', follow_redirects=False)
+    assert r.status_code == 200
+    # Superadmin views the ledger (logout first — the login route short-circuits
+    # when a session is already active)
+    client.get('/logout', follow_redirects=False)
+    with app.app_context():
+        from app.models import User
+        u = User.query.get(_make_user(app, 'tl_super', role='admin'))
+        u.is_superadmin = True
+        db.session.commit()
+    _login_admin(client, app, 'tl_super')
+    r = client.get('/admin/audit')
+    assert r.status_code == 200
+    body = r.data.decode('utf-8')
+    assert 'Maintenance Work-Order Lifecycles' in body
+    assert f'timeline-card-{order_id}' in body
+    assert 'TL-BIN-1' in body
+    # Both lifecycle events present in the timeline SECTION (scoped slice —
+    # the flat table below renders newest-first, which would invert the order)
+    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('<!-- Audit Log Table -->')]
+    assert 'Created' in section and 'Started' in section
+    assert section.index('Maintenance order #') < section.index('started maintenance work order')
+    # The reschedule control appears on the open order
+    assert f'due-{order_id}' in body
+
+
+def test_audit_ledger_timeline_renders_empty_state(client, app):
+    """With no maintenance orders the ledger shows the empty-state copy."""
+    _make_user(app, 'tl_super2', role='admin')
+    with app.app_context():
+        from app.models import User
+        u = User.query.get(User.query.filter_by(username='tl_super2').first().id)
+        u.is_superadmin = True
+        db.session.commit()
+    _login_admin(client, app, 'tl_super2')
+    r = client.get('/admin/audit')
+    assert r.status_code == 200
+    assert 'No maintenance work orders yet' in r.data.decode('utf-8')
+def test_audit_ledger_timeline_shows_due_date_change(client, app):
+    """A reschedule lands in the ledger timeline: after moving the due date,
+    the per-order card shows the MAINTENANCE_DUE_DATE_CHANGED event between
+    created and (later) completion."""
+    from app.models import User
+    bin_id, order_id, _, _, _ = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': '2026-09-20'}, follow_redirects=False)
+    assert r.status_code == 200
+    client.get('/logout', follow_redirects=False)
+    _make_user(app, 'tl_super3', role='admin')
+    with app.app_context():
+        u = User.query.get(User.query.filter_by(username='tl_super3').first().id)
+        u.is_superadmin = True
+        db.session.commit()
+    _login_admin(client, app, 'tl_super3')
+    r = client.get('/admin/audit')
+    assert r.status_code == 200
+    body = r.data.decode('utf-8')
+    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('<!-- Audit Log Table -->')]
+    assert 'Due date changed' in section
+    assert '2026-09-20' in section
+    # Ordering: created → due-date change → (no started/completed yet). The
+    # card renders translated labels; the raw detail embeds the order id.
+    assert section.index('Maintenance order #') < section.index('moved maintenance work order')
+def test_maintenance_edit_reassigns_worker_and_audits(client, app):
+    """Reassigning an order to another worker updates worker_id and writes a
+    MAINTENANCE_WORKER_CHANGED audit (old -> new); the new worker gets an
+    in-app notification + SSE channel push."""
+    from app.models import MaintenanceWorkOrder, AuditLog, Notification, WorkerProfile, User
+    bin_id, order_id, wp_id, _, _ = _seed_lifecycle_order(app)
+    # second worker to reassign to
+    new_uid = _make_user(app, 'tlworker2', role='worker')
+    with app.app_context():
+        wp2 = WorkerProfile(user_id=new_uid, vehicle_id='CV-82', status='Active')
+        db.session.add(wp2)
+        db.session.commit()
+        new_wp_id = wp2.id
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'worker_id': new_wp_id}, follow_redirects=False)
+    assert r.status_code == 200
+    assert r.get_json()['worker_id'] == new_wp_id
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.worker_id == new_wp_id
+        audits = AuditLog.query.filter_by(action='MAINTENANCE_WORKER_CHANGED').all()
+        assert len(audits) == 1
+        assert 'tlworker' in audits[0].detail and 'tlworker2' in audits[0].detail
+        # the new worker is notified on their own portal channel
+        notes = Notification.query.filter_by(user_id=new_uid).all()
+        assert len(notes) == 1 and 'assigned to you' in notes[0].message
+        assert notes[0].link == '/worker'
+
+
+def test_maintenance_edit_unassign_to_pool(client, app):
+    """worker_id = 0 drops the order back to the unassigned pool, audited with
+    the previous assignee; the control room is notified."""
+    from app.models import MaintenanceWorkOrder, AuditLog, Notification
+    bin_id, order_id, wp_id, _, _ = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'worker_id': 0}, follow_redirects=False)
+    assert r.status_code == 200
+    assert r.get_json()['worker_id'] is None
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.worker_id is None
+        audits = AuditLog.query.filter_by(action='MAINTENANCE_WORKER_CHANGED').all()
+        assert len(audits) == 1
+        assert 'unassigned pool' in audits[0].detail
+        # control room notification goes to every approved admin
+        from app.models import User
+        admin_id = User.query.filter_by(username='tladmin').first().id
+        notes = Notification.query.filter(
+            Notification.user_id == admin_id,
+            Notification.message.contains('unassigned pool')).all()
+        assert len(notes) == 1
+    # already unassigned: unassigning again is a no-op (no duplicate audit)
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'worker_id': 0}, follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_WORKER_CHANGED').count() == 1
+
+
+def test_maintenance_edit_notes_and_due_combined(client, app):
+    """A single edit can change due date AND notes together; each change gets
+    its own audit row, atomic with the mutation. Rescheduling resets the
+    escalation window."""
+    from datetime import timedelta
+    from app.models import MaintenanceWorkOrder, AuditLog
+    bin_id, order_id, _, _, _ = _seed_lifecycle_order(app)
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        wo.escalated_at = utcnow()
+        db.session.commit()
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'due_date': '2026-10-01', 'notes': 'Check lid hinge too'},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.due_date.strftime('%Y-%m-%d') == '2026-10-01'
+        assert wo.notes == 'Check lid hinge too'
+        assert wo.escalated_at is None  # escalation window reset
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_DUE_DATE_CHANGED').count() == 1
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_NOTES_CHANGED').count() == 1
+
+
+def test_maintenance_edit_validation_and_gating(client, app):
+    """Bad worker 400, unknown order 404, empty payload 400 ('nothing to
+    edit'); a citizen can't reach the endpoint."""
+    from app.models import AuditLog
+    bin_id, order_id, _, _, _ = _seed_lifecycle_order(app)
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'worker_id': 999999}, follow_redirects=False)
+    assert r.status_code == 400
+    r = client.post('/api/maintenance/999999/edit',
+                    json={'worker_id': 0}, follow_redirects=False)
+    assert r.status_code == 404
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={}, follow_redirects=False)
+    assert r.status_code == 400
+    with app.app_context():
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_WORKER_CHANGED').count() == 0
+        assert AuditLog.query.filter_by(
+            action='MAINTENANCE_NOTES_CHANGED').count() == 0
+    client.get('/logout', follow_redirects=False)
+    _make_user(app, 'tlcitizen2')
+    client.post('/login', data={'username': 'tlcitizen2', 'password': 'testpass123'},
+                follow_redirects=False)
+    r = client.post('/api/maintenance/1/edit',
+                    json={'worker_id': 0}, follow_redirects=False)
+    assert r.status_code == 403
+
+
+def test_audit_ledger_timeline_shows_worker_change(client, app):
+    """The ledger timeline renders a worker reassignment as its own event."""
+    from app.models import User, WorkerProfile
+    bin_id, order_id, _, _, _ = _seed_lifecycle_order(app)
+    new_uid = _make_user(app, 'tlworker3', role='worker')
+    with app.app_context():
+        wp2 = WorkerProfile(user_id=new_uid, vehicle_id='CV-83', status='Active')
+        db.session.add(wp2)
+        db.session.commit()
+        new_wp_id = wp2.id
+    _login_admin(client, app, 'tladmin')
+    r = client.post(f'/api/maintenance/{order_id}/edit',
+                    json={'worker_id': new_wp_id}, follow_redirects=False)
+    assert r.status_code == 200
+    client.get('/logout', follow_redirects=False)
+    _make_user(app, 'tl_super4', role='admin')
+    with app.app_context():
+        u = User.query.get(User.query.filter_by(username='tl_super4').first().id)
+        u.is_superadmin = True
+        db.session.commit()
+    _login_admin(client, app, 'tl_super4')
+    r = client.get('/admin/audit')
+    assert r.status_code == 200
+    body = r.data.decode('utf-8')
+    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('<!-- Audit Log Table -->')]
+    assert 'Worker changed' in section
+    assert 'reassigned maintenance work' in section

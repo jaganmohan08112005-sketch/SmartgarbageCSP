@@ -11,6 +11,18 @@
   .act-ota      { color:#8E44AD; }
   .act-violation{ color:#E74C3C; }
   .act-default  { color:#2C3E50; }
+  .tl-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+  .tl-line { border-left:2px solid #e3e8ee; margin-left:4px; padding-left:16px; }
+  /* Printable per-order timeline: only the active card survives window.print() */
+  @media print {
+    body.printing-timeline * { visibility: hidden !important; }
+    body.printing-timeline .timeline-card.print-active,
+    body.printing-timeline .timeline-card.print-active * { visibility: visible !important; }
+    body.printing-timeline .timeline-card.print-active {
+      position: absolute; left: 0; top: 0; width: 100%;
+      border: none !important; box-shadow: none !important; }
+    .no-print { display: none !important; }
+  }
 </style>
 <div class="container-fluid py-4">
   <div class="d-flex align-items-center justify-content-between mb-5 flex-wrap gap-3">
@@ -63,6 +75,99 @@
         <div class="fw-bold fs-4">{{ logs|selectattr('action','in',['LOGIN','MFA_SUCCESS','GOOGLE_LOGIN'])|list|length }}</div>
         <div class="text-muted small">{{ _('Login Events') }}</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Maintenance Work-Order Lifecycles (reconstructed from the ledger) -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">🧰 {{ _('Maintenance Work-Order Lifecycles') }}</h5>
+          <p class="text-muted small mb-0">{{ _('Per-order timeline: created, started, due-date changes, completion — by whom, and when') }}</p>
+        </div>
+        <span class="badge bg-dark">{{ maintenance_timelines|length }} {{ _('orders') }}</span>
+      </div>
+      {% if maintenance_timelines %}
+      <div class="row g-3">
+        {% for tl in maintenance_timelines %}
+        <div class="col-xl-6">
+          <div class="border rounded-3 p-3 h-100 timeline-card" id="timeline-card-{{ tl.order.id }}">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+              <div>
+                <span class="fw-bold">#{{ tl.order.id }}</span>
+                <code class="small text-muted">{{ tl.hardware_id or '—' }}</code>
+                <span class="text-muted small">· {{ tl.ward or '—' }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                {% if tl.status == 'Completed' %}
+                  <span class="badge bg-success">✓ {{ _('Completed') }}</span>
+                {% elif tl.status == 'In Progress' %}
+                  <span class="badge bg-primary">🔧 {{ _('In Progress') }}</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">📋 {{ _('Scheduled') }}</span>
+                {% endif %}
+                <button class="btn btn-sm btn-outline-secondary no-print" onclick="printTimeline({{ tl.order.id }})">🖨️ {{ _('Print') }}</button>
+              </div>
+            </div>
+            <div class="small text-muted mb-2">
+              {{ _('Assigned to') }}: <strong>{{ tl.worker_name or '—' }}</strong> ·
+              {{ _('Due') }}: <strong>{{ tl.due_date.strftime('%Y-%m-%d') if tl.due_date else '—' }}</strong>
+              {% if tl.notes %} · {{ _('Notes') }}: {{ tl.notes }}{% endif %}
+            </div>
+            <div class="tl-line">
+              {% for ev in tl.events %}
+              <div class="d-flex gap-2 mb-2">
+                {% if ev.action == 'MAINTENANCE_ORDER_CREATED' %}
+                  <span class="tl-dot bg-success" title="Created"></span>
+                  <div><strong>🆕 {{ _('Created') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_STARTED' %}
+                  <span class="tl-dot bg-primary" title="Started"></span>
+                  <div><strong>🔧 {{ _('Started') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_WORKER_CHANGED' %}
+                  <span class="tl-dot bg-info" title="Worker changed"></span>
+                  <div><strong>🚛 {{ _('Worker changed') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_DUE_DATE_CHANGED' %}
+                  <span class="tl-dot bg-warning" title="Due date changed"></span>
+                  <div><strong>📅 {{ _('Due date changed') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_NOTES_CHANGED' %}
+                  <span class="tl-dot bg-secondary" title="Notes changed"></span>
+                  <div><strong>📝 {{ _('Notes changed') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_COMPLETED' %}
+                  <span class="tl-dot bg-success" title="Completed"></span>
+                  <div><strong>✅ {{ _('Completed') }}</strong>
+                {% elif ev.action == 'MAINTENANCE_OVERDUE_ESCALATED' %}
+                  <span class="tl-dot bg-danger" title="Overdue escalated"></span>
+                  <div><strong>🚨 {{ _('Overdue escalated') }}</strong>
+                {% else %}
+                  <span class="tl-dot bg-secondary"></span>
+                  <div><strong>{{ ev.action }}</strong>
+                {% endif %}
+                  <span class="text-muted small">— {{ ev.timestamp.strftime('%d %b %Y %H:%M') }}</span>
+                  <div class="text-muted"><small>{{ _('by') }} <strong>{{ ev.actor or 'system' }}</strong>{% if ev.role %} ({{ ev.role }}){% endif %}</small></div>
+                  <div class="small text-muted">{{ ev.detail }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% if tl.status != 'Completed' %}
+            <div class="no-print mt-3 pt-2 border-top d-flex align-items-center gap-2 flex-wrap">
+              <label class="small text-muted mb-0" for="due-{{ tl.order.id }}">📅 {{ _('Reschedule due date') }}:</label>
+              <input type="date" id="due-{{ tl.order.id }}" class="form-control form-control-sm" style="width:160px;"
+                     value="{{ tl.due_date.strftime('%Y-%m-%d') if tl.due_date }}">
+              <button class="btn btn-sm btn-outline-primary" id="resched-{{ tl.order.id }}"
+                      onclick="rescheduleOrder({{ tl.order.id }})">{{ _('Save') }}</button>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">
+        {{ _('No maintenance work orders yet — cleared faults with scheduled follow-ups appear here with their full lifecycle.') }}
+      </p>
+      {% endif %}
     </div>
   </div>
 
@@ -143,6 +248,48 @@ function filterTable(){
     const matchRole = !role || rowRole === role;
     row.style.display = (matchQ && matchRole) ? '' : 'none';
   });
+}
+
+// Print ONLY the chosen per-order timeline card (print CSS hides the rest).
+function printTimeline(orderId) {
+  document.querySelectorAll('.timeline-card.print-active')
+    .forEach(c => c.classList.remove('print-active'));
+  const card = document.getElementById('timeline-card-' + orderId);
+  if (!card) return;
+  card.classList.add('print-active');
+  document.body.classList.add('printing-timeline');
+  // Safari returns from window.print() before the dialog closes — restore via
+  // onafterprint there, synchronously everywhere else.
+  const restore = () => {
+    document.body.classList.remove('printing-timeline');
+    card.classList.remove('print-active');
+  };
+  window.onafterprint = restore;
+  window.print();
+  restore();
+}
+
+async function rescheduleOrder(orderId) {
+  const input = document.getElementById('due-' + orderId);
+  if (!input || !input.value) return;
+  const btn = document.getElementById('resched-' + orderId);
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    const res = await fetch('/api/maintenance/' + orderId + '/edit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+      },
+      body: JSON.stringify({ due_date: input.value })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || 'reschedule failed');
+    location.reload(); // the card + timeline reflect the new due date
+  } catch (e) {
+    alert('Could not reschedule: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '{{ _("Save") }}'; }
+  }
 }
 </script>
 {% endblock %}
