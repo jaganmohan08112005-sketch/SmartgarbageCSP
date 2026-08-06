@@ -3,6 +3,7 @@ import math
 import os
 import random
 import requests
+from datetime import datetime
 
 from flask import (current_app, flash, jsonify, redirect, render_template, request, session, send_file, url_for)
 
@@ -10,7 +11,7 @@ from werkzeug.utils import secure_filename
 
 from werkzeug.security import generate_password_hash
 
-from ..models import (AuditLog, BWGDeclaration, Complaint, DispatchAssignment, FirmwareRelease, IllegalDumpReport, IncidentLog, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
+from ..models import (AuditLog, BWGDeclaration, Complaint, DispatchAssignment, FirmwareRelease, IllegalDumpReport, IncidentLog, MaintenanceWorkOrder, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
 
@@ -18,7 +19,7 @@ from ..auth import admin_required, login_required, superadmin_required
 
 from .. import db, socketio
 
-from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _driver_route_sheet_pdf, _forecast_priority, _notify_status_change, _publish_user_event, fit_length, main, point_in_polygon, record_complaint_event, validate_indian_phone, write_audit)
+from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _driver_route_sheet_pdf, _forecast_priority, _notify_admins, _notify_status_change, _publish_admin_alerts, _publish_user_event, fit_length, main, point_in_polygon, record_complaint_event, validate_indian_phone, write_audit)
 
 
 @main.route('/api/illegal-reports')
@@ -445,11 +446,14 @@ def sensor_faults_api():
     incidents = IncidentLog.query.filter_by(
         incident_type='Sensor Fault', status='Active').all()
     incident_ids = {inc.bin_id for inc in incidents}
+    active_orders = MaintenanceWorkOrder.query.filter(
+        MaintenanceWorkOrder.status.in_(['Scheduled', 'In Progress'])).count()
     kpis = {
         'faulted_bins': len(faulted),
         'open_incidents': len(incidents),
         'maintenance_scheduled': sum(1 for b in faulted
                                      if b.sensor_health and b.sensor_health.maintenance_scheduled),
+        'active_work_orders': active_orders,
     }
     return jsonify({
         'kpis': kpis,
@@ -484,6 +488,12 @@ def clear_bin_fault(hw_id):
     incident for the bin, and writes a BIN_FAULT_CLEARED audit entry with the
     acting admin's identity — all in one transaction so a failure rolls back
     the whole action (no half-cleared state).
+
+    Optional maintenance follow-up: when the request body carries
+    `schedule_maintenance`, a MaintenanceWorkOrder is minted for the chosen
+    worker with a due date. The bin leaves the faulted state but stays
+    maintenance-scheduled until the worker completes the order (the sensor
+    health view tracks it in the work-orders table).
     """
     b = SmartBin.query.filter_by(hardware_id=hw_id).first()
     if b is None:
@@ -491,20 +501,121 @@ def clear_bin_fault(hw_id):
     if not b.sensor_fault:
         return jsonify({'success': False, 'message': 'Bin is not currently faulted.'}), 400
 
+    data = request.get_json(silent=True) or {}
+    schedule_maintenance = bool(data.get('schedule_maintenance'))
+    worker = due_date = None
+    if schedule_maintenance:
+        try:
+            worker_id = int(data.get('worker_id'))
+        except (TypeError, ValueError):
+            worker_id = None
+        worker = WorkerProfile.query.get(worker_id) if worker_id else None
+        if worker is None:
+            return jsonify({'success': False, 'message': 'A maintenance worker must be selected.'}), 400
+        due_date = _parse_due_date(data.get('due_date'))
+        if due_date is None:
+            return jsonify({'success': False, 'message': 'A valid due date (YYYY-MM-DD) is required.'}), 400
+
     open_incs = IncidentLog.query.filter_by(
         bin_id=b.id, incident_type='Sensor Fault', status='Active').all()
     b.sensor_fault = False
     if b.sensor_health:
         b.sensor_health.fault_flag = False
         b.sensor_health.fault_reason = None
-        b.sensor_health.maintenance_scheduled = False
+        b.sensor_health.maintenance_scheduled = schedule_maintenance  # stays True until the order completes
     for inc in open_incs:
         inc.status = 'Resolved'
-    write_audit("BIN_FAULT_CLEARED", target=hw_id,
-                detail=f"Manual clear by admin — {len(open_incs)} open incident(s) resolved",
-                commit=False)
+
+    order = None
+    if schedule_maintenance:
+        order = MaintenanceWorkOrder(
+            bin_id=b.id, worker_id=worker.id, created_by=session['user_id'],
+            due_date=due_date, notes=fit_length(data.get('notes', ''), 300) or None)
+        db.session.add(order)
+        # Flush so the audit rows can reference the real order id (immutable
+        # ledger — correlating the audit to the work order must be possible).
+        db.session.flush()
+        worker_label = worker.user.username if worker.user else f'worker #{worker.id}'
+        write_audit("MAINTENANCE_ORDER_CREATED", target=hw_id,
+                    detail=f"Maintenance order #{order.id} scheduled for {worker_label}, due {due_date.strftime('%Y-%m-%d')}",
+                    commit=False)
+        detail = (f"Manual clear by admin — maintenance work order #{order.id} scheduled "
+                  f"(due {due_date.strftime('%Y-%m-%d')}), {len(open_incs)} incident(s) resolved")
+    else:
+        detail = f"Manual clear by admin — {len(open_incs)} open incident(s) resolved"
+    write_audit("BIN_FAULT_CLEARED", target=hw_id, detail=detail, commit=False)
+    msg = f"🧹 Sensor fault cleared on {hw_id} by {session.get('username', 'admin')}."
+    if order:
+        msg += f" Maintenance work order #{order.id} scheduled (due {due_date.strftime('%Y-%m-%d')})."
+    staged = _notify_admins(msg, link="/admin#sensor-fault-section")
     db.session.commit()
-    return jsonify({'success': True, 'resolved_incidents': len(open_incs)})
+    # Live alert after the commit — a toast must never announce a clear that
+    # rolled back.
+    _publish_admin_alerts(staged)
+    return jsonify({'success': True, 'resolved_incidents': len(open_incs),
+                    'maintenance_order_id': order.id if order else None,
+                    'maintenance_scheduled': bool(order)})
+
+
+def _parse_due_date(raw):
+    """Parse 'YYYY-MM-DD' (date input) or ISO 'YYYY-MM-DDTHH:MM' into a naive
+    UTC datetime; returns None for anything unparseable so callers can 400."""
+    if not raw:
+        return None
+    raw = str(raw).strip()
+    for fmt in ('%Y-%m-%d', '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M'):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+@main.route('/api/maintenance')
+@admin_required
+def maintenance_api():
+    """Maintenance work orders + the worker pool, in one control-room contract.
+
+    Active orders (Scheduled / In Progress) come first ordered by due date
+    (overdue flagged read-side), then the most recent completed orders. The
+    worker list feeds the schedule-maintenance form's dropdown.
+    """
+    active = (MaintenanceWorkOrder.query
+              .filter(MaintenanceWorkOrder.status.in_(['Scheduled', 'In Progress']))
+              .order_by(MaintenanceWorkOrder.due_date.is_(None),
+                        MaintenanceWorkOrder.due_date.asc())
+              .all())
+    completed = (MaintenanceWorkOrder.query
+                 .filter_by(status='Completed')
+                 .order_by(MaintenanceWorkOrder.completed_at.desc())
+                 .limit(10).all())
+    now = utcnow()
+
+    def _row(o):
+        return {
+            'id': o.id,
+            'bin_id': o.bin_id,
+            'hardware_id': o.bin.hardware_id if o.bin else None,
+            'ward': o.bin.ward if o.bin else None,
+            'worker_id': o.worker_id,
+            'worker_name': o.worker.user.username if (o.worker and o.worker.user) else None,
+            'vehicle_id': o.worker.vehicle_id if o.worker else None,
+            'status': o.status,
+            'due_date': o.due_date.isoformat() if o.due_date else None,
+            'overdue': bool(o.due_date and o.status != 'Completed' and o.due_date < now),
+            'notes': o.notes,
+            'created_at': o.created_at.isoformat() if o.created_at else None,
+            'completed_at': o.completed_at.isoformat() if o.completed_at else None,
+        }
+
+    workers = [{
+        'id': w.id,
+        'name': w.user.username if w.user else f'Worker {w.id}',
+        'vehicle_id': w.vehicle_id,
+        'status': w.status,
+    } for w in WorkerProfile.query.order_by(WorkerProfile.id.asc()).all()]
+    return jsonify({'orders': [_row(o) for o in active + completed],
+                    'workers': workers})
 
 
 @main.route('/resolve/<int:id>')

@@ -35,6 +35,18 @@
             </div>
         </div>
 
+        <!-- Maintenance Work Orders (sensor-health follow-up from the control room) -->
+        <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-4 border-warning">
+            <h5 class="fw-bold mb-1 text-dark d-flex align-items-center justify-content-between">
+                <span>🧰 {{ _('Maintenance Tasks') }}</span>
+                <span class="badge bg-warning text-dark rounded-pill small" id="maintCount">0</span>
+            </h5>
+            <p class="text-muted small mb-2">{{ _('Sensor follow-up work orders scheduled by the control room — start when you reach the bin, mark done once serviced.') }}</p>
+            <div class="list-group gap-2" id="maintTaskList">
+                <div class="text-center py-3 text-muted small" id="maintTaskEmpty">{{ _('Loading…') }}</div>
+            </div>
+        </div>
+
         <!-- Task Checklist queue (High contrast mobile responsive) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
@@ -401,6 +413,7 @@
                     : `✔ Dispatch for ${hw} marked complete.`);
             }
             refreshDispatchQueue();
+            refreshMaintenanceTasks();
         } catch (e) { console.warn('dispatch action failed', e); }
     }
 
@@ -414,9 +427,92 @@
             }
         });
         dSocket.on('dispatch_update', () => refreshDispatchQueue());
+        dSocket.on('maintenance_update', () => refreshMaintenanceTasks());
     }
 
     refreshDispatchQueue();
+
+    // ── Maintenance work orders (sensor-health follow-up) ──
+    const maintList = document.getElementById('maintTaskList');
+    const maintCount = document.getElementById('maintCount');
+
+    function renderMaintenanceTasks(orders) {
+        if (!maintList) return;
+        const active = orders.filter(o => o.status !== 'Completed');
+        const done = orders.filter(o => o.status === 'Completed');
+        if (maintCount) maintCount.textContent = active.length;
+        if (!active.length && !done.length) {
+            maintList.innerHTML = '<div class="text-center py-3 text-muted small">✅ No maintenance tasks assigned to you.</div>';
+            return;
+        }
+        const items = [];
+        active.forEach(o => {
+            const dueTxt = o.due_date ? o.due_date.replace('T', ' ').slice(0, 10) : '—';
+            const overdue = o.overdue ? ' <span class="badge bg-danger">Overdue</span>' : '';
+            const startBtn = o.status === 'Scheduled'
+                ? `<button class="btn btn-sm btn-outline-primary flex-grow-1 fw-bold rounded-pill maint-start" data-maint-id="${o.id}">▶ {{ _('Start') }}</button>` : '';
+            items.push(`
+                <div class="list-group-item rounded-3 border p-3 bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0">🔧 WO#${o.id} · <code>${dispatchEscape(o.hardware_id || 'bin#' + o.bin_id)}</code></h6>
+                        <span class="badge ${o.status === 'In Progress' ? 'bg-primary' : 'bg-warning text-dark'}">${o.status}</span>
+                    </div>
+                    <p class="text-muted small mb-2">📍 ${dispatchEscape(o.ward || '-')} · {{ _('due') }} ${dueTxt}${overdue}</p>
+                    ${o.notes ? `<p class="text-muted small mb-2">📝 ${dispatchEscape(o.notes)}</p>` : ''}
+                    <div class="d-flex gap-2">
+                        ${startBtn}
+                        <button class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill maint-done" data-maint-id="${o.id}">✔ {{ _('Mark Done') }}</button>
+                    </div>
+                </div>`);
+        });
+        done.forEach(o => {
+            items.push(`
+                <div class="list-group-item rounded-3 border p-2 bg-white opacity-75">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold">✔ WO#${o.id} · <code>${dispatchEscape(o.hardware_id || '')}</code></span>
+                        <span class="badge bg-success small">{{ _('Done') }}</span>
+                    </div>
+                </div>`);
+        });
+        maintList.innerHTML = items.join('');
+    }
+
+    async function refreshMaintenanceTasks() {
+        try {
+            const res = await fetch('/api/maintenance/my');
+            if (!res.ok) return;
+            const data = await res.json();
+            renderMaintenanceTasks(data.orders || []);
+        } catch (e) { console.warn('maintenance tasks refresh failed', e); }
+    }
+
+    document.addEventListener('click', (e) => {
+        const start = e.target.closest('.maint-start');
+        if (start) { maintenanceAction('/api/maintenance/' + start.dataset.maintId + '/start', '▶ {{ _('Task started — head to the bin') }}.'); return; }
+        const done = e.target.closest('.maint-done');
+        if (done) {
+            if (!confirm('{{ _('Mark this maintenance task as done?') }}')) return;
+            maintenanceAction('/api/maintenance/' + done.dataset.maintId + '/complete', '✔ {{ _('Maintenance task completed — thanks!') }}');
+        }
+    });
+
+    async function maintenanceAction(url, okMsg) {
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfMeta ? csrfMeta.content : '' }
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                dispatchToast((data && data.message) || '{{ _('Action failed — try again') }}.', true);
+            } else {
+                dispatchToast(okMsg);
+            }
+            refreshMaintenanceTasks();
+        } catch (e) { console.warn('maintenance action failed', e); }
+    }
+
+    refreshMaintenanceTasks();
 
     // ── Close-the-loop: clear a bin with After-photo + on-site GPS ──
     // The old confirm() + bare POST let a driver mark a bin cleared from down
@@ -515,6 +611,7 @@
                     if (count > 0) countBadge.innerText = `${count - 1} {{ _('Pending') }}`;
                 }
                 refreshDispatchQueue();
+                refreshMaintenanceTasks();
             }
         } catch (e) {
             dispatchToast('❌ {{ _('Could not clear bin — check connection and retry') }}.', true);

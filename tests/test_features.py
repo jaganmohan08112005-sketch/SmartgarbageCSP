@@ -3743,3 +3743,467 @@ def test_sweep_job_policy_declared_and_schedules_without_redis(app):
     with app.app_context():
         schedule_failed_alert_sweep()
         assert sweep_failed_jobs_alerts_job() == 0
+
+# ── Maintenance work orders (fault cleared with a scheduled follow-up) ──
+def test_clear_fault_schedules_maintenance(client, app):
+    """Clearing a fault with schedule_maintenance mints a MaintenanceWorkOrder:
+    the bin leaves the faulted state, stays maintenance-scheduled, incidents
+    resolve, and both audits (MAINTENANCE_ORDER_CREATED + BIN_FAULT_CLEARED)
+    are written in the same committed transaction."""
+    from app.models import SmartBin, SensorHealth, IncidentLog, MaintenanceWorkOrder, AuditLog, WorkerProfile
+    _make_user(app, 'maintadmin', role='admin')
+    worker_uid = _make_user(app, 'maintworker', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=worker_uid, vehicle_id='CV-77', status='Active'))
+        db.session.commit()
+        wp = WorkerProfile.query.filter_by(user_id=worker_uid).first()
+        worker_id = wp.id
+        b = SmartBin(hardware_id='SF-MAINT-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings',
+                                    maintenance_scheduled=True))
+        db.session.add(IncidentLog(bin_id=b.id, incident_type='Sensor Fault', severity='Warning',
+                                   status='Active', description='Stuck sensor: SF-MAINT-1'))
+        db.session.commit()
+    _login_admin(client, app, 'maintadmin')
+    r = client.post('/api/bins/SF-MAINT-1/clear-fault',
+                    json={'schedule_maintenance': True, 'worker_id': worker_id,
+                          'due_date': '2026-08-10', 'notes': 'Recalibrate sensor'},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['success'] is True
+    assert data['maintenance_scheduled'] is True
+    assert data['maintenance_order_id'] is not None
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='SF-MAINT-1').first()
+        assert b.sensor_fault is False
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        assert sh.fault_flag is False and sh.maintenance_scheduled is True
+        inc = IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault').first()
+        assert inc.status == 'Resolved'
+        wo = MaintenanceWorkOrder.query.get(data['maintenance_order_id'])
+        assert wo.status == 'Scheduled' and wo.worker_id == worker_id
+        assert wo.notes == 'Recalibrate sensor'
+        assert wo.due_date.strftime('%Y-%m-%d') == '2026-08-10'
+        assert AuditLog.query.filter_by(action='MAINTENANCE_ORDER_CREATED', target='SF-MAINT-1').count() == 1
+        assert AuditLog.query.filter_by(action='BIN_FAULT_CLEARED', target='SF-MAINT-1').count() == 1
+
+
+def test_clear_fault_schedule_requires_worker_and_due(client, app):
+    """The maintenance branch validates inputs BEFORE mutating: a missing or
+    invalid worker and an unparseable due date each 400, leaving the bin
+    faulted (no half-applied clear)."""
+    from app.models import SmartBin, WorkerProfile
+    _make_user(app, 'maintadmin2', role='admin')
+    worker_uid = _make_user(app, 'maintworker2', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=worker_uid, vehicle_id='CV-78', status='Active'))
+        db.session.add(SmartBin(hardware_id='SF-REQ-1', latitude=18.05, longitude=83.40,
+                                level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True))
+        db.session.commit()
+        worker_id = WorkerProfile.query.filter_by(user_id=worker_uid).first().id
+    _login_admin(client, app, 'maintadmin2')
+
+    r1 = client.post('/api/bins/SF-REQ-1/clear-fault',
+                     json={'schedule_maintenance': True, 'due_date': '2026-08-10'},
+                     follow_redirects=False)
+    assert r1.status_code == 400
+
+    r2 = client.post('/api/bins/SF-REQ-1/clear-fault',
+                     json={'schedule_maintenance': True, 'worker_id': 999999,
+                           'due_date': 'not-a-date'},
+                     follow_redirects=False)
+    assert r2.status_code == 400
+
+    r3 = client.post('/api/bins/SF-REQ-1/clear-fault',
+                     json={'schedule_maintenance': True, 'worker_id': worker_id,
+                           'due_date': 'not-a-date'},
+                     follow_redirects=False)
+    assert r3.status_code == 400
+
+    # Nothing was half-applied: the bin is still faulted and NO admin alert
+    # was staged for the rejected clears.
+    with app.app_context():
+        from app.models import Notification
+        b = SmartBin.query.filter_by(hardware_id='SF-REQ-1').first()
+        assert b.sensor_fault is True
+        assert Notification.query.filter(
+            Notification.message.contains('SF-REQ-1')).count() == 0
+
+
+def test_maintenance_api_lists_orders_and_workers(client, app):
+    """GET /api/maintenance returns active + recent orders with worker/overdue
+    context, plus the worker pool for the schedule form. Citizens are blocked."""
+    from app.models import SmartBin, MaintenanceWorkOrder, WorkerProfile
+    admin_uid = _make_user(app, 'maintadmin3', role='admin')
+    worker_uid = _make_user(app, 'maintworker3', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=worker_uid, vehicle_id='CV-88', status='Active'))
+        db.session.commit()
+        wp = WorkerProfile.query.filter_by(user_id=worker_uid).first()
+        b = SmartBin(hardware_id='SF-LIST-1', latitude=18.05, longitude=83.40,
+                     level=60, ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(MaintenanceWorkOrder(bin_id=b.id, worker_id=wp.id,
+                                            created_by=admin_uid, status='In Progress',
+                                            due_date=utcnow()))
+        db.session.commit()
+    _login_admin(client, app, 'maintadmin3')
+    r = client.get('/api/maintenance', follow_redirects=False)
+    assert r.status_code == 200
+    data = r.get_json()
+    assert any(o['hardware_id'] == 'SF-LIST-1' and o['status'] == 'In Progress' for o in data['orders'])
+    assert any(w['vehicle_id'] == 'CV-88' for w in data['workers'])
+
+    # Sensor-faults KPI surfaces the active work-order count.
+    r2 = client.get('/api/sensor-faults', follow_redirects=False)
+    assert r2.get_json()['kpis']['active_work_orders'] == 1
+
+
+def test_maintenance_api_blocks_citizen(client, app):
+    """The maintenance feed is admin-only (403 for a citizen session)."""
+    _make_user(app, 'maintcit')
+    client.post('/login', data={'username': 'maintcit', 'password': 'testpass123'})
+    assert client.get('/api/maintenance', follow_redirects=False).status_code == 403
+
+
+def test_worker_start_and_complete_maintenance(client, app):
+    """Workers see only their own orders; start moves Scheduled -> In Progress;
+    complete restores the bin to service (fault + maintenance flags dropped,
+    incidents resolved) and audits with the worker's identity. A worker cannot
+    touch another worker's order."""
+    from app.models import SmartBin, SensorHealth, IncidentLog, MaintenanceWorkOrder, AuditLog, WorkerProfile
+    admin_uid = _make_user(app, 'maintadmin4', role='admin')
+    worker_uid = _make_user(app, 'maintworker4', role='worker')
+    other_uid = _make_user(app, 'maintworker5', role='worker')
+    with app.app_context():
+        wp = WorkerProfile(user_id=worker_uid, vehicle_id='CV-89', status='Active')
+        other = WorkerProfile(user_id=other_uid, vehicle_id='CV-90', status='Active')
+        db.session.add_all([wp, other])
+        db.session.commit()
+        b = SmartBin(hardware_id='SF-WORK-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings',
+                                    maintenance_scheduled=True))
+        db.session.add(IncidentLog(bin_id=b.id, incident_type='Sensor Fault', severity='Warning',
+                                   status='Active', description='Stuck sensor: SF-WORK-1'))
+        db.session.commit()
+        my_id = wp.id
+        other_id = other.id
+        order = MaintenanceWorkOrder(bin_id=b.id, worker_id=my_id, created_by=admin_uid,
+                                     due_date=utcnow())
+        db.session.add(order)
+        db.session.commit()
+        order_id = order.id
+
+    _login_admin(client, app, 'maintworker4')
+    # Only my order shows up in /api/maintenance/my
+    mine = client.get('/api/maintenance/my', follow_redirects=False)
+    assert mine.status_code == 200
+    assert len(mine.get_json()['orders']) == 1
+    assert mine.get_json()['orders'][0]['id'] == order_id
+
+    # Start: Scheduled -> In Progress
+    r = client.post(f'/api/maintenance/{order_id}/start', follow_redirects=False)
+    assert r.status_code == 200
+    # Re-start is a 400 (already In Progress)
+    assert client.post(f'/api/maintenance/{order_id}/start', follow_redirects=False).status_code == 400
+
+    # A different worker's order is invisible (404) even for start/complete
+    with app.app_context():
+        other_order = MaintenanceWorkOrder(bin_id=1, worker_id=other_id, created_by=admin_uid)
+        db.session.add(other_order)
+        db.session.commit()
+        other_order_id = other_order.id
+    assert client.post(f'/api/maintenance/{other_order_id}/start', follow_redirects=False).status_code == 404
+    assert client.post(f'/api/maintenance/{other_order_id}/complete', follow_redirects=False).status_code == 404
+
+    # Complete restores the bin and audits
+    r = client.post(f'/api/maintenance/{order_id}/complete', follow_redirects=False)
+    assert r.status_code == 200
+    assert r.get_json()['bin_restored'] is True
+    # Idempotency guard: already-completed is a 400
+    assert client.post(f'/api/maintenance/{order_id}/complete', follow_redirects=False).status_code == 400
+
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.get(order_id)
+        assert wo.status == 'Completed' and wo.completed_at is not None
+        assert wo.completed_by == worker_uid
+        b = SmartBin.query.filter_by(hardware_id='SF-WORK-1').first()
+        assert b.sensor_fault is False
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        assert sh.fault_flag is False and sh.maintenance_scheduled is False
+        inc = IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault').first()
+        assert inc.status == 'Resolved'
+        assert AuditLog.query.filter_by(action='MAINTENANCE_COMPLETED',
+                                        target='SF-WORK-1').count() == 1
+
+
+def test_resolve_bin_autocompletes_maintenance(client, app):
+    """Clearing a bin with verified After-photo + GPS auto-completes its open
+    maintenance work orders — the on-site visit IS the maintenance."""
+    from app.models import SmartBin, MaintenanceWorkOrder, WorkerProfile, AuditLog
+    admin_uid = _make_user(app, 'maintadmin6', role='admin')
+    worker_uid = _make_user(app, 'maintworker6', role='worker')
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=worker_uid, vehicle_id='CV-91', status='Active'))
+        db.session.commit()
+        wp = WorkerProfile.query.filter_by(user_id=worker_uid).first()
+        b = SmartBin(hardware_id='BIN-MAINT-RES', latitude=18.05, longitude=83.40,
+                     level=90, status='Critical', ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(MaintenanceWorkOrder(bin_id=b.id, worker_id=wp.id,
+                                            created_by=admin_uid, status='Scheduled'))
+        db.session.commit()
+        bin_id = b.id
+    _login_admin(client, app, 'maintworker6')
+    r = client.post('/resolve-bin/BIN-MAINT-RES',
+                    data={'after_photo': (_make_jpeg_bytes(), 'after.jpg'),
+                          'lat': '18.05', 'lon': '83.40'},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        wo = MaintenanceWorkOrder.query.filter_by(bin_id=bin_id).first()
+        assert wo.status == 'Completed' and wo.completed_at is not None
+        assert AuditLog.query.filter_by(action='RESOLVE_BIN',
+                                        target='BIN-MAINT-RES').count() == 1
+        assert 'auto-completed' in AuditLog.query.filter_by(action='RESOLVE_BIN',
+                                                            target='BIN-MAINT-RES').first().detail
+
+# ── Sensor-fault analytics (audit-ledger lifecycle instrumentation) ──
+def test_sensor_self_heal_is_audited(client, app):
+    """A faulted bin whose next ping shows a changed reading self-heals: the
+    fault clears, the incident resolves, and a SENSOR_SELF_HEALED audit row is
+    written — the signal the analytics ratio is built on."""
+    from app.models import SmartBin, SensorHealth, IncidentLog, AuditLog
+    with app.app_context():
+        b = SmartBin(hardware_id='SELF-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings',
+                                    maintenance_scheduled=True))
+        db.session.add(IncidentLog(bin_id=b.id, incident_type='Sensor Fault', severity='Warning',
+                                   status='Active', description='Stuck sensor: SELF-1'))
+        db.session.commit()
+    r = client.post('/api/bin-telemetry',
+                    json={'hardware_id': 'SELF-1', 'level': 50},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='SELF-1').first()
+        assert b.sensor_fault is False
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        assert sh.fault_flag is False and sh.maintenance_scheduled is False
+        inc = IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault').first()
+        assert inc.status == 'Resolved'
+        assert AuditLog.query.filter_by(action='SENSOR_SELF_HEALED',
+                                        target='SELF-1').count() == 1
+
+
+def test_stale_sweep_audits_sensor_fault_flagged(client, app):
+    """check_sensor_faults flags a >24h-silent bin and writes a
+    SENSOR_FAULT_FLAGGED audit (the stale-source detection signal)."""
+    from app.models import SmartBin, AuditLog, IncidentLog
+    from app.routes import check_sensor_faults
+    from datetime import timedelta
+    with app.app_context():
+        stale = utcnow() - timedelta(hours=48)
+        b = SmartBin(hardware_id='STALE-1', latitude=18.05, longitude=83.40,
+                     level=40, ward='Ward 1 - MVGR College Area',
+                     sensor_fault=False, last_updated=stale)
+        db.session.add(b)
+        db.session.commit()
+        check_sensor_faults()
+        b = SmartBin.query.filter_by(hardware_id='STALE-1').first()
+        assert b.sensor_fault is True
+        assert AuditLog.query.filter_by(action='SENSOR_FAULT_FLAGGED',
+                                        target='STALE-1').count() == 1
+        assert IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault',
+                                           status='Active').count() == 1
+
+
+def test_sensor_fault_analytics_api_math(client, app):
+    """The analytics endpoint reconstructs the fault lifecycle from the audit
+    ledger: per-ward fault rate, average time-to-clear (detection->resolution
+    pairing), self-heal vs manual ratio, weekly series and repeat offenders."""
+    from app.models import SmartBin, AuditLog
+    from datetime import timedelta
+    admin_uid = _make_user(app, 'sfaadmin', role='admin')
+    now = utcnow()
+    with app.app_context():
+        # Ward A bin: detected 10d ago, self-healed 9d ago -> 24h time-to-clear
+        a = SmartBin(hardware_id='SFA-A', latitude=18.05, longitude=83.40,
+                     level=50, ward='Ward A')
+        # Ward B bin: detected 5d ago, manually cleared 2h later
+        b = SmartBin(hardware_id='SFA-B', latitude=18.05, longitude=83.41,
+                     level=50, ward='Ward B')
+        # Ward A repeat offender: second detection 3d ago (unresolved)
+        c = SmartBin(hardware_id='SFA-C', latitude=18.05, longitude=83.42,
+                     level=50, ward='Ward A')
+        # Currently-faulted bin (no events in window)
+        d = SmartBin(hardware_id='SFA-D', latitude=18.05, longitude=83.43,
+                     level=60, ward='Ward C', sensor_fault=True)
+        db.session.add_all([a, b, c, d])
+        db.session.flush()
+        events = [
+            AuditLog(action='SENSOR_SUSPICIOUS', target='SFA-A', username='sfaadmin',
+                     role='admin', timestamp=now - timedelta(days=10)),
+            AuditLog(action='SENSOR_SELF_HEALED', target='SFA-A', username='sfaadmin',
+                     role='admin', timestamp=now - timedelta(days=9)),
+            AuditLog(action='SENSOR_SUSPICIOUS', target='SFA-C', username='sfaadmin',
+                     role='admin', timestamp=now - timedelta(days=3)),
+            AuditLog(action='SENSOR_FAULT_FLAGGED', target='SFA-B', username='sfaadmin',
+                     role='admin', timestamp=now - timedelta(days=5)),
+            AuditLog(action='BIN_FAULT_CLEARED', target='SFA-B', username='sfaadmin',
+                     role='admin', timestamp=now - timedelta(days=5) + timedelta(hours=2)),
+        ]
+        db.session.add_all(events)
+        db.session.commit()
+    _login_admin(client, app, 'sfaadmin')
+    r = client.get('/api/analytics/sensor-faults?days=90', follow_redirects=False)
+    assert r.status_code == 200
+    data = r.get_json()
+
+    k = data['kpis']
+    assert k['detections'] == 3
+    assert k['self_heal'] == 1
+    assert k['manual'] == 1
+    assert k['resolved'] == 2
+    assert k['self_heal_pct'] == 50.0
+    assert k['avg_ttc_hours'] == 13.0  # (24 + 2) / 2
+    assert k['currently_faulted'] == 1
+
+    # Per-ward aggregation
+    ward_a = [w for w in data['wards'] if w['ward'] == 'Ward A'][0]
+    ward_b = [w for w in data['wards'] if w['ward'] == 'Ward B'][0]
+    assert ward_a['detections'] == 2 and ward_a['bins'] == 2
+    assert ward_a['fault_rate'] == 1.0  # 2 detections / 2 bins
+    assert ward_b['detections'] == 1 and ward_b['avg_ttc_hours'] == 2.0
+    assert ward_b['manual'] == 1
+
+    # Repeat offenders: SFA-A and SFA-C both have detections; sorted desc
+    top = [t['hardware_id'] for t in data['top_bins']]
+    assert 'SFA-A' in top and 'SFA-C' in top
+
+    # Weekly series: detection weeks present, detections >= resolutions count
+    assert data['series']['labels'], 'series should have at least one week'
+    assert sum(data['series']['detections']) == 3
+
+
+def test_sensor_fault_analytics_blocks_citizen(client, app):
+    """The sensor-fault analytics feed is admin-only."""
+    _make_user(app, 'sfacit')
+    client.post('/login', data={'username': 'sfacit', 'password': 'testpass123'})
+    assert client.get('/api/analytics/sensor-faults', follow_redirects=False).status_code == 403
+
+# ── Live admin alerts (stuck-sensor detection + manual clears -> SSE stream) ──
+def test_stuck_detection_notifies_admins(client, app):
+    """A stuck-sensor detection writes an in-app Notification for every admin
+    (link points at the sensor-health section) — the row the live bell and SSE
+    stream deliver."""
+    from app.models import SmartBin, BinTelemetryLog, Notification
+    admin_uid = _make_user(app, 'ntfadmin', role='admin')
+    with app.app_context():
+        b = SmartBin(hardware_id='NTF-STUCK-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        for _ in range(5):
+            db.session.add(BinTelemetryLog(bin_id=b.id, level=96, timestamp=utcnow()))
+        db.session.commit()
+    r = client.post('/api/bin-telemetry', json={'hardware_id': 'NTF-STUCK-1', 'level': 96})
+    assert r.status_code == 200
+    with app.app_context():
+        notes = Notification.query.filter(
+            Notification.user_id == admin_uid,
+            Notification.message.contains('Stuck sensor')).all()
+        assert len(notes) == 1
+        assert 'NTF-STUCK-1' in notes[0].message
+        assert notes[0].link == '/admin#sensor-fault-section'
+
+
+def test_stale_sweep_notifies_admins(client, app):
+    """The stale-sensor sweep alerts admins when it flags a >24h-silent bin."""
+    from app.models import SmartBin, Notification
+    from app.routes import check_sensor_faults
+    from datetime import timedelta
+    admin_uid = _make_user(app, 'ntfadmin2', role='admin')
+    with app.app_context():
+        db.session.add(SmartBin(hardware_id='NTF-STALE-1', latitude=18.05, longitude=83.40,
+                                level=40, ward='Ward 1 - MVGR College Area',
+                                sensor_fault=False, last_updated=utcnow() - timedelta(hours=48)))
+        db.session.commit()
+        check_sensor_faults()
+        notes = Notification.query.filter(
+            Notification.user_id == admin_uid,
+            Notification.message.contains('no telemetry for >24h')).all()
+        assert len(notes) == 1
+        assert 'NTF-STALE-1' in notes[0].message
+        assert notes[0].link == '/admin#sensor-fault-section'
+
+
+def test_clear_fault_notifies_admins(client, app):
+    """A manual clear-fault alerts every admin (including the actor) so the
+    control room sees live that a bin was restored."""
+    from app.models import SmartBin, SensorHealth, Notification
+    admin_uid = _make_user(app, 'ntfadmin3', role='admin')
+    with app.app_context():
+        b = SmartBin(hardware_id='NTF-CLR-1', latitude=18.05, longitude=83.40,
+                     level=96, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings',
+                                    maintenance_scheduled=True))
+        db.session.commit()
+    _login_admin(client, app, 'ntfadmin3')
+    r = client.post('/api/bins/NTF-CLR-1/clear-fault', json={}, follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        notes = Notification.query.filter(
+            Notification.user_id == admin_uid,
+            Notification.message.contains('Sensor fault cleared on NTF-CLR-1')).all()
+        assert len(notes) == 1
+        assert 'by ntfadmin3' in notes[0].message
+
+
+def test_maintenance_complete_notifies_admins(client, app):
+    """A worker completing a maintenance order alerts the admin control room."""
+    from app.models import SmartBin, MaintenanceWorkOrder, Notification, WorkerProfile
+    admin_uid = _make_user(app, 'ntfadmin4', role='admin')
+    worker_uid = _make_user(app, 'ntfworker4', role='worker')
+    with app.app_context():
+        wp = WorkerProfile(user_id=worker_uid, vehicle_id='CV-95', status='Active')
+        db.session.add(wp)
+        db.session.commit()
+        b = SmartBin(hardware_id='NTF-WO-1', latitude=18.05, longitude=83.40,
+                     level=60, ward='Ward 1 - MVGR College Area', sensor_fault=True)
+        db.session.add(b)
+        db.session.flush()
+        wo = MaintenanceWorkOrder(bin_id=b.id, worker_id=wp.id,
+                                  created_by=admin_uid, status='Scheduled',
+                                  due_date=utcnow())
+        db.session.add(wo)
+        db.session.commit()
+        order_id = wo.id
+    _login_admin(client, app, 'ntfworker4')
+    r = client.post(f'/api/maintenance/{order_id}/complete', follow_redirects=False)
+    assert r.status_code == 200
+    with app.app_context():
+        notes = Notification.query.filter(
+            Notification.user_id == admin_uid,
+            Notification.message.contains('Maintenance work order')).all()
+        assert len(notes) == 1
+        assert 'NTF-WO-1' in notes[0].message
+        assert notes[0].link == '/admin#sensor-fault-section'
