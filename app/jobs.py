@@ -653,6 +653,7 @@ def dunning_job(grace_days=30):
             PAYTInvoice.status == 'Unpaid',
             PAYTInvoice.issued_at < cutoff).all()
         reminded = 0
+        pushed = []  # (user_id, message) — SSE-pushed only AFTER the commit
         for inv in overdue:
             dup = Notification.query.filter(
                 Notification.user_id == inv.user_id,
@@ -673,9 +674,20 @@ def dunning_job(grace_days=30):
                 link=f'/payt/pay/{inv.id}',
             )
             db.session.add(note)
+            pushed.append((inv.user_id, note.message))
             enqueue(payt_reminder_job, inv.user_id, inv.id, inv.period, inv.amount_rs, days)
             reminded += 1
         db.session.commit()
+        # Real-time SSE push AFTER the commit: a toast must never announce a
+        # notification that failed to persist (no-op without Redis — the
+        # stream's DB-poll fallback covers dev/tests).
+        if pushed:
+            try:
+                from .routes import _publish_user_event
+                for uid, msg in pushed:
+                    _publish_user_event(uid, msg)
+            except Exception:
+                pass
         logger.info("dunning_run", overdue=len(overdue), reminded=reminded)
         return reminded
 
@@ -897,10 +909,22 @@ def alert_on_dead_letter(job_id, func_name, exc_info='', fire_webhook=True):
             message = (f"⚠️ Background job {func} ({job_id}) exhausted its retries "
                        f"and was dead-lettered. Requeue or purge it in the "
                        f"Failed Jobs queue.")
+            pushed = []  # SSE-pushed only AFTER the commit below
             for uid in _admin_user_ids():
                 db.session.add(Notification(user_id=uid, message=message, link=marker))
+                pushed.append((uid, message))
                 created += 1
             db.session.commit()
+            # Real-time SSE push after the commit (no-op without Redis): a
+            # dead-letter toast must never outlive a notification write that
+            # rolled back.
+            if pushed:
+                try:
+                    from .routes import _publish_user_event
+                    for uid, msg in pushed:
+                        _publish_user_event(uid, msg)
+                except Exception:
+                    pass
     except Exception as e:
         logger.warning("dead_letter_alert_error", job_id=job_id, error=str(e))
         try:
@@ -1014,6 +1038,7 @@ def sla_escalation_job():
         ).all()
         admins = User.query.filter_by(role='admin', is_active=True).all()
         from .routes import record_complaint_event
+        pushed = []  # (admin_id, message) — SSE-pushed only AFTER the commit
         for c in stale:
             c.status = 'Escalated'
             detail = (f"Auto-escalated past SLA deadline "
@@ -1027,11 +1052,10 @@ def sla_escalation_job():
                 username='system', role='system', action='COMPLAINT_ESCALATED',
                 target=c.ward, detail=detail))
             for a in admins:
-                db.session.add(Notification(
-                    user_id=a.id,
-                    message=f"Complaint #{c.id} in {c.ward} escalated (SLA overdue).",
-                    link=f"/admin#{c.id}"
-                ))
+                _msg = f"Complaint #{c.id} in {c.ward} escalated (SLA overdue)."
+                db.session.add(Notification(user_id=a.id, message=_msg,
+                                             link=f"/admin#{c.id}"))
+                pushed.append((a.id, _msg))
         cutoff_i = utcnow() - timedelta(hours=48)
         stale_i = IllegalDumpReport.query.filter(
             IllegalDumpReport.status == 'Pending',
@@ -1045,12 +1069,19 @@ def sla_escalation_job():
                 detail=f"Auto-escalated after 48h (reported {r.timestamp.isoformat() if r.timestamp else '?'})"
             ))
             for a in admins:
-                db.session.add(Notification(
-                    user_id=a.id,
-                    message=f"Illegal dump report #{r.id} ({r.category}) escalated (48h overdue).",
-                    link="/admin"
-                ))
+                _msg = f"Illegal dump report #{r.id} ({r.category}) escalated (48h overdue)."
+                db.session.add(Notification(user_id=a.id, message=_msg, link="/admin"))
+                pushed.append((a.id, _msg))
         db.session.commit()
+        # Real-time SSE push AFTER the commit (no-op without Redis): escalation
+        # toasts must never outlive a rolled-back notification write.
+        if pushed:
+            try:
+                from .routes import _publish_user_event
+                for uid, msg in pushed:
+                    _publish_user_event(uid, msg)
+            except Exception:
+                pass
         logger.info("sla_escalation", complaints=len(stale), illegal_reports=len(stale_i))
         return len(stale) + len(stale_i)
 

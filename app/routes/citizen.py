@@ -12,9 +12,10 @@ from .. import db, limiter
 
 from . import (DUMP_YARDS, WARD_COORDINATES, GPS_VERIFY_RADIUS_M, _ai_verify_photo,
                _create_razorpay_order, _payt_receipt_pdf_bytes, _photo_gps_from_upload,
-               _razorpay_enabled, _record_offline_delivery, _send_tracking_link,
-               _verify_razorpay_payment_signature, cache_get, cache_set, find_duplicate_complaint,
-               fit_length, haversine_m, logger, main, make_complaint_token, record_complaint_event,
+               _publish_user_event, _razorpay_enabled, _record_offline_delivery,
+               _redis_client, _send_tracking_link, _verify_razorpay_payment_signature,
+               cache_get, cache_set, find_duplicate_complaint, fit_length, haversine_m,
+               logger, main, make_complaint_token, record_complaint_event,
                save_compressed_photo, write_audit)
 
 
@@ -253,27 +254,70 @@ def payt_receipt(inv_id):
 def notifications_stream():
     from flask import Response, stream_with_context
     import time as _time
-    last_id = 0
     MAX_EVENTS = 50
 
     def event_stream():
-        nonlocal last_id, MAX_EVENTS
-        # Send current unread immediately
+        # MAX_EVENTS is rebound below, so it must be declared nonlocal — the
+        # stream reads/writes it across branches (snapshot loop, pub/sub loop,
+        # DB-poll loop). WITHOUT this, the first decrement raises
+        # UnboundLocalError and the stream dies on the first message.
+        nonlocal MAX_EVENTS
+        # Send current unread immediately. Note: this snapshot races the first
+        # pub/sub subscribe below — a notification created in between surfaces
+        # on the next page load (the DB poll is the eventual-consistency net).
+        uid = session['user_id']
         with current_app.app_context():
             notes = Notification.query.filter_by(
-                user_id=session['user_id'], read=False).order_by(Notification.id.asc()).all()
+                user_id=uid, read=False).order_by(Notification.id.asc()).all()
             last_id = notes[-1].id if notes else 0
             for n in notes:
                 yield f"data: {n.message}\n\n"
                 MAX_EVENTS -= 1
                 if MAX_EVENTS <= 0:
                     return
-        # Poll for new notifications (lightweight SSE)
+        # Redis pub/sub: instant push with a 15s timeout that doubles as a
+        # keep-alive heartbeat (proxies kill idle SSE connections). The loop
+        # never touches the DB, so the request holds no pool slot and — under
+        # eventlet workers — no worker is pinned by the stream.
+        r = _redis_client()
+        if r is not None:
+            ps = None
+            redis_ok = True
+            try:
+                ps = r.pubsub()
+                ps.subscribe(f"notify:{uid}")
+                while MAX_EVENTS > 0:
+                    msg = ps.get_message(timeout=15, ignore_subscribe_messages=True)
+                    if msg and msg.get('type') == 'message':
+                        data = msg['data']
+                        if isinstance(data, bytes):
+                            data = data.decode('utf-8')
+                        yield f"data: {data}\n\n"
+                        MAX_EVENTS -= 1
+                    else:
+                        yield ": ping\n\n"  # heartbeat
+            except Exception:
+                # Redis configured but down/flapping: degrade to the DB-poll
+                # loop below instead of killing live notifications for every
+                # connected user (a Redis outage must not take the stream down
+                # when the DB is fine). GeneratorExit is BaseException, so a
+                # client disconnect still runs the finally cleanly.
+                redis_ok = False
+            finally:
+                if ps is not None:
+                    try:
+                        ps.close()
+                    except Exception:
+                        pass
+            if redis_ok:
+                return
+        # No Redis (dev/tests) or Redis failed mid-stream: lightweight DB poll
+        # fallback with heartbeat.
         while True:
             _time.sleep(5)
             with current_app.app_context():
                 new = Notification.query.filter(
-                    Notification.user_id == session['user_id'],
+                    Notification.user_id == uid,
                     Notification.id > last_id).order_by(Notification.id.asc()).all()
                 for n in new:
                     last_id = n.id

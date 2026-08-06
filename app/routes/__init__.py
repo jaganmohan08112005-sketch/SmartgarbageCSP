@@ -1308,6 +1308,62 @@ def _payt_receipt_pdf_bytes(invoice):
 _redis_client_instance = None
 
 
+def _publish_user_event(user_id, message):
+    """Push a notification message onto the citizen's SSE pub/sub channel.
+
+    The /api/notifications/stream route subscribes to `notify:<user_id>` when
+    Redis is available, so a notification written to the DB surfaces instantly
+    instead of waiting for the stream's 5s DB poll. Best-effort and never
+    raises: without Redis (dev/tests) the DB-poll fallback still delivers.
+    The payload is the plain message text (the frontend renders event.data).
+    """
+    try:
+        r = _redis_client()
+        if r is not None:
+            r.publish(f"notify:{user_id}", message)
+    except Exception:
+        pass  # publishing must never break the notification write itself
+
+
+def _driver_route_sheet_pdf(assignments):
+    """ReportLab A5 route sheet for the current dispatch queue.
+
+    Lists each assignment's bin, ward, forecast ETA, fill level and status so
+    a truck driver has a printable run card (reportlab is already a pinned
+    dependency, used by _payt_receipt_pdf_bytes / _performance_pdf_bytes).
+    """
+    import io as _io
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A5
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                    Table, TableStyle)
+
+    buf = _io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A5, leftMargin=10 * mm, rightMargin=10 * mm,
+        topMargin=10 * mm, bottomMargin=10 * mm, title="Dispatch Route Sheet")
+    styles = getSampleStyleSheet()
+    story = [Paragraph("SmartGarbage — Dispatch Route Sheet", styles['Title']),
+             Spacer(1, 4 * mm)]
+    rows = [["Bin", "Ward", "ETA h", "Fill %", "Status"]]
+    for a in assignments:
+        b = a.bin
+        rows.append([b.hardware_id, (b.ward or '-'), str(round(a.eta_hours or 0, 1)),
+                     f"{b.level}%", b.status])
+    table = Table(rows, colWidths=[28 * mm, 40 * mm, 15 * mm, 15 * mm, 22 * mm])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f5132')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(table)
+    doc.build(story)
+    return buf.getvalue()
+
+
 def _redis_client():
     global _redis_client_instance
     if _redis_client_instance is None:

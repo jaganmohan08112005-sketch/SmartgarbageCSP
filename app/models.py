@@ -158,6 +158,10 @@ class SmartBin(db.Model):
     # worker uploads a real-time geotagged After-photo. The photo path is kept
     # here so the audit trail can point at the evidence for every clearance.
     after_photo = db.Column(db.String(200), nullable=True)
+    # v5: Lid-state telemetry — 'open' vs 'closed' (False when the sensor
+    # never reports). An open lid and structural overflow are DIFFERENT
+    # events: an open lid needs a service vehicle, not an emergency dispatch.
+    lid_open = db.Column(db.Boolean, default=False, nullable=False)
 
 
 # ──────────────────────────────────────────────

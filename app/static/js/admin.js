@@ -113,11 +113,24 @@ function loadCSS(url) {
 
 const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 const SOCKET_IO_JS = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js';
+const LEAFLET_CLUSTER_JS = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
+const LEAFLET_CLUSTER_CSS = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css';
+const LEAFLET_CLUSTER_DEFAULT_CSS = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';
 
 let leafletLoaded = false;
 async function ensureLeafletAndSocket() {
     if (leafletLoaded) return;
     await loadScript(LEAFLET_JS);
+    // Marker clustering: dense wards collapse hundreds of circle markers into
+    // count bubbles. Best-effort — a failed CDN fetch degrades to individual
+    // markers instead of breaking the map.
+    try {
+        await loadCSS(LEAFLET_CLUSTER_CSS);
+        await loadCSS(LEAFLET_CLUSTER_DEFAULT_CSS);
+        await loadScript(LEAFLET_CLUSTER_JS);
+    } catch (e) {
+        console.warn('MarkerCluster unavailable, using individual markers:', e);
+    }
     // base.html already loads socket.io on every page — don't fetch it twice.
     if (typeof io === 'undefined') {
         await loadScript(SOCKET_IO_JS);
@@ -130,6 +143,7 @@ let smartBins = [];
 let currentBinHwId = null;
 let map = null;
 let binMarkers = {};
+let binCluster = null;
 let currentRouteLine = null;
 let fleetMap = null;
 let fleetMarkers = [];
@@ -150,6 +164,11 @@ function getMarkerColor(status) {
 function buildBinMarkers() {
     if (!map) return;
     binMarkers = {};
+    // Cluster dense wards into count bubbles when the plugin loaded; fall
+    // back to individual markers otherwise (same visual per-bin behavior).
+    const useCluster = typeof L.markerClusterGroup === 'function';
+    if (useCluster && binCluster) { map.removeLayer(binCluster); binCluster = null; }
+    if (useCluster) binCluster = L.markerClusterGroup({ maxClusterRadius: 45 });
     smartBins.forEach(bin => {
         const marker = L.circleMarker([bin.latitude, bin.longitude], {
             radius: 8,
@@ -158,7 +177,8 @@ function buildBinMarkers() {
             weight: 2,
             opacity: 1,
             fillOpacity: 0.9
-        }).addTo(map);
+        });
+        if (useCluster && binCluster) binCluster.addLayer(marker); else marker.addTo(map);
 
         marker.on('click', () => {
             document.getElementById('modalBinId').innerText = bin.hardware_id;
@@ -184,6 +204,7 @@ function buildBinMarkers() {
 
         binMarkers[bin.hardware_id] = marker;
     });
+    if (useCluster && binCluster) binCluster.addTo(map);
 }
 
 function updateBinMarker(bin) {

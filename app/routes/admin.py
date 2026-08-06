@@ -4,13 +4,13 @@ import os
 import random
 import requests
 
-from flask import (current_app, flash, jsonify, redirect, render_template, request, session, url_for)
+from flask import (current_app, flash, jsonify, redirect, render_template, request, session, send_file, url_for)
 
 from werkzeug.utils import secure_filename
 
 from werkzeug.security import generate_password_hash
 
-from ..models import (AuditLog, BWGDeclaration, Complaint, FirmwareRelease, IllegalDumpReport, IncidentLog, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
+from ..models import (AuditLog, BWGDeclaration, Complaint, DispatchAssignment, FirmwareRelease, IllegalDumpReport, IncidentLog, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
 
@@ -18,7 +18,7 @@ from ..auth import admin_required, login_required, superadmin_required
 
 from .. import db, socketio
 
-from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _forecast_priority, _notify_status_change, fit_length, main, point_in_polygon, record_complaint_event, validate_indian_phone, write_audit)
+from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _create_razorpay_refund, _driver_route_sheet_pdf, _forecast_priority, _notify_status_change, _publish_user_event, fit_length, main, point_in_polygon, record_complaint_event, validate_indian_phone, write_audit)
 
 
 @main.route('/api/illegal-reports')
@@ -384,6 +384,51 @@ def configure_webhooks():
     return redirect(url_for('main.admin'))
 
 
+@main.route('/api/bins.geojson')
+@admin_required
+def bins_geojson():
+    """GeoJSON FeatureCollection of all bins for the Leaflet control room.
+
+    One contract feeds every map view (admin GIS tab, fleet geo-fencing);
+    properties carry the status/urgency fields the markers color by.
+    """
+    # Bins without coordinates would emit [null, null] and break marker
+    # rendering — a bin only maps once it has reported a position.
+    bins = [b for b in SmartBin.query.all()
+            if b.latitude is not None and b.longitude is not None]
+    return jsonify({
+        'type': 'FeatureCollection',
+        'features': [{
+            'type': 'Feature',
+            'geometry': {'type': 'Point', 'coordinates': [b.longitude, b.latitude]},
+            'properties': {
+                'id': b.id, 'hardware_id': b.hardware_id, 'ward': b.ward,
+                'level': b.level, 'status': b.status,
+                'overflow_eta_hours': b.overflow_eta_hours,
+                'battery_level': b.battery_level,
+                'sensor_fault': b.sensor_fault,
+                'lid_open': b.lid_open,
+                'last_seen': b.last_updated.isoformat() if b.last_updated else None,
+            },
+        } for b in bins],
+    })
+
+
+@main.route('/admin/route-sheet.pdf')
+@admin_required
+def route_sheet_pdf():
+    """Printable A5 dispatch route sheet for the current assignments."""
+    from io import BytesIO
+    assignments = (DispatchAssignment.query
+                   .filter_by(status='Assigned')
+                   .order_by(DispatchAssignment.eta_hours.is_(None),
+                             DispatchAssignment.eta_hours.asc())
+                   .all())
+    pdf = _driver_route_sheet_pdf(assignments)
+    return send_file(BytesIO(pdf), mimetype='application/pdf',
+                     as_attachment=True, download_name='dispatch_route_sheet.pdf')
+
+
 @main.route('/resolve/<int:id>')
 @admin_required
 def resolve_complaint(id):
@@ -399,6 +444,8 @@ def resolve_complaint(id):
                 link='/dashboard'
             )
             db.session.add(note)
+            # Real-time: publish to the citizen's SSE channel (no-op without Redis)
+            _publish_user_event(complaint.user_id, note.message)
         db.session.commit()
         # Citizen-tracking timeline: the resolution is a first-class event
         record_complaint_event(complaint, 'Resolved',
