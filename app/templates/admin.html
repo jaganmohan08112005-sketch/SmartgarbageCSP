@@ -792,5 +792,40 @@
     </div>
 </div>
 
+<!-- Edit maintenance work order (reassign / reschedule / notes / pool) -->
+<div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-info text-dark border-0">
+                <h5 class="modal-title fw-bold">🧰 {{ _('Edit Work Order') }} <span id="eoId">#-</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="small text-muted mb-3">
+                    {{ _('Bin') }} <code id="eoHwId">-</code> · {{ _('Changes are written to the audit ledger with your identity') }}.
+                </p>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary" for="eoWorker">🚛 {{ _('Assigned Worker') }}</label>
+                    <select id="eoWorker" class="form-select form-select-sm">
+                        <option value="0">🚧 {{ _('Unassigned (pool)') }}</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-secondary" for="eoDueDate">📅 {{ _('Due Date') }}</label>
+                    <input type="date" id="eoDueDate" class="form-control form-control-sm">
+                </div>
+                <div class="mb-0">
+                    <label class="form-label small fw-bold text-secondary" for="eoNotes">📝 {{ _('Notes') }}</label>
+                    <textarea id="eoNotes" class="form-control form-control-sm" rows="2" placeholder="{{ _('e.g. Recalibrate ultrasonic sensor, clear debris from the lid') }}"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-secondary py-1.5 px-4 rounded-pill" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                <button type="button" class="btn btn-info py-1.5 px-4 rounded-pill fw-bold" id="eoSubmitBtn" onclick="submitEditOrder()">💾 {{ _('Save Changes') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 {% endblock %}

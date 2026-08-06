@@ -1,6 +1,57 @@
 {% extends 'base.html' %}
-{% block title %}SmartGarbage Chintalavalasa{% endblock %}
+{% block title %}Waste Collection Schedules & Missed Pickup Reports | SmartGarbage Chintalavalasa{% endblock %}
 {% block content %}
+<!-- Structured data: the two public services on this page + genuine resident FAQs
+     (answers reflect the site's own schedule / report / segregation content). -->
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "GovernmentService",
+            "name": "Waste Collection Schedule Lookup",
+            "serviceType": "Solid waste collection scheduling",
+            "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
+            "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
+            "url": "{{ url_for('main.schedule', _external=True) }}"
+        },
+        {
+            "@type": "GovernmentService",
+            "name": "Missed Pickup & Grievance Reporting",
+            "serviceType": "Waste collection grievance reporting",
+            "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
+            "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
+            "url": "{{ url_for('main.report', _external=True) }}"
+        },
+        {
+            "@type": "WebPage",
+            "name": "Waste Collection Schedules & Missed Pickup Reports | SmartGarbage Chintalavalasa",
+            "url": "{{ request.url }}",
+            "dateModified": "2026-08-06"
+        },
+        {
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "How do I check my garbage collection schedule?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Open the collection schedule page and select your ward or area to see the pickup timetable for your sector." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How do I report a missed pickup?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Use the report page to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How should I segregate waste before collection?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Separate dry recyclable plastics from biodegradable wet food waste before the morning collection — heavier wet waste in the monsoon slows down collection crews." }
+                }
+            ]
+        }
+    ]
+}
+</script>
 <!-- Welcome Hero Block -->
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero" style="background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%);">
     <div class="container-fluid py-4">
@@ -9,9 +60,22 @@
             {{ _('Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Schedule') }}</a>
-            <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ {{ _('Report Issue') }}</a>
+            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Pickup Schedule') }}</a>
+            <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ {{ _('Report Missed Pickup') }}</a>
         </div>
+        <!-- Trust cues at the decision zone: official department + grievance hotline -->
+        <p class="mt-4 mb-0 small text-muted d-flex flex-wrap justify-content-center align-items-center gap-2">
+            <span>🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</span>
+            <span aria-hidden="true">·</span>
+            <a href="tel:18001199111" class="text-decoration-none text-muted">📞 {{ _('Grievance Hotline') }}: <strong class="text-success">1800-119-9111</strong></a>
+        </p>
+        <!-- Contextual in-body links: connect the homepage copy to service pages -->
+        <p class="mb-0 mt-2 small">
+            {{ _('Popular services:') }}
+            <a href="/schedule" class="fw-semibold text-decoration-none">{{ _('check pickup schedules') }}</a> ·
+            <a href="/report" class="fw-semibold text-decoration-none">{{ _('report a missed pickup') }}</a> ·
+            <a href="/transparency" class="fw-semibold text-decoration-none">{{ _('view the ward dashboard') }}</a>
+        </p>
     </div>
 </div>
 
@@ -23,7 +87,7 @@
             <div class="d-flex align-items-center gap-3 mb-3">
                 <span class="sg-portal-icon">👨‍👩‍👧‍👦</span>
                 <div>
-                    <h4 class="fw-bold text-success mb-0">{{ _('Citizen Portal') }}</h4>
+                    <h2 class="fw-bold text-success mb-0 sg-card-h">{{ _('Citizen Portal') }}</h2>
                     <small class="text-muted">{{ _('Public · No login needed to explore') }}</small>
                 </div>
             </div>
@@ -41,7 +105,7 @@
             <div class="d-flex align-items-center gap-3 mb-3">
                 <span class="sg-portal-icon">🏛️</span>
                 <div>
-                    <h4 class="fw-bold text-warning mb-0">{{ _('Officer / Admin Login') }}</h4>
+                    <h2 class="fw-bold text-warning mb-0 sg-card-h">{{ _('Officer / Admin Login') }}</h2>
                     <small class="text-white-50">{{ _('Municipal staff only') }}</small>
                 </div>
             </div>
@@ -57,9 +121,9 @@
 <!-- Dynamic Municipal Notice Board -->
 <div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
     <div class="card-body">
-        <h5 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3">
+        <h3 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3 sg-card-h">
             📢 {{ _('Local Sanitation Notices & Seasonal Advisories') }}
-        </h5>
+        </h3>
         <div class="list-group list-group-flush small">
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
@@ -91,13 +155,13 @@
         <div class="card border-start border-primary border-4 p-4 h-100 bg-white shadow-sm">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-primary fw-bold mb-0">🌤️ {{ _('Local Weather Monitor') }}</h5>
+                    <h3 class="text-primary fw-bold mb-0 sg-card-h">🌤️ {{ _('Local Weather Monitor') }}</h3>
                     <button class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS Locator') }}</button>
                 </div>
                 
                 <!-- Front-End Event-Driven Select Handler -->
                 <div class="mb-3">
-                    <label class="form-label text-muted small mb-1">{{ _('Select Chintalavalasa Area for local weather:') }}</label>
+                    <label class="form-label text-muted small mb-1" for="homeWardSelector">{{ _('Select Chintalavalasa Area for local weather:') }}</label>
                     <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
                         <option value="" disabled selected>-- {{ _('Choose Ward / Area') }} --</option>
                     </select>

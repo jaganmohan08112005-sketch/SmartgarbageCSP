@@ -75,7 +75,10 @@ h1, h2, h3, h4, h5, h6 {
 a { color: var(--sg-primary-strong); text-decoration: none; transition: color .15s var(--ease); }
 a:hover { color: var(--sg-green-700); }
 
-.text-success { color: var(--sg-primary) !important; }
+/* Text-only success green: uses the darker green-700 (4.7:1 on white, WCAG AA)
+   instead of the brand green-600 which only reached ~2.9:1. Buttons keep the
+   brighter gradient; only text is darkened so headings stay readable. */
+.text-success { color: var(--sg-primary-strong) !important; }
 .text-danger  { color: var(--sg-danger) !important; }
 
 /* Navbar */
@@ -133,6 +136,10 @@ a:hover { color: var(--sg-green-700); }
 .btn-lg { padding: .8rem 1.8rem; font-size: 1.05rem; }
 
 /* ---------- Cards ---------- */
+/* Homepage card titles use h2/h3 tags for a correct document outline while
+   keeping their original h4/h5 visual scale. */
+.sg-card-h { font-size: 1.5rem; }
+h3.sg-card-h { font-size: 1.25rem; }
 .card {
     border: 1px solid var(--sg-line) !important;
     box-shadow: var(--sh-sm);
@@ -424,6 +431,44 @@ a:hover { color: var(--sg-green-700); }
 [data-theme="dark"] .sg-dept-sub { color: rgba(226, 232, 240, .8); }
 [data-theme="dark"] .sg-header-divider { background: rgba(226, 232, 240, .3); }
 
+/* ---------- Footer (department identity + hotline + privacy link) ---------- */
+.sg-footer {
+    background: var(--sg-navy-800);
+    border-top: 1px solid var(--sg-line);
+    padding: 1.25rem 0;
+    margin-top: 2.5rem;
+}
+.sg-footer-link {
+    color: rgba(255, 255, 255, .78);
+    text-decoration: none;
+    transition: color .15s var(--ease);
+}
+.sg-footer-link:hover { color: #ffc107; }
+
+/* ---------- Cookie-consent banner (analytics, consent-gated) ---------- */
+.sg-consent-banner {
+    position: fixed;
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1090;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: .9rem 1.1rem;
+    border-radius: var(--r-md);
+    background: var(--sg-navy-800);
+    color: #fff;
+    box-shadow: var(--sh-lg);
+    border: 1px solid rgba(255, 255, 255, .12);
+    font-size: .85rem;
+}
+.sg-consent-text { flex: 1 1 280px; }
+
 /* High-contrast (WCAG AA) — overrides both light and dark palettes */
 [data-contrast="true"] body {
     background: #000 !important;
@@ -453,6 +498,9 @@ a:hover { color: var(--sg-green-700); }
 [data-contrast="true"] .progress { background: #333 !important; }
 [data-contrast="true"] .progress-bar { background: #ffd700 !important; }
 [data-contrast="true"] .sg-lang-btn { border-color: #fff !important; }
+[data-contrast="true"] .sg-footer { background: #000 !important; border-top-color: #fff !important; }
+[data-contrast="true"] .sg-footer-link { color: #ffd700 !important; }
+[data-contrast="true"] .sg-consent-banner { background: #000 !important; border-color: #fff !important; }
 
 /* ---------- Citizen search hero + Report-an-Issue categories ---------- */
 .sg-portal-card { border-radius: var(--r-lg) !important; transition: transform .18s var(--ease), box-shadow .18s var(--ease); }

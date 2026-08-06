@@ -2,42 +2,155 @@
 {% block title %}{{ _('Privacy Policy') }}{% endblock %}
 {% block content %}
 <div class="container mt-4 mb-5">
-    <div class="card border-0 shadow-sm p-4 p-md-5 animate-fade-in" style="max-width: 900px; margin: 0 auto; border-radius: 18px;">
+    <div class="card border-0 shadow-sm p-4 p-md-5 animate-fade-in" style="max-width: 960px; margin: 0 auto; border-radius: 18px;">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1 class="fw-bold mb-0">{{ _('Privacy Policy') }}</h1>
             <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">{{ _('Back') }}</a>
         </div>
-        <p class="small text-muted">{{ _('Last updated:') }} {{ now.strftime('%B %Y') if now else '2026-07' }}</p>
+        <p class="small text-muted">{{ _('Last updated:') }} {{ now.strftime('%B %Y') if now else '2026-08' }}</p>
 
-        <p>{{ _('SmartGarbage Chintalavalasa ("we", "us") respects your privacy. This policy explains what data we collect, why, and how long we keep it.') }}</p>
+        <!-- Plain-language summary: what a resident needs to know in 30 seconds -->
+        <div class="alert alert-success border-start border-4 rounded-3">
+            <h2 class="fs-6 fw-bold mb-2">{{ _('In plain words') }}</h2>
+            <ul class="mb-0 small">
+                <li>{{ _('We collect only what is needed to run waste collection in Chintalavalasa: your contact details, addresses, report descriptions, GPS location and photos you submit, and PAYT billing records.') }}</li>
+                <li>{{ _('Payment card and UPI details are processed by Razorpay (our payment gateway) and are never stored on our servers.') }}</li>
+                <li>{{ _('Your data is never sold or shared for marketing. Only authorized municipal staff can see it.') }}</li>
+                <li>{{ _('Anonymous analytics run only if you click Accept on the consent banner. Declining changes nothing about how the portal works.') }}</li>
+                <li>{{ _('You can ask for a copy, correction or deletion of your data at any time (contact details below).') }}</li>
+            </ul>
+        </div>
 
-        <h2 class="mt-4">1. {{ _('Data We Collect') }}</h2>
+        <p>{{ _('SmartGarbage Chintalavalasa ("we", "us", "the portal") is operated by the Chintalavalasa Gram Panchayat / Directorate of Waste Management & Sanitation. This notice explains, in plain language, what personal data the portal collects — including from forms, GPS, photos, payments and cookies — why we collect it, how long we keep it, and who can access it.') }}</p>
+
+        <h2 class="mt-4">1. {{ _('What We Collect') }}</h2>
+
+        <h3 class="fs-6 fw-bold mt-3">a) {{ _('Information you give us in forms') }}</h3>
         <ul>
-            <li><strong>{{ _('Account data:') }}</strong> {{ _('name, phone number (validated as Indian mobile), role.') }}</li>
-            <li><strong>{{ _('Waste declarations:') }}</strong> {{ _('weights of wet/dry/sanitary/hazardous waste, ward, timestamp.') }}</li>
-            <li><strong>{{ _('Reports & complaints:') }}</strong> {{ _('text, optional photo, GPS location you provide, status.') }}</li>
-            <li><strong>{{ _('Bin telemetry:') }}</strong> {{ _('fill level, temperature, methane, battery — sent by IoT sensors, not by you.') }}</li>
-            <li><strong>{{ _('Audit logs:') }}</strong> {{ _('administrative actions (who did what, when).') }}</li>
+            <li><strong>{{ _('Account registration:') }}</strong> {{ _('your name, a phone number (validated as an Indian mobile number), role, and optional email. Passwords are stored only as scrambled hashes.') }}</li>
+            <li><strong>{{ _('Missed-pickup & issue reports:') }}</strong> {{ _('your name, phone number, ward/area, street address, issue description, and the date/time of the missed collection.') }}</li>
+            <li><strong>{{ _('Waste declarations:') }}</strong> {{ _('the weight of wet, dry, sanitary and hazardous waste you declare, the ward, and a timestamp — used for segregation statistics and Green Points.') }}</li>
+            <li><strong>{{ _('Illegal-dump reports (anonymous):') }}</strong> {{ _('category, description, ward and location — deliberately stored without any link to your identity.') }}</li>
+            <li><strong>{{ _('Picker / informal-worker registration:') }}</strong> {{ _('the details you provide to join the collection ecosystem.') }}</li>
+        </ul>
+
+        <h3 class="fs-6 fw-bold mt-3">b) {{ _('GPS location') }}</h3>
+        <ul>
+            <li>{{ _('When you file a report or use the emergency cleanup request, the portal asks your browser for GPS coordinates. These are used to route field crews, verify that a report genuinely refers to the stated location, and to power the ward weather module.') }}</li>
+            <li>{{ _('Location data is not continuously tracked — it is captured only at the moment you submit.') }}</li>
+        </ul>
+
+        <h3 class="fs-6 fw-bold mt-3">c) {{ _('Photos') }}</h3>
+        <ul>
+            <li>{{ _('You may optionally attach photos as evidence (e.g., an overflowing bin). Before storage, photos are automatically stripped of embedded metadata (EXIF/GPS) to protect your privacy.') }}</li>
+            <li>{{ _('Cleared-bin "after" photos are used by field staff to verify that a complaint has been resolved.') }}</li>
+        </ul>
+
+        <h3 class="fs-6 fw-bold mt-3">d) {{ _('Payments (PAYT)') }}</h3>
+        <ul>
+            <li>{{ _('Pay-As-You-Throw invoices record the weight of non-recyclable waste billed, the invoice amount, payment method, transaction reference and status.') }}</li>
+            <li>{{ _('Payments are processed by Razorpay on their secure checkout page. Card and UPI details go directly to Razorpay and are never received or stored by us; we receive only the order/payment references needed to confirm and reconcile the payment, and to process refunds.') }}</li>
+        </ul>
+
+        <h3 class="fs-6 fw-bold mt-3">e) {{ _('Cookies and analytics') }}</h3>
+        <ul>
+            <li>{{ _('Essential cookies keep you signed in, protect forms against abuse, and support the offline-report queue. These are always active and do not require consent.') }}</li>
+            <li>{{ _('Optional anonymous analytics (Google Analytics-style aggregate usage statistics) are only enabled after you click Accept on the consent banner. No advertising or cross-site tracking is used.') }}</li>
+        </ul>
+
+        <h3 class="fs-6 fw-bold mt-3">f) {{ _('Operational data (not personal)') }}</h3>
+        <ul>
+            <li><strong>{{ _('Bin telemetry:') }}</strong> {{ _('fill level, temperature, methane and battery readings sent by IoT sensors on public bins. These relate to equipment, not to individuals.') }}</li>
+            <li><strong>{{ _('Audit logs:') }}</strong> {{ _('records of administrative actions (who did what and when) for security and accountability.') }}</li>
         </ul>
 
         <h2 class="mt-4">2. {{ _('Why We Collect It') }}</h2>
-        <p>{{ _('To operate waste collection, generate PAYT invoices, display ward transparency dashboards, comply with SWM Rules 2026 reporting, and keep the system secure.') }}</p>
-
-        <h2 class="mt-4">3. {{ _('Anonymous Illegal-Dump Reporting') }}</h2>
-        <p>{{ _('Reports submitted via') }} <em>/report-illegal</em> {{ _('(and the WhatsApp/Telegram bots) are stored') }} <strong>{{ _('without any user account linkage') }}</strong>. {{ _('We intentionally do not retain the reporter\'s identity.') }}</p>
-
-        <h2 class="mt-4">4. {{ _('Data Retention') }}</h2>
         <ul>
-            <li>{{ _('Waste declarations & invoices: retained for the current financial year + 1 year.') }}</li>
-            <li>{{ _('Audit logs: 2 years (security & compliance).') }}</li>
-            <li>{{ _('Photos: compressed and retained only as long as the associated report is open or under review.') }}</li>
+            <li>{{ _('To operate and schedule waste collection, and to dispatch crews to missed pickups.') }}</li>
+            <li>{{ _('To generate PAYT invoices and process payments and refunds.') }}</li>
+            <li>{{ _('To publish ward transparency dashboards and segregation statistics.') }}</li>
+            <li>{{ _('To comply with Solid Waste Management rules and municipal reporting requirements.') }}</li>
+            <li>{{ _('To keep the portal secure — rate limits, login monitoring, and audit logs deter misuse.') }}</li>
         </ul>
 
-        <h2 class="mt-4">5. {{ _('Your Rights') }}</h2>
-        <p>{{ _('You may request correction or deletion of your account data by contacting the Gram Panchayat office. Anonymous reports cannot be linked to you and are therefore not retrievable.') }}</p>
+        <h2 class="mt-4">3. {{ _('Who Can Access It') }}</h2>
+        <ul>
+            <li>{{ _('You: you can view your own tickets, declarations and invoices from your dashboard, and track a complaint with the tracking link you receive.') }}</li>
+            <li>{{ _('Authorized municipal staff: field workers see the reports assigned to their sector; administrators and the control room see ward-level data needed to operate the service.') }}</li>
+            <li>{{ _('Payment processor (Razorpay): only the transaction data needed to process a payment or refund.') }}</li>
+            <li>{{ _('Hosting provider (Render/Cloudflare): infrastructure-level access required to run the site; they cannot read your account data beyond standard operations.') }}</li>
+            <li>{{ _('We never sell, rent or share your data with advertisers or any other third party for marketing.') }}</li>
+        </ul>
 
-        <h2 class="mt-4">6. {{ _('Contact') }}</h2>
-        <p>{{ _('Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh, India.') }}</p>
+        <h2 class="mt-4">4. {{ _('How Long We Keep It') }}</h2>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>{{ _('Data') }}</th>
+                        <th>{{ _('Retention period') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ _('Account and profile data') }}</td>
+                        <td>{{ _('While your account is active, plus a short grace period after closure') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Waste declarations and PAYT invoices') }}</td>
+                        <td>{{ _('Current financial year + 1 year (as required for billing records)') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Reports and complaints (including photos)') }}</td>
+                        <td>{{ _('While the report is open or under review; photos are retained only as long as the associated report needs them') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('GPS coordinates attached to reports') }}</td>
+                        <td>{{ _('With the report itself') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Payment transaction references') }}</td>
+                        <td>{{ _('As required by financial/tax record-keeping rules') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Audit logs') }}</td>
+                        <td>{{ _('2 years (security and compliance)') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Bin telemetry') }}</td>
+                        <td>{{ _('90 days (rolling retention sweep)') }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ _('Tracking links') }}</td>
+                        <td>{{ _('Valid for 90 days from filing') }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h2 class="mt-4">5. {{ _('Your Rights') }}</h2>
+        <ul>
+            <li>{{ _('Access: request a copy of the data we hold about you.') }}</li>
+            <li>{{ _('Correction: ask us to fix inaccurate details (e.g., your phone number).') }}</li>
+            <li>{{ _('Deletion: request deletion of your account data. Anonymous illegal-dump reports cannot be linked to you and therefore cannot be retrieved or deleted individually.') }}</li>
+            <li>{{ _('Consent withdrawal: change or withdraw analytics consent at any time by clearing your browser site data or contacting us.') }}</li>
+        </ul>
+
+        <h2 class="mt-4">6. {{ _('Cookies & Analytics Consent') }}</h2>
+        <p>{{ _('We only enable analytics (anonymized, aggregate usage statistics) after you explicitly accept the consent banner. You can decline — the portal remains fully functional — and you can change your choice at any time by clearing your browser\'s site data. Essential cookies required for login, security and the offline-report queue are always active and do not require consent.') }}</p>
+
+        <h2 class="mt-4">7. {{ _('Anonymous Illegal-Dump Reporting') }}</h2>
+        <p>{{ _('Reports submitted via') }} <em>/report-illegal</em> {{ _('(and the WhatsApp/Telegram bots) are stored') }} <strong>{{ _('without any user account linkage') }}</strong>. {{ _('We intentionally do not retain the reporter\'s identity.') }}</p>
+
+        <h2 class="mt-4">8. {{ _('Children') }}</h2>
+        <p>{{ _('The portal is a municipal service intended for residents of Chintalavalasa. We do not knowingly collect data from children under 13; if you believe a child has provided personal data, contact us and we will delete it.') }}</p>
+
+        <h2 class="mt-4">9. {{ _('Changes to This Policy') }}</h2>
+        <p>{{ _('If we change how we handle data, we will update this page and refresh the "Last updated" date above. For material changes, a notice will be posted on the portal.') }}</p>
+
+        <h2 class="mt-4">10. {{ _('Contact') }}</h2>
+        <p class="mb-1">{{ _('Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh, India.') }}</p>
+        <p class="mb-0"><a href="tel:18001199111" class="text-decoration-none">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></p>
 
         <p class="small mt-4 text-muted">{{ _('This is a demonstration deployment. Treat all data as test data.') }}</p>
     </div>

@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}SmartGarbage Chintalavalasa{% endblock %}</title>
+    <title>{% block title %}SmartGarbage Chintalavalasa | Waste Collection Schedules & Missed Pickup Reports{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="description" content="SmartGarbage Chintalavalasa — report overflowing bins, track collection schedules, declare segregated waste and earn Green Points.">
-    <meta property="og:title" content="SmartGarbage Chintalavalasa">
+    <meta name="description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
+    <!-- og:title follows the page's own <title> block so sharing cards never
+         drift from the visible title (no duplicated title maintenance). -->
+    <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
     <meta property="og:description" content="Civic waste-management portal for Chintalavalasa — report, track, declare, and earn rewards.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
@@ -22,12 +24,61 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Preload the primary web font stylesheet so the first screen (hero
+         headline + buttons) paints as fast as possible instead of waiting in
+         the render-blocking CSS queue. display=swap keeps fallbacks visible. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Font Awesome is decorative (icon glyphs) — load it without blocking
+         first paint; icons pop in a moment later. Fallback via <noscript>. -->
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"></noscript>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="{{ url_for('static', filename='js/offline.js') }}" defer></script>
+
+    <!-- Structured data: identifies the operating public body so search
+         engines and AI tools can treat this as an official municipal service. -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "GovernmentOrganization",
+        "name": "Directorate of Waste Management & Sanitation, Chintalavalasa",
+        "alternateName": "SmartGarbage Chintalavalasa",
+        "url": "{{ request.url_root.rstrip('/') }}",
+        "telephone": "+91-1800-119-9111",
+        "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+91-1800-119-9111",
+            "contactType": "customer service"
+        }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "SmartGarbage Chintalavalasa",
+        "url": "{{ request.url_root.rstrip('/') }}",
+        "inLanguage": ["en", "te"]
+    }
+    </script>
+
+    {% if config.get('ANALYTICS_ID') %}
+    <!-- Consent-gated analytics (GA4): the consent default is declared BEFORE
+         the loader per Google's consent-mode pattern. Nothing is configured or
+         sent until the citizen clicks Accept on the banner below. -->
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        const sgConsent = localStorage.getItem('sgAnalyticsConsent');
+        gtag('consent', 'default', { analytics_storage: sgConsent === 'accepted' ? 'granted' : 'denied' });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
+    {% endif %}
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -43,7 +94,9 @@
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
     <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top" aria-label="Main navigation">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/" aria-label="SmartGarbage Chintalavalasa home">
+            <!-- Accessible name comes from the visible text (WCAG 2.5.3 Label in
+                 Name): no aria-label override that could mismatch what is shown. -->
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
                 <!-- Official emblem mark: national-flag tricolor ring keeps the
                      municipal-brand look without a binary asset to maintain. -->
                 <span class="brand-mark" aria-hidden="true">🗑️</span>
@@ -145,7 +198,7 @@
         </div>
     </nav>
 
-    <div class="container mt-4 mb-5" id="main-content">
+    <main class="container mt-4 mb-5" id="main-content">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -165,7 +218,7 @@
         {% endwith %}
 
         {% block content %}{% endblock %}
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -255,5 +308,83 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js">
     </script>
     {% block scripts %}{% endblock %}
+
+    <!-- Trust + freshness footer (visible on every page): department identity,
+         grievance hotline, privacy notice link, and a last-updated marker. -->
+    <footer class="sg-footer">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-50">
+            <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · Chintalavalasa, Visakhapatnam</div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
+                <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
+            </div>
+            <div>© 2026 · {{ _('Last updated') }}: Aug 2026</div>
+        </div>
+    </footer>
+
+    {% if config.get('ANALYTICS_ID') %}
+    <!-- Cookie-consent banner: shown only when analytics is configured AND the
+         citizen has not yet chosen. Accept grants analytics_storage. -->
+    <div id="sgConsentBanner" class="sg-consent-banner d-none" role="region" aria-label="{{ _('Privacy settings') }}">
+        <div class="sg-consent-text">
+            🍪 {{ _('We use anonymous analytics to improve this public service. No personal data is collected without your consent.') }}
+            <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgSetConsent(true)">{{ _('Accept') }}</button>
+            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="sgSetConsent(false)">{{ _('Decline') }}</button>
+        </div>
+    </div>
+    <script>
+        // ── Service-event tracking (consent-gated) ──
+        // Key public-service actions → GA4 events, so the team can see which
+        // services residents actually use. Events fire only after the citizen
+        // accepted the analytics consent banner (localStorage gate).
+        const SG_SERVICE_EVENTS = {
+            'schedule_check': 'a[href="/schedule"]',
+            'report_start': 'a[href="/report"]',
+            'hotline_click': 'a[href^="tel:"]',
+            'language_switch': 'a[data-lang]',
+            'login_start': 'a[href="/login"]',
+            'signup_start': 'a[href="/register"]',
+        };
+        function sgTrack(name) {
+            if (localStorage.getItem('sgAnalyticsConsent') !== 'accepted') return;
+            if (typeof gtag === 'function') gtag('event', name);
+        }
+        document.addEventListener('click', (e) => {
+            for (const [name, selector] of Object.entries(SG_SERVICE_EVENTS)) {
+                if (e.target.closest(selector)) { sgTrack(name); break; }
+            }
+        });
+        // Completion events on submit (report filed / schedule looked up).
+        document.addEventListener('submit', (e) => {
+            const form = e.target.closest('form');
+            if (!form) return;
+            if (form.getAttribute('action') === '/report') sgTrack('report_submit');
+            if (form.getAttribute('action') === '/schedule') sgTrack('schedule_lookup');
+        });
+
+        function sgSetConsent(accepted) {
+            localStorage.setItem('sgAnalyticsConsent', accepted ? 'accepted' : 'declined');
+            document.getElementById('sgConsentBanner')?.classList.add('d-none');
+            gtag('consent', 'update', { analytics_storage: accepted ? 'granted' : 'denied' });
+            if (accepted && !window.__sgAnalyticsConfigured) {
+                gtag('config', '{{ config['ANALYTICS_ID'] }}');
+                window.__sgAnalyticsConfigured = true;
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('sgAnalyticsConsent')) {
+                document.getElementById('sgConsentBanner')?.classList.remove('d-none');
+            } else if (sgConsent === 'accepted' && !window.__sgAnalyticsConfigured) {
+                // Returning visitor already accepted: fire the pageview on every
+                // load (the head script only declared consent, never configured).
+                gtag('config', '{{ config['ANALYTICS_ID'] }}');
+                window.__sgAnalyticsConfigured = true;
+            }
+        });
+    </script>
+    {% endif %}
 </body>
 </html>
