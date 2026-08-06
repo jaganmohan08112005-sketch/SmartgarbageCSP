@@ -28,6 +28,12 @@
                         <span>🚨</span> {{ _('Proactive Dispatch Queue') }}
                         <span class="badge bg-danger ms-auto" id="dispatchNavCount">0</span>
                     </a>
+                    <a href="#sensor-fault-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="sensor-fault-section">
+                        <span>🔧</span> {{ _('Sensor Health') }}
+                        <!-- Rendered always (hidden by default) so a fault that
+                             appears AFTER page load can light up the badge. -->
+                        <span class="badge bg-warning text-dark ms-auto d-none" id="sensorFaultNavCount">0</span>
+                    </a>
                     <a href="#bot-simulator-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bot-simulator-section">
                         <span>🤖</span> {{ _('Bot Simulator') }}
                     </a>
@@ -81,6 +87,7 @@
                         <option value="fleet-section">🛰️ {{ _('Fleet Geo-Fencing') }}</option>
                         <option value="routing-section">🛣️ {{ _('Route Optimization') }}</option>
                         <option value="dispatch-section">🚨 {{ _('Proactive Dispatch Queue') }}</option>
+                        <option value="sensor-fault-section">🔧 {{ _('Sensor Health') }}</option>
                         <option value="bot-simulator-section">🤖 {{ _('Bot Simulator') }}</option>
                         <option value="webhook-section">🔗 {{ _('Webhook Configuration') }}</option>
                         <option value="bwg-section">🏢 {{ _('BWG Pickup Requests') }}</option>
@@ -192,7 +199,7 @@
                 <!-- v2 KPI Row 2: Maintenance & Compliance -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-3 col-sm-6">
-                        <div class="card border-0 shadow-sm p-3 h-100 bg-white {% if kpis.sensor_faults > 0 %}border-start border-warning border-3{% endif %}">
+                        <div class="card border-0 shadow-sm p-3 h-100 bg-white {% if kpis.sensor_faults > 0 %}border-start border-warning border-3{% endif %}" onclick="setActive('sensor-fault-section')" role="button" title="{{ _('Open Sensor Health view') }}" style="cursor:pointer">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
                                     <span class="text-muted small fw-bold">{{ _('Sensor Faults') }}</span>
@@ -200,7 +207,7 @@
                                 </div>
                                 <span class="sg-icon bg-light p-2 rounded-circle">🛠️</span>
                             </div>
-                            <div class="mt-2 small text-muted">{{ _('Bins silent &gt;24h — maintenance scheduled') }}</div>
+                            <div class="mt-2 small text-muted">{{ _('Stuck or silent &gt;24h — click to manage') }}</div>
                         </div>
                     </div>
                     <div class="col-md-3 col-sm-6">
@@ -346,6 +353,48 @@
                         </tr>
                     </thead>
                     <tbody id="dispatchQueueBody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">{{ _('Loading…') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ══ SENSOR HEALTH (stuck-sensor + stale-sensor control room) ══ -->
+        <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="sensor-fault-section">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <h4 class="fw-bold mb-0">🔧 {{ _('Sensor Health') }}</h4>
+                <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadSensorFaults()">🔄 {{ _('Refresh') }}</button>
+            </div>
+            <p class="text-muted small mb-3">{{ _('Bins flagged by the stuck-sensor classifier (constant ≥95% level across 5 pings — possible blockage) or the stale-sensor sweep (silent &gt;24h). Auto-dispatch is suppressed while a bin is faulted; clear the fault after on-site inspection to restore service.') }}</p>
+            <div class="row g-3 mb-3" id="sensorKpis">
+                <div class="col-md-4 col-sm-6"><div class="border rounded-3 p-3 text-center h-100"><div class="text-muted small fw-bold">🛠️ {{ _('Faulted Bins') }}</div><div class="fs-4 fw-bold">—</div></div></div>
+                <div class="col-md-4 col-sm-6"><div class="border rounded-3 p-3 text-center h-100"><div class="text-muted small fw-bold">🚨 {{ _('Open Sensor Incidents') }}</div><div class="fs-4 fw-bold">—</div></div></div>
+                <div class="col-md-4 col-sm-6"><div class="border rounded-3 p-3 text-center h-100"><div class="text-muted small fw-bold">🧰 {{ _('Maintenance Scheduled') }}</div><div class="fs-4 fw-bold">—</div></div></div>
+            </div>
+            <h6 class="fw-bold text-dark mb-2">🛠️ {{ _('Faulted Bins') }}</h6>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ _('Bin') }}</th><th>{{ _('Ward') }}</th><th>{{ _('Level') }}</th>
+                            <th>{{ _('Status') }}</th><th>{{ _('Fault Reason') }}</th><th>{{ _('Last Ping') }}</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="sensorFaultBody">
+                        <tr><td colspan="7" class="text-center text-muted py-4">{{ _('Loading…') }}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <h6 class="fw-bold text-dark mb-2">🚨 {{ _('Open Sensor Fault Incidents') }}</h6>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ _('Incident') }}</th><th>{{ _('Bin') }}</th><th>{{ _('Severity') }}</th>
+                            <th>{{ _('Description') }}</th><th>{{ _('Since') }}</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="sensorIncidentBody">
                         <tr><td colspan="6" class="text-center text-muted py-4">{{ _('Loading…') }}</td></tr>
                     </tbody>
                 </table>

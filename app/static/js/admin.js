@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // IntersectionObserver below never fires for display:none sections.
             if (sectionId === 'gis-section') initMaps();
             if (sectionId === 'fleet-section') { initFleetMap(); loadFleetLocations(); }
+            if (sectionId === 'sensor-fault-section') loadSensorFaults();
             const yOffset = -100;
             const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: 'smooth' });
@@ -518,6 +519,128 @@ async function loadQueueHealth() {
     }
 }
 
+// ---- Sensor-health control room (faulted bins + open incidents) ----
+function statusBadge(status) {
+    const cls = status === 'Critical' ? 'bg-danger'
+        : status === 'Warning' ? 'bg-warning text-dark' : 'bg-success';
+    return `<span class="badge ${cls}">${escapeHtml(status || 'Unknown')}</span>`;
+}
+
+function renderSensorFaults(data) {
+    const k = data.kpis || {};
+    const kpisEl = document.getElementById('sensorKpis');
+    if (kpisEl) {
+        const incClass = (k.open_incidents || 0) > 0 ? 'text-danger' : '';
+        const maintClass = (k.maintenance_scheduled || 0) > 0 ? 'text-warning' : '';
+        kpisEl.innerHTML = `
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🛠️ Faulted Bins</div>
+                    <div class="fs-4 fw-bold ${(k.faulted_bins || 0) > 0 ? 'text-warning' : ''}">${k.faulted_bins ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🚨 Open Sensor Incidents</div>
+                    <div class="fs-4 fw-bold ${incClass}">${k.open_incidents ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🧰 Maintenance Scheduled</div>
+                    <div class="fs-4 fw-bold ${maintClass}">${k.maintenance_scheduled ?? 0}</div>
+                </div>
+            </div>`;
+    }
+    const faultNav = document.getElementById('sensorFaultNavCount');
+    if (faultNav) {
+        faultNav.textContent = k.faulted_bins ?? 0;
+        faultNav.classList.toggle('d-none', !(k.faulted_bins > 0));
+    }
+
+    const body = document.getElementById('sensorFaultBody');
+    if (body) {
+        const bins = data.bins || [];
+        if (!bins.length) {
+            body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">✓ All bins healthy — no sensor faults.</td></tr>';
+        } else {
+            body.innerHTML = bins.map(b => `
+                <tr>
+                    <td><code>${escapeHtml(b.hardware_id)}</code>${b.open_incidents ? ' <span class="badge bg-danger" title="Open incident">!</span>' : ''}</td>
+                    <td class="small">${escapeHtml(b.ward || '-')}</td>
+                    <td>${b.level ?? '-'}%</td>
+                    <td>${statusBadge(b.status)}</td>
+                    <td class="small text-muted">${escapeHtml(b.fault_reason || '-')}</td>
+                    <td class="small text-muted">${escapeHtml(b.last_ping ? b.last_ping.replace('T', ' ').slice(0, 16) : '-')}</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-warning rounded-pill" data-clear-fault data-hw-id="${escapeHtml(b.hardware_id)}" data-label="🧹 Clear Fault">🧹 ${'Clear Fault'}</button>
+                    </td>
+                </tr>`).join('');
+        }
+    }
+
+    const incBody = document.getElementById('sensorIncidentBody');
+    if (incBody) {
+        const incs = data.incidents || [];
+        if (!incs.length) {
+            incBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No open sensor-fault incidents.</td></tr>';
+        } else {
+            incBody.innerHTML = incs.map(inc => `
+                <tr>
+                    <td class="small">#${inc.id}</td>
+                    <td><code>${escapeHtml(inc.hardware_id || 'bin#' + inc.bin_id)}</code></td>
+                    <td><span class="badge bg-warning text-dark">${escapeHtml(inc.severity)}</span></td>
+                    <td class="small text-muted">${escapeHtml(inc.description || '-')}</td>
+                    <td class="small text-muted">${escapeHtml(inc.since ? inc.since.replace('T', ' ').slice(0, 16) : '-')}</td>
+                    <td class="text-end">
+                        ${inc.hardware_id
+                            ? `<button class="btn btn-sm btn-outline-success rounded-pill" data-clear-fault data-hw-id="${escapeHtml(inc.hardware_id)}" data-label="✔ Resolve">✔ ${'Resolve'}</button>`
+                            : '<span class="text-muted small">—</span>'}
+                    </td>
+                </tr>`).join('');
+        }
+    }
+}
+
+async function loadSensorFaults() {
+    try {
+        const res = await fetch('/api/sensor-faults');
+        if (!res.ok) return;
+        renderSensorFaults(await res.json());
+    } catch (e) {
+        console.warn('sensor health load failed', e);
+    }
+}
+
+async function clearBinFault(hwId, btn) {
+    if (!hwId) return;
+    if (!confirm(`Clear the sensor fault on ${hwId}? Open incidents will be resolved and the action audited.`)) return;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+        const res = await fetch('/api/bins/' + encodeURIComponent(hwId) + '/clear-fault', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'clear failed');
+        showToast(`🧹 <strong>Fault cleared:</strong> ${escapeHtml(hwId)} restored — ${data.resolved_incidents ?? 0} incident(s) resolved.`);
+        loadSensorFaults();
+    } catch (e) {
+        showToast(`⚠️ Could not clear fault on ${escapeHtml(hwId)}: ${escapeHtml(e.message)}`);
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || '🧹 Clear Fault'; }
+    }
+}
+
+// Delegated clear-fault clicks: the buttons are re-rendered on every refresh,
+// and values flow through data-* attributes (not inline onclick strings) so a
+// hardware_id containing quotes/HTML can never break out into executable JS.
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-clear-fault]');
+        if (btn && btn.dataset.hwId) clearBinFault(btn.dataset.hwId, btn);
+    });
+});
+
 // ---- Live updates via Socket.IO (deferred until socket loaded) ----
 function connectLive() {
     if (typeof io === 'undefined') { console.warn('socket.io client not loaded'); return; }
@@ -665,6 +788,7 @@ const fleetEl = document.getElementById('fleetMap'); if(fleetEl) fleetObserver.o
 window.simulateAnomalyTrigger = simulateAnomalyTrigger;
 window.executeRoutingDispatch = executeRoutingDispatch;
 window.loadFleetLocations = loadFleetLocations;
+window.loadSensorFaults = loadSensorFaults;
 window.sendWhatsApp = sendWhatsApp;
 window.sendTelegram = sendTelegram;
 window.toggleCompactor = toggleCompactor;

@@ -429,6 +429,84 @@ def route_sheet_pdf():
                      as_attachment=True, download_name='dispatch_route_sheet.pdf')
 
 
+# ── Sensor-health control room: faulted bins + open Sensor Fault incidents ──
+@main.route('/api/sensor-faults')
+@admin_required
+def sensor_faults_api():
+    """Everything the sensor-health view renders in one contract.
+
+    Faulted bins come from two sources: the stuck-sensor classifier (constant
+    >=95% level across 5 pings) and the stale-sensor sweep (no telemetry for
+    >24h). Open 'Sensor Fault' IncidentLog rows carry the actionable incidents
+    the control room resolves — clearing a bin's fault resolves its incidents
+    (see clear_bin_fault).
+    """
+    faulted = [b for b in SmartBin.query.all() if b.sensor_fault]
+    incidents = IncidentLog.query.filter_by(
+        incident_type='Sensor Fault', status='Active').all()
+    incident_ids = {inc.bin_id for inc in incidents}
+    kpis = {
+        'faulted_bins': len(faulted),
+        'open_incidents': len(incidents),
+        'maintenance_scheduled': sum(1 for b in faulted
+                                     if b.sensor_health and b.sensor_health.maintenance_scheduled),
+    }
+    return jsonify({
+        'kpis': kpis,
+        'bins': [{
+            'id': b.id,
+            'hardware_id': b.hardware_id,
+            'ward': b.ward,
+            'level': b.level,
+            'status': b.status,
+            'fault_reason': (b.sensor_health.fault_reason if b.sensor_health else None),
+            'maintenance_scheduled': bool(b.sensor_health and b.sensor_health.maintenance_scheduled),
+            'last_ping': b.last_updated.isoformat() if b.last_updated else None,
+            'open_incidents': b.id in incident_ids,
+        } for b in faulted],
+        'incidents': [{
+            'id': inc.id,
+            'bin_id': inc.bin_id,
+            'hardware_id': inc.bin.hardware_id if inc.bin else None,
+            'severity': inc.severity,
+            'description': inc.description,
+            'since': inc.timestamp.isoformat() if inc.timestamp else None,
+        } for inc in incidents],
+    })
+
+
+@main.route('/api/bins/<hw_id>/clear-fault', methods=['POST'])
+@admin_required
+def clear_bin_fault(hw_id):
+    """Manually clear a bin's sensor fault (e.g. after on-site inspection).
+
+    Unflags the bin + SensorHealth record, resolves every open 'Sensor Fault'
+    incident for the bin, and writes a BIN_FAULT_CLEARED audit entry with the
+    acting admin's identity — all in one transaction so a failure rolls back
+    the whole action (no half-cleared state).
+    """
+    b = SmartBin.query.filter_by(hardware_id=hw_id).first()
+    if b is None:
+        return jsonify({'success': False, 'message': 'Bin not found.'}), 404
+    if not b.sensor_fault:
+        return jsonify({'success': False, 'message': 'Bin is not currently faulted.'}), 400
+
+    open_incs = IncidentLog.query.filter_by(
+        bin_id=b.id, incident_type='Sensor Fault', status='Active').all()
+    b.sensor_fault = False
+    if b.sensor_health:
+        b.sensor_health.fault_flag = False
+        b.sensor_health.fault_reason = None
+        b.sensor_health.maintenance_scheduled = False
+    for inc in open_incs:
+        inc.status = 'Resolved'
+    write_audit("BIN_FAULT_CLEARED", target=hw_id,
+                detail=f"Manual clear by admin — {len(open_incs)} open incident(s) resolved",
+                commit=False)
+    db.session.commit()
+    return jsonify({'success': True, 'resolved_incidents': len(open_incs)})
+
+
 @main.route('/resolve/<int:id>')
 @admin_required
 def resolve_complaint(id):

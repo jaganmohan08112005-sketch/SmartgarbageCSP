@@ -1345,9 +1345,10 @@ def test_telemetry_gps_drift_rejected_and_audited(client, app):
 
 def test_stuck_sensor_suppresses_dispatch(client, app, monkeypatch):
     """A constant >=95% level across 5 pings is a blocked sensor, not
-    overflow: the bin is flagged sensor_fault (amber) and NO dispatch is
-    auto-queued even when the ML forecast looks urgent."""
-    from app.models import SmartBin, BinTelemetryLog, AuditLog, DispatchAssignment
+    overflow: the bin is flagged sensor_fault (amber), a Sensor Health record
+    + first-class incident are created, and NO dispatch is auto-queued even
+    when the ML forecast looks urgent."""
+    from app.models import SmartBin, BinTelemetryLog, AuditLog, DispatchAssignment, SensorHealth, IncidentLog
     import app.routes.iot as iot_mod
     monkeypatch.setattr(iot_mod, 'predict_overflow_eta_hours', lambda *a, **k: 1.0)
     with app.app_context():
@@ -1365,6 +1366,113 @@ def test_stuck_sensor_suppresses_dispatch(client, app, monkeypatch):
         assert b.sensor_fault is True
         assert DispatchAssignment.query.filter_by(bin_id=b.id).count() == 0
         assert AuditLog.query.filter_by(action='SENSOR_SUSPICIOUS', target='STUCK-1').count() == 1
+        # The sensor-health control room gets a reason + a deduped Active incident.
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        assert sh is not None and sh.fault_flag is True and sh.maintenance_scheduled is True
+        assert 'Stuck sensor' in (sh.fault_reason or '')
+        inc = IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault').all()
+        assert len(inc) == 1 and inc[0].status == 'Active'
+
+
+def test_sensor_faults_api_lists_faulted_bins_and_incidents(client, app):
+    """The sensor-health control room endpoint returns faulted bins (with
+    fault reason + maintenance flag) and open Sensor Fault incidents in one
+    contract — admin-only."""
+    from app.models import SmartBin, SensorHealth, IncidentLog
+    with app.app_context():
+        b = SmartBin(hardware_id='SF-API-1', latitude=18.05, longitude=83.40,
+                     level=60, status='Warning', sensor_fault=True,
+                     ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings (possible blockage)',
+                                    maintenance_scheduled=True))
+        db.session.add(IncidentLog(bin_id=b.id, incident_type='Sensor Fault',
+                                   severity='Warning', status='Active',
+                                   description='Stuck sensor: SF-API-1 constant >=95%'))
+        db.session.commit()
+    _make_user(app, 'sfadmin', role='admin')
+    _login_admin(client, app, 'sfadmin')
+    r = client.get('/api/sensor-faults', follow_redirects=False)
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['kpis']['faulted_bins'] == 1
+    assert data['kpis']['open_incidents'] == 1
+    assert data['kpis']['maintenance_scheduled'] == 1
+    row = [x for x in data['bins'] if x['hardware_id'] == 'SF-API-1'][0]
+    assert row['fault_reason'] is not None and 'Stuck sensor' in row['fault_reason']
+    assert row['maintenance_scheduled'] is True
+    assert row['open_incidents'] is True
+    inc = [x for x in data['incidents'] if x['hardware_id'] == 'SF-API-1'][0]
+    assert inc['severity'] == 'Warning'
+
+
+def test_sensor_faults_api_blocks_citizen(client, app):
+    """The sensor-health feed is admin-only."""
+    _make_user(app, 'sfcit')
+    client.post('/login', data={'username': 'sfcit', 'password': 'testpass123'})
+    assert client.get('/api/sensor-faults', follow_redirects=False).status_code == 403
+
+
+def test_clear_fault_resolves_and_audits(client, app):
+    """Manual clear-fault unflags the bin + SensorHealth, resolves every open
+    Sensor Fault incident, and writes a BIN_FAULT_CLEARED audit entry — all in
+    one committed transaction."""
+    from app.models import SmartBin, SensorHealth, IncidentLog, AuditLog
+    with app.app_context():
+        b = SmartBin(hardware_id='SF-CLR-1', latitude=18.05, longitude=83.40,
+                     level=96, status='Critical', sensor_fault=True,
+                     ward='Ward 1 - MVGR College Area')
+        db.session.add(b)
+        db.session.flush()
+        db.session.add(SensorHealth(bin_id=b.id, fault_flag=True,
+                                    fault_reason='Stuck sensor: constant level across 5 pings',
+                                    maintenance_scheduled=True))
+        db.session.add(IncidentLog(bin_id=b.id, incident_type='Sensor Fault',
+                                   severity='Warning', status='Active',
+                                   description='Stuck sensor: SF-CLR-1'))
+        db.session.commit()
+    _make_user(app, 'sfclradmin', role='admin')
+    _login_admin(client, app, 'sfclradmin')
+    r = client.post('/api/bins/SF-CLR-1/clear-fault', follow_redirects=False)
+    assert r.status_code == 200
+    assert r.get_json()['success'] is True
+    assert r.get_json()['resolved_incidents'] == 1
+    with app.app_context():
+        b = SmartBin.query.filter_by(hardware_id='SF-CLR-1').first()
+        assert b.sensor_fault is False
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        assert sh.fault_flag is False and sh.fault_reason is None
+        assert sh.maintenance_scheduled is False
+        inc = IncidentLog.query.filter_by(bin_id=b.id, incident_type='Sensor Fault').first()
+        assert inc.status == 'Resolved'
+        assert AuditLog.query.filter_by(action='BIN_FAULT_CLEARED', target='SF-CLR-1').count() == 1
+
+
+def test_clear_fault_guards(client, app):
+    """Clear-fault is admin-only, 404s for unknown bins, and 400s when the bin
+    is not faulted (idempotent safety — no false audit rows)."""
+    from app.models import SmartBin, AuditLog
+    _make_user(app, 'sfguardadmin', role='admin')
+    _login_admin(client, app, 'sfguardadmin')
+    # Unknown bin -> 404
+    assert client.post('/api/bins/NOPE-1/clear-fault', follow_redirects=False).status_code == 404
+    # Not-faulted bin -> 400, no audit row written
+    with app.app_context():
+        db.session.add(SmartBin(hardware_id='SF-OK-1', latitude=18.05, longitude=83.40,
+                                level=10, ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    r = client.post('/api/bins/SF-OK-1/clear-fault', follow_redirects=False)
+    assert r.status_code == 400
+    with app.app_context():
+        assert AuditLog.query.filter_by(action='BIN_FAULT_CLEARED').count() == 0
+    # Citizen blocked -> 403 (log out first: a logged-in admin can't be
+    # displaced by a /login POST — the route redirects logged-in users away).
+    _make_user(app, 'sfguardcit')
+    client.get('/logout', follow_redirects=True)
+    client.post('/login', data={'username': 'sfguardcit', 'password': 'testpass123'})
+    assert client.post('/api/bins/SF-OK-1/clear-fault', follow_redirects=False).status_code == 403
 
 
 def test_bins_geojson_shape(client, app):
