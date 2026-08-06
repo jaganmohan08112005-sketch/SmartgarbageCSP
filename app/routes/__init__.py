@@ -9,7 +9,8 @@ import random
 import structlog
 from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer
-from flask import (Blueprint, request, url_for, session, flash, current_app)
+from flask import (Blueprint, request, url_for, session, flash, current_app,
+                   has_request_context)
 from werkzeug.utils import secure_filename
 import requests
 
@@ -49,7 +50,7 @@ if sys.stdout.encoding != 'utf-8':
 
 from .. import db
 from ..models import (Complaint, ComplaintStatusLog, User, SmartBin, WorkerProfile, IncidentLog,
-                      AuditLog, SensorHealth, OffloadLog,
+                      AuditLog, SensorHealth, OffloadLog, Notification,
                       WasteDeclaration, BWGDeclaration,
                       Webhook, OfflineDelivery, utcnow)
 
@@ -335,14 +336,23 @@ def write_audit(action, target=None, detail=None, commit=True):
     back the audit too instead of leaving a partial state persisted.
     """
     try:
+        # Background jobs (scheduled sweeps) call write_audit with no HTTP
+        # request in flight — the session/request helpers would raise. Fall
+        # back to a system-level entry (nullable identity columns) instead of
+        # silently dropping the audit row.
+        if has_request_context():
+            user_id, username = session.get('user_id'), session.get('username', 'anonymous')
+            role, ip_address = session.get('role', 'unknown'), fit_length(request.remote_addr, 50)
+        else:
+            user_id = username = role = ip_address = None
         entry = AuditLog(
-            user_id=session.get('user_id'),
-            username=session.get('username', 'anonymous'),
-            role=session.get('role', 'unknown'),
+            user_id=user_id,
+            username=username,
+            role=role,
             action=fit_length(action, 100),
             target=fit_length(target, 100),
             detail=detail,
-            ip_address=fit_length(request.remote_addr, 50),
+            ip_address=ip_address,
             timestamp=utcnow()
         )
         db.session.add(entry)
@@ -445,6 +455,11 @@ def check_sensor_faults():
     """Auto-flag bins that haven't pinged in 24h as Sensor Fault."""
     threshold = datetime.now(timezone.utc) - timedelta(hours=24)
     bins = SmartBin.query.all()
+    try:
+        admin_ids = [u.id for u in User.query.filter_by(role='admin', is_approved=True).all()]
+    except Exception:
+        admin_ids = []
+    staged = []  # admin alert pairs, published after the commit below
     for b in bins:
         last = b.last_updated
         if last is None:
@@ -471,7 +486,18 @@ def check_sensor_faults():
                 db.session.add(IncidentLog(bin_id=b.id, incident_type="Sensor Fault", severity="Warning",
                                            status="Active",
                                            description=f"Sensor Fault: {b.hardware_id} silent >24h. Maintenance scheduled."))
+            # Analytics signal: stale-sensor detection (paired with the stuck-
+            # classifier's SENSOR_SUSPICIOUS as the two fault sources). commit=False
+            # so the audit is atomic with the sweep's single commit.
+            write_audit("SENSOR_FAULT_FLAGGED", target=b.hardware_id,
+                        detail=f"No telemetry received for >24h (last ping: {b.last_updated}). Maintenance scheduled.",
+                        commit=False)
+            # Live alert to the admin control room (staged; pushed after commit).
+            staged.extend(_notify_admins(
+                f"⚠️ Sensor fault on {b.hardware_id}: no telemetry for >24h — maintenance scheduled.",
+                link="/admin#sensor-fault-section", admin_ids=admin_ids))
     db.session.commit()
+    _publish_admin_alerts(staged)
 
 
 def check_decomposition_timers():
@@ -1306,6 +1332,48 @@ def _payt_receipt_pdf_bytes(invoice):
 # churns TCP connections on every cache hit; build the client once lazily.
 # ═══════════════════════════════════════════════════════════════════
 _redis_client_instance = None
+
+
+def _notify_admins(message, link=None, admin_ids=None):
+    """Stage an in-app Notification for every approved admin.
+
+    Adds one Notification row per admin to the CURRENT session — the caller
+    owns its transaction (telemetry ingest, stale-sensor sweep, clear-fault
+    and work-order flows all commit themselves). Returns the staged
+    [(user_id, message)] pairs so the caller can _publish_admin_alerts() AFTER
+    its commit — a live toast must never announce a notification that rolled
+    back. Best-effort: a DB hiccup returns [] instead of raising.
+
+    `admin_ids` lets a caller that fans out to many bins (the stale-sensor
+    sweep) query the admin list ONCE instead of once per notification.
+    """
+    if admin_ids is None:
+        try:
+            admin_ids = [u.id for u in User.query.filter_by(role='admin', is_approved=True).all()]
+        except Exception:
+            return []
+    staged = []
+    for uid in admin_ids:
+        try:
+            db.session.add(Notification(user_id=uid, message=message, link=link))
+            staged.append((uid, message))
+        except Exception:
+            pass
+    return staged
+
+
+def _publish_admin_alerts(staged):
+    """Redis SSE push for notifications staged by _notify_admins.
+
+    Call ONLY after the caller's transaction committed (same discipline as the
+    job alerts). No-op without Redis — the admin bell's /api/notifications
+    poll and the stream's 5s DB-poll fallback still deliver. Never raises.
+    """
+    for uid, message in staged:
+        try:
+            _publish_user_event(uid, message)
+        except Exception:
+            pass
 
 
 def _publish_user_event(user_id, message):

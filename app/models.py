@@ -496,6 +496,38 @@ class DispatchAssignment(db.Model):
 
 
 # ──────────────────────────────────────────────
+# v5: MAINTENANCE WORK ORDER (sensor-health follow-up)
+# Created optionally when an admin clears a sensor fault: the bin leaves the
+# faulted state but stays flagged maintenance_scheduled until a worker starts
+# (Scheduled -> In Progress) and completes the order. Overdue highlighting is
+# computed read-side from due_date; the row itself is immutable-by-audit.
+# ──────────────────────────────────────────────
+class MaintenanceWorkOrder(db.Model):
+    __table_args__ = (
+        # Hot paths: control-room sweep (status + due) and per-worker task list.
+        db.Index('ix_maintenance_status_due', 'status', 'due_date'),
+        db.Index('ix_maintenance_worker_status', 'worker_id', 'status'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=False)
+    worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True)  # None = unassigned pool
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)          # acting admin
+    status = db.Column(db.String(20), default='Scheduled', nullable=False)  # Scheduled / In Progress / Completed
+    due_date = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    completed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    bin = db.relationship('SmartBin', backref=db.backref('maintenance_orders', lazy=True))
+    worker = db.relationship('WorkerProfile', backref=db.backref('maintenance_orders', lazy=True))
+    creator = db.relationship('User', foreign_keys=[created_by],
+                              backref=db.backref('created_maintenance_orders', lazy=True))
+    completer = db.relationship('User', foreign_keys=[completed_by],
+                                backref=db.backref('completed_maintenance_orders', lazy=True))
+
+
+# ──────────────────────────────────────────────
 # v2: OFFLINE DELIVERY (PWA queue replay health)
 # Written when a submission tagged X-Offline-Replay lands, so the
 # municipality can see offline-first usage: which complaints/photos

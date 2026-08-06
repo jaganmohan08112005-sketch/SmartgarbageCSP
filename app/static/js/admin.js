@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // IntersectionObserver below never fires for display:none sections.
             if (sectionId === 'gis-section') initMaps();
             if (sectionId === 'fleet-section') { initFleetMap(); loadFleetLocations(); }
-            if (sectionId === 'sensor-fault-section') loadSensorFaults();
+            if (sectionId === 'sensor-fault-section') { loadSensorFaults(); loadMaintenance(); }
             const yOffset = -100;
             const y = targetEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: 'smooth' });
@@ -532,23 +532,30 @@ function renderSensorFaults(data) {
     if (kpisEl) {
         const incClass = (k.open_incidents || 0) > 0 ? 'text-danger' : '';
         const maintClass = (k.maintenance_scheduled || 0) > 0 ? 'text-warning' : '';
+        const woClass = (k.active_work_orders || 0) > 0 ? 'text-warning' : '';
         kpisEl.innerHTML = `
-            <div class="col-md-4 col-sm-6">
+            <div class="col-md-3 col-sm-6">
                 <div class="border rounded-3 p-3 text-center h-100">
                     <div class="text-muted small fw-bold">🛠️ Faulted Bins</div>
                     <div class="fs-4 fw-bold ${(k.faulted_bins || 0) > 0 ? 'text-warning' : ''}">${k.faulted_bins ?? 0}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-sm-6">
+            <div class="col-md-3 col-sm-6">
                 <div class="border rounded-3 p-3 text-center h-100">
                     <div class="text-muted small fw-bold">🚨 Open Sensor Incidents</div>
                     <div class="fs-4 fw-bold ${incClass}">${k.open_incidents ?? 0}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-sm-6">
+            <div class="col-md-3 col-sm-6">
                 <div class="border rounded-3 p-3 text-center h-100">
                     <div class="text-muted small fw-bold">🧰 Maintenance Scheduled</div>
                     <div class="fs-4 fw-bold ${maintClass}">${k.maintenance_scheduled ?? 0}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">📋 Active Work Orders</div>
+                    <div class="fs-4 fw-bold ${woClass}">${k.active_work_orders ?? 0}</div>
                 </div>
             </div>`;
     }
@@ -612,32 +619,160 @@ async function loadSensorFaults() {
     }
 }
 
-async function clearBinFault(hwId, btn) {
+// ── Maintenance work orders (fault cleared with a scheduled follow-up) ──
+// The worker pool is cached from /api/maintenance so the schedule form's
+// dropdown works even if the modal is opened before the table finishes loading.
+let maintenanceWorkers = [];
+
+function renderMaintenance(data) {
+    const body = document.getElementById('maintenanceBody');
+    if (!body) return;
+    const orders = data.orders || [];
+    if (!orders.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">✓ No maintenance work orders — cleared faults are either back in service or tracked here once scheduled.</td></tr>';
+        return;
+    }
+    body.innerHTML = orders.map(o => {
+        const dueTxt = o.due_date ? o.due_date.replace('T', ' ').slice(0, 10) : '—';
+        const overdueBadge = o.overdue ? ' <span class="badge bg-danger" title="Overdue">Overdue</span>' : '';
+        let statusBadge = '<span class="badge bg-warning text-dark">Scheduled</span>';
+        if (o.status === 'In Progress') statusBadge = '<span class="badge bg-primary">In Progress</span>';
+        else if (o.status === 'Completed') statusBadge = '<span class="badge bg-success">✔ Completed</span>';
+        const workerTxt = o.worker_name
+            ? `${escapeHtml(o.worker_name)}${o.vehicle_id ? ' <span class="text-muted">(' + escapeHtml(o.vehicle_id) + ')</span>' : ''}`
+            : '<span class="text-muted">Unassigned</span>';
+        const action = o.status === 'Completed'
+            ? '<span class="text-muted small">—</span>'
+            : `<button class="btn btn-sm btn-outline-success rounded-pill" data-maint-complete data-maint-id="${o.id}">✔ Mark Done</button>`;
+        return `<tr>
+            <td class="small">#${o.id}</td>
+            <td><code>${escapeHtml(o.hardware_id || 'bin#' + o.bin_id)}</code></td>
+            <td class="small">${escapeHtml(o.ward || '-')}</td>
+            <td class="small">${workerTxt}</td>
+            <td class="small text-nowrap">${dueTxt}${overdueBadge}</td>
+            <td>${statusBadge}</td>
+            <td class="small text-muted">${escapeHtml(o.notes || '-')}</td>
+            <td class="text-end">${action}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function loadMaintenance() {
+    try {
+        const res = await fetch('/api/maintenance');
+        if (!res.ok) return;
+        const data = await res.json();
+        maintenanceWorkers = data.workers || [];
+        renderMaintenance(data);
+    } catch (e) {
+        console.warn('maintenance load failed', e);
+    }
+}
+
+// ── Clear-fault modal (with optional maintenance scheduling) ──
+let cfTargetHw = null;
+
+function toggleCfMaintFields() {
+    const show = document.getElementById('cfModeMaint')?.checked;
+    const fields = document.getElementById('cfMaintFields');
+    if (fields) fields.classList.toggle('d-none', !show);
+}
+
+function populateCfWorkers() {
+    const sel = document.getElementById('cfWorker');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Select worker…</option>' + maintenanceWorkers.map(w =>
+        `<option value="${w.id}">${escapeHtml(w.name)}${w.vehicle_id ? ' (' + escapeHtml(w.vehicle_id) + ')' : ''}</option>`
+    ).join('');
+}
+
+async function openClearFaultModal(hwId) {
     if (!hwId) return;
-    if (!confirm(`Clear the sensor fault on ${hwId}? Open incidents will be resolved and the action audited.`)) return;
+    cfTargetHw = hwId;
+    document.getElementById('cfHwId').textContent = hwId;
+    const d = new Date(Date.now() + 3 * 86400000);
+    const due = document.getElementById('cfDueDate');
+    if (due) due.value = d.toISOString().slice(0, 10);
+    document.getElementById('cfModeClear').checked = true;
+    document.getElementById('cfNotes').value = '';
+    toggleCfMaintFields();
+    if (maintenanceWorkers.length === 0) await loadMaintenance();
+    populateCfWorkers();
+    const m = document.getElementById('clearFaultModal');
+    if (m) bootstrap.Modal.getOrCreateInstance(m).show();
+}
+
+async function submitClearFault() {
+    const btn = document.getElementById('cfSubmitBtn');
+    if (!cfTargetHw || !btn) return;
+    const schedule = document.getElementById('cfModeMaint')?.checked === true;
+    const payload = { schedule_maintenance: schedule };
+    if (schedule) {
+        const workerId = document.getElementById('cfWorker')?.value;
+        const dueDate = document.getElementById('cfDueDate')?.value;
+        if (!workerId) { showToast('⚠️ Select a maintenance worker to schedule follow-up.'); return; }
+        if (!dueDate) { showToast('⚠️ Pick a due date for the work order.'); return; }
+        payload.worker_id = Number(workerId);
+        payload.due_date = dueDate;
+        payload.notes = (document.getElementById('cfNotes')?.value || '').trim();
+    }
+    btn.disabled = true; btn.textContent = '…';
+    try {
+        const res = await fetch('/api/bins/' + encodeURIComponent(cfTargetHw) + '/clear-fault', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'clear failed');
+        const msg = data.maintenance_scheduled
+            ? `🧰 <strong>Fault cleared:</strong> ${escapeHtml(cfTargetHw)} — work order #${data.maintenance_order_id} scheduled.`
+            : `🧹 <strong>Fault cleared:</strong> ${escapeHtml(cfTargetHw)} restored — ${data.resolved_incidents ?? 0} incident(s) resolved.`;
+        showToast(msg);
+        const m = document.getElementById('clearFaultModal');
+        if (m) bootstrap.Modal.getInstance(m)?.hide();
+        cfTargetHw = null;
+        loadSensorFaults();
+        loadMaintenance();
+    } catch (e) {
+        showToast(`⚠️ Could not clear fault on ${escapeHtml(cfTargetHw)}: ${escapeHtml(e.message)}`);
+    } finally {
+        btn.disabled = false; btn.textContent = '✔ Confirm Clear';
+    }
+}
+
+async function completeMaintenance(orderId, btn) {
+    if (!orderId) return;
+    if (!confirm('Mark this maintenance work order as done? The bin returns to service and the action is audited.')) return;
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
     try {
-        const res = await fetch('/api/bins/' + encodeURIComponent(hwId) + '/clear-fault', {
+        const res = await fetch('/api/maintenance/' + encodeURIComponent(orderId) + '/complete', {
             method: 'POST',
             headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
         });
         const data = await res.json();
-        if (!res.ok || !data.success) throw new Error(data.message || 'clear failed');
-        showToast(`🧹 <strong>Fault cleared:</strong> ${escapeHtml(hwId)} restored — ${data.resolved_incidents ?? 0} incident(s) resolved.`);
+        if (!res.ok || !data.success) throw new Error(data.message || 'complete failed');
+        showToast('✔ Maintenance work order #' + orderId + ' completed.');
+        loadMaintenance();
         loadSensorFaults();
     } catch (e) {
-        showToast(`⚠️ Could not clear fault on ${escapeHtml(hwId)}: ${escapeHtml(e.message)}`);
-        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || '🧹 Clear Fault'; }
+        showToast('⚠️ Could not complete work order: ' + escapeHtml(e.message));
+        if (btn) { btn.disabled = false; btn.textContent = '✔ Mark Done'; }
     }
 }
 
-// Delegated clear-fault clicks: the buttons are re-rendered on every refresh,
-// and values flow through data-* attributes (not inline onclick strings) so a
-// hardware_id containing quotes/HTML can never break out into executable JS.
+// Delegated clicks: buttons are re-rendered on every refresh, and values flow
+// through data-* attributes (never inline onclick strings) so DB-controlled
+// values can never break out into executable JS.
 document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-clear-fault]');
-        if (btn && btn.dataset.hwId) clearBinFault(btn.dataset.hwId, btn);
+        const clearBtn = e.target.closest('[data-clear-fault]');
+        if (clearBtn && clearBtn.dataset.hwId) { openClearFaultModal(clearBtn.dataset.hwId); return; }
+        const doneBtn = e.target.closest('[data-maint-complete]');
+        if (doneBtn && doneBtn.dataset.maintId) completeMaintenance(doneBtn.dataset.maintId, doneBtn);
     });
 });
 
@@ -655,6 +790,13 @@ function connectLive() {
         if (bin) Object.assign(bin, data);
         const marker = binMarkers[data.hardware_id];
         if (marker) updateBinMarker(bin || data);
+    });
+
+    socket.on('maintenance_update', () => {
+        // A worker started/completed a work order (or a bin clear auto-closed
+        // one) — refresh the control room so overdue/status badges stay live.
+        loadMaintenance();
+        loadSensorFaults();
     });
 
     socket.on('fleet_update', (payload) => {
@@ -789,6 +931,7 @@ window.simulateAnomalyTrigger = simulateAnomalyTrigger;
 window.executeRoutingDispatch = executeRoutingDispatch;
 window.loadFleetLocations = loadFleetLocations;
 window.loadSensorFaults = loadSensorFaults;
+window.loadMaintenance = loadMaintenance;
 window.sendWhatsApp = sendWhatsApp;
 window.sendTelegram = sendTelegram;
 window.toggleCompactor = toggleCompactor;
@@ -859,9 +1002,32 @@ async function markAdminNotificationsRead() {
     }
 }
 
+// Live admin alerts: one SSE stream pushes fault events the instant they're
+// written (Redis pub/sub; the stream's 5s DB-poll fallback covers no-Redis).
+// The first burst on connect is the unread snapshot — refresh the bell but
+// don't toast history; only toast pushes that arrive after the snapshot.
+function connectAdminNotifStream() {
+    if (typeof EventSource === 'undefined' || !document.getElementById('adminNotifBadge')) return;
+    const es = new EventSource('/api/notifications/stream');
+    let openedAt = 0;
+    // onopen fires on EVERY (re)connect — reset the snapshot window so a
+    // reconnect re-sends the unread batch without re-toasting it as live.
+    es.onopen = () => { openedAt = Date.now(); };
+    es.onmessage = (e) => {
+        if (!e.data) return;
+        loadAdminNotifications();
+        // Messages can carry device-controlled text (hardware ids) — escape
+        // before showToast's innerHTML render.
+        if (Date.now() - openedAt > 1500) showToast('🔔 ' + escapeHtml(e.data));
+    };
+    es.onerror = () => { /* browser auto-reconnects */ };
+}
+
 // Refresh the bell periodically so dead-letter alerts surface without a reload.
 if (document.getElementById('adminNotifBadge')) {
+    loadAdminNotifications();
     adminNotifRefreshTimer = setInterval(loadAdminNotifications, 30000);
+    connectAdminNotifStream();
 }
 
 window.toggleAdminNotifications = toggleAdminNotifications;

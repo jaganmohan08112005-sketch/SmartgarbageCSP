@@ -14,9 +14,9 @@ from .. import csrf, db, limiter, socketio
 
 from ..auth import admin_required
 
-from . import (FORECAST_ALERT_HOURS, _recompute_bin_status, activate_compactor,
-               evaluate_emergency_metrics, fit_length, haversine_m, logger, main,
-               write_audit)
+from . import (FORECAST_ALERT_HOURS, _notify_admins, _publish_admin_alerts,
+               _recompute_bin_status, activate_compactor, evaluate_emergency_metrics,
+               fit_length, haversine_m, logger, main, write_audit)
 
 import app.routes as _routes  # call-time: honors test monkeypatches
 
@@ -255,6 +255,7 @@ def bin_telemetry():
     _was_faulted = smart_bin.sensor_fault
     _stuck = (len(_history) >= 5 and (smart_bin.level or 0) >= 95
               and len({h.level for h in _history}) == 1)
+    _staged_admin_alerts = []  # stuck-sensor alert pairs, pushed after the commit below
     if _stuck:
         smart_bin.sensor_fault = True
         _sh = SensorHealth.query.filter_by(bin_id=smart_bin.id).first()
@@ -281,6 +282,12 @@ def bin_telemetry():
                     status="Active",
                     description=(f"Stuck sensor: {hw_id} reported a constant >=95% level "
                                  f"across 5 pings (possible blockage). Dispatch suppressed until cleared.")))
+            # Live alert to the admin control room (staged; pushed after the
+            # single telemetry commit at the end of the request).
+            _staged_admin_alerts = _notify_admins(
+                f"🚨 Stuck sensor on {hw_id}: constant {smart_bin.level}% across 5 pings — "
+                f"dispatch suppressed.",
+                link="/admin#sensor-fault-section")
     elif smart_bin.sensor_fault:
         # A live ping with a changed reading clears the previous fault so the
         # bin returns to healthy state.
@@ -294,6 +301,13 @@ def bin_telemetry():
             bin_id=smart_bin.id, incident_type="Sensor Fault", status="Active").all()
         for inc in open_faults:
             inc.status = "Resolved"
+        # Analytics signal: the fault self-healed (no admin action needed).
+        # commit=False keeps the audit atomic with the single telemetry commit
+        # below — a rolled-back request never records a self-heal that didn't
+        # happen. Feeds the self-heal vs manual-clear ratio in the analytics hub.
+        write_audit("SENSOR_SELF_HEALED", target=hw_id,
+                    detail=f"Bin {hw_id} reported a changed reading — sensor fault cleared automatically.",
+                    commit=False)
 
     # Single commit for the whole request: telemetry fields, sensor-fault
     # resolution, decomposition timer and any queued IncidentLog rows are all
@@ -356,6 +370,10 @@ def bin_telemetry():
         'sensor_fault': smart_bin.sensor_fault,
         'overflow_eta_hours': smart_bin.overflow_eta_hours,
     })
+
+    # Live stuck-sensor alert: publish only now, after the telemetry commit,
+    # so a toast can never announce a notification that rolled back.
+    _publish_admin_alerts(_staged_admin_alerts)
 
     cur_state = (smart_bin.level, smart_bin.status, smart_bin.sensor_fault,
                  round(smart_bin.temperature, 1), round(smart_bin.methane, 1))

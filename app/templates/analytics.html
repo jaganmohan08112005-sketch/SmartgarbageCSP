@@ -186,6 +186,53 @@
     </div>
 </div>
 
+<!-- ══ SENSOR FAULT ANALYTICS (stuck-sensor incident trends) ══ -->
+<div class="row g-4 mb-4" id="sensorFaultAnalytics">
+    <div class="col-12">
+        <div class="card p-4 border-0 shadow-sm bg-white">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="fw-bold mb-0 text-dark">🔧 {{ _('Sensor Fault Analytics') }}</h5>
+                    <p class="text-muted small mb-0 mt-1">{{ _('Stuck-sensor incidents over time — fault rate per ward, average time-to-clear, and self-heal vs manual-clear ratio, from the immutable audit ledger.') }}</p>
+                </div>
+                <div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Analytics window') }}">
+                    <button class="btn btn-outline-secondary rounded-start-pill sfa-window" data-days="30" onclick="setSfaWindow(30)">30d</button>
+                    <button class="btn btn-outline-secondary sfa-window active" data-days="90" onclick="setSfaWindow(90)">90d</button>
+                    <button class="btn btn-outline-secondary rounded-end-pill sfa-window" data-days="180" onclick="setSfaWindow(180)">180d</button>
+                </div>
+            </div>
+            <div class="row g-3 mb-4" id="sfaKpis"></div>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <h6 class="fw-bold text-dark mb-2">📅 {{ _('Detections &amp; Resolutions per Week') }}</h6>
+                    <canvas id="sensorFaultChart" height="230"></canvas>
+                </div>
+                <div class="col-lg-5">
+                    <h6 class="fw-bold text-dark mb-2">🔁 {{ _('Repeat-Offender Bins') }}</h6>
+                    <div id="sfaTopBins" class="small"></div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <h6 class="fw-bold text-dark mb-2">🏘️ {{ _('Fault Rate by Ward') }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ _('Ward') }}</th><th>{{ _('Bins') }}</th><th>{{ _('Detections') }}</th>
+                                <th>{{ _('Fault Rate') }}</th><th>{{ _('Avg Time-to-Clear') }}</th>
+                                <th>{{ _('Self-Heal') }}</th><th>{{ _('Manual') }}</th><th>{{ _('Self-Heal %') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sfaWardBody">
+                            <tr><td colspan="8" class="text-center text-muted py-4">{{ _('Loading…') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // Analytics data is loaded from the API at runtime (no server-injected
     // Jinja in the markup), so the template validates as plain JavaScript/HTML
@@ -410,5 +457,114 @@
             bar.style.background = bar.getAttribute('data-color');
         });
     }
+
+    // ── Sensor Fault Analytics (stuck-sensor incident trends) ──
+    let sfaChart = null;
+    let sfaDays = 90;
+
+    function setSfaWindow(days) {
+        sfaDays = days;
+        document.querySelectorAll('.sfa-window').forEach(b => {
+            b.classList.toggle('active', Number(b.dataset.days) === days);
+        });
+        loadSensorFaultAnalytics();
+    }
+
+    // Ward/bin names are DB-controlled — escape before innerHTML injection.
+    function sfaEscape(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[c]);
+    }
+
+    function renderSensorFaultAnalytics(data) {
+        const k = data.kpis || {};
+        const kpisEl = document.getElementById('sfaKpis');
+        if (kpisEl) {
+            const ttc = k.avg_ttc_hours == null ? '—' : k.avg_ttc_hours + ' h';
+            kpisEl.innerHTML = `
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">⚠️ Detections</div>
+                    <div class="fs-4 fw-bold">${k.detections ?? 0}</div></div></div>
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🔄 Self-Healed</div>
+                    <div class="fs-4 fw-bold text-success">${k.self_heal ?? 0}</div></div></div>
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">👷 Manual Clears</div>
+                    <div class="fs-4 fw-bold text-primary">${k.manual ?? 0}</div></div></div>
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🧪 Self-Heal Rate</div>
+                    <div class="fs-4 fw-bold">${k.self_heal_pct ?? 0}%</div></div></div>
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">⏱️ Avg Time-to-Clear</div>
+                    <div class="fs-4 fw-bold">${ttc}</div></div></div>
+                <div class="col-md-2 col-sm-4"><div class="border rounded-3 p-3 text-center h-100">
+                    <div class="text-muted small fw-bold">🛠️ Currently Faulted</div>
+                    <div class="fs-4 fw-bold ${(k.currently_faulted || 0) > 0 ? 'text-warning' : ''}">${k.currently_faulted ?? 0}</div></div></div>`;
+        }
+
+        const ctx = document.getElementById('sensorFaultChart');
+        // Best-effort chart: a Chart.js CDN failure must not block the tables
+        // below from rendering (same degradation pattern as the Leaflet maps).
+        if (ctx && typeof Chart !== 'undefined') {
+            if (sfaChart) sfaChart.destroy();
+            sfaChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: data.series.labels,
+                    datasets: [
+                        { label: 'Detections', data: data.series.detections, backgroundColor: '#E67E22' },
+                        { label: 'Resolutions', data: data.series.resolutions, backgroundColor: '#27AE60' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+        }
+
+        const topEl = document.getElementById('sfaTopBins');
+        if (topEl) {
+            if (!data.top_bins.length) {
+                topEl.innerHTML = '<p class="text-muted mb-0">No bins faulted more than once in this window.</p>';
+            } else {
+                topEl.innerHTML = data.top_bins.map((b, i) => `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <span>${i + 1}. <code>${sfaEscape(b.hardware_id)}</code> <span class="text-muted small">${sfaEscape(b.ward || '')}</span></span>
+                        <span class="badge bg-warning text-dark">${b.detections}×</span>
+                    </div>`).join('');
+            }
+        }
+
+        const body = document.getElementById('sfaWardBody');
+        if (body) {
+            if (!data.wards.length) {
+                body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No sensor-fault events in this window.</td></tr>';
+                return;
+            }
+            body.innerHTML = data.wards.map(w => `
+                <tr>
+                    <td class="small">${sfaEscape(w.ward || 'Unassigned')}</td>
+                    <td>${w.bins}</td>
+                    <td class="${w.detections > 0 ? 'fw-bold' : ''}">${w.detections}</td>
+                    <td>${w.fault_rate == null ? '—' : w.fault_rate}</td>
+                    <td>${w.avg_ttc_hours == null ? '—' : w.avg_ttc_hours + ' h'}</td>
+                    <td class="text-success">${w.self_heal}</td>
+                    <td>${w.manual}</td>
+                    <td><span class="badge ${w.self_heal_pct >= 60 ? 'bg-success' : w.self_heal_pct >= 30 ? 'bg-warning text-dark' : 'bg-danger'}">${w.self_heal_pct}%</span></td>
+                </tr>`).join('');
+        }
+    }
+
+    function loadSensorFaultAnalytics() {
+        fetch(`/api/analytics/sensor-faults?days=${sfaDays}`)
+            .then(r => r.json())
+            .then(renderSensorFaultAnalytics)
+            .catch(e => console.error('sensor fault analytics load failed:', e));
+    }
+
+    loadSensorFaultAnalytics();
 </script>
 {% endblock %}

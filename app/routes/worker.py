@@ -4,7 +4,7 @@ from flask import (flash, jsonify, redirect, render_template, request, session, 
 
 from sqlalchemy.exc import IntegrityError
 
-from ..models import (Complaint, DispatchAssignment, IncidentLog, OffloadLog, SensorHealth, SmartBin, User, WorkerProfile, utcnow)
+from ..models import (Complaint, DispatchAssignment, IncidentLog, MaintenanceWorkOrder, OffloadLog, SensorHealth, SmartBin, User, WorkerProfile, utcnow)
 
 from ..auth import worker_required, roles_required
 
@@ -12,8 +12,9 @@ from .. import db, socketio
 
 from ..ml_model import predict_overflow_eta_hours
 
-from . import (DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _notify_status_change,
-               fit_length, haversine_m, main, point_in_polygon, record_complaint_event,
+from . import (DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _notify_admins,
+               _notify_status_change, _publish_admin_alerts, fit_length, haversine_m,
+               main, point_in_polygon, record_complaint_event,
                save_compressed_photo, write_audit)
 
 # Close-the-loop: a bin may ONLY be cleared when the worker uploads a live
@@ -274,6 +275,117 @@ def dispatch_complete():
     return jsonify({"success": True, "assignment_id": assignment.id})
 
 
+# ── Maintenance work orders (sensor-health follow-up) ──
+@main.route('/api/maintenance/my')
+@worker_required
+def my_maintenance():
+    """The logged-in worker's maintenance work orders.
+
+    Active (Scheduled / In Progress) orders first sorted by due date — overdue
+    flagged read-side so the card can highlight them — then the 5 most recent
+    completed orders for the shift history.
+    """
+    profile = WorkerProfile.query.filter_by(user_id=session['user_id']).first()
+    if not profile:
+        return jsonify({'orders': []})
+    active = (MaintenanceWorkOrder.query
+              .filter(MaintenanceWorkOrder.worker_id == profile.id,
+                      MaintenanceWorkOrder.status.in_(['Scheduled', 'In Progress']))
+              .order_by(MaintenanceWorkOrder.due_date.is_(None),
+                        MaintenanceWorkOrder.due_date.asc())
+              .all())
+    completed = (MaintenanceWorkOrder.query
+                 .filter_by(worker_id=profile.id, status='Completed')
+                 .order_by(MaintenanceWorkOrder.completed_at.desc()).limit(5).all())
+    now = utcnow()
+    return jsonify({'orders': [{
+        'id': o.id,
+        'bin_id': o.bin_id,
+        'hardware_id': o.bin.hardware_id if o.bin else None,
+        'ward': o.bin.ward if o.bin else None,
+        'status': o.status,
+        'due_date': o.due_date.isoformat() if o.due_date else None,
+        'overdue': bool(o.due_date and o.status != 'Completed' and o.due_date < now),
+        'notes': o.notes,
+    } for o in active + completed]});
+
+
+@main.route('/api/maintenance/<int:order_id>/start', methods=['POST'])
+@worker_required
+def maintenance_start(order_id):
+    """Worker begins a Scheduled maintenance order (Scheduled -> In Progress)."""
+    profile = WorkerProfile.query.filter_by(user_id=session['user_id']).first()
+    if not profile:
+        return jsonify({'success': False, 'message': 'Worker profile not found.'}), 404
+    order = MaintenanceWorkOrder.query.get(order_id)
+    if not order or order.worker_id != profile.id:
+        return jsonify({'success': False, 'message': 'Work order not found.'}), 404
+    if order.status != 'Scheduled':
+        return jsonify({'success': False, 'message': f'Order is already {order.status}.'}), 400
+    order.status = 'In Progress'
+    db.session.commit()
+    write_audit("MAINTENANCE_STARTED",
+                target=order.bin.hardware_id if order.bin else f'WO #{order.id}',
+                detail=f"Worker {session.get('username')} started maintenance work order #{order.id}.")
+    socketio.emit('maintenance_update', {'order_id': order.id,
+                                         'hardware_id': order.bin.hardware_id if order.bin else None,
+                                         'status': order.status})
+    return jsonify({'success': True})
+
+
+@main.route('/api/maintenance/<int:order_id>/complete', methods=['POST'])
+@roles_required('worker', 'admin')
+def maintenance_complete(order_id):
+    """Mark a maintenance work order completed — by the assigned worker or any
+    admin (control-room fallback).
+
+    Completes the order (Scheduled/In Progress -> Completed), drops the bin's
+    maintenance-scheduled flag, clears any lingering sensor fault, resolves
+    open Sensor Fault incidents, and audits the action with the actor's
+    identity. Workers may only complete their own orders; admins any.
+    """
+    order = MaintenanceWorkOrder.query.get(order_id)
+    if not order:
+        return jsonify({'success': False, 'message': 'Work order not found.'}), 404
+    profile = WorkerProfile.query.filter_by(user_id=session['user_id']).first()
+    if session.get('role') == 'worker' and (not profile or order.worker_id != profile.id):
+        return jsonify({'success': False, 'message': 'Work order not found.'}), 404
+    if order.status == 'Completed':
+        return jsonify({'success': False, 'message': 'Work order already completed.'}), 400
+
+    order.status = 'Completed'
+    order.completed_at = utcnow()
+    order.completed_by = session.get('user_id')
+    b = order.bin
+    if b:
+        # The maintenance visit restored the bin to service.
+        b.sensor_fault = False
+        sh = SensorHealth.query.filter_by(bin_id=b.id).first()
+        if sh:
+            sh.fault_flag = False
+            sh.maintenance_scheduled = False
+        for inc in IncidentLog.query.filter_by(
+                bin_id=b.id, incident_type='Sensor Fault', status='Active').all():
+            inc.status = 'Resolved'
+    staged = _notify_admins(
+        f"✅ Maintenance work order #{order.id} completed on "
+        f"{order.bin.hardware_id if order.bin else '?'} by {session.get('username', 'worker')} — "
+        f"bin restored to service.",
+        link="/admin#sensor-fault-section")
+    db.session.commit()
+    # Live alert after the commit — a toast must never announce a completion
+    # that rolled back.
+    _publish_admin_alerts(staged)
+    write_audit("MAINTENANCE_COMPLETED",
+                target=order.bin.hardware_id if order.bin else f'WO #{order.id}',
+                detail=(f"{session.get('role')} {session.get('username')} completed "
+                        f"maintenance work order #{order.id}."))
+    socketio.emit('maintenance_update', {'order_id': order.id,
+                                         'hardware_id': order.bin.hardware_id if order.bin else None,
+                                         'status': order.status})
+    return jsonify({'success': True, 'bin_restored': bool(b)})
+
+
 @main.route('/resolve-bin/<string:hw_id>', methods=['POST'])
 @worker_required
 def resolve_bin(hw_id):
@@ -336,9 +448,35 @@ def resolve_bin(hw_id):
     # Also clear sensor fault if present
     sh = SensorHealth.query.filter_by(bin_id=smart_bin.id).first()
     if sh: sh.fault_flag = False; sh.maintenance_scheduled = False
+    # Auto-close any open maintenance work orders for this bin — clearing it
+    # with verified evidence IS the maintenance visit.
+    open_orders = (MaintenanceWorkOrder.query
+                   .filter(MaintenanceWorkOrder.bin_id == smart_bin.id,
+                           MaintenanceWorkOrder.status != 'Completed')
+                   .all())
+    staged = []
+    for wo in open_orders:
+        wo.status = 'Completed'
+        wo.completed_at = utcnow()
+        wo.completed_by = session.get('user_id')
+        # Manual-resolution signal for the sensor-fault analytics (atomic with
+        # the resolve_bin commit below).
+        write_audit("MAINTENANCE_COMPLETED", target=hw_id,
+                    detail=f"Worker {session.get('username')} completed maintenance work order #{wo.id} (auto-closed by bin clearance).",
+                    commit=False)
+        # Live alert to the control room (staged; pushed after the commit).
+        staged.extend(_notify_admins(
+            f"✅ Maintenance work order #{wo.id} auto-completed — bin {hw_id} "
+            f"cleared with verified evidence.",
+            link="/admin#sensor-fault-section"))
+    if open_orders:
+        socketio.emit('maintenance_update', {'status': 'Completed', 'bin_id': smart_bin.id})
     db.session.commit()
+    _publish_admin_alerts(staged)
     write_audit("RESOLVE_BIN", target=hw_id,
-                detail=f"Bin {hw_id} cleared with verified After-photo ({after_path}), worker GPS {dist_m:.0f}m from bin.")
+                detail=(f"Bin {hw_id} cleared with verified After-photo ({after_path}), "
+                        f"worker GPS {dist_m:.0f}m from bin."
+                        + (f" {len(open_orders)} maintenance order(s) auto-completed." if open_orders else "")))
     return jsonify({"success": True, "message": f"Bin {hw_id} cleared and reset with verified evidence!"})
 
 
