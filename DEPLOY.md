@@ -106,7 +106,7 @@ need no extra process.
 If the live service is native Python, set its Start Command to:
 
 ```
-gunicorn wsgi:app --bind 0.0.0.0:$PORT -w 1 --timeout 120
+gunicorn wsgi:app --bind 0.0.0.0:$PORT -w 1 --worker-class gevent --timeout 120
 ```
 
 (`wsgi:app` triggers the same boot path as `app:app` — migrations + the

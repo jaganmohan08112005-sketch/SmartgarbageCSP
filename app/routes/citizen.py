@@ -278,7 +278,7 @@ def notifications_stream():
         # Redis pub/sub: instant push with a 15s timeout that doubles as a
         # keep-alive heartbeat (proxies kill idle SSE connections). The loop
         # never touches the DB, so the request holds no pool slot and — under
-        # eventlet workers — no worker is pinned by the stream.
+        # gevent workers — no worker is pinned by the stream.
         r = _redis_client()
         if r is not None:
             ps = None
