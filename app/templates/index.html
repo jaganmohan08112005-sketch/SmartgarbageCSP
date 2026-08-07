@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Waste Collection Schedules & Missed Pickup Reports | SmartGarbage Chintalavalasa{% endblock %}
+{% block title %}Waste Collection Schedules & Pickup Reports | Chintalavalasa{% endblock %}
 {% block content %}
 <!-- Structured data: the two public services on this page + genuine resident FAQs
      (answers reflect the site's own schedule / report / segregation content). -->
@@ -25,7 +25,7 @@
         },
         {
             "@type": "WebPage",
-            "name": "Waste Collection Schedules & Missed Pickup Reports | SmartGarbage Chintalavalasa",
+            "name": "Waste Collection Schedules & Pickup Reports | Chintalavalasa",
             "url": "{{ request.url }}",
             "dateModified": "{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-06' }}"
         },
@@ -56,12 +56,23 @@
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero" style="background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%);">
     <div class="container-fluid py-4">
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Welcome to SmartGarbage Chintalavalasa') }}</h1>
+        <!-- In-sentence contextual links: body links (not just navigation) help
+             search engines connect the homepage topic to the service pages. -->
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.') }}
+            {{ _('Monitor localized') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('garbage collection schedules') }}</a>,
+            {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('ward-level service status') }}</a>,
+            {{ _('and') }} <a href="/report" class="text-decoration-underline text-danger fw-semibold">{{ _('report a missed pickup') }}</a>
+            {{ _('in real-time across Chintalavalasa\'s residential sectors.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
             <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Pickup Schedule') }}</a>
             <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ {{ _('Report Missed Pickup') }}</a>
+        </div>
+        <!-- Account access as a primary service path: returning residents manage
+             tickets, bills and Green Points here — without hunting through the nav. -->
+        <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
+            <span class="small text-muted">🔐 {{ _('Already a resident?') }}</span>
+            <a href="/login" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">{{ _('Login to track tickets, view bills & earn Green Points') }}</a>
         </div>
         <!-- Trust cues at the decision zone: official department + grievance hotline -->
         <p class="mt-4 mb-0 small text-muted d-flex flex-wrap justify-content-center align-items-center gap-2">
@@ -129,10 +140,10 @@
                 <span class="sg-portal-icon">🏛️</span>
                 <div>
                     <h2 class="fw-bold text-warning mb-0 sg-card-h">{{ _('Officer / Admin Login') }}</h2>
-                    <small class="text-white-50">{{ _('Municipal staff only') }}</small>
+                    <small class="text-white-75">{{ _('Municipal staff only') }}</small>
                 </div>
             </div>
-            <p class="small mb-3 text-white-50">{{ _('Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.') }}</p>
+            <p class="small mb-3 text-white-75">{{ _('Control room, GIS telemetry, fleet dispatch and analytics — internal staff only.') }}</p>
             <div class="d-grid gap-2">
                 <a href="/login" class="btn btn-warning w-100 fw-bold rounded-pill shadow-sm">🔐 {{ _('Officer Login') }}</a>
                 <a href="/transparency" class="btn btn-outline-light w-100 rounded-pill">📍 {{ _('Wards') }}</a>
