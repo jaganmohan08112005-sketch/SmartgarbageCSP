@@ -446,6 +446,13 @@ h3.sg-card-h { font-size: 1.25rem; }
     padding: 1.25rem 0;
     margin-top: 2.5rem;
 }
+/* Contrast-safe white text on dark navy (WCAG AA small text): Bootstrap's
+   .text-white-50 (0.5 opacity) fails AA on --sg-navy-800; this matches the
+   proven .sg-footer-link value. */
+.text-white-75 {
+    color: rgba(255, 255, 255, .78) !important;
+}
+
 .sg-footer-link {
     color: rgba(255, 255, 255, .78);
     text-decoration: none;

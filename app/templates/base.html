@@ -27,7 +27,7 @@
     <!-- Preload the primary web font stylesheet so the first screen (hero
          headline + buttons) paints as fast as possible instead of waiting in
          the render-blocking CSS queue. display=swap keeps fallbacks visible. -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap">
+    <link rel="preload" as="style" fetchpriority="high" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -48,6 +48,17 @@
         "alternateName": "SmartGarbage Chintalavalasa",
         "url": "{{ request.url_root.rstrip('/') }}",
         "telephone": "+91-1800-119-9111",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Chintalavalasa",
+            "addressRegion": "Andhra Pradesh",
+            "addressCountry": "IN"
+        },
+        "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 17.87,
+            "longitude": 83.33
+        },
         "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
         "contactPoint": {
             "@type": "ContactPoint",
@@ -312,7 +323,7 @@
     <!-- Trust + freshness footer (visible on every page): department identity,
          grievance hotline, privacy notice link, and a last-updated marker. -->
     <footer class="sg-footer">
-        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-50">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
             <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · Chintalavalasa, Visakhapatnam</div>
             <div class="d-flex align-items-center gap-3">
                 <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
@@ -322,9 +333,32 @@
         </div>
     </footer>
 
+    {% if not config.get('ANALYTICS_ID') %}
+    <!-- Privacy notice (essential cookies): shown when analytics is NOT
+         configured, so the privacy signal is still visible on the live site —
+         the GDPR-style Accept/Decline banner below appears only once analytics
+         is enabled. Dismissed choice persists in localStorage. -->
+    <div id="sgPrivacyNotice" class="sg-consent-banner d-none" role="region" aria-label="{{ _('Privacy notice') }}">
+        <div class="sg-consent-text">
+            🔒 {{ _('This portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
+            <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
+        </div>
+        <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgDismissPrivacyNotice()">{{ _('Got it') }}</button>
+    </div>
+    <script>
+        function sgDismissPrivacyNotice() {
+            localStorage.setItem('sgPrivacyNoticeDismissed', '1');
+            document.getElementById('sgPrivacyNotice')?.classList.add('d-none');
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('sgPrivacyNoticeDismissed')) {
+                document.getElementById('sgPrivacyNotice')?.classList.remove('d-none');
+            }
+        });
+    </script>
+    {% endif %}
+
     {% if config.get('ANALYTICS_ID') %}
-    <!-- Cookie-consent banner: shown only when analytics is configured AND the
-         citizen has not yet chosen. Accept grants analytics_storage. -->
     <div id="sgConsentBanner" class="sg-consent-banner d-none" role="region" aria-label="{{ _('Privacy settings') }}">
         <div class="sg-consent-text">
             🍪 {{ _('We use anonymous analytics to improve this public service. No personal data is collected without your consent.') }}
