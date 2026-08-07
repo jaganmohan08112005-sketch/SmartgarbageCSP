@@ -89,6 +89,9 @@ a:hover { color: var(--sg-green-700); }
 
 .text-muted   { color: var(--sg-muted) !important; }
 .text-primary { color: var(--sg-primary) !important; }
+/* .text-primary -> --sg-primary (#27ae60) is only 2.87:1 on white (fails AA);
+   on the dark surface it is 5.05:1 (fine). Darken the light-mode rendering only. */
+html:not([data-theme="dark"]) .text-primary { color: #166534 !important; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -199,6 +202,33 @@ h3.sg-card-h { font-size: 1.25rem; }
 .badge { border-radius: 6px; padding: .4em .7em; font-weight: 600; letter-spacing: .2px; }
 .bg-success { background-color: var(--sg-green-600) !important; }
 .bg-danger  { background-color: var(--sg-red-600) !important; }
+/* AA-safe badge shades: --sg-green-600 (#27ae60) + white is only 2.87:1 and
+   --sg-red-600 (#dc2626) 4.83:1 — both fail axe color-contrast on the light
+   cards; dark mode also lightens badge text (--e2e8f0), so these darker shades
+   pass in BOTH themes. Darken badges only; buttons/modal headers keep brand. */
+.badge.bg-success { background-color: #166534 !important; } /* 5.0:1 light / 6.3:1 dark */
+.badge.bg-danger  { background-color: #b91c1c !important; } /* 6.5:1 light / 5.7:1 dark */
+
+/* Hero links sit on the light-green gradient, where the global link color
+   --sg-green-700 (#1e8449) drops just under AA (≈4.4:1) and Bootstrap's
+   .text-danger (#dc3545) fails at 3.98:1. Darken links only inside the hero;
+   dark mode keeps its own bright overrides (see [data-theme="dark"] .sg-hero). */
+.sg-hero a.text-success { color: #166534 !important; }
+.sg-hero a.text-danger  { color: #b91c1c !important; }
+[data-theme="dark"] .sg-hero a.text-success { color: #4ade80 !important; }
+[data-theme="dark"] .sg-hero a.text-danger  { color: #f87171 !important; }
+
+/* The hero's secondary CTA (btn-outline-danger) label is #dc3545 ≈ 4.46:1 on
+   the light-green gradient — just under AA. Darken its button-* vars so the
+   label, border and hover fill all use the same AA-safe red as the links. */
+.sg-hero .btn-outline-danger {
+    --bs-btn-color: #b91c1c;
+    --bs-btn-border-color: #b91c1c;
+    --bs-btn-hover-bg: #b91c1c;
+    --bs-btn-hover-border-color: #b91c1c;
+    --bs-btn-active-bg: #b91c1c;
+    --bs-btn-active-border-color: #b91c1c;
+}
 .bg-warning { background-color: var(--sg-amber-500) !important; color: #3b2f06 !important; }
 .bg-primary { background-color: var(--sg-info) !important; }
 .bg-secondary { background-color: #64748b !important; }
