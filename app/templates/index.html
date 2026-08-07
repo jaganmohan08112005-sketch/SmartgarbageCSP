@@ -12,7 +12,7 @@
             "name": "Waste Collection Schedule Lookup",
             "serviceType": "Solid waste collection scheduling",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
-            "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
+            "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "url": "{{ url_for('main.schedule', _external=True) }}"
         },
         {
@@ -20,7 +20,7 @@
             "name": "Missed Pickup & Grievance Reporting",
             "serviceType": "Waste collection grievance reporting",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
-            "areaServed": "Chintalavalasa, Visakhapatnam, Andhra Pradesh, India",
+            "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "url": "{{ url_for('main.report', _external=True) }}"
         },
         {
@@ -55,6 +55,10 @@
 <!-- Welcome Hero Block -->
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero" style="background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%);">
     <div class="container-fluid py-4">
+        <!-- Official-service marker in the decision zone: a visible municipal
+             emblem-style badge above the hero headline reinforces that this is
+             the official Gram Panchayat portal before the first click. -->
+        <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Welcome to SmartGarbage Chintalavalasa') }}</h1>
         <!-- In-sentence contextual links: body links (not just navigation) help
              search engines connect the homepage topic to the service pages. -->
@@ -121,7 +125,7 @@
             <div class="d-flex align-items-center gap-3 mb-3">
                 <span class="sg-portal-icon">👨‍👩‍👧‍👦</span>
                 <div>
-                    <h2 class="fw-bold text-success mb-0 sg-card-h">{{ _('Citizen Portal') }}</h2>
+                    <h2 class="fw-bold text-success mb-0 sg-card-h">{{ _('Chintalavalasa Citizen Portal') }}</h2>
                     <small class="text-muted">{{ _('Public · No login needed to explore') }}</small>
                 </div>
             </div>

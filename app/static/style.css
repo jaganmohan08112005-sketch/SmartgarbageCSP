@@ -483,6 +483,24 @@ h3.sg-card-h { font-size: 1.25rem; }
     color: rgba(255, 255, 255, .78) !important;
 }
 
+/* Official-service emblem badge in the hero decision zone: light-green pill
+   with AA-safe dark-green text (#166534 on #e7f6ee ≈ 8:1). */
+.sg-official-badge {
+    background-color: #e7f6ee !important;
+    color: #166534 !important;
+    border: 1px solid #2ecc71;
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+/* Dark mode: the generic [data-theme=dark] .badge rule forces light text on
+   the light-green pill (1.5:1). Flip to a dark pill + bright green text.
+   (.badge.sg-official-badge keeps specificity above that generic rule.) */
+[data-theme="dark"] .badge.sg-official-badge {
+    background-color: #1a3a2a !important;
+    color: #4ade80 !important;
+    border-color: #2ecc71;
+}
+
 .sg-footer-link {
     color: rgba(255, 255, 255, .78);
     text-decoration: none;
@@ -812,6 +830,10 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 
 [data-theme="dark"] .text-muted {
+    color: var(--sg-muted) !important;
+}
+
+[data-theme="dark"] .text-secondary {
     color: var(--sg-muted) !important;
 }
 

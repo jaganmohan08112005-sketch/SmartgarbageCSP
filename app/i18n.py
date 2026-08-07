@@ -312,6 +312,9 @@ EN = {
     'Payments via Razorpay; analytics only after you Accept': 'Payments via Razorpay; analytics only after you Accept',
     'Read the full privacy notice': 'Read the full privacy notice',
     # ── Growth report round 3: linked hero copy, account path, essential-cookies notice ──
+    'Official service of Chintalavalasa Gram Panchayat': 'Official service of Chintalavalasa Gram Panchayat',
+    'Chintalavalasa Citizen Portal': 'Chintalavalasa Citizen Portal',
+    'Chintalavalasa Ward Collection Schedules': 'Chintalavalasa Ward Collection Schedules',
     'Monitor localized': 'Monitor localized',
     'garbage collection schedules': 'garbage collection schedules',
     'verify': 'verify',
@@ -686,6 +689,9 @@ TE = {
     'Payments via Razorpay; analytics only after you Accept': 'రజోర్‌పే ద్వారా చెల్లింపులు; మీరు అంగీకరించిన తర్వాత మాత్రమే విశ్లేషణలు',
     'Read the full privacy notice': 'పూర్తి గోప్యతా నోటీసు చదవండి',
     # ── Growth report round 3: linked hero copy, account path, essential-cookies notice ──
+    'Official service of Chintalavalasa Gram Panchayat': 'చింతలవలస గ్రామ పంచాయతీ అధికారిక సేవ',
+    'Chintalavalasa Citizen Portal': 'చింతలవలస సిటిజన్ పోర్టల్',
+    'Chintalavalasa Ward Collection Schedules': 'చింతలవలస వార్డ్ కలెక్షన్ షెడ్యూల్స్',
     'Monitor localized': 'స్థానికంగా పర్యవేక్షించండి',
     'garbage collection schedules': 'చెత్త సేకరణ షెడ్యూల్లు',
     'verify': 'ధృవీకరించండి',
