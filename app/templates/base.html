@@ -318,7 +318,7 @@
                 <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
                 <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
             </div>
-            <div>© 2026 · {{ _('Last updated') }}: Aug 2026</div>
+            <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %Y') if deploy_ts else '2026-08' }}</div>
         </div>
     </footer>
 
@@ -365,9 +365,30 @@
             if (form.getAttribute('action') === '/schedule') sgTrack('schedule_lookup');
         });
 
+        // ── Anonymized consent record (GDPR/DPDP evidence) ──
+        // Each banner choice is logged server-side so the Gram Panchayat can
+        // prove consent was captured. The register stores only a salted hash
+        // of IP+user-agent — never a name, phone, or address. Fire-and-forget:
+        // a logging failure must never block the citizen's choice.
+        // Consent-policy version from server config: bump CONSENT_VERSION with
+        // any banner-copy change so the register stays auditable.
+        const SG_CONSENT_VERSION = {{ config.get('CONSENT_VERSION', 'v1')|tojson }};
+        function sgRecordConsent(choice) {
+            try {
+                fetch('/api/consent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ choice: choice, version: SG_CONSENT_VERSION, source: location.pathname })
+                });
+            } catch (e) { /* non-blocking */ }
+        }
         function sgSetConsent(accepted) {
             localStorage.setItem('sgAnalyticsConsent', accepted ? 'accepted' : 'declined');
             document.getElementById('sgConsentBanner')?.classList.add('d-none');
+            sgRecordConsent(accepted ? 'accept' : 'decline');
             gtag('consent', 'update', { analytics_storage: accepted ? 'granted' : 'denied' });
             if (accepted && !window.__sgAnalyticsConfigured) {
                 gtag('config', '{{ config['ANALYTICS_ID'] }}');

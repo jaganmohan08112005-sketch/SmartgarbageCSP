@@ -78,6 +78,79 @@
     </div>
   </div>
 
+  <!-- Anonymized Consent Register (GDPR/DPDP evidence) -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">🛡️ {{ _('Anonymized Consent Register') }}</h5>
+          <p class="text-muted small mb-0">{{ _('Every Accept/Decline choice on the analytics banner, anonymized — only scrambled device fingerprints, no personal data — so consent capture can be demonstrated to auditors.') }}</p>
+        </div>
+        <span class="badge bg-dark">{{ consent_accepts + consent_declines }} {{ _('choices') }}</span>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+          <div class="border rounded-3 p-3 text-center">
+            <div class="fw-bold fs-4 text-success">{{ consent_accepts }}</div>
+            <div class="text-muted small">✅ {{ _('Acceptances') }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="border rounded-3 p-3 text-center">
+            <div class="fw-bold fs-4 text-danger">{{ consent_declines }}</div>
+            <div class="text-muted small">🚫 {{ _('Declines') }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="border rounded-3 p-3 text-center">
+            <div class="fw-bold fs-4">{{ consent_unique }}</div>
+            <div class="text-muted small">👤 {{ _('Unique visitors') }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="border rounded-3 p-3 text-center">
+            <div class="fw-bold fs-4">{{ (consent_accepts / (consent_accepts + consent_declines) * 100)|round|int if consent_accepts + consent_declines else 0 }}%</div>
+            <div class="text-muted small">📊 {{ _('Acceptance rate') }}</div>
+          </div>
+        </div>
+      </div>
+      {% if recent_consent %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>{{ _('Time') }}</th>
+              <th>{{ _('Choice') }}</th>
+              <th>{{ _('Version') }}</th>
+              <th>{{ _('Source') }}</th>
+              <th>{{ _('Fingerprint') }} <span class="text-muted fw-normal">(salted SHA-256)</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in recent_consent %}
+            <tr>
+              <td><small class="text-muted">{{ c.created_at.strftime('%d %b %Y %H:%M:%S') if c.created_at else '—' }}</small></td>
+              <td>
+                {% if c.choice == 'accept' %}
+                  <span class="badge bg-success">✅ {{ _('Accept') }}</span>
+                {% else %}
+                  <span class="badge bg-danger">🚫 {{ _('Decline') }}</span>
+                {% endif %}
+              </td>
+              <td><code class="small">{{ c.version }}</code></td>
+              <td><small class="text-muted">{{ c.source or '—' }}</small></td>
+              <td><code class="small text-muted">{{ c.fingerprint[:16] }}…</code></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted mb-0">{{ _('No consent choices recorded yet — they appear here when citizens choose on the analytics banner.') }}</p>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- Maintenance Work-Order Lifecycles (reconstructed from the ledger) -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">

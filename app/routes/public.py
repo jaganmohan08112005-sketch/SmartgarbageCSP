@@ -1,3 +1,4 @@
+import hashlib
 import os
 import requests
 
@@ -5,7 +6,8 @@ from datetime import datetime, timezone
 
 from flask import (abort, current_app, jsonify, render_template, request, send_from_directory)
 
-from ..models import (Complaint, ComplaintStatusLog, Schedule, SmartBin, WasteDeclaration, utcnow)
+from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, Schedule,
+                      SmartBin, WasteDeclaration, utcnow)
 
 from ..ml_model import predict_miss
 
@@ -73,6 +75,38 @@ def home():
 # crawlers and anonymous residents can read them (the homepage hero links here
 # for anonymous visitors too). Nothing user-specific is rendered. The POST runs
 # the ML prediction, so it is throttled like /report to stop anonymous hammering.
+@main.route('/api/consent', methods=['POST'])
+@limiter.limit("10/minute")
+def consent_record():
+    """Anonymized GDPR/DPDP-style consent capture for the analytics banner.
+
+    Logs the citizen's Accept/Decline choice so the Gram Panchayat can prove
+    consent was captured. Deliberately anonymized: the only identifier stored
+    is a salted SHA-256 of (IP + user-agent), so the register shows choice
+    counts and distinct choosers without ever retaining anything that could
+    identify an individual. Fire-and-forget from the client; a failure to log
+    must never block the citizen's choice from being applied.
+    """
+    data = request.get_json(silent=True) or {}
+    choice = (data.get('choice') or '').strip().lower()
+    if choice not in ('accept', 'decline'):
+        return jsonify({'success': False, 'message': 'Invalid choice.'}), 400
+    # Consent-policy version the banner showed. Defaults to the deployment's
+    # CONSENT_VERSION so bumping the banner copy bumps the audited version.
+    version = str(data.get('version') or current_app.config.get('CONSENT_VERSION', 'v1'))[:20]
+    source = str(data.get('source') or '')[:200]
+    raw = (request.headers.get('User-Agent', '') or '') + '|' + (request.remote_addr or '')
+    # Salted with the deployment's SECRET_KEY (self-bootstrapped + persisted,
+    # stable across restarts): the fingerprint cannot be recomputed without the
+    # key, so a DB leak or source read cannot de-anonymize a visitor.
+    salt = current_app.config.get('SECRET_KEY') or 'sg-consent'
+    fingerprint = hashlib.sha256((salt + '|' + raw).encode('utf-8')).hexdigest()
+    db.session.add(ConsentRecord(choice=choice, version=version,
+                                 source=source, fingerprint=fingerprint))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
 @main.route('/schedule', methods=['GET', 'POST'])
 @limiter.limit("30/hour")
 def schedule():
@@ -194,13 +228,14 @@ def robots_txt():
 def sitemap_xml():
     from flask import Response
     base = request.url_root.rstrip('/')
-    # Content is regenerated on deploy; the lastmod gives crawlers a freshness
-    # anchor even though these are static-template pages.
-    LAST_MOD = '2026-08-06'
+    # lastmod anchored to deploy time (set in create_app) so the freshness
+    # date auto-updates on every deploy instead of going stale by hand.
+    last_mod = current_app.config.get('DEPLOY_TIMESTAMP')
+    last_mod_str = last_mod.strftime('%Y-%m-%d') if last_mod else '2026-08-06'
     paths = ['/', '/schedule', '/report', '/transparency', '/register',
              '/register/picker', '/privacy']
     urls = ''.join(
-        f"  <url><loc>{base}{p}</loc><lastmod>{LAST_MOD}</lastmod></url>\n"
+        f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod></url>\n"
         for p in paths)
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

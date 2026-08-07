@@ -149,6 +149,14 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .card:hover { box-shadow: var(--sh-md); }
 
+/* Privacy at a glance: calm trust strip under the hero — light green tint
+   that melts into the page surface; adapts to dark mode like the portal cards. */
+.sg-privacy-glance { background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, var(--sg-surface) 75%); }
+[data-theme="dark"] .sg-privacy-glance { background: linear-gradient(135deg, #1a3a2a 0%, var(--sg-surface) 75%); }
+/* The strip's heading stays compact — the shared .sg-card-h (1.5rem) would
+   otherwise make this small trust line as big as the portal-card titles. */
+.sg-privacy-glance .sg-card-h { font-size: 1.05rem; }
+
 .shadow-sm { box-shadow: var(--sh-sm) !important; }
 
 /* ---------- Tables ---------- */

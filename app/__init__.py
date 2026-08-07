@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime, timezone
 import structlog
 from flask import Flask, render_template, session, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
@@ -18,6 +19,15 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 talisman = Talisman()
+
+# ── Deploy timestamp: a single freshness anchor ──
+# Computed ONCE at module import so every gunicorn worker (forked from the
+# master that imported this module) reports the same value — a per-app-boot
+# computation would let each worker emit a slightly different Last-Modified
+# for identical content. Fresh on every deploy because a deploy starts a new
+# process. Drives the Last-Modified header, sitemap lastmod, footer and
+# JSON-LD dateModified, so none of them need manual date bumps.
+DEPLOY_TIMESTAMP = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _is_deployed():
@@ -128,6 +138,14 @@ def create_app(test_config=None):
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+
+    # Deploy timestamp shared with routes/templates (see module constant above).
+    app.config['DEPLOY_TIMESTAMP'] = DEPLOY_TIMESTAMP
+
+    # Consent-policy version shown on the analytics banner. Recorded on every
+    # Accept/Decline (the ConsentRecord register) so a future policy-text
+    # change is auditable — bump this when the banner copy changes.
+    app.config['CONSENT_VERSION'] = os.environ.get('CONSENT_VERSION', 'v1')
 
     # Request ID middleware: every request gets a unique ID for tracing across
     # logs, audit entries, and external API calls.
@@ -293,6 +311,20 @@ def create_app(test_config=None):
             resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         return resp
 
+    # Freshness signals: Last-Modified for public, anonymous, full-HTML GET
+    # responses, anchored to deploy time. Personal pages (logged-in dashboards,
+    # admin) deliberately opt out — their content varies per user, so a shared
+    # timestamp would be misleading. Static assets and JSON/XML endpoints are
+    # excluded by the text/html check; redirects/errors keep their own status.
+    @app.after_request
+    def add_last_modified(resp):
+        if (request.method in ('GET', 'HEAD')
+                and resp.status_code == 200
+                and (resp.mimetype or '').startswith('text/html')
+                and not session.get('user_id')):
+            resp.last_modified = app.config['DEPLOY_TIMESTAMP']
+        return resp
+
     @app.route(IOT_TELEMETRY_PATH, methods=['OPTIONS'])
     def iot_telemetry_preflight():
         # CORS preflight responder for cross-origin sensor POSTs.
@@ -361,6 +393,10 @@ def create_app(test_config=None):
     def inject_i18n():
         lang = session.get('lang', DEFAULT_LANG)
         return dict(_=lambda t: translate(t, lang), lang=lang)
+
+    @app.context_processor
+    def inject_deploy_ts():
+        return dict(deploy_ts=app.config.get('DEPLOY_TIMESTAMP'))
 
     @app.context_processor
     def inject_current_user():
