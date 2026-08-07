@@ -20,9 +20,9 @@ EXPOSE 10000
 # a queue. RQ_IN_PROCESS_WORKER=false stops wsgi.py's fallback in-process
 # worker thread (the dedicated `python worker.py` here is the real worker).
 #
-# Worker scaling: eventlet + Redis message queue supports MULTIPLE gunicorn
+# Worker scaling: gevent + Redis message queue supports MULTIPLE gunicorn
 # workers sharing socket.io state. `-w 2` lets HTTP and WebSocket traffic
-# contend across two processes instead of stalling a single eventlet loop.
+# contend across two processes instead of stalling a single gevent loop.
 # When REDIS_URL is unset (SQLite dev), fall back to a single worker — the
 # in-memory rate-limiter and socket.io room state would otherwise silently
 # multiply/desync across processes.
@@ -33,4 +33,4 @@ EXPOSE 10000
 # with FLASK_APP unset the flask CLI auto-discovers wsgi.py, and importing
 # wsgi.py with REDIS_URL set would start the in-process worker thread while
 # migrations are still running.
-CMD ["sh", "-c", "export RQ_IN_PROCESS_WORKER=false && flask db upgrade && if [ \"$RENDER_WORKER\" = \"true\" ]; then exec python worker.py; fi && if [ \"$SEED_DEMO\" = \"true\" ]; then python seed_db.py; fi && (python worker.py &) && if [ -n \"$REDIS_URL\" ]; then exec gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --worker-class eventlet -w ${GUNICORN_WORKERS:-2} --timeout 120 --keep-alive 5; else exec gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --worker-class eventlet -w 1 --timeout 120 --keep-alive 5; fi"]
+CMD ["sh", "-c", "export RQ_IN_PROCESS_WORKER=false && flask db upgrade && if [ \"$RENDER_WORKER\" = \"true\" ]; then exec python worker.py; fi && if [ \"$SEED_DEMO\" = \"true\" ]; then python seed_db.py; fi && (python worker.py &) && if [ -n \"$REDIS_URL\" ]; then exec gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --worker-class gevent -w ${GUNICORN_WORKERS:-2} --timeout 120 --keep-alive 5; else exec gunicorn wsgi:app --bind 0.0.0.0:${PORT:-10000} --worker-class gevent -w 1 --timeout 120 --keep-alive 5; fi"]
