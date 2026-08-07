@@ -25,20 +25,28 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Preload the primary web font stylesheet so the first screen (hero
-         headline + buttons) paints as fast as possible instead of waiting in
-         the render-blocking CSS queue. display=swap keeps fallbacks visible. -->
-    <link rel="preload" as="style" fetchpriority="high" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Web font CSS is loaded ASYNCHRONOUSLY (preload + onload swap): the
+         Outfit stylesheet lives on Google's edge and can take seconds over a
+         cold connection, so it must never gate first paint. Text renders in
+         the system fallback immediately and swaps to Outfit when ready
+         (display=swap) — same pattern as Font Awesome below. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"></noscript>
     <!-- Preload the font FILE itself (not just its CSS): the hero headline is
-         text, so LCP waits on the woff2 swap. This starts the font download at
-         first paint instead of after CSS parse+discover. The v15/ hash is
-         Google's cache-buster; if it ever 404s (font update), the browser
-         silently falls back to the normal CSS-driven fetch. -->
+         text, so the swap completes faster when the woff2 is already cached.
+         The v15/ hash is Google's cache-buster; if it ever 404s (font update),
+         the browser silently falls back to the normal CSS-driven fetch. -->
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap is self-hosted (same origin, behind Cloudflare) instead of
+         fetched cold from jsdelivr on every visitor's first hit: the CDN hop
+         measured 2.5s uncached and blocked first paint. Render-blocking is
+         fine now because the file comes from our own edge in ~50ms. Keep the
+         vendor file in sync with style.css, whose overrides target Bootstrap
+         5.3.0 class names — a vendor bump without re-checking them will
+         silently break the custom theming. -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}" rel="stylesheet">
     <!-- Font Awesome is decorative (icon glyphs) — load it without blocking
          first paint; icons pop in a moment later. Fallback via <noscript>. -->
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
@@ -241,7 +249,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}" defer></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");
