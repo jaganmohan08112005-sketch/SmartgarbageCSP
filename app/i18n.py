@@ -203,7 +203,7 @@ EN = {
     'Could not clear bin — check connection and retry': 'Could not clear bin — check connection and retry',
     'Pending': 'Pending',
     # ── Growth report quick wins: hero CTAs, trust cues, contextual links, footer ──
-    'Check Pickup Schedule': 'Check Pickup Schedule',
+    "Check Today's Pickup Schedule": "Check Today's Pickup Schedule",
     'Report Missed Pickup': 'Report Missed Pickup',
     'Official service of the Directorate of Waste Management & Sanitation': 'Official service of the Directorate of Waste Management & Sanitation',
     'Popular services:': 'Popular services:',
@@ -578,7 +578,7 @@ TE = {
     'Edit': 'సవరించండి',
     'Unassigned': 'కేటాయించబడలేదు',
     # ── Growth report quick wins: hero CTAs, trust cues, contextual links, footer ──
-    'Check Pickup Schedule': 'పికప్ షెడ్యూల్ చూడండి',
+    "Check Today's Pickup Schedule": 'ఈరోజు పికప్ షెడ్యూల్ చూడండి',
     'Report Missed Pickup': 'మిస్ అయిన పికప్ నివేదించండి',
     'Official service of the Directorate of Waste Management & Sanitation': 'వ్యర్థ నిర్వహణ & పారిశుధ్య శాఖ యొక్క అధికారిక సేవ',
     'Popular services:': 'ప్రసిద్ధ సేవలు:',

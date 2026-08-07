@@ -65,14 +65,14 @@
             {{ _('in real-time across Chintalavalasa\'s residential sectors.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Pickup Schedule') }}</a>
+            <a href="/schedule" class="btn btn-success btn-lg px-4 fs-6 shadow">📅 {{ _('Check Today\'s Pickup Schedule') }}</a>
             <a href="/report" class="btn btn-outline-danger btn-lg px-4 fs-6 shadow">⚠️ {{ _('Report Missed Pickup') }}</a>
         </div>
         <!-- Account access as a primary service path: returning residents manage
              tickets, bills and Green Points here — without hunting through the nav. -->
         <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
             <span class="small text-muted">🔐 {{ _('Already a resident?') }}</span>
-            <a href="/login" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">{{ _('Login to track tickets, view bills & earn Green Points') }}</a>
+            <a href="/login" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" style="color:#166534;border-color:#166534;--bs-btn-hover-bg:#166534;--bs-btn-hover-border-color:#166534;--bs-btn-active-bg:#166534;--bs-btn-active-border-color:#166534">{{ _('Login to track tickets, view bills & earn Green Points') }}</a>
         </div>
         <!-- Trust cues at the decision zone: official department + grievance hotline -->
         <p class="mt-4 mb-0 small text-muted d-flex flex-wrap justify-content-center align-items-center gap-2">
@@ -83,9 +83,9 @@
         <!-- Contextual in-body links: connect the homepage copy to service pages -->
         <p class="mb-0 mt-2 small">
             {{ _('Popular services:') }}
-            <a href="/schedule" class="fw-semibold text-decoration-none">{{ _('check pickup schedules') }}</a> ·
-            <a href="/report" class="fw-semibold text-decoration-none">{{ _('report a missed pickup') }}</a> ·
-            <a href="/transparency" class="fw-semibold text-decoration-none">{{ _('view the ward dashboard') }}</a>
+            <a href="/schedule" class="fw-semibold text-decoration-none text-success">{{ _('check pickup schedules') }}</a> ·
+            <a href="/report" class="fw-semibold text-decoration-none text-success">{{ _('report a missed pickup') }}</a> ·
+            <a href="/transparency" class="fw-semibold text-decoration-none text-success">{{ _('view the ward dashboard') }}</a>
         </p>
         <!-- Privacy link above the fold on mobile: the at-a-glance card below
              the hero can sit below the fold on phones, so surface a slim link
@@ -155,7 +155,7 @@
 <!-- Dynamic Municipal Notice Board -->
 <div class="card border-start border-warning border-4 mb-4 shadow-sm animate-fade-in" style="animation-delay: 0.1s;">
     <div class="card-body">
-        <h3 class="text-warning-emphasis fw-bold d-flex align-items-center gap-2 mb-3 sg-card-h">
+        <h3 class="text-dark fw-bold d-flex align-items-center gap-2 mb-3 sg-card-h">
             📢 {{ _('Local Sanitation Notices & Seasonal Advisories') }}
         </h3>
         <div class="list-group list-group-flush small">
@@ -214,7 +214,7 @@
                         </div>
                         <span id="weatherTemp" class="display-6 fw-bold text-primary">--°C</span>
                     </div>
-                    <div class="row g-2 pt-2 border-top text-secondary small">
+                    <div class="row g-2 pt-2 border-top text-dark small">
                         <div class="col-6">🏢 {{ _('Humidity') }}: <strong id="weatherHumidity">--%</strong></div>
                         <div class="col-6">💨 {{ _('Wind Speed') }}: <strong id="weatherWind">-- km/h</strong></div>
                     </div>
