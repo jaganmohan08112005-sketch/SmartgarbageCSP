@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Ward Collection Schedules | SmartGarbage Chintalavalasa{% endblock %}
 {% block content %}
+<!-- Page-level H1: the scan flagged /schedule as missing an H1 (a11y + SEO). -->
+<h1 class="mb-4 fw-bold text-success d-flex align-items-center gap-2">
+    <span aria-hidden="true">📅</span> {{ _('Chintalavalasa Ward Collection Schedules') }}
+</h1>
 <div class="row g-4 animate-fade-in">
     <!-- Form Segment -->
     <div class="col-lg-5">
