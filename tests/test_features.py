@@ -4653,3 +4653,141 @@ def test_audit_ledger_timeline_shows_worker_change(client, app):
     section = section[:section.index('<!-- Audit Log Table -->')]
     assert 'Worker changed' in section
     assert 'reassigned maintenance work' in section
+
+
+def test_consent_record_logged_anonymized(client, app):
+    """Accept/Decline choices are logged anonymously and never store PII."""
+    from app.models import ConsentRecord
+    with app.app_context():
+        ConsentRecord.query.delete()
+        db.session.commit()
+
+    r = client.post('/api/consent', json={'choice': 'accept', 'version': 'v1',
+                                          'source': '/'}, follow_redirects=False)
+    assert r.status_code == 200
+    r2 = client.post('/api/consent', json={'choice': 'decline'}, follow_redirects=False)
+    assert r2.status_code == 200
+
+    with app.app_context():
+        rows = ConsentRecord.query.order_by(ConsentRecord.id).all()
+        assert len(rows) == 2
+        assert [x.choice for x in rows] == ['accept', 'decline']
+        assert rows[0].version == 'v1'
+        assert rows[0].source == '/'
+        # Anonymized: only a salted fingerprint — no raw IP / UA / identity.
+        assert len(rows[0].fingerprint) == 64
+        for x in rows:
+            assert x.fingerprint and '127.0.0.1' not in x.fingerprint
+
+    # Invalid choice is rejected.
+    r3 = client.post('/api/consent', json={'choice': 'maybe'}, follow_redirects=False)
+    assert r3.status_code == 400
+
+
+def test_consent_register_visible_on_audit_page(client, app):
+    """The superadmin audit page renders the anonymized consent register."""
+    from app.models import ConsentRecord, User
+    with app.app_context():
+        ConsentRecord.query.delete()
+        db.session.commit()
+    client.post('/api/consent', json={'choice': 'accept'}, follow_redirects=False)
+    client.post('/api/consent', json={'choice': 'decline'}, follow_redirects=False)
+
+    _make_user(app, 'consent_super', role='admin')
+    with app.app_context():
+        u = User.query.filter_by(username='consent_super').first()
+        u.is_superadmin = True
+        db.session.commit()
+    _login_admin(client, app, 'consent_super')
+    r = client.get('/admin/audit')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Anonymized Consent Register' in body
+    assert 'Acceptances' in body and 'Declines' in body
+
+
+def test_privacy_policy_links_consent_register(client):
+    """The privacy policy documents the anonymized consent register."""
+    r = client.get('/privacy')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'anonymized consent register' in body
+    assert 'Consent records (anonymized)' in body
+
+
+def test_consent_endpoint_works_with_csrf_enabled(tmp_path):
+    """The anonymous /api/consent flow works with CSRF protection on (as in
+    production): the page renders a session-bound token that the banner fetch
+    echoes back via the X-CSRFToken header."""
+    import tempfile as _tf
+    fd, path = _tf.mkstemp(suffix='.db'); os.close(fd)
+    csrf_app = create_app(test_config={
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': True,
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
+        'SERVER_NAME': 'localhost:5001',
+        'ANALYTICS_ID': 'G-TEST',
+    })
+    with csrf_app.app_context():
+        db.create_all()
+    c = csrf_app.test_client()
+    r = c.get('/')  # renders base.html → meta csrf-token bound to this session
+    assert r.status_code == 200
+    import re
+    m = re.search(r'<meta name="csrf-token" content="([^"]+)">', r.get_data(as_text=True))
+    assert m, 'csrf meta token must render for the anonymous session'
+    token = m.group(1)
+    # Missing header → CSRF rejects.
+    bad = c.post('/api/consent', json={'choice': 'accept'}, follow_redirects=False)
+    assert bad.status_code == 400
+    # Header + cookie → accepted and logged.
+    ok = c.post('/api/consent', json={'choice': 'accept', 'version': 'v2'},
+                headers={'X-CSRFToken': token}, follow_redirects=False)
+    assert ok.status_code == 200
+    with csrf_app.app_context():
+        from app.models import ConsentRecord
+        row = ConsentRecord.query.first()
+        assert row is not None and row.choice == 'accept' and row.version == 'v2'
+        assert row.source is None or row.source == ''
+    try:
+        os.remove(path)
+    except PermissionError:
+        pass
+
+
+def test_homepage_privacy_at_a_glance(client):
+    """The homepage surfaces a privacy-at-a-glance card above the fold with the
+    three collection bullets and a link to the full notice."""
+    r = client.get('/')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Your privacy at a glance' in body
+    assert 'href="/privacy"' in body
+    for bullet in ('Forms: only what you enter',
+                   'photos: captured only when you file a report',  # '&' renders as &amp;
+                   'Payments via Razorpay'):
+        assert bullet in body
+
+
+def test_privacy_policy_dpdp_audit_sections(client):
+    """The privacy notice carries the DPDP Act 2023 audit items: correct
+    children age, processor register, security safeguards, breach response,
+    and a designated grievance/DPO contact."""
+    r = client.get('/privacy')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    # Children = under 18 (DPDP s.9), not under 13.
+    assert 'a child is anyone below 18' in body
+    assert 'children under 13' not in body
+    # Processor register (s.8(2)) covers the real processors.
+    assert 'Data Processors (Register)' in body
+    for p in ('Razorpay', 'Render + Cloudflare', 'Twilio', 'Telegram Bot API',
+              'Open-Meteo', 'Google Analytics', 'OpenStreetMap', 'Sentry'):
+        assert p in body
+    # Security safeguards (s.8(5)) + breach notification (s.8(6)).
+    assert 'Security Safeguards' in body
+    assert 'Breach Notification &amp; Response' in body  # '&' renders as &amp;
+    assert 'Data Protection Board of India' in body
+    # Designated officer + response commitment.
+    assert 'Grievance &amp; Data Protection Officer' in body or 'Grievance & Data Protection Officer' in body
+    assert 'within 15 days' in body

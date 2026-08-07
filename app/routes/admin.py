@@ -11,7 +11,11 @@ from werkzeug.utils import secure_filename
 
 from werkzeug.security import generate_password_hash
 
-from ..models import (AuditLog, BWGDeclaration, Complaint, DispatchAssignment, FirmwareRelease, IllegalDumpReport, IncidentLog, MaintenanceWorkOrder, Notification, OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin, User, Webhook, WorkerProfile, utcnow)
+from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
+                      DispatchAssignment, FirmwareRelease, IllegalDumpReport,
+                      IncidentLog, MaintenanceWorkOrder, Notification,
+                      OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin,
+                      User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
 
@@ -1035,8 +1039,21 @@ def audit_trail():
     # (Regular admins cannot reach this; the decorator enforces it.)
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(500).all()
     maintenance_timelines = _maintenance_timelines()
+    # Anonymized consent register (GDPR/DPDP evidence): Accept/Decline counts,
+    # distinct choosers, and the most recent choices. Nothing here is PII —
+    # only salted fingerprints — so this view is safe on the privileged page.
+    consent_accepts = ConsentRecord.query.filter_by(choice='accept').count()
+    consent_declines = ConsentRecord.query.filter_by(choice='decline').count()
+    consent_unique = (db.session.query(ConsentRecord.fingerprint).distinct().count())
+    recent_consent = (ConsentRecord.query
+                      .order_by(ConsentRecord.created_at.desc())
+                      .limit(12).all())
     return render_template('audit_log.html', logs=logs, is_superadmin=True,
-                           maintenance_timelines=maintenance_timelines)
+                           maintenance_timelines=maintenance_timelines,
+                           consent_accepts=consent_accepts,
+                           consent_declines=consent_declines,
+                           consent_unique=consent_unique,
+                           recent_consent=recent_consent)
 
 
 # Super-admin console: the sanctioned way to create admin accounts now that

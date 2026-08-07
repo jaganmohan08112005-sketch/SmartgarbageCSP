@@ -548,3 +548,27 @@ class OfflineDelivery(db.Model):
     attempts = db.Column(db.Integer, default=0, nullable=False)    # replay attempts before success
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     delivered_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
+# ──────────────────────────────────────────────
+# v7: ANONYMIZED CONSENT REGISTER (GDPR/DPDP evidence)
+# One row per analytics-banner decision (Accept / Decline), written when the
+# citizen clicks a banner button. Stored ANONYMIZED — no name, phone, address,
+# IP or user-agent; only a salted SHA-256 fingerprint of (IP + UA) so the Gram
+# Panchayat can demonstrate that consent was captured and count distinct
+# choosers without being able to identify any individual. `version` records
+# which consent-policy text was shown (a policy change is therefore auditable)
+# and `source` records which page the banner was on.
+# ──────────────────────────────────────────────
+class ConsentRecord(db.Model):
+    __table_args__ = (
+        # Hot paths: per-choice counts + recent-choices listing on the
+        # superadmin consent register.
+        db.Index('ix_consent_choice_created', 'choice', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    choice = db.Column(db.String(10), nullable=False)       # 'accept' | 'decline'
+    version = db.Column(db.String(20), nullable=False, default='v1')  # consent policy version shown
+    source = db.Column(db.String(200), nullable=True)       # page path where the banner was shown
+    fingerprint = db.Column(db.String(64), nullable=False)  # salted sha256(ip + user_agent) — never reversible to PII
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
