@@ -1,0 +1,10 @@
+# Test-only dependencies: install with `pip install -r requirements-dev.txt`.
+# Kept out of requirements.txt so the production image stays lean. Pinned
+# exactly, matching the requirements.txt convention, for reproducible CI.
+-r requirements.txt
+
+pytest==9.1.1
+pytest-xdist==3.8.0        # parallel test runs (`-n auto` default via pytest.ini)
+pytest-timeout==2.4.0      # per-test timeout so a hung test fails, not stalls
+pytest-cov==7.1.0          # coverage (README `--cov` example)
+playwright==1.61.0         # browser E2E suite (tests/qa) — run `playwright install`

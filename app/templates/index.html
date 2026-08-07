@@ -9,6 +9,7 @@
     "@graph": [
         {
             "@type": "GovernmentService",
+            "@id": "{{ url_for('main.schedule', _external=True) }}#service",
             "name": "Waste Collection Schedule Lookup",
             "serviceType": "Solid waste collection scheduling",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
@@ -17,6 +18,7 @@
         },
         {
             "@type": "GovernmentService",
+            "@id": "{{ url_for('main.report', _external=True) }}#service",
             "name": "Missed Pickup & Grievance Reporting",
             "serviceType": "Waste collection grievance reporting",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },

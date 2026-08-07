@@ -1515,7 +1515,18 @@ def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachme
     use_tls = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
     username = os.environ.get('MAIL_USERNAME')
     password = os.environ.get('MAIL_PASSWORD')
+    # From-address chain mirrors the app config: explicit MAIL_DEFAULT_SENDER
+    # wins, then the civic contact email (CIVIC_CONTACT_EMAIL), then a dev
+    # fallback. Without this, an operator who sets only CIVIC_CONTACT_EMAIL
+    # per the runbook would send with a None From header and every mail would
+    # fail. Guarded for calls made without an app context.
     sender = os.environ.get('MAIL_DEFAULT_SENDER')
+    if not sender:
+        try:
+            sender = current_app.config.get('CIVIC_CONTACT_EMAIL')
+        except Exception:
+            sender = None
+    sender = sender or 'noreply@smartgarbage.local'
     if not host or not username or not password:
         return False
     try:

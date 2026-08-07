@@ -158,10 +158,27 @@
         <p>{{ _('If we change how we handle data, we will update this page and refresh the "Last updated" date above. For material changes, a notice will be posted on the portal.') }}</p>
 
         <h2 class="mt-4">10. {{ _('Contact') }}</h2>
-        <p class="mb-1">{{ _('Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh, India.') }}</p>
+        <p class="mb-1"><strong>🏛️ {{ _('Gram Panchayat Office') }}</strong></p>
+        <!-- Same fact-grounded address as the site footer: town, mandal,
+             district and PIN are verified civic data (no invented street). -->
+        <p class="mb-1">{{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005, India.') }}</p>
         <p class="mb-0"><a href="tel:18001199111" class="text-decoration-none">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></p>
-        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 1800-119-9111 · ✉️ <a href="mailto:dpo@smartgarbage.example" class="text-decoration-none">dpo@smartgarbage.example</a></p>
+        {% if config.get('CIVIC_CONTACT_EMAIL') %}
+        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 1800-119-9111 · ✉️ <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="text-decoration-none">{{ config['CIVIC_CONTACT_EMAIL'] }}</a></p>
+        {% else %}
+        <!-- Email omitted until CIVIC_CONTACT_EMAIL is configured: a placeholder
+             address must never be published on a civic portal. -->
+        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 1800-119-9111</p>
+        {% endif %}
         <p class="small text-muted mb-0 mt-2">{{ _('We acknowledge and respond to privacy requests and grievances within 15 days.') }}</p>
+
+        <!-- Recognitions: mirrors the footer badges + GovernmentOrganization
+             schema award values so every trust surface tells the same story. -->
+        <p class="mb-0 mt-3"><strong>✅ {{ _('Recognitions & compliance') }}</strong></p>
+        <ul class="small mb-0 mt-1 ps-4">
+            <li>{{ _('Compliant with the Solid Waste Management Rules, 2026') }}</li>
+            <li>{{ _('Swachh Bharat Mission (Grameen) Phase II') }}</li>
+        </ul>
 
         <h2 class="mt-4">11. {{ _('Data Processors (Register)') }}</h2>
         <p>{{ _('We engage the following processors to operate the portal. Each has a contract in place, and we share only the minimum data needed for the stated purpose.') }}</p>

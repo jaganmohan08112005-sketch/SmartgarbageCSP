@@ -87,11 +87,11 @@ Legend: ✅ done · 🟡 partial · ❌ missing
 |---|------|--------|-------|
 | 9.1 | Designated contact person published | ✅ | New "Grievance & Data Protection Officer" block in Section 10 |
 | 9.2 | Response-timeframe commitment | ✅ | 15 days (draft DPDP rules benchmark) |
-| 9.3 | Real DPO email/name configured | ❌ | Placeholder `dpo@smartgarbage.example` — the Panchayat must assign a real officer |
+| 9.3 | Real DPO email/name configured | 🟡 | Placeholder removed from templates. Set `CIVIC_CONTACT_EMAIL` in the Render dashboard (DEPLOY.md §8.5) — until then the email renders nowhere on the site, by design. Panchayat must assign a real officer + inbox. |
 
 ## Action required by the Gram Panchayat (non-code)
 
-1. Appoint a named Grievance & Data Protection Officer; replace the placeholder email.
+1. Appoint a named Grievance & Data Protection Officer; set `CIVIC_CONTACT_EMAIL` in the Render dashboard (DEPLOY.md §8.5).
 2. Execute data-processor agreements with Razorpay, Render, Cloudflare, Twilio, and the email host.
 3. Prepare the breach-notification runbook + DPB/affected-principal notice templates.
 4. Decide the retained "legal basis" position for the §17 exemption analysis (this audit does not give legal advice).
