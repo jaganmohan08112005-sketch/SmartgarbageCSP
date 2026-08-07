@@ -107,8 +107,15 @@ Deployed via Docker on Fly.io (recommended) or Render.com:
 ## 🧪 Testing
 
 ```bash
-# Run tests
+# Install test tooling (first time only)
+pip install -r requirements-dev.txt
+
+# Run tests — parallel (pytest-xdist) with a 180s per-test timeout so a
+# genuinely hung test fails with a traceback instead of stalling the run
 pytest tests/ -v
+
+# Sequential run (required for the shared-DB Postgres parity job)
+pytest tests/ -n 0
 
 # Run with coverage
 pytest tests/ --cov=app --cov-report=html

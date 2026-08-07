@@ -447,23 +447,6 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .sg-a11y-btn:hover { background: rgba(255, 255, 255, .16); }
 .sg-a11y-btn-default { font-weight: 800; }
-.sg-hotline {
-    display: inline-flex;
-    align-items: center;
-    gap: .35rem;
-    padding: .4rem .85rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .1);
-    border: 1px solid rgba(255, 255, 255, .22);
-    color: #fff;
-    font-size: .78rem;
-    font-weight: 600;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: background-color .15s var(--ease), transform .15s var(--ease);
-}
-.sg-hotline:hover { background: rgba(255, 255, 255, .2); color: #ffc107; transform: translateY(-1px); }
-.sg-hotline strong { color: #ffc107; }
 .sg-lang-dropdown .dropdown-toggle::after { border-top-color: rgba(255, 255, 255, .8); margin-left: .15rem; }
 .sg-lang-dropdown .dropdown-item.active { background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; }
 [data-theme="dark"] .sg-dept-sub { color: rgba(226, 232, 240, .8); }
@@ -491,6 +474,12 @@ h3.sg-card-h { font-size: 1.25rem; }
     border: 1px solid #2ecc71;
     font-weight: 600;
     letter-spacing: .2px;
+    /* The long official label must wrap inside the viewport on phones
+       (Stackra: "mobile badge overflow/cropping") instead of forcing a
+       horizontal scroll. */
+    white-space: normal;
+    max-width: 100%;
+    text-align: center;
 }
 /* Dark mode: the generic [data-theme=dark] .badge rule forces light text on
    the light-green pill (1.5:1). Flip to a dark pill + bright green text.

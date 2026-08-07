@@ -214,12 +214,25 @@ def privacy_policy():
 @main.route('/robots.txt')
 def robots_txt():
     from flask import Response
-    body = ("User-agent: *\n"
+    # AI retrieval bots (ChatGPT live answers, Google AI Overviews, Perplexity)
+    # get explicit Allow groups so they outrank the catch-all: a public-service
+    # portal WANTS to be citable in AI answers. These are deliberately listed
+    # before the generic group so their intent is visible in the file itself.
+    ai_bots = ['GPTBot', 'OAI-SearchBot', 'ClaudeBot', 'Google-Extended',
+               'PerplexityBot']
+    # Non-public paths stay off-limits for EVERY bot: robots.txt applies only
+    # the most specific matching group, so an AI group that only said
+    # "Allow: /" would silently drop the private-path disallows below.
+    private_paths = ("Disallow: /admin\n"
+                     "Disallow: /api/\n"
+                     "Disallow: /worker\n"
+                     "Disallow: /dashboard\n")
+    ai_rules = ''.join(f"User-agent: {bot}\nAllow: /\n{private_paths}\n"
+                       for bot in ai_bots)
+    body = (ai_rules +
+            "User-agent: *\n"
             "Allow: /\n"
-            "Disallow: /admin\n"
-            "Disallow: /api/\n"
-            "Disallow: /worker\n"
-            "Disallow: /dashboard\n"
+            + private_paths +
             f"Sitemap: {request.url_root.rstrip('/')}/sitemap.xml\n")
     return Response(body, mimetype='text/plain')
 

@@ -18,10 +18,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
       - name: Run tests
         run: |
+          # pytest.ini defaults to parallel (-n auto) + 180s per-test timeout
           python -m pytest tests/ -v
 
   # Postgres-parity job: runs the full suite against a real PostgreSQL
@@ -57,11 +58,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
       - name: Run tests against Postgres
         run: |
-          python -m pytest tests/ -v
+          # Shared single database: MUST run sequentially (-n 0); the per-test
+          # timeout still applies so a hang fails fast instead of blocking.
+          python -m pytest tests/ -n 0 --timeout=180 -v
 
   lint:
     runs-on: ubuntu-latest

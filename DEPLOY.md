@@ -135,7 +135,85 @@ curl https://your-app.fly.dev/api/analytics-data
 # Submit a complaint with photo → verify image URL starts with your Supabase project URL
 ```
 
-## 8. Migrating Existing Data from Render Postgres
+## 8. SEO & Analytics Go-Live Checklist
+
+Run this after every deploy that touches routing, robots.txt, or analytics.
+The Stackra audit caught the live site serving an OLD robots.txt that blocked
+all crawlers (`Disallow: /`) — verify each time, not just once.
+
+### 8.1 Deploy to Render
+
+1. Push to `main` (Render auto-deploys from the connected repo) or use
+   Dashboard → **Manual Deploy → Deploy latest commit**.
+2. For a **native-Python service**, confirm the Start Command is:
+   ```
+   gunicorn wsgi:app --bind 0.0.0.0:$PORT -w 1 --worker-class gevent --timeout 120
+   ```
+   (`wsgi:app` runs migrations + the in-process RQ worker — see §5.)
+3. Wait for the deploy log to show migrations applied and `/health` returning
+   `200` before continuing.
+
+### 8.2 Verify robots.txt & sitemap.xml on the live domain
+
+```bash
+curl -s https://smartgarbage.onrender.com/robots.txt
+curl -s https://smartgarbage.onrender.com/sitemap.xml
+```
+
+**robots.txt must:**
+- Contain `Allow: /` and **no** `Disallow: /` line (that was the audit's
+  #1 visibility blocker).
+- Have explicit AI-bot groups — `GPTBot`, `OAI-SearchBot`, `ClaudeBot`,
+  `Google-Extended`, `PerplexityBot` — each `Allow: /` plus the four
+  private-path disallows (`/admin`, `/api/`, `/worker`, `/dashboard`).
+- End with `Sitemap: https://smartgarbage.onrender.com/sitemap.xml`.
+
+**sitemap.xml must** return `200` with `application/xml` and list `/`,
+`/schedule`, `/report`, `/transparency`, `/register`, `/register/picker`,
+`/privacy`.
+
+### 8.3 Enable privacy-first analytics (optional)
+
+1. Create a GA4 property → copy the Measurement ID (`G-XXXXXXX`).
+2. Render Dashboard → the service → **Environment** → add
+   `ANALYTICS_ID=G-XXXXXXX` (read at boot; redeploy to apply).
+3. Redeploy and verify:
+   - The consent banner ("We use anonymous analytics…") appears to new
+     visitors — it only renders when `ANALYTICS_ID` is set.
+   - `curl -s https://smartgarbage.onrender.com/ | grep gtag` shows the
+     loader and `analytics_storage: denied` as the consent default.
+   - Accepting the banner logs an anonymized choice to the consent register
+     (`/admin` → audit) before any events fire.
+4. If the banner copy ever changes, bump the `CONSENT_VERSION` env var too —
+   it is recorded with every consent choice for auditability.
+
+### 8.4 Submit to Google Search Console
+
+1. Add the property `https://smartgarbage.onrender.com/` (URL-prefix is
+   fine; no DNS changes needed if you use the HTML-tag verification).
+2. **Sitemaps** → submit `https://smartgarbage.onrender.com/sitemap.xml`.
+3. **URL Inspection** → for `/`, `/schedule`, `/report`, `/transparency`:
+   "Test live URL" → "Request indexing" (do this after the robots fix so
+   the crawler is actually allowed in).
+4. After ~24 h, re-run the Stackra scan and confirm "Blocked from Search"
+   and "AI crawlers blocked" are gone.
+
+### 8.5 Publish a civic contact email
+
+1. Confirm a real, monitored inbox (e.g. a panchayat grievance/DPO address) —
+   never invent one.
+2. Render Dashboard → the service → **Environment** → add
+   `CIVIC_CONTACT_EMAIL=name@example.in` (read at boot; redeploy to apply).
+3. Redeploy and verify the address renders in the **footer**, the **privacy
+   policy → Contact** section, and the **GovernmentOrganization schema**
+   (`curl -s https://smartgarbage.onrender.com/ | grep -o 'name@example.in'`).
+   Until the env var is set, the email renders NOWHERE on the site — there is
+   no placeholder to leak.
+4. Transactional mail (OTP, PAYT receipts, status alerts) sends **from** this
+   address by default; set `MAIL_DEFAULT_SENDER` explicitly if you want a
+   separate noreply from-address.
+
+## 9. Migrating Existing Data from Render Postgres
 
 If you have data on Render's old Postgres:
 
@@ -150,7 +228,7 @@ If you have data on Render's old Postgres:
    ```
 4. Run `flask db upgrade` on Supabase to apply any pending Alembic migrations
 
-## 9. Rollback Plan
+## 10. Rollback Plan
 
 - **Fly.io**: `fly deploy --image flyio/smartgarbage:previous-tag` or use the Fly dashboard
 - **Render**: Previous deploy is available in the dashboard; just click Rollback

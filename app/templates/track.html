@@ -4,7 +4,7 @@
 <div class="container py-4">
     <div class="text-center mb-4">
         <span class="sg-icon-lg">🔎</span>
-        <h3 class="fw-bold text-success mb-1">{{ _('Complaint Tracking') }}</h3>
+        <h1 class="fw-bold text-success mb-1">{{ _('Complaint Tracking') }}</h1>
         <p class="text-muted small mb-0">{{ _('Live status timeline for your report — no login required, shareable with anyone.') }}</p>
     </div>
 
@@ -13,7 +13,7 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <h4 class="fw-bold text-dark mb-0">Ticket #{{ complaint.id }}</h4>
+                    <h2 class="h4 fw-bold text-dark mb-0">Ticket #{{ complaint.id }}</h2>
                     {% if complaint.status in ('Resolved', 'Closed') %}
                         <span class="badge bg-success rounded-pill px-3 py-2">{{ complaint.status }}</span>
                     {% elif complaint.status == 'Escalated' %}
@@ -57,7 +57,7 @@
         <!-- Status timeline -->
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm bg-white p-4 h-100">
-                <h5 class="fw-bold text-dark mb-4">🛤️ {{ _('Status Timeline') }}</h5>
+                <h3 class="h5 fw-bold text-dark mb-4">🛤️ {{ _('Status Timeline') }}</h3>
                 {% if timeline %}
                     <ul class="list-unstyled mb-0 position-relative" style="padding-left: 6px;">
                         {% for ev in timeline %}
@@ -95,7 +95,7 @@
         <!-- Details -->
         <div class="col-lg-5">
             <div class="card border-0 shadow-sm bg-white p-4 mb-4">
-                <h5 class="fw-bold text-dark mb-3">📋 {{ _('Complaint Details') }}</h5>
+                <h3 class="h5 fw-bold text-dark mb-3">📋 {{ _('Complaint Details') }}</h3>
                 <div class="mb-3">
                     <div class="text-muted small text-uppercase fw-semibold">{{ _('Description') }}</div>
                     <div class="text-dark">{{ complaint.description or '—' }}</div>

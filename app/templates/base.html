@@ -12,7 +12,16 @@
     <meta property="og:description" content="Civic waste-management portal for Chintalavalasa — report, track, declare, and earn rewards.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
+    <!-- Canonical drops the query string (request.base_url): no page uses
+         query params for content, and a clean canonical prevents duplicate
+         signals (e.g. the AJAX ?fetch_weather=true variant of the homepage). -->
+    <link rel="canonical" href="{{ request.base_url }}">
+    <!-- 1200x630 OG image (the size social platforms render) replaces the app
+         icon so share cards look like a designed civic card, not a favicon.
+         Explicit width/height let crawlers render the card without fetching. -->
+    <meta property="og:image" content="{{ url_for('static', filename='og-image.png', _external=True) }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-192.png') }}">
 
@@ -69,6 +78,7 @@
             "@type": "PostalAddress",
             "addressLocality": "Chintalavalasa",
             "addressRegion": "Andhra Pradesh",
+            "postalCode": "535005",
             "addressCountry": "IN"
         },
         "geo": {
@@ -81,7 +91,14 @@
             "@type": "ContactPoint",
             "telephone": "+91-1800-119-9111",
             "contactType": "customer service"
-        }
+        },
+        {% if config.get('CIVIC_CONTACT_EMAIL') %}
+        "email": {{ config['CIVIC_CONTACT_EMAIL']|tojson }},
+        {% endif %}
+        "award": [
+            "Compliant with the Solid Waste Management Rules, 2026",
+            "Swachh Bharat Mission (Grameen) Phase II"
+        ]
     }
     </script>
     <script type="application/ld+json">
@@ -140,41 +157,19 @@
             </button>
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
                 <ul class="navbar-nav me-auto align-items-center gap-1">
+                    <!-- Primary resident tasks are ALWAYS visible (schedule and
+                         report are public routes — no login wall): the header-
+                         simplification audit called out the crowded utility bar,
+                         so staff-only links live under the Account menu instead. -->
                     <li class="nav-item">
                         <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/"><i class="fa-solid fa-house me-1"></i>{{ _('Home') }}</a>
                     </li>
-                    {% if current_user.is_authenticated %}
-                        {% if current_user.role in ['admin', 'worker', 'citizen'] %}
-                        <li class="nav-item">
-                            <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
-                        </li>
-                        {% endif %}
-                        {% if current_user.role in ['citizen', 'worker'] %}
-                        <li class="nav-item">
-                            <a class="nav-link text-info fw-bold px-3 {% if '/dashboard' in request.path %}active{% endif %}" href="/dashboard"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Dashboard') }}</a>
-                        </li>
-                        {% endif %}
-                        {% if current_user.role == 'admin' or current_user.is_superadmin %}
-                        <li class="nav-item">
-                            <a class="nav-link text-warning fw-bold px-3 {% if '/admin' in request.path %}active{% endif %}" href="/admin"><i class="fa-solid fa-gauge-high me-1"></i>{{ _('Admin Control Center') }}</a>
-                        </li>
-                        {% endif %}
-                        {% if current_user.role == 'admin' %}
-                        <li class="nav-item">
-                            <a class="nav-link px-3 {% if '/analytics' in request.path %}active{% endif %}" href="/analytics"><i class="fa-solid fa-chart-line me-1"></i>{{ _('Analytics') }}</a>
-                        </li>
-                        {% endif %}
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
-                        </li>
-                    {% endif %}
+                    <li class="nav-item">
+                        <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency"><i class="fa-solid fa-location-dot me-1"></i>{{ _('Wards') }}</a>
                     </li>
@@ -183,12 +178,39 @@
                     </li>
                 </ul>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    {% if current_user.is_authenticated %}
-                        <a class="nav-link text-danger px-3" href="/logout"><i class="fa-solid fa-right-from-bracket me-1"></i>{{ _('Logout') }}</a>
-                    {% else %}
-                        <a class="btn btn-outline-light btn-sm px-3 rounded-pill" href="/login">{{ _('Login') }}</a>
-                        <a class="btn btn-warning btn-sm px-3 rounded-pill text-dark fw-bold" href="/register">{{ _('Sign Up') }}</a>
-                    {% endif %}
+                    <!-- Account menu: one collapsible entry for account options,
+                         the grievance hotline and (for staff) the console links.
+                         Primary resident tasks stay one click away in the nav. -->
+                    <div class="sg-account-dropdown dropdown">
+                        <button id="accountMenuBtn" class="btn btn-outline-light btn-sm px-3 rounded-pill dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <!-- Accessible name comes from the visible text
+                                 (WCAG 2.5.3): no aria-label override here. -->
+                            <i class="fa-solid fa-user me-1" aria-hidden="true"></i>{{ _('Account') }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow rounded-3" aria-labelledby="accountMenuBtn">
+                            {% if current_user.is_authenticated %}
+                                {% if current_user.role in ['citizen', 'worker'] %}
+                                <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Dashboard') }}</a></li>
+                                {% endif %}
+                                {% if current_user.role == 'admin' or current_user.is_superadmin %}
+                                <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Admin Control Center') }}</a></li>
+                                {% endif %}
+                                {% if current_user.role == 'admin' %}
+                                <li><a class="dropdown-item" href="/analytics"><i class="fa-solid fa-chart-line me-2"></i>{{ _('Analytics') }}</a></li>
+                                {% endif %}
+                            {% else %}
+                                <li><a class="dropdown-item" href="/login"><i class="fa-solid fa-right-to-bracket me-2"></i>{{ _('Login') }}</a></li>
+                                <li><a class="dropdown-item" href="/register"><i class="fa-solid fa-user-plus me-2"></i>{{ _('Sign Up') }}</a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="tel:18001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
+                            {% if current_user.is_authenticated %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
                     <!-- Shown to everyone: /report-illegal is anonymous and queues offline reports too.
                          The badge only surfaces a client-side IndexedDB count, so no auth is needed. -->
                     <button type="button" class="sg-sync-badge d-none" id="syncPendingBadge"
@@ -202,11 +224,6 @@
                         <button type="button" class="sg-a11y-btn" id="contrastToggleBtn" title="{{ _('High contrast') }}" aria-label="{{ _('High contrast') }}" aria-pressed="false">🌓</button>
                     </div>
 
-                    <!-- Grievance hotline badge (Open311-style) -->
-                    <a class="sg-hotline d-none d-xl-inline-flex" href="tel:18001199111" title="{{ _('Grievance Hotline') }}">
-                        <i class="fa-solid fa-headset me-1" aria-hidden="true"></i>
-                        <span>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></span>
-                    </a>
 
                     <!-- Language selector: dropdown so the full set of languages is visible (mandatory for gov portals) -->
                     <div class="sg-lang-dropdown dropdown">
@@ -334,20 +351,31 @@
             }
         });
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js">
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     {% block scripts %}{% endblock %}
 
     <!-- Trust + freshness footer (visible on every page): department identity,
          grievance hotline, privacy notice link, and a last-updated marker. -->
     <footer class="sg-footer">
-        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
-            <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh</div>
-            <div class="d-flex align-items-center gap-3">
-                <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
-                <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
+        <div class="container">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
+                <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</div>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
+                    {% if config.get('CIVIC_CONTACT_EMAIL') %}
+                    <!-- Renders only when the real civic inbox is configured
+                         (CIVIC_CONTACT_EMAIL env) — no placeholder is shown. -->
+                    <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="sg-footer-link">✉️ {{ config['CIVIC_CONTACT_EMAIL'] }}</a>
+                    {% endif %}
+                    <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
+                </div>
+                <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %Y') if deploy_ts else '2026-08' }}</div>
             </div>
-            <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %Y') if deploy_ts else '2026-08' }}</div>
+            <div class="small text-white-75 mt-2 d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
+                <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
+                <span aria-hidden="true">·</span>
+                <span>✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
+            </div>
         </div>
     </footer>
 

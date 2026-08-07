@@ -147,6 +147,11 @@ def create_app(test_config=None):
     # change is auditable — bump this when the banner copy changes.
     app.config['CONSENT_VERSION'] = os.environ.get('CONSENT_VERSION', 'v1')
 
+    # GA4 Measurement ID for the consent-gated analytics in base.html. When
+    # unset the site ships NO analytics scripts (only the essential-cookies
+    # privacy notice); set ANALYTICS_ID to activate the consent banner + gtag.
+    app.config['ANALYTICS_ID'] = os.environ.get('ANALYTICS_ID')
+
     # Request ID middleware: every request gets a unique ID for tracing across
     # logs, audit entries, and external API calls.
     import uuid
@@ -162,7 +167,20 @@ def create_app(test_config=None):
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@smartgarbage.local')
+
+    # Public civic contact email — the single source of truth for the footer,
+    # GovernmentOrganization schema and privacy-policy Contact section. Set
+    # CIVIC_CONTACT_EMAIL in the platform dashboard. Deliberately NO
+    # placeholder: while unset, the email renders nowhere on the site, so a
+    # fake address can never be published by accident. Transactional mail
+    # (OTP, receipts, status alerts) defaults to this address too, unless
+    # MAIL_DEFAULT_SENDER is set explicitly for a dedicated from-address.
+    app.config['CIVIC_CONTACT_EMAIL'] = os.environ.get('CIVIC_CONTACT_EMAIL')
+    app.config['MAIL_DEFAULT_SENDER'] = (
+        os.environ.get('MAIL_DEFAULT_SENDER')
+        or app.config['CIVIC_CONTACT_EMAIL']
+        or 'noreply@smartgarbage.local'
+    )
 
     # Shared secret for authenticating IoT telemetry POSTs from ESP32/Arduino
     # devices. When set (production), /api/bin-telemetry requires a valid

@@ -900,6 +900,60 @@ def test_hot_path_composite_indexes_declared_on_models():
     assert 'ix_waste_declaration_ward_timestamp' in wd_names
 
 
+# ── Structured-data guard: the GovernmentOrganization entity (base.html) must
+#    ship on every public page with the full trust set — postalCode, awards,
+#    telephone, geo — so a schema regression fails CI instead of silently
+#    dropping the portal out of Google Rich Results / AI citations. ──
+SCHEMA_ANON_PAGES = ['/', '/schedule', '/transparency', '/privacy',
+                     '/login', '/register', '/register/picker']
+
+
+def _jsonld_objects(html):
+    """Decode every JSON-LD block in a page, including @graph children."""
+    import re
+    for match in re.findall(r'<script type="application/ld\+json">(.*?)</script>',
+                            html, re.S):
+        try:
+            data = _json.loads(match)
+        except _json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            yield data
+            for node in data.get('@graph', []) or []:
+                yield node
+        elif isinstance(data, list):
+            yield from data
+
+
+def _assert_org_schema(client, path):
+    r = client.get(path)
+    assert r.status_code == 200, f'{path} failed to render'
+    org = next((d for d in _jsonld_objects(r.get_data(as_text=True))
+                if d.get('@type') == 'GovernmentOrganization'), None)
+    assert org is not None, f'{path}: GovernmentOrganization schema missing'
+    assert org.get('telephone'), f'{path}: telephone missing'
+    assert org.get('address', {}).get('postalCode') == '535005', \
+        f'{path}: address.postalCode missing or wrong'
+    award_text = ' '.join(org.get('award') or [])
+    assert 'Solid Waste Management Rules, 2026' in award_text, \
+        f'{path}: SWM Rules award missing'
+    geo = org.get('geo') or {}
+    assert geo.get('latitude') is not None and geo.get('longitude') is not None, \
+        f'{path}: geo coordinates missing'
+
+
+def test_every_public_page_ships_complete_government_schema(client, app):
+    """The GovernmentOrganization JSON-LD (rendered by base.html) carries the
+    address (postalCode), awards, telephone and geo on every public page —
+    the same signals the SEO/trust audits score. /report is login-gated, so
+    it is checked with a citizen session."""
+    for path in SCHEMA_ANON_PAGES:
+        _assert_org_schema(client, path)
+    _make_user(app, 'schemacitizen')
+    _login_admin(client, app, 'schemacitizen')
+    _assert_org_schema(client, '/report')
+
+
 # ── Live-weather status is cached (wttr.in hit once per 10-min window) ──
 def test_weather_status_cached_within_ttl(monkeypatch):
     """get_live_weather_status must not hammer wttr.in on every call — the
