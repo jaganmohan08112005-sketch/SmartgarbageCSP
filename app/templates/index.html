@@ -179,7 +179,15 @@
      homepage and each public-service page. -->
 <div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.08s;">
     <div class="card-body p-4">
-        <h2 class="h5 fw-bold text-success mb-3 sg-card-h">🧰 {{ _('Popular resident services') }}</h2>
+        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Waste collection schedules, pickup reports & ward services') }}</h2>
+        <!-- Paragraph-level links: in-content anchors inside body copy, not just
+             list items — the linking pattern search engines weight most heavily. -->
+        <p class="small text-muted mb-3">
+            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check the pickup schedule') }}</a>,
+            <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed pickup report') }}</a> {{ _('or') }}
+            <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live ward bin status') }}</a> —
+            {{ _('all free, no login needed.') }}
+        </p>
         <ul class="list-unstyled small mb-0 d-flex flex-column gap-2">
             <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('ward pickup schedule') }}</a> {{ _('and see today\'s collection times in seconds — no login needed.') }}</span></li>
             <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed pickup or overflowing-bin report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
