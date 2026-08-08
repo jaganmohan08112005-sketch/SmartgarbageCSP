@@ -16,8 +16,6 @@ EN = {
     'Welcome to SmartGarbage Chintalavalasa': 'Welcome to SmartGarbage Chintalavalasa',
     'Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.': 'Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.',
     'Check Schedule': 'Check Schedule',
-    'Loading inspiration...': 'Loading inspiration...',
-    'Loading': 'Loading',
     'Local Weather Monitor': 'Local Weather Monitor',
     'GPS Locator': 'GPS Locator',
     'Select Chintalavalasa Area for local weather:': 'Select Chintalavalasa Area for local weather:',
@@ -397,6 +395,13 @@ EN = {
     'Cookie consent': 'Cookie consent',
     'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.',
 
+    # ── Community-impact card (replaces the rotating quote widget) ──
+    'Community impact': 'Community impact',
+    'residential wards served': 'residential wards served',
+    'smart bins monitored': 'smart bins monitored',
+    'complaints resolved': 'complaints resolved',
+    'Live figures from the Gram Panchayat service records.': 'Live figures from the Gram Panchayat service records.',
+
     # ── About page ──
     'Citizen Dashboard': 'Citizen Dashboard',
     'About': 'About',
@@ -428,8 +433,6 @@ TE = {
     'Welcome to SmartGarbage Chintalavalasa': 'స్మార్ట్ గార్బేజ్ చింతలవలసకు స్వాగతం',
     'Monitor localized garbage disposal timetables, verify collection schedules, predict route failures, and report missed pickups in real-time across Chintalavalasa\'s residential sectors.': 'చింతలవలస నివాస ప్రాంతాల్లో చెత్త పారవేయడం షెడ్యూల్లను పర్యవేక్షించండి, సేకరణ షెడ్యూల్లను ధృవీకరించండి.',
     'Check Schedule': 'షెడ్యూల్ చూడండి',
-    'Loading inspiration...': 'ప్రేరణ లోడ్ అవుతోంది...',
-    'Loading': 'లోడ్ అవుతోంది',
     'Local Weather Monitor': 'స్థానిక వాతావరణ మానిటర్',
     'GPS Locator': 'GPS లొకేటర్',
     'Select Chintalavalasa Area for local weather:': 'స్థానిక వాతావరణం కోసం ప్రాంతాన్ని ఎంచుకోండి:',
@@ -830,6 +833,13 @@ TE = {
     'Municipal Staff Login': 'మున్సిపల్ స్టాఫ్ లాగిన్',
     'Cookie consent': 'కుకీ సమ్మతి',
     'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'కుకీ సమ్మతి: ఈ పోర్టల్ మిమ్మల్ని సైన్-ఇన్‌లో ఉంచడానికి అవసరమైన కుకీలను మాత్రమే ఉపయోగిస్తుంది — మేము మీ డేటాను ఎప్పటికీ అమ్మము లేదా పంచుకోము.',
+
+    # ── Community-impact card (replaces the rotating quote widget) ──
+    'Community impact': 'సమాజ ప్రభావం',
+    'residential wards served': 'సేవలు పొందుతున్న నివాస వార్డులు',
+    'smart bins monitored': 'పర్యవేక్షించే స్మార్ట్ బిన్లు',
+    'complaints resolved': 'పరిష్కరించిన ఫిర్యాదులు',
+    'Live figures from the Gram Panchayat service records.': 'గ్రామ పంచాయతీ సేవా రికార్డుల నుండి తాజా గణాంకాలు.',
 
     # ── About page ──
     'Citizen Dashboard': 'సిటిజన్ డాష్‌బోర్డ్',
