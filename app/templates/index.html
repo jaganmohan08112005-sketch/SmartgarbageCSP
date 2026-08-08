@@ -80,7 +80,10 @@
                 <div class="small text-muted mt-1">⚡ {{ _('Free · Instant · No login needed') }}</div>
             </div>
             <div class="text-center">
-                <a href="/report" class="btn btn-outline-success btn-lg px-4 py-2 fs-6 shadow">⚠️ {{ _('Report Missed Pickup') }}</a>
+                <!-- Visually quieter than the primary: smaller, gray outline,
+                     no shadow — the schedule lookup stays the obvious first
+                     action (Stackra: "create a clearer visual priority"). -->
+                <a href="/report" class="btn btn-outline-secondary px-3 py-2 fs-6">⚠️ {{ _('Report Missed Pickup') }}</a>
                 <div class="small text-muted mt-1">🔐 {{ _('Needs a free citizen account') }}</div>
             </div>
         </div>

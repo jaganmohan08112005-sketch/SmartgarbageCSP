@@ -518,19 +518,6 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .sg-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22, 101, 52, .42) !important; }
 
-/* The secondary Report button now uses outline-success; on the hero's
-   light-green gradient the default --sg-green-700 label is ~4.4:1 (just
-   under AA), so darken its button-* vars to the same AA-safe green used
-   by the hero links (#166534 ≈ 8:1 on the light tint). */
-.sg-hero .btn-outline-success {
-    --bs-btn-color: #166534;
-    --bs-btn-border-color: #166534;
-    --bs-btn-hover-bg: #166534;
-    --bs-btn-hover-border-color: #166534;
-    --bs-btn-active-bg: #166534;
-    --bs-btn-active-border-color: #166534;
-}
-
 /* Officer / Admin portal card: quiet surface so the citizen path stays the
    primary focus (Stackra: "reduce the visual weight of the admin-oriented
    card on the public homepage"). */
