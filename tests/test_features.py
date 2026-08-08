@@ -27,6 +27,22 @@ def test_dashboard_renders_telugu_labels_after_language_switch(client, app):
     assert 'ఇకో-రివార్డ్ వాలెట్ బ్యాలెన్స్' in body
 
 
+def test_lang_query_param_serves_localized_page_without_redirect(client):
+    """?lang=te must render Telugu with a 200 — no /set-lang/ 302 hop for
+    the no-JS language links (and for crawlers that follow them)."""
+    r = client.get('/?lang=te', follow_redirects=False)
+    assert r.status_code == 200
+    with client.session_transaction() as sess:
+        assert sess.get('lang') == 'te'
+    body = r.get_data(as_text=True)
+    assert 'లాగిన్' in body  # లాగిన్ (Login)
+
+    r2 = client.get('/schedule?lang=en', follow_redirects=False)
+    assert r2.status_code == 200
+    with client.session_transaction() as sess:
+        assert sess.get('lang') == 'en'
+
+
 def _make_user(app, username, role='citizen', phone=None, password='testpass123', green_points=0):
     if phone is None:
         phone = f'+91987654{hash(username) % 10000:04d}'

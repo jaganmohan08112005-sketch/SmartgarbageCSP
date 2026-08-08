@@ -161,6 +161,16 @@ def create_app(test_config=None):
         from flask import g
         g.request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
 
+    @app.before_request
+    def apply_lang_query_param():
+        """Honor ?lang=en|te directly on the current path — the no-JS language
+        fallback and any crawler following it get a localized page served with
+        a 200, with no /set-lang/ 302 detour in between."""
+        from .i18n import SUPPORTED
+        lang = request.args.get('lang')
+        if lang in SUPPORTED:
+            session['lang'] = lang
+
     # Mail Configuration (flask-mailman)
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
     app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 25))

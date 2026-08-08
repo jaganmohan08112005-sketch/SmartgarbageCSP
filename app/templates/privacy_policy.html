@@ -162,13 +162,13 @@
         <!-- Same fact-grounded address as the site footer: town, mandal,
              district and PIN are verified civic data (no invented street). -->
         <p class="mb-1">{{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005, India.') }}</p>
-        <p class="mb-0"><a href="tel:18001199111" class="text-decoration-none">📞 {{ _('Grievance Hotline') }}: <strong>1800&#8209;119&#8209;9111</strong></a></p>
+        <p class="mb-0"><a href="tel:18001199111" class="text-decoration-none">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></p>
         {% if config.get('CIVIC_CONTACT_EMAIL') %}
-        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 1800&#8209;119&#8209;9111 · ✉️ <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="text-decoration-none">{{ config['CIVIC_CONTACT_EMAIL'] }}</a></p>
+        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 <span class="sg-phone">1800-119-9111</span> · ✉️ <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="text-decoration-none">{{ config['CIVIC_CONTACT_EMAIL'] }}</a></p>
         {% else %}
         <!-- Email omitted until CIVIC_CONTACT_EMAIL is configured: a placeholder
              address must never be published on a civic portal. -->
-        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 1800&#8209;119&#8209;9111</p>
+        <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 <span class="sg-phone">1800-119-9111</span></p>
         {% endif %}
         <p class="small text-muted mb-0 mt-2">{{ _('We acknowledge and respond to privacy requests and grievances within 15 days.') }}</p>
 
