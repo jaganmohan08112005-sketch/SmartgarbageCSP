@@ -398,6 +398,7 @@ EN = {
     'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.',
 
     # ── About page ──
+    'Citizen Dashboard': 'Citizen Dashboard',
     'About': 'About',
     'About SmartGarbage Chintalavalasa': 'About SmartGarbage Chintalavalasa',
     'Who operates this portal, which areas it serves, and how to reach us.': 'Who operates this portal, which areas it serves, and how to reach us.',
@@ -831,6 +832,7 @@ TE = {
     'Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'కుకీ సమ్మతి: ఈ పోర్టల్ మిమ్మల్ని సైన్-ఇన్‌లో ఉంచడానికి అవసరమైన కుకీలను మాత్రమే ఉపయోగిస్తుంది — మేము మీ డేటాను ఎప్పటికీ అమ్మము లేదా పంచుకోము.',
 
     # ── About page ──
+    'Citizen Dashboard': 'సిటిజన్ డాష్‌బోర్డ్',
     'About': 'గురించి',
     'About SmartGarbage Chintalavalasa': 'స్మార్ట్ గార్బేజ్ చింతలవలస గురించి',
     'Who operates this portal, which areas it serves, and how to reach us.': 'ఈ పోర్టల్‌ను ఎవరు నడుపుతున్నారు, ఇది ఏ ప్రాంతాలకు సేవలు అందిస్తుంది మరియు మమ్మల్ని ఎలా సంప్రదించాలి.',

@@ -5,12 +5,17 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- Page-level H1: the citizen's primary page needs an anchored outline.
+     Section cards below are h2 (h3 for the one nested item) so the heading
+     levels never skip. Visual sizes are kept via Bootstrap size classes. -->
+<h1 class="fw-bold text-success mb-4">{{ _('Citizen Dashboard') }}</h1>
+
 <div class="row g-4">
 
     <!-- ── Search hero: bin status / collection schedule (above the fold) ── -->
     <div class="col-12 animate-fade-in">
         <div class="sg-search-hero p-4">
-            <h5 class="fw-bold text-success mb-1">🔍 {{ _('Search your local bin status or schedule collection') }}</h5>
+            <h2 class="h5 fw-bold text-success mb-1">🔍 {{ _('Search your local bin status or schedule collection') }}</h2>
             <p class="text-muted small mb-3">{{ _('Try a bin ID (e.g. BIN-101) or a ward name') }}</p>
             <div class="position-relative">
                 <div class="input-group input-group-lg">
@@ -31,7 +36,7 @@
     <!-- ── Report an Issue: three primary action categories (Singapore OneService pattern) ── -->
     <div class="col-12 animate-fade-in" style="animation-delay:0.05s;">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-            <h5 class="fw-bold text-dark mb-0">🚨 {{ _('Report an Issue') }}</h5>
+            <h2 class="h5 fw-bold text-dark mb-0">🚨 {{ _('Report an Issue') }}</h2>
             <span class="text-muted small">{{ _('Photo evidence recommended — earn 15 Green Points') }}</span>
         </div>
         <div class="row g-3">
@@ -76,7 +81,7 @@
             </div>
 
             <div class="mt-4 pt-3 border-top border-white border-opacity-20">
-                <h6 class="fw-bold mb-2">{{ _('Redeem Coupons & Tax Discounts:') }}</h6>
+                <h3 class="h6 fw-bold mb-2">{{ _('Redeem Coupons & Tax Discounts:') }}</h3>
                 <div class="d-flex flex-column gap-2">
                     <button class="btn btn-sm btn-light fw-bold text-success text-start d-flex justify-content-between align-items-center" onclick="redeemReward('Local Supermarket 10% Off', 50)">
                         <span>🛒 {{ _('Supermarket Voucher') }}</span>
@@ -108,7 +113,7 @@
 
         <!-- Community Cleanliness Leaderboard -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
-            <h5 class="fw-bold text-dark mb-3">🏆 {{ _('Cleanliness Leaderboard') }}</h5>
+            <h2 class="h5 fw-bold text-dark mb-3">🏆 {{ _('Cleanliness Leaderboard') }}</h2>
             <p class="text-muted small">{{ _('Neighborhood ranks based on average trash levels (higher is cleaner).') }}</p>
             <div class="list-group gap-1">
                 {% for r in leaderboard %}
@@ -125,7 +130,7 @@
 
         <!-- Green Points Leaderboard (Eco Champions) -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
-            <h5 class="fw-bold text-dark mb-3">🌱 {{ _('Eco Champions') }}</h5>
+            <h2 class="h5 fw-bold text-dark mb-3">🌱 {{ _('Eco Champions') }}</h2>
             <p class="text-muted small">{{ _('Top citizens by Green Points earned this cycle. Segregate right, climb the board!') }}</p>
             <div class="list-group gap-1" id="ecoChampions">
                 <div class="d-flex align-items-center gap-2 py-2">
@@ -154,7 +159,7 @@
 
         <!-- Ward Segregation Leaderboard -->
         <div class="card p-4 border-0 shadow-sm bg-white mb-4">
-            <h5 class="fw-bold text-dark mb-3">♻️ {{ _('Ward Segregation Rate') }}</h5>
+            <h2 class="h5 fw-bold text-dark mb-3">♻️ {{ _('Ward Segregation Rate') }}</h2>
             <p class="text-muted small">{{ _('Share of waste properly segregated (last 30 days). Higher = lower landfill fees.') }}</p>
             <div class="list-group gap-1">
                 {% for wd, pct in ward_leaderboard %}
@@ -175,7 +180,7 @@
         <div class="card p-4 border-0 shadow-sm bg-white">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span class="sg-icon-sm">🚨</span>
-                <h5 class="fw-bold text-danger mb-0">{{ _('Emergency Cleanup Request') }}</h5>
+                <h2 class="h5 fw-bold text-danger mb-0">{{ _('Emergency Cleanup Request') }}</h2>
             </div>
             <p class="text-muted small">{{ _('Spot overflowing trash? Take a photo, capture GPS, and dispatch municipal sanitation trucks instantly (Earn 15 Green Points!).') }}</p>
 
@@ -233,7 +238,7 @@
         <div class="card p-4 border-0 shadow-sm bg-white mt-4 border-start border-3 border-success">
             <div class="d-flex align-items-center gap-2 mb-3">
                 <span class="sg-icon-sm">🌿</span>
-                <h5 class="fw-bold text-success mb-0">{{ _('4-Stream Waste Declaration') }}</h5>
+                <h2 class="h5 fw-bold text-success mb-0">{{ _('4-Stream Waste Declaration') }}</h2>
             </div>
             <p class="text-muted small">{{ _('Declare your daily waste segregation at source. Earn Green Points based on weight!') }}</p>
             <form method="POST" action="/dashboard/declare-waste" data-offline-queue>
@@ -285,9 +290,9 @@
     <div class="col-lg-7 col-sm-12">
         <!-- Localized announcements sidebar (real-world civic updates) -->
         <div class="card border-0 shadow-sm bg-white p-4 mb-4 border-start border-warning border-4">
-            <h5 class="fw-bold text-warning-emphasis d-flex align-items-center gap-2 mb-3">
+            <h2 class="h5 fw-bold text-warning-emphasis d-flex align-items-center gap-2 mb-3">
                 📢 {{ _('Local Sanitation Notices') }}
-            </h5>
+            </h2>
             <div class="list-group list-group-flush small">
                 <div class="list-group-item bg-transparent px-0 py-2">
                     <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
@@ -302,7 +307,7 @@
 
         <!-- Smart Bin Public Locator Map -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;">
-            <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Public Smart Bin Locator Map') }}</h5>
+            <h2 class="h5 fw-bold mb-3 text-dark">🗺️ {{ _('Public Smart Bin Locator Map') }}</h2>
             <p class="text-muted small">{{ _('Review active waste levels to find empty community bins nearby.') }}</p>
 
             <div id="locatorMap" style="height: 380px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
@@ -318,7 +323,7 @@
         <!-- Pay-As-You-Throw (PAYT) Utility Invoices -->
         <div class="card border-0 shadow-sm bg-white p-4 mb-4">
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <h5 class="fw-bold text-dark mb-0">💳 {{ _('Pay-As-You-Throw (PAYT) Invoices') }}</h5>
+                <h2 class="h5 fw-bold text-dark mb-0">💳 {{ _('Pay-As-You-Throw (PAYT) Invoices') }}</h2>
                 <span class="badge bg-primary rounded-pill" id="invoiceCount"><span class="sg-skeleton" style="width: 60px; height: 20px; display: inline-block;"></span></span>
             </div>
             <p class="text-muted small">{{ _('Dynamic utility billing based on the exact weight of non-recyclable waste collected.') }}</p>
@@ -348,7 +353,7 @@
 
         <!-- Submitted Tickets History (Preserved Original) -->
         <div class="card border-0 shadow-sm bg-white p-4">
-            <h4 class="mb-4 text-dark fw-bold">{{ _('Your Submitted Tickets') }}</h4>
+            <h2 class="h4 mb-4 text-dark fw-bold">{{ _('Your Submitted Tickets') }}</h2>
 
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
