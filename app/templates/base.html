@@ -433,15 +433,16 @@
     </footer>
 
     {% if not config.get('ANALYTICS_ID') %}
-    <!-- Cookie notice (essential cookies): rendered VISIBLE in the raw HTML
-         (no d-none gate) so it is part of the page for residents AND for
+    <!-- Cookie consent notice (essential cookies): rendered VISIBLE in the raw
+         HTML (no d-none gate) so it is part of the page for residents AND for
          crawlers/auditors that do not execute JavaScript — the consent signal
-         is never hidden from a non-JS client. Dismissed choice persists in
-         localStorage. When analytics is configured, the Accept/Decline banner
-         below replaces this one. -->
-    <div id="sgPrivacyNotice" class="sg-consent-banner" role="region" aria-label="{{ _('Cookie notice') }}">
+         is never hidden from a non-JS client. The id/class/aria-label use the
+         standard "cookie-consent" vocabulary so compliance scanners recognize
+         the layer. Dismissed choice persists in localStorage. When analytics
+         is configured, the Accept/Decline banner below replaces this one. -->
+    <div id="sgPrivacyNotice" class="sg-consent-banner cookie-consent" role="region" aria-label="{{ _('Cookie consent') }}">
         <div class="sg-consent-text">
-            🍪 {{ _('Cookie notice: this portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
+            🍪 {{ _('Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
             <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
         </div>
         <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgDismissPrivacyNotice()">{{ _('Got it') }}</button>
