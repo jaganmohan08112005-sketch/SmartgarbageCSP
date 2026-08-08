@@ -389,6 +389,20 @@ EN = {
     'Municipal Staff Login': 'Municipal Staff Login',
     'Cookie notice': 'Cookie notice',
     'Cookie notice: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'Cookie notice: this portal uses only essential cookies to keep you signed in — we never sell or share your data.',
+
+    # ── About page ──
+    'About': 'About',
+    'About SmartGarbage Chintalavalasa': 'About SmartGarbage Chintalavalasa',
+    'Who operates this portal, which areas it serves, and how to reach us.': 'Who operates this portal, which areas it serves, and how to reach us.',
+    'Our mission': 'Our mission',
+    'The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.': 'The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.',
+    'What residents can do here': 'What residents can do here',
+    'Service area': 'Service area',
+    'The portal covers all five residential wards of Chintalavalasa Gram Panchayat in Denkada Mandal, Vizianagaram District, Andhra Pradesh:': 'The portal covers all five residential wards of Chintalavalasa Gram Panchayat in Denkada Mandal, Vizianagaram District, Andhra Pradesh:',
+    'Contact': 'Contact',
+    'Office hours': 'Office hours',
+    'Monday to Saturday, 10:00 AM – 5:00 PM': 'Monday to Saturday, 10:00 AM – 5:00 PM',
+    'Back to SmartGarbage': 'Back to SmartGarbage',
 }
 
 TE = {
@@ -801,6 +815,20 @@ TE = {
     'Municipal Staff Login': 'మున్సిపల్ స్టాఫ్ లాగిన్',
     'Cookie notice': 'కుకీ నోటీసు',
     'Cookie notice: this portal uses only essential cookies to keep you signed in — we never sell or share your data.': 'కుకీ నోటీసు: ఈ పోర్టల్ మిమ్మల్ని సైన్-ఇన్‌లో ఉంచడానికి అవసరమైన కుకీలను మాత్రమే ఉపయోగిస్తుంది — మేము మీ డేటాను ఎప్పటికీ అమ్మము లేదా పంచుకోము.',
+
+    # ── About page ──
+    'About': 'గురించి',
+    'About SmartGarbage Chintalavalasa': 'స్మార్ట్ గార్బేజ్ చింతలవలస గురించి',
+    'Who operates this portal, which areas it serves, and how to reach us.': 'ఈ పోర్టల్‌ను ఎవరు నడుపుతున్నారు, ఇది ఏ ప్రాంతాలకు సేవలు అందిస్తుంది మరియు మమ్మల్ని ఎలా సంప్రదించాలి.',
+    'Our mission': 'మా లక్ష్యం',
+    'The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.': 'చింతలవలస గ్రామ పంచాయతీ ప్రతి ఇంటికీ చెత్త సేకరణను పారదర్శకంగా, విశ్వసనీయంగా మరియు సులభంగా చేసేందుకు ఈ పోర్టల్‌ను నడుపుతుంది — పికప్ షెడ్యూల్లు చూడటం, తప్పిన సేకరణలను నివేదించడం నుండి ఫిర్యాదులను ట్రాక్ చేయడం మరియు వేసిన చెత్త బరువుకు అనుగుణంగా చెల్లించడం వరకు.',
+    'What residents can do here': 'నివాసితులు ఇక్కడ ఏమి చేయవచ్చు',
+    'Service area': 'సేవా ప్రాంతం',
+    'The portal covers all five residential wards of Chintalavalasa Gram Panchayat in Denkada Mandal, Vizianagaram District, Andhra Pradesh:': 'ఈ పోర్టల్ ఆంధ్రప్రదేశ్‌లోని విజయనగరం జిల్లా, డెంకాడ మండలం, చింతలవలస గ్రామ పంచాయతీలోని ఐదు నివాస వార్డులను కవర్ చేస్తుంది:',
+    'Contact': 'సంప్రదించండి',
+    'Office hours': 'కార్యాలయ సమయాలు',
+    'Monday to Saturday, 10:00 AM – 5:00 PM': 'సోమవారం నుండి శనివారం వరకు, ఉదయం 10:00 – సాయంత్రం 5:00',
+    'Back to SmartGarbage': 'స్మార్ట్ గార్బేజ్‌కు తిరిగి వెళ్లండి',
 }
 
 

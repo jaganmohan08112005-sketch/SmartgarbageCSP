@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block title %}About SmartGarbage Chintalavalasa — Municipal Waste Management{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <div class="text-center mb-4">
+        <span class="sg-icon-lg">🏛️</span>
+        <h1 class="fw-bold text-success mb-1">{{ _('About SmartGarbage Chintalavalasa') }}</h1>
+        <p class="text-muted small">{{ _('Who operates this portal, which areas it serves, and how to reach us.') }}</p>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+        <h2 class="h5 fw-bold text-dark mb-2">🎯 {{ _('Our mission') }}</h2>
+        <p class="text-muted mb-0">
+            {{ _('The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.') }}
+        </p>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+        <h2 class="h5 fw-bold text-dark mb-2">🧰 {{ _('What residents can do here') }}</h2>
+        <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+            <li>📅 <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('check pickup schedules') }}</a></li>
+            <li>⚠️ <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a></li>
+            <li>🗺️ <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('view the ward dashboard') }}</a></li>
+        </ul>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4 mb-4">
+        <h2 class="h5 fw-bold text-dark mb-2">🗺️ {{ _('Service area') }}</h2>
+        <p class="text-muted">{{ _('The portal covers all five residential wards of Chintalavalasa Gram Panchayat in Denkada Mandal, Vizianagaram District, Andhra Pradesh:') }}</p>
+        <ul class="mb-0">
+            {% for w in wards %}
+            <li>{{ w }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card border-0 shadow-sm bg-white p-4">
+        <h2 class="h5 fw-bold text-dark mb-2">📞 {{ _('Contact') }}</h2>
+        <p class="mb-1">🏛️ {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</p>
+        <p class="mb-1"><a href="tel:18001199111" class="text-decoration-none">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></p>
+        {% if config.get('CIVIC_CONTACT_EMAIL') %}
+        <p class="mb-1">✉️ <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="text-decoration-none">{{ config['CIVIC_CONTACT_EMAIL'] }}</a></p>
+        {% endif %}
+        <p class="small text-muted mb-2 mt-2">🕒 {{ _('Office hours') }}: {{ _('Monday to Saturday, 10:00 AM – 5:00 PM') }}</p>
+        <p class="small text-muted mb-0">{{ _('We acknowledge and respond to privacy requests and grievances within 15 days.') }}</p>
+        <hr>
+        <p class="small text-muted mb-1">✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</p>
+        <p class="small text-muted mb-0">✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</p>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline-success rounded-pill px-4">← {{ _('Back to SmartGarbage') }}</a>
+    </div>
+</div>
+{% endblock %}
