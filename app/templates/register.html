@@ -64,7 +64,11 @@
                     <label class="form-label fw-bold text-secondary">{{ _('Account Role') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🛡️</span>
-                        <select name="role" id="reg_role" class="form-select" required>
+                        <!-- No `required`: the select always carries a value (the
+                             first option is pre-selected), and a required select's
+                             first option must be a placeholder per the HTML spec.
+                             The server still validates the role on submit. -->
+                        <select name="role" id="reg_role" class="form-select">
                             <option value="citizen" selected>{{ _('Standard Citizen (User)') }}</option>
                             <option value="worker">{{ _('Sanitation Worker (Worker)') }}</option>
                             <option value="admin">{{ _('Admin (Requires Approval)') }}</option>

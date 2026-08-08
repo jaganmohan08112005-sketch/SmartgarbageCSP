@@ -146,6 +146,7 @@
     </script>
 </head>
 <body>
+    {% set enc_path = request.path.replace(' ', '%20') %}
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
     <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top" aria-label="Main navigation">
         <div class="container">
@@ -257,8 +258,8 @@
                                  session language via a background fetch first.
                                  The data-lang-href attribute carries the real
                                  /set-lang URL used by the click handler. -->
-                            <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="{{ request.path }}" data-lang="en" data-lang-href="/set-lang/en?next={{ request.path }}">🇬🇧 English</a></li>
-                            <li><a class="dropdown-item {% if lang == 'te' %}active{% endif %}" href="{{ request.path }}" data-lang="te" data-lang-href="/set-lang/te?next={{ request.path }}">🇮🇳 తెలుగు</a></li>
+                            <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="{{ enc_path }}" data-lang="en" data-lang-href="/set-lang/en?next={{ enc_path }}">🇬🇧 English</a></li>
+                            <li><a class="dropdown-item {% if lang == 'te' %}active{% endif %}" href="{{ enc_path }}" data-lang="te" data-lang-href="/set-lang/te?next={{ enc_path }}">🇮🇳 తెలుగు</a></li>
                         </ul>
                         <!-- No-JS fallback: only rendered when JavaScript is off.
                              JS users get the direct-destination links above (no
@@ -266,9 +267,9 @@
                              /set-lang route that sets the session cookie. -->
                         <noscript>
                             <div class="mt-2 small px-3">
-                                <a class="text-white" href="{{ request.path }}?lang=en">🇬🇧 English</a>
+                                <a class="text-white" href="{{ enc_path }}?lang=en">🇬🇧 English</a>
                                 <span class="text-white-50 mx-1" aria-hidden="true">·</span>
-                                <a class="text-white" href="{{ request.path }}?lang=te">🇮🇳 తెలుగు</a>
+                                <a class="text-white" href="{{ enc_path }}?lang=te">🇮🇳 తెలుగు</a>
                             </div>
                         </noscript>
                     </div>
