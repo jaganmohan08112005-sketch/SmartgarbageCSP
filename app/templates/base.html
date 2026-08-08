@@ -221,7 +221,7 @@
                                 <li><a class="dropdown-item" href="/register"><i class="fa-solid fa-user-plus me-2"></i>{{ _('Sign Up') }}</a></li>
                             {% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="tel:18001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800&#8209;119&#8209;9111</strong></a></li>
+                            <li><a class="dropdown-item" href="tel:18001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
@@ -263,9 +263,9 @@
                              /set-lang route that sets the session cookie. -->
                         <noscript>
                             <div class="mt-2 small px-3">
-                                <a class="text-white" href="/set-lang/en?next={{ request.path }}">🇬🇧 English</a>
+                                <a class="text-white" href="{{ request.path }}?lang=en">🇬🇧 English</a>
                                 <span class="text-white-50 mx-1" aria-hidden="true">·</span>
-                                <a class="text-white" href="/set-lang/te?next={{ request.path }}">🇮🇳 తెలుగు</a>
+                                <a class="text-white" href="{{ request.path }}?lang=te">🇮🇳 తెలుగు</a>
                             </div>
                         </noscript>
                     </div>
@@ -410,7 +410,7 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
                 <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</div>
                 <div class="d-flex align-items-center gap-3">
-                    <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800&#8209;119&#8209;9111</strong></a>
+                    <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
                     {% if config.get('CIVIC_CONTACT_EMAIL') %}
                     <!-- Renders only when the real civic inbox is configured
                          (CIVIC_CONTACT_EMAIL env) — no placeholder is shown. -->

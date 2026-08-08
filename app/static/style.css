@@ -1121,3 +1121,7 @@ textarea:focus-visible {
 [data-theme="dark"] #quoteText { color: #e2e8f0 !important; }
 [data-theme="dark"] #quoteAuthor { color: #94a3b8 !important; }
 [data-theme="dark"] .card .text-success.opacity-25 { opacity: 0.7 !important; color: #4ade80 !important; }
+
+/* Keep hotline phone numbers on one line without non-breaking hyphens (validator-clean). */
+.sg-phone { white-space: nowrap; }
+a[href^="tel:"] strong { white-space: nowrap; }
