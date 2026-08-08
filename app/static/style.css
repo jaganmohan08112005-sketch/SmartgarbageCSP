@@ -520,6 +520,17 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .sg-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22, 101, 52, .42) !important; }
 
+/* Secondary hero action: a quiet text link (no button chrome) so the single
+   primary button stays the obvious first choice (Stackra: "split attention"). */
+.sg-hero-secondary-link {
+    color: #166534;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.sg-hero-secondary-link:hover { color: #0f5132; }
+[data-theme="dark"] .sg-hero-secondary-link { color: #4ade80; }
+[data-theme="dark"] .sg-hero-secondary-link:hover { color: #6ee7a0; }
+
 /* Officer / Admin portal card: quiet surface so the citizen path stays the
    primary focus (Stackra: "reduce the visual weight of the admin-oriented
    card on the public homepage"). */

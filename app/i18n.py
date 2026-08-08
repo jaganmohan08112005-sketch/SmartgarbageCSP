@@ -406,6 +406,16 @@ EN = {
     'wards served': 'wards served',
     'smart bins live': 'smart bins live',
     'view live ward dashboards': 'view live ward dashboards',
+    'Live operational tracking active': 'Live operational tracking active',
+    'No login needed to': 'No login needed to',
+    'explore schedules': 'explore schedules',
+    'file a report': 'file a report',
+    'An account': 'An account',
+    'unlocks ticket tracking, bills and Green Points': 'unlocks ticket tracking, bills and Green Points',
+    'check collection times': 'check collection times',
+    'file a missed-pickup complaint': 'file a missed-pickup complaint',
+    'We use this number to confirm your report and share status updates — never for marketing.': 'We use this number to confirm your report and share status updates — never for marketing.',
+    'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.': 'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.',
 
     # ── About page ──
     'Citizen Dashboard': 'Citizen Dashboard',
@@ -850,6 +860,16 @@ TE = {
     'wards served': 'సేవలు పొందుతున్న వార్డులు',
     'smart bins live': 'ప్రత్యక్ష స్మార్ట్ బిన్లు',
     'view live ward dashboards': 'ప్రత్యక్ష వార్డ్ డాష్‌బోర్డ్లను చూడండి',
+    'Live operational tracking active': 'ప్రత్యక్ష కార్యాచరణ ట్రాకింగ్ క్రియాశీలం',
+    'No login needed to': 'లాగిన్ అవసరం లేకుండా',
+    'explore schedules': 'షెడ్యూల్లను అన్వేషించండి',
+    'file a report': 'నివేదిక సమర్పించండి',
+    'An account': 'ఖాతా',
+    'unlocks ticket tracking, bills and Green Points': 'టికెట్ ట్రాకింగ్, బిల్లులు మరియు గ్రీన్ పాయింట్లను అన్‌లాక్ చేస్తుంది',
+    'check collection times': 'సేకరణ సమయాలను తనిఖీ చేయండి',
+    'file a missed-pickup complaint': 'తప్పిన పికప్ ఫిర్యాదు సమర్పించండి',
+    'We use this number to confirm your report and share status updates — never for marketing.': 'మీ నివేదికను నిర్ధారించడానికి మరియు స్థితి నవీకరణలను పంచుకోవడానికి మేము ఈ నంబర్‌ను ఉపయోగిస్తాము — మార్కెటింగ్ కోసం ఎప్పటికీ కాదు.',
+    'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.': 'సేకరణ సిబ్బంది ఇక్కడ ప్రచురించిన వార్డ్ టైమ్‌టేబుల్‌లను అనుసరిస్తారు, కాబట్టి ప్రతి ఇంటికీ చెత్త ఎప్పుడు పెట్టాలో తెలుస్తుంది. తప్పిన పికప్ మీ చిరునామా మరియు ఫోటోతో వార్డ్ సిబ్బందికి పంపబడుతుంది, మరియు ఫిర్యాదు స్థితి పరిష్కారమయ్యే వరకు ట్రాక్ చేయబడుతుంది — మీ డాష్‌బోర్డ్ లేదా మీకు వచ్చిన ట్రాకింగ్ లింక్ నుండి చూడవచ్చు.',
 
     # ── About page ──
     'Citizen Dashboard': 'సిటిజన్ డాష్‌బోర్డ్',
