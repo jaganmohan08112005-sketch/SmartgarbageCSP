@@ -920,7 +920,7 @@ def test_hot_path_composite_indexes_declared_on_models():
 #    ship on every public page with the full trust set — postalCode, awards,
 #    telephone, geo — so a schema regression fails CI instead of silently
 #    dropping the portal out of Google Rich Results / AI citations. ──
-SCHEMA_ANON_PAGES = ['/', '/schedule', '/transparency', '/privacy',
+SCHEMA_ANON_PAGES = ['/', '/about', '/schedule', '/transparency', '/privacy',
                      '/login', '/register', '/register/picker']
 
 

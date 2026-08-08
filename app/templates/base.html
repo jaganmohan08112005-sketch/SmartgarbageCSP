@@ -193,6 +193,9 @@
                     <li class="nav-item">
                         <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about"><i class="fa-solid fa-circle-info me-1"></i>{{ _('About') }}</a>
+                    </li>
                 </ul>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <!-- Account menu: one collapsible entry for account options,
@@ -417,6 +420,7 @@
                     <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="sg-footer-link">✉️ {{ config['CIVIC_CONTACT_EMAIL'] }}</a>
                     {% endif %}
                     <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
+                    <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
                 </div>
                 <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %Y') if deploy_ts else '2026-08' }}</div>
             </div>

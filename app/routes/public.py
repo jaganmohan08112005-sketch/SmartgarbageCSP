@@ -211,6 +211,14 @@ def privacy_policy():
     return render_template('privacy_policy.html', now=datetime.now(timezone.utc))
 
 
+# About — public civic information (who operates the portal, service area,
+# contact): no login wall so crawlers and residents can read it, and it gives
+# the trust audits their "About Page" signal.
+@main.route('/about')
+def about():
+    return render_template('about.html', wards=list(WARD_COORDINATES.keys()))
+
+
 @main.route('/robots.txt')
 def robots_txt():
     from flask import Response
@@ -245,8 +253,8 @@ def sitemap_xml():
     # date auto-updates on every deploy instead of going stale by hand.
     last_mod = current_app.config.get('DEPLOY_TIMESTAMP')
     last_mod_str = last_mod.strftime('%Y-%m-%d') if last_mod else '2026-08-06'
-    paths = ['/', '/schedule', '/report', '/transparency', '/register',
-             '/register/picker', '/privacy']
+    paths = ['/', '/about', '/schedule', '/report', '/transparency',
+             '/register', '/register/picker', '/privacy']
     urls = ''.join(
         f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod></url>\n"
         for p in paths)
