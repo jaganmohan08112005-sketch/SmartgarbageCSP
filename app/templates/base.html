@@ -76,6 +76,7 @@
         "telephone": "+91-1800-119-9111",
         "address": {
             "@type": "PostalAddress",
+            "streetAddress": "Chintalavalasa Gram Panchayat Office, Denkada Mandal",
             "addressLocality": "Chintalavalasa",
             "addressRegion": "Andhra Pradesh",
             "postalCode": "535005",
@@ -87,6 +88,14 @@
             "longitude": 83.33
         },
         "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
+        "serviceArea": {
+            "@type": "AdministrativeArea",
+            "name": "Chintalavalasa Gram Panchayat",
+            "containedIn": {
+                "@type": "AdministrativeArea",
+                "name": "Vizianagaram District, Andhra Pradesh, India"
+            }
+        },
         "contactPoint": {
             "@type": "ContactPoint",
             "telephone": "+91-1800-119-9111",
@@ -143,9 +152,17 @@
             <!-- Accessible name comes from the visible text (WCAG 2.5.3 Label in
                  Name): no aria-label override that could mismatch what is shown. -->
             <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
-                <!-- Official emblem mark: national-flag tricolor ring keeps the
-                     municipal-brand look without a binary asset to maintain. -->
-                <span class="brand-mark" aria-hidden="true">🗑️</span>
+                <!-- Inline SVG logo (no network request, no icon-font flash): a
+                     green civic mark with a white refuse bin so the brand is a
+                     recognizable logo on every page — not just a wordmark. -->
+                <span class="brand-mark" aria-hidden="true">
+                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="18" cy="18" r="17" fill="#0f5132"/>
+                        <path d="M9 8h18M13.5 8.5l.8-2h7.4l.8 2" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12.6 11h10.8l-1 15.2a2.4 2.4 0 0 1-2.4 2.3h-4a2.4 2.4 0 0 1-2.4-2.3L12.6 11Z" fill="#ffffff"/>
+                        <rect x="16.1" y="14.5" width="3.8" height="8" rx="1.2" fill="#0f5132"/>
+                    </svg>
+                </span>
                 <span class="d-flex flex-column lh-sm">
                     <span>SmartGarbage <span class="fw-light text-warning">CV</span></span>
                     <small class="sg-dept-sub d-none d-md-block">{{ _('Directorate of Waste Management & Sanitation') }}</small>
@@ -204,7 +221,7 @@
                                 <li><a class="dropdown-item" href="/register"><i class="fa-solid fa-user-plus me-2"></i>{{ _('Sign Up') }}</a></li>
                             {% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="tel:18001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
+                            <li><a class="dropdown-item" href="tel:18001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800&#8209;119&#8209;9111</strong></a></li>
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
@@ -232,9 +249,25 @@
                             {% if lang == 'en' %}EN{% else %}తె{% endif %}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow rounded-3">
-                            <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="/set-lang/en?next={{ request.path }}" data-lang="en">🇬🇧 English</a></li>
-                            <li><a class="dropdown-item {% if lang == 'te' %}active{% endif %}" href="/set-lang/te?next={{ request.path }}" data-lang="te">🇮🇳 తెలుగు</a></li>
+                            <!-- Language links point DIRECTLY at the destination
+                                 (no redirect hop for crawlers); JS sets the
+                                 session language via a background fetch first.
+                                 The data-lang-href attribute carries the real
+                                 /set-lang URL used by the click handler. -->
+                            <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="{{ request.path }}" data-lang="en" data-lang-href="/set-lang/en?next={{ request.path }}">🇬🇧 English</a></li>
+                            <li><a class="dropdown-item {% if lang == 'te' %}active{% endif %}" href="{{ request.path }}" data-lang="te" data-lang-href="/set-lang/te?next={{ request.path }}">🇮🇳 తెలుగు</a></li>
                         </ul>
+                        <!-- No-JS fallback: only rendered when JavaScript is off.
+                             JS users get the direct-destination links above (no
+                             redirect hop); scriptless browsers still reach the
+                             /set-lang route that sets the session cookie. -->
+                        <noscript>
+                            <div class="mt-2 small px-3">
+                                <a class="text-white" href="/set-lang/en?next={{ request.path }}">🇬🇧 English</a>
+                                <span class="text-white-50 mx-1" aria-hidden="true">·</span>
+                                <a class="text-white" href="/set-lang/te?next={{ request.path }}">🇮🇳 తెలుగు</a>
+                            </div>
+                        </noscript>
                     </div>
                     <button class="sg-dark-toggle" id="darkModeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
                         <span id="darkModeIcon">🌙</span>
@@ -271,7 +304,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");
             const menu = document.getElementById("mainNavbarLayout");
-            
+
             if (toggler && menu) {
                 toggler.addEventListener("click", () => {
                     const open = menu.classList.contains("show");
@@ -351,6 +384,22 @@
             }
         });
     </script>
+    <script>
+        // Language switch without a redirect hop: the dropdown links already
+        // point at the destination page (crawler-friendly, no 302 chain). This
+        // handler sets the session language with a background fetch, then
+        // navigates directly to the destination.
+        document.querySelectorAll('a[data-lang]').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                var langUrl = link.getAttribute('data-lang-href');
+                var dest = link.getAttribute('href');
+                fetch(langUrl, { credentials: 'same-origin' })
+                    .then(function () { location.href = dest; })
+                    .catch(function () { location.href = langUrl; });
+            });
+        });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     {% block scripts %}{% endblock %}
 
@@ -361,7 +410,7 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
                 <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</div>
                 <div class="d-flex align-items-center gap-3">
-                    <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
+                    <a href="tel:18001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800&#8209;119&#8209;9111</strong></a>
                     {% if config.get('CIVIC_CONTACT_EMAIL') %}
                     <!-- Renders only when the real civic inbox is configured
                          (CIVIC_CONTACT_EMAIL env) — no placeholder is shown. -->
@@ -380,13 +429,15 @@
     </footer>
 
     {% if not config.get('ANALYTICS_ID') %}
-    <!-- Privacy notice (essential cookies): shown when analytics is NOT
-         configured, so the privacy signal is still visible on the live site —
-         the GDPR-style Accept/Decline banner below appears only once analytics
-         is enabled. Dismissed choice persists in localStorage. -->
-    <div id="sgPrivacyNotice" class="sg-consent-banner d-none" role="region" aria-label="{{ _('Privacy notice') }}">
+    <!-- Cookie notice (essential cookies): rendered VISIBLE in the raw HTML
+         (no d-none gate) so it is part of the page for residents AND for
+         crawlers/auditors that do not execute JavaScript — the consent signal
+         is never hidden from a non-JS client. Dismissed choice persists in
+         localStorage. When analytics is configured, the Accept/Decline banner
+         below replaces this one. -->
+    <div id="sgPrivacyNotice" class="sg-consent-banner" role="region" aria-label="{{ _('Cookie notice') }}">
         <div class="sg-consent-text">
-            🔒 {{ _('This portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
+            🍪 {{ _('Cookie notice: this portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
             <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
         </div>
         <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgDismissPrivacyNotice()">{{ _('Got it') }}</button>
@@ -397,8 +448,8 @@
             document.getElementById('sgPrivacyNotice')?.classList.add('d-none');
         }
         document.addEventListener('DOMContentLoaded', () => {
-            if (!localStorage.getItem('sgPrivacyNoticeDismissed')) {
-                document.getElementById('sgPrivacyNotice')?.classList.remove('d-none');
+            if (localStorage.getItem('sgPrivacyNoticeDismissed')) {
+                document.getElementById('sgPrivacyNotice')?.classList.add('d-none');
             }
         });
     </script>

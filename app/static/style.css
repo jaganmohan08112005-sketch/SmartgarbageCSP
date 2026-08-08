@@ -46,7 +46,7 @@
     --sh-green: 0 10px 28px rgba(46, 204, 113, .28);
 
     --ease: cubic-bezier(.22, .61, .36, 1);
-    --font: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, Helvetica, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -214,21 +214,8 @@ h3.sg-card-h { font-size: 1.25rem; }
    .text-danger (#dc3545) fails at 3.98:1. Darken links only inside the hero;
    dark mode keeps its own bright overrides (see [data-theme="dark"] .sg-hero). */
 .sg-hero a.text-success { color: #166534 !important; }
-.sg-hero a.text-danger  { color: #b91c1c !important; }
 [data-theme="dark"] .sg-hero a.text-success { color: #4ade80 !important; }
-[data-theme="dark"] .sg-hero a.text-danger  { color: #f87171 !important; }
 
-/* The hero's secondary CTA (btn-outline-danger) label is #dc3545 ≈ 4.46:1 on
-   the light-green gradient — just under AA. Darken its button-* vars so the
-   label, border and hover fill all use the same AA-safe red as the links. */
-.sg-hero .btn-outline-danger {
-    --bs-btn-color: #b91c1c;
-    --bs-btn-border-color: #b91c1c;
-    --bs-btn-hover-bg: #b91c1c;
-    --bs-btn-hover-border-color: #b91c1c;
-    --bs-btn-active-bg: #b91c1c;
-    --bs-btn-active-border-color: #b91c1c;
-}
 .bg-warning { background-color: var(--sg-amber-500) !important; color: #3b2f06 !important; }
 .bg-primary { background-color: var(--sg-info) !important; }
 .bg-secondary { background-color: #64748b !important; }
@@ -488,6 +475,72 @@ h3.sg-card-h { font-size: 1.25rem; }
     background-color: #1a3a2a !important;
     color: #4ade80 !important;
     border-color: #2ecc71;
+}
+
+/* Decision-zone trust strip: official identity, hotline, office address,
+   certifications and privacy link sit directly under the hero CTAs so
+   credibility signals appear at the moment of decision (Stackra: trust cues
+   "not concentrated near the main action area"). Light-green tint on the
+   light hero; navy surface in dark mode. */
+.sg-hero-trust-strip {
+    background: rgba(255, 255, 255, .72);
+    border: 1px solid rgba(46, 204, 113, .35);
+    border-radius: var(--r-md);
+    padding: .7rem 1rem;
+    font-size: .85rem;
+    color: var(--sg-navy-700);
+}
+.sg-hero-trust-link {
+    color: var(--sg-navy-700);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color .15s var(--ease);
+}
+.sg-hero-trust-link:hover { color: var(--sg-green-700); text-decoration: underline; }
+.sg-hero-trust-strip strong { color: var(--sg-green-700); }
+[data-theme="dark"] .sg-hero-trust-strip {
+    background: rgba(15, 23, 42, .7);
+    border-color: rgba(46, 204, 113, .45);
+    color: #e2e8f0;
+}
+[data-theme="dark"] .sg-hero-trust-link,
+[data-theme="dark"] .sg-hero-trust-strip strong { color: #4ade80; }
+[data-theme="dark"] .sg-hero-trust-link:hover { color: #6ee7a0; }
+
+/* Dominant primary CTA: the schedule button is the single most important
+   resident action — slightly larger and with a deeper shadow than the
+   secondary Report button (Stackra: "create a clearer visual priority"). */
+.sg-hero-primary {
+    padding-left: 1.75rem !important;
+    padding-right: 1.75rem !important;
+    box-shadow: 0 10px 24px rgba(22, 101, 52, .35) !important;
+    transform: translateY(-1px);
+}
+.sg-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22, 101, 52, .42) !important; }
+
+/* The secondary Report button now uses outline-success; on the hero's
+   light-green gradient the default --sg-green-700 label is ~4.4:1 (just
+   under AA), so darken its button-* vars to the same AA-safe green used
+   by the hero links (#166534 ≈ 8:1 on the light tint). */
+.sg-hero .btn-outline-success {
+    --bs-btn-color: #166534;
+    --bs-btn-border-color: #166534;
+    --bs-btn-hover-bg: #166534;
+    --bs-btn-hover-border-color: #166534;
+    --bs-btn-active-bg: #166534;
+    --bs-btn-active-border-color: #166534;
+}
+
+/* Officer / Admin portal card: quiet surface so the citizen path stays the
+   primary focus (Stackra: "reduce the visual weight of the admin-oriented
+   card on the public homepage"). */
+.sg-portal-officer {
+    background: #f6f8f9 !important;
+    border: 1px solid var(--sg-line) !important;
+}
+[data-theme="dark"] .sg-portal-officer {
+    background: var(--sg-navy-800) !important;
+    border-color: var(--sg-line) !important;
 }
 
 .sg-footer-link {

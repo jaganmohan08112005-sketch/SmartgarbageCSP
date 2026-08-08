@@ -9,24 +9,24 @@
                 <h1 class="fw-bold mt-2 text-dark">{{ _('Multi-Factor Authentication') }}</h1>
                 <p class="text-muted small">{{ _('We\'ve sent a 6-digit verification code to your registered device. Enter the code below to gain secure system entry.') }}</p>
             </div>
-            
+
             <form method="POST" action="/mfa-verify">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
                     <label class="form-label fw-bold text-secondary">{{ _('Secure OTP Code') }}</label>
                     <input name="otp" type="text" class="form-control form-control-lg text-center fw-bold fs-4" placeholder="••••••" maxlength="6" pattern="\d{6}" required autofocus style="letter-spacing: 0.5rem;">
                 </div>
-                
+
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
                     🔐 {{ _('Verify and Proceed') }}
                 </button>
-                
+
                 <div class="text-center mt-3">
                     <p class="mb-0 text-muted small">{{ _('Having issues?') }} <a href="/login" class="text-success fw-bold text-decoration-none">{{ _('Back to Login') }}</a></p>
                 </div>
             </form>
         </div>
-        
+
         {% if dev_otp %}
         <div class="alert alert-success mt-3 shadow-sm border-0">
             <strong>🔐 {{ _('Developer OTP (localhost):') }}</strong> <span class="fs-5 fw-bold">{{ dev_otp }}</span>

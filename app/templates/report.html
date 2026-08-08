@@ -9,7 +9,7 @@
                 <h1 class="text-danger fw-bold mt-2">{{ _('Report a Missed Pickup') }}</h1>
                 <p class="text-muted small">{{ _('Fill out the ticket below. GPS coordinates and photographic evidence are highly encouraged to accelerate resolution.') }}</p>
             </div>
-            
+
             <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- User Contact Segment -->
@@ -35,7 +35,7 @@
                         </button>
                         <span id="geoStatus" class="text-muted small">{{ _('GPS coordinates not synced') }}</span>
                     </div>
-                    
+
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label class="small text-muted fw-bold">{{ _('Latitude') }}</label>
@@ -46,7 +46,7 @@
                             <input type="text" id="longitude" name="longitude" class="form-control form-control-sm bg-white" readonly placeholder="{{ _('Auto-filled') }}">
                         </div>
                     </div>
-                    
+
                     <div>
                         <label class="small text-muted fw-bold mb-1">{{ _('Time of Missed Collection') }}</label>
                         <input type="datetime-local" id="report_time" name="report_time" class="form-control form-control-sm" required>
@@ -100,7 +100,7 @@
     // Set current date/time on loading
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("repWard", "-- Choose Ward --");
-        
+
         // Auto populate report_time field with current date/time
         const now = new Date();
         const year = now.getFullYear();
@@ -108,10 +108,10 @@
         const day = String(now.getDate()).padStart(2, '0');
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
-        
+
         const currentLocalString = `${year}-${month}-${day}T${hours}:${minutes}`;
         document.getElementById("report_time").value = currentLocalString;
-        
+
         // Proactively capture coordinates on start
         captureGPSCoordinates();
     });
@@ -120,26 +120,26 @@
         const geoStatus = document.getElementById("geoStatus");
         const latInput = document.getElementById("latitude");
         const lonInput = document.getElementById("longitude");
-        
+
         if (!navigator.geolocation) {
             geoStatus.textContent = "❌ GPS not supported by browser.";
             geoStatus.className = "text-danger small";
             return;
         }
-        
+
         geoStatus.textContent = "⏳ Requesting GPS access...";
         geoStatus.className = "text-warning small";
-        
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const lat = position.coords.latitude.toFixed(6);
                 const lon = position.coords.longitude.toFixed(6);
-                
+
                 latInput.value = lat;
                 lonInput.value = lon;
                 latInput.classList.remove('is-invalid');
                 lonInput.classList.remove('is-invalid');
-                
+
                 geoStatus.textContent = "✅ Coordinates successfully synced!";
                 geoStatus.className = "text-success small fw-bold";
             },
