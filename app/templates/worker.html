@@ -53,7 +53,7 @@
                 <span>📋 {{ _('Active Pickups Queue') }}</span>
                 <span class="badge bg-danger rounded-pill small" id="taskCount">{{ work_bins|length }} {{ _('Pending') }}</span>
             </h5>
-            
+
             <div class="list-group gap-2" id="taskQueueList">
                 {% for b in work_bins %}
                 <div class="list-group-item rounded-3 border p-3 bg-light" id="task-card-{{ b.hardware_id }}">
@@ -118,7 +118,7 @@
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-3 border-success">
             <h5 class="fw-bold mb-1 text-success">🚛 {{ _('Offloading Checkpoint') }}</h5>
             <p class="text-muted small">{{ _('Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.') }}</p>
-            
+
             <form method="POST" action="/worker/offload" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
@@ -188,9 +188,9 @@
     <div class="col-md-7 col-sm-12">
         <div class="card p-3 border-0 shadow-sm bg-white h-100 sticky-top" style="top: 85px; min-height: 400px; z-index: 1;">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Shift Route Navigation Map') }}</h5>
-            
+
             <div id="workerNavMap" style="height: 520px; border-radius: 12px; border: 1px solid #dee2e6;"></div>
-            
+
             <div class="alert alert-info mt-3 border-0 small mb-0">
                 <strong>💡 {{ _('Routing tip:') }}</strong> {{ _('Click') }} <b>"Navigate"</b> {{ _('in the pickup checklist queue to pan the map directly to the destination and draw the quickest path.') }}
             </div>
@@ -287,7 +287,7 @@
             opacity: 1,
             fillOpacity: 0.9
         }).bindPopup(`<b>${bin.hardware_id}</b><br>Ward: ${bin.ward}<br>Level: ${bin.level}%`).addTo(map);
-        
+
         markersList[bin.hardware_id] = marker;
     });
 
@@ -301,7 +301,7 @@
         if (currentNavLine) {
             map.removeLayer(currentNavLine);
         }
-        
+
         currentNavLine = L.polyline([
             [18.0675, 83.4094], // Driver start point
             [lat, lon]          // Target bin point

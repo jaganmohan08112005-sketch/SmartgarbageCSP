@@ -115,7 +115,7 @@
           <div class="row g-2">
             {% for b in bins %}
             <div class="col-6 col-md-4 col-lg-3">
-               <div class="rounded-3 p-3 text-center border {% if b.sensor_fault %}border-danger{% else %}border-0{% endif %} 
+               <div class="rounded-3 p-3 text-center border {% if b.sensor_fault %}border-danger{% else %}border-0{% endif %}
                     {% if b.sensor_fault or b.status == 'Critical' %}bin-bg-fault{% elif b.status == 'Warning' %}bin-bg-warn{% else %}bin-bg-ok{% endif %}">
                 <div style="font-size:1.5rem;">{% if b.sensor_fault %}🔴{% elif b.status == 'Critical' %}🔴{% elif b.status == 'Warning' %}🟡{% else %}🟢{% endif %}</div>
                 <div class="fw-bold small">{{ b.hardware_id }}</div>

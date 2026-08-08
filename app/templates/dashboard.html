@@ -71,7 +71,7 @@
                 </div>
                 <span class="sg-icon-lg">🌱</span>
             </div>
-            
+
             <div class="mt-4 pt-3 border-top border-white border-opacity-20">
                 <h6 class="fw-bold mb-2">{{ _('Redeem Coupons & Tax Discounts:') }}</h6>
                 <div class="d-flex flex-column gap-2">
@@ -175,12 +175,12 @@
                 <h5 class="fw-bold text-danger mb-0">{{ _('Emergency Cleanup Request') }}</h5>
             </div>
             <p class="text-muted small">{{ _('Spot overflowing trash? Take a photo, capture GPS, and dispatch municipal sanitation trucks instantly (Earn 15 Green Points!).') }}</p>
-            
+
             <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="name" value="{{ session.get('username') }}">
                 <input type="hidden" name="phone" value="{{ current_user_phone }}">
-                
+
                 <!-- GPS Autolocator widget -->
                 <div class="p-3 bg-light rounded-3 mb-3 border border-dashed">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -204,7 +204,7 @@
                         <option value="" disabled selected>{{ _('-- Choose Ward --') }}</option>
                     </select>
                 </div>
-                
+
                 <div class="mb-2">
                     <label class="form-label small fw-bold text-secondary">{{ _('Landmark/Street Address') }}</label>
                     <input name="address" class="form-control form-control-sm" placeholder="{{ _('e.g. Near Market Square') }}" required>
@@ -301,9 +301,9 @@
         <div class="card p-3 border-0 shadow-sm bg-white mb-4" style="z-index: 1;">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Public Smart Bin Locator Map') }}</h5>
             <p class="text-muted small">{{ _('Review active waste levels to find empty community bins nearby.') }}</p>
-            
+
             <div id="locatorMap" style="height: 380px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
-            
+
             <!-- Map Legend -->
             <div class="d-flex justify-content-center gap-4 mt-3 small">
                 <span><strong class="text-success">●</strong> {{ _('Empty / Available (< 50%)') }}</span>
@@ -346,7 +346,7 @@
         <!-- Submitted Tickets History (Preserved Original) -->
         <div class="card border-0 shadow-sm bg-white p-4">
             <h4 class="mb-4 text-dark fw-bold">{{ _('Your Submitted Tickets') }}</h4>
-            
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead>
@@ -456,11 +456,11 @@
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("dashWard", "-- Choose Ward --");
         initializeWardDropdown("segWard", "-- Choose Ward --");
-        
+
         // Auto sync GPS coords & datetime-local
         captureGPS();
         loadPAYTInvoices();
-        
+
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -479,12 +479,12 @@
                 const tbody = document.getElementById('paytInvoiceList');
                 const badge = document.getElementById('invoiceCount');
                 badge.innerText = `${invoices.length} Bills`;
-                
+
                 if (invoices.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-3">No invoices issued. Keep up the good segregation! 🌿</td></tr>`;
                     return;
                 }
-                
+
                 tbody.innerHTML = invoices.map(inv => `
                     <tr>
                         <td><strong>${inv.period}</strong></td>
