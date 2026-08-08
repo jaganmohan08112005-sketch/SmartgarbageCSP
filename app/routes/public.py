@@ -68,7 +68,20 @@ def home():
         except Exception as e:
             logger.error("weather_api_error", error=str(e))
         return jsonify({"error": "Weather API unavailable"}), 500
-    return render_template('index.html')
+    # Community-impact figures for the homepage card: wards from the coverage
+    # map (static), smart-bin and resolved-complaint counts from the DB.
+    # Cached for 10 minutes like the weather block; a DB outage must never
+    # take down the homepage, so failures fall back to the ward count only.
+    impact = cache_get('impact_stats')
+    if impact is None:
+        impact = {'wards': len(WARD_COORDINATES), 'bins': 0, 'resolved': 0}
+        try:
+            impact['bins'] = SmartBin.query.count()
+            impact['resolved'] = Complaint.query.filter_by(status='Resolved').count()
+            cache_set('impact_stats', impact, ttl_seconds=600)
+        except Exception as e:
+            logger.error("impact_stats_error", error=str(e))
+    return render_template('index.html', impact=impact)
 
 
 # Ward collection timetables are public civic information — no login wall so
