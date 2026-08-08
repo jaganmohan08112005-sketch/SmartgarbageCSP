@@ -401,6 +401,11 @@ EN = {
     'smart bins monitored': 'smart bins monitored',
     'complaints resolved': 'complaints resolved',
     'Live figures from the Gram Panchayat service records.': 'Live figures from the Gram Panchayat service records.',
+    'Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa': 'Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa',
+    'Free · No login': 'Free · No login',
+    'wards served': 'wards served',
+    'smart bins live': 'smart bins live',
+    'view live ward dashboards': 'view live ward dashboards',
 
     # ── About page ──
     'Citizen Dashboard': 'Citizen Dashboard',
@@ -840,6 +845,11 @@ TE = {
     'smart bins monitored': 'పర్యవేక్షించే స్మార్ట్ బిన్లు',
     'complaints resolved': 'పరిష్కరించిన ఫిర్యాదులు',
     'Live figures from the Gram Panchayat service records.': 'గ్రామ పంచాయతీ సేవా రికార్డుల నుండి తాజా గణాంకాలు.',
+    'Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa': 'చింతలవలసలో చెత్త సేకరణ షెడ్యూల్లు & తప్పిన పికప్ నివేదికలు',
+    'Free · No login': 'ఉచితం · లాగిన్ లేదు',
+    'wards served': 'సేవలు పొందుతున్న వార్డులు',
+    'smart bins live': 'ప్రత్యక్ష స్మార్ట్ బిన్లు',
+    'view live ward dashboards': 'ప్రత్యక్ష వార్డ్ డాష్‌బోర్డ్లను చూడండి',
 
     # ── About page ──
     'Citizen Dashboard': 'సిటిజన్ డాష్‌బోర్డ్',

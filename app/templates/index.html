@@ -61,7 +61,10 @@
              emblem-style badge above the hero headline reinforces that this is
              the official Gram Panchayat portal before the first click. -->
         <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
-        <h1 class="display-5 fw-bold text-success mb-3">{{ _('Welcome to SmartGarbage Chintalavalasa') }}</h1>
+        <!-- H1 states the public services (Stackra: "use your main heading to
+             say exactly what public services this page provides") — mirrors the
+             <title> so the heading and search result agree. -->
+        <h1 class="display-5 fw-bold text-success mb-3">{{ _('Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa') }}</h1>
         <!-- In-sentence contextual links: body links (not just navigation) help
              search engines connect the homepage topic to the service pages. -->
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
@@ -76,8 +79,10 @@
              instant and public vs what needs an account — before they click. -->
         <div class="d-grid gap-3 d-sm-flex justify-content-sm-center align-items-start">
             <div class="text-center">
-                <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary">📅 {{ _('Check Today\'s Pickup Schedule') }} →</a>
-                <div class="small text-muted mt-1">⚡ {{ _('Free · Instant · No login needed') }}</div>
+                <!-- Value proposition lives INSIDE the primary button (Stackra:
+                     "add benefits like free or save to boost clicks") — the
+                     white badge reads as a guarantee on the green button. -->
+                <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
             </div>
             <div class="text-center">
                 <!-- Visually quieter than the primary: smaller, gray outline,
@@ -111,11 +116,13 @@
                 <a href="/privacy" class="sg-hero-trust-link">🔒 {{ _('Read the full privacy notice') }}</a>
             </div>
         </div>
-        <!-- Service proof: real, verifiable facts about the service area. -->
+        <!-- Service proof shown early: live figures from the DB, right under the
+             CTAs (Stackra: "show service results earlier so citizens trust the
+             portal faster"). PAYT/Green Points live on in the Citizen Portal card. -->
         <div class="d-flex flex-wrap justify-content-center gap-3 gap-md-4 mt-3 small text-muted">
-            <span>🏘️ <strong class="fw-bold">{{ _('5 residential wards') }}</strong> {{ _('covered') }}</span>
-            <span>💳 {{ _('Pay-As-You-Throw billing') }}</span>
-            <span>🎖️ {{ _('Green Points rewards') }}</span>
+            <span>🏘️ <strong class="fw-bold">{{ impact.wards }}</strong> {{ _('wards served') }}</span>
+            <span>🗑️ <strong class="fw-bold">{{ impact.bins }}</strong> {{ _('smart bins live') }}</span>
+            <span>✅ <strong class="fw-bold">{{ impact.resolved }}</strong> {{ _('complaints resolved') }}</span>
         </div>
     </div>
 </div>
@@ -209,7 +216,7 @@
         <div class="list-group list-group-flush small">
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-danger me-2">{{ _('Monsoon Alert') }}</span>
-                <strong>{{ _('Wet Season Precautions:') }}</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }}
+                <strong>{{ _('Wet Season Precautions:') }}</strong> {{ _('With rain showers, solid waste weight increases. Kindly segregate dry recyclable plastics from biodegradable wet food waste prior to morning collection.') }} — <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('check the pickup schedule') }}</a>.
             </div>
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
@@ -252,7 +259,7 @@
                         </div>
                     </div>
                 </div>
-                <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }}</p>
+                <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live ward dashboards') }}</a> →</p>
             </div>
         </div>
     </div>
