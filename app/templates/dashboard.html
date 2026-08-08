@@ -2,7 +2,7 @@
 {% block title %}{{ _('Citizen Portal - SmartGarbage') }}{% endblock %}
 {% block content %}
 <!-- Leaflet Map CSS/JS Dependencies -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <div class="row g-4">
@@ -66,7 +66,10 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <span class="text-uppercase small fw-bold" style="opacity: 0.85;">{{ _('Eco-Reward Wallet Balance') }}</span>
-                    <h2 class="display-5 fw-extrabold mt-1 mb-0"><span id="greenPointsDisplay">{{ green_points }}</span> GP</h2>
+                    <!-- Stat values are data, not section headings: rendered as
+                         divs (display-5 keeps the size) so the heading outline
+                         stays sequential for assistive tech and validators. -->
+                    <div class="display-5 fw-extrabold mt-1 mb-0"><span id="greenPointsDisplay">{{ green_points }}</span> GP</div>
                     <small class="d-block mt-2" style="opacity: 0.9;">{{ _('Earn points by reporting overflows or using smart recycling hubs.') }}</small>
                 </div>
                 <span class="sg-icon-lg">🌱</span>
@@ -96,7 +99,7 @@
             <div class="d-flex align-items-center justify-content-between">
                 <div>
                     <span class="text-uppercase small fw-bold" style="opacity: 0.85;">🔥 {{ _('Segregation Streak') }}</span>
-                    <h2 class="display-5 fw-extrabold mt-1 mb-0">{{ segregation_streak }} <small style="font-size:1rem;opacity:0.9;">{{ _('days') }}</small></h2>
+                    <div class="display-5 fw-extrabold mt-1 mb-0">{{ segregation_streak }} <small style="font-size:1rem;opacity:0.9;">{{ _('days') }}</small></div>
                     <small class="d-block mt-2" style="opacity: 0.9;">{{ _('Consecutive waste declarations with proper segregation. Keep it going!') }}</small>
                 </div>
                 <span class="sg-icon-lg">🔥</span>
