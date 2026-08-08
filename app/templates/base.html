@@ -47,6 +47,12 @@
          the browser silently falls back to the normal CSS-driven fetch. -->
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtqUYLknw.woff2">
+    <!-- The hero H1 renders in Outfit 700 (display-5 fw-bold) — the LCP
+         element — so its woff2 is preloaded too, letting the swap happen on
+         first paint instead of after the CSS round-trip. Falls back silently
+         if Google rotates the hashed URL (same caveat as the weight-400 file). -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4deyO4i0ExAo.woff2">
 
     <!-- Bootstrap is self-hosted (same origin, behind Cloudflare) instead of
          fetched cold from jsdelivr on every visitor's first hit: the CDN hop
@@ -123,6 +129,18 @@
         "url": "{{ request.url_root.rstrip('/') }}",
         "description": "Official municipal portal for Chintalavalasa — check waste collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.",
         "inLanguage": ["en", "te"]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "SmartGarbage Chintalavalasa",
+        "alternateName": "Directorate of Waste Management & Sanitation, Chintalavalasa",
+        "url": "{{ request.url_root.rstrip('/') }}",
+        "logo": "{{ url_for('static', filename='icon-192.png', _external=True) }}",
+        "description": "Official municipal waste-management service operated by the Chintalavalasa Gram Panchayat: collection schedules, missed-pickup and overflow reporting, ward dashboards and Pay-As-You-Throw billing.",
+        "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India"
     }
     </script>
 

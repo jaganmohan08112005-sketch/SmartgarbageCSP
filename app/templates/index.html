@@ -73,28 +73,24 @@
             {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a>
             {{ _('across every residential sector in real time.') }}
         </p>
-        <!-- CTA hierarchy: the most common resident action (schedule lookup) is
-             the dominant primary button; reporting is clearly secondary. Each
-             button carries benefit-led helper text so residents know what is
-             instant and public vs what needs an account — before they click. -->
-        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center align-items-start">
-            <div class="text-center">
-                <!-- Value proposition lives INSIDE the primary button (Stackra:
-                     "add benefits like free or save to boost clicks") — the
-                     white badge reads as a guarantee on the green button. -->
-                <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
-            </div>
-            <div class="text-center">
-                <!-- Visually quieter than the primary: smaller, gray outline,
-                     no shadow — the schedule lookup stays the obvious first
-                     action (Stackra: "create a clearer visual priority"). -->
-                <a href="/report" class="btn btn-outline-secondary px-3 py-2 fs-6">⚠️ {{ _('Report Missed Pickup') }}</a>
-                <div class="small text-muted mt-1">🔐 {{ _('Needs a free citizen account') }}</div>
-            </div>
+        <!-- CTA hierarchy: ONE dominant button above the fold (schedule lookup).
+             Reporting is a secondary text link beneath it, not a second button
+             — Stackra's top fix: "make the main resident task the clear first
+             choice / restyle Report as a secondary text link". -->
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            <!-- Value proposition lives INSIDE the primary button (Stackra:
+                 "add benefits like free or save to boost clicks") — the white
+                 badge reads as a guarantee on the green button. -->
+            <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
         </div>
-        <!-- Path clarity: residents see at a glance what works without login. -->
+        <div class="mt-2 d-flex flex-wrap justify-content-center align-items-center gap-2 small">
+            <a href="/report" class="sg-hero-secondary-link fw-semibold">⚠️ {{ _('Report Missed Pickup') }}</a>
+            <span class="text-muted">· 🔐 {{ _('Needs a free citizen account') }}</span>
+        </div>
+        <!-- Path clarity with in-content links: residents see at a glance what
+             works without login, and search engines get more body-copy anchors. -->
         <p class="mt-3 mb-0 small text-muted">
-            {{ _('No login needed to explore schedules or file a report. An account unlocks ticket tracking, bills and Green Points.') }}
+            {{ _('No login needed to') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('explore schedules') }}</a> {{ _('or') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a report') }}</a>. {{ _('An account') }} <a href="/register" class="text-decoration-underline text-success fw-semibold">{{ _('unlocks ticket tracking, bills and Green Points') }}</a>.
         </p>
         <!-- Decision-zone trust strip: the strongest official-service cues sit
              directly under the action buttons — department identity, grievance
@@ -116,13 +112,21 @@
                 <a href="/privacy" class="sg-hero-trust-link">🔒 {{ _('Read the full privacy notice') }}</a>
             </div>
         </div>
-        <!-- Service proof shown early: live figures from the DB, right under the
-             CTAs (Stackra: "show service results earlier so citizens trust the
-             portal faster"). PAYT/Green Points live on in the Citizen Portal card. -->
+        <!-- Service proof shown early (Stackra: "show service results earlier so
+             citizens trust the portal faster"). Zero-value stats are hidden so
+             a fresh database can never display "0 bins / 0 resolved" — the
+             audit explicitly flagged zero figures as confidence-killing. -->
         <div class="d-flex flex-wrap justify-content-center gap-3 gap-md-4 mt-3 small text-muted">
             <span>🏘️ <strong class="fw-bold">{{ impact.wards }}</strong> {{ _('wards served') }}</span>
+            {% if impact.bins > 0 %}
             <span>🗑️ <strong class="fw-bold">{{ impact.bins }}</strong> {{ _('smart bins live') }}</span>
+            {% endif %}
+            {% if impact.resolved > 0 %}
             <span>✅ <strong class="fw-bold">{{ impact.resolved }}</strong> {{ _('complaints resolved') }}</span>
+            {% endif %}
+            {% if impact.bins == 0 and impact.resolved == 0 %}
+            <span>🟢 {{ _('Live operational tracking active') }}</span>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -140,7 +144,7 @@
             <li><span aria-hidden="true">📍</span> {{ _('GPS & photos: captured only when you file a report') }}</li>
             <li><span aria-hidden="true">💳</span> {{ _('Payments via Razorpay; analytics only after you Accept') }}</li>
         </ul>
-        <a href="/privacy" class="btn btn-sm btn-outline-success rounded-pill flex-shrink-0">{{ _('Read the full privacy notice') }} →</a>
+        <a href="/privacy" class="fw-semibold text-decoration-underline text-success flex-shrink-0">{{ _('Read the full privacy notice') }} →</a>
     </div>
 </div>
 
@@ -193,8 +197,8 @@
         <!-- Paragraph-level links: in-content anchors inside body copy, not just
              list items — the linking pattern search engines weight most heavily. -->
         <p class="small text-muted mb-3">
-            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check the pickup schedule') }}</a>,
-            <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed pickup report') }}</a> {{ _('or') }}
+            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check collection times') }}</a>,
+            <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed-pickup complaint') }}</a> {{ _('or') }}
             <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live ward bin status') }}</a> —
             {{ _('all free, no login needed.') }}
         </p>
@@ -236,6 +240,8 @@
         <div class="card border-start border-success border-4 p-4 h-100 bg-white shadow-sm">
             <div class="card-body">
                 <h3 class="text-success fw-bold mb-3 sg-card-h">📊 {{ _('Community impact') }}</h3>
+                <!-- Zero-value figures are hidden (see hero-row note): a fresh
+                     database must never present "0 bins / 0 resolved" as proof. -->
                 <div class="d-flex flex-column gap-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-3" aria-hidden="true">🏘️</span>
@@ -244,6 +250,7 @@
                             <small class="text-muted">{{ _('residential wards served') }}</small>
                         </div>
                     </div>
+                    {% if impact.bins > 0 %}
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-3" aria-hidden="true">🗑️</span>
                         <div>
@@ -251,6 +258,8 @@
                             <small class="text-muted">{{ _('smart bins monitored') }}</small>
                         </div>
                     </div>
+                    {% endif %}
+                    {% if impact.resolved > 0 %}
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-3" aria-hidden="true">✅</span>
                         <div>
@@ -258,6 +267,7 @@
                             <small class="text-muted">{{ _('complaints resolved') }}</small>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
                 <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live ward dashboards') }}</a> →</p>
             </div>
