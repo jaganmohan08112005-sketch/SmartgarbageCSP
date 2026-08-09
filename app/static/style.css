@@ -536,9 +536,11 @@ h3.sg-card-h { font-size: 1.25rem; }
    mobile"). The display-5 H1 + fs-5 paragraph push the button below the
    fold on small phones, so shrink both and tighten the hero padding. */
 @media (max-width: 575.98px) {
+    /* All four sides, not just top/bottom: the p-5 default leaves 3rem of
+       side padding, which on a 375px phone narrows the H1 to ~255px and
+       forces it to wrap tall — pushing the CTA below the fold. */
     .sg-hero {
-        padding-top: 1.25rem !important;
-        padding-bottom: 1.25rem !important;
+        padding: 1.25rem !important;
         margin-bottom: 1rem !important;
     }
     .sg-hero .container-fluid {

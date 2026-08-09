@@ -8,3 +8,4 @@ pytest-xdist==3.8.0        # parallel test runs (`-n auto` default via pytest.in
 pytest-timeout==2.4.0      # per-test timeout so a hung test fails, not stalls
 pytest-cov==7.1.0          # coverage (README `--cov` example)
 playwright==1.61.0         # browser E2E suite (tests/qa) — run `playwright install`
+pytest-playwright==0.8.0    # provides the `playwright` fixture used by tests/qa/conftest.py's browser/page fixtures
