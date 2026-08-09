@@ -970,6 +970,45 @@ def test_every_public_page_ships_complete_government_schema(client, app):
     _assert_org_schema(client, '/report')
 
 
+# ── robots.txt must never block crawlers (DEPLOY.md §8.2: the audit once
+#    caught the live site serving an OLD robots.txt with `Disallow: /`) ──
+def test_robots_txt_never_blocks_crawlers(client):
+    """Assert the robots route always serves the open config: allow-all
+    catch-all, explicit AI-bot groups, and the sitemap — with no-store
+    caching so a CDN/proxy can never replay an old blocking version."""
+    import re
+    r = client.get('/robots.txt')
+    assert r.status_code == 200
+    assert 'text/plain' in r.content_type
+    body = r.get_data(as_text=True)
+    # Path-specific disallows (/admin, /api/, …) are fine; a sitewide
+    # `Disallow: /` is the audit's #1 visibility blocker.
+    assert not re.search(r'^Disallow:\s*/\s*$', body, re.M), \
+        'robots.txt must never contain a sitewide Disallow: /'
+    assert re.search(r'^User-agent: \*\s*$', body, re.M), \
+        'catch-all user-agent group missing'
+    assert 'Allow: /' in body
+    for bot in ('GPTBot', 'OAI-SearchBot', 'ClaudeBot', 'Google-Extended',
+                'PerplexityBot'):
+        assert f'User-agent: {bot}' in body, f'{bot} AI group missing'
+    assert 'Sitemap:' in body and 'sitemap.xml' in body
+    assert 'no-store' in (r.headers.get('Cache-Control') or ''), \
+        'robots.txt must be no-store so stale versions cannot be cached'
+
+
+def test_sitemap_lists_all_public_pages(client):
+    """sitemap.xml must declare every public page and be no-store cached."""
+    r = client.get('/sitemap.xml')
+    assert r.status_code == 200
+    assert 'xml' in r.content_type
+    body = r.get_data(as_text=True)
+    for path in ('/', '/about', '/schedule', '/report', '/transparency',
+                 '/register', '/register/picker', '/privacy'):
+        assert path in body, f'sitemap missing {path}'
+    assert 'no-store' in (r.headers.get('Cache-Control') or ''), \
+        'sitemap.xml must be no-store so stale versions cannot be cached'
+
+
 # ── Live-weather status is cached (wttr.in hit once per 10-min window) ──
 def test_weather_status_cached_within_ttl(monkeypatch):
     """get_live_weather_status must not hammer wttr.in on every call — the

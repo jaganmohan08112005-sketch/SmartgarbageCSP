@@ -255,7 +255,13 @@ def robots_txt():
             "Allow: /\n"
             + private_paths +
             f"Sitemap: {request.url_root.rstrip('/')}/sitemap.xml\n")
-    return Response(body, mimetype='text/plain')
+    # no-store: a stale cached robots.txt (the DEPLOY.md §8.2 documented
+    # failure — the live site once served an OLD version blocking all
+    # crawlers with `Disallow: /`) must never be served by Cloudflare or
+    # any proxy/CDN after a deploy. Crawl-control docs should always be
+    # fetched fresh from origin.
+    return Response(body, mimetype='text/plain',
+                    headers={'Cache-Control': 'no-store, max-age=0'})
 
 
 @main.route('/sitemap.xml')
@@ -274,7 +280,10 @@ def sitemap_xml():
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             + urls + '</urlset>\n')
-    return Response(body, mimetype='application/xml')
+    # no-store: same reasoning as robots.txt — a stale cached sitemap must
+    # never persist across deploys (URL list changes with new pages).
+    return Response(body, mimetype='application/xml',
+                    headers={'Cache-Control': 'no-store, max-age=0'})
 
 
 @main.route('/health')

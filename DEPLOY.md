@@ -167,6 +167,12 @@ curl -s https://smartgarbage.onrender.com/sitemap.xml
   `Google-Extended`, `PerplexityBot` — each `Allow: /` plus the four
   private-path disallows (`/admin`, `/api/`, `/worker`, `/dashboard`).
 - End with `Sitemap: https://smartgarbage.onrender.com/sitemap.xml`.
+- Send `Cache-Control: no-store` — both `robots.txt` and `sitemap.xml`
+  do now, so a CDN/proxy can never replay a stale blocking version (that
+  is exactly what the audit caught: the live site served an OLD robots.txt
+  with `Disallow: /` while the code was already fixed). If you ever change
+  these routes, keep the no-store header and the `test_robots_txt_never_
+  blocks_crawlers` / `test_sitemap_lists_all_public_pages` tests green.
 
 **sitemap.xml must** return `200` with `application/xml` and list `/`,
 `/schedule`, `/report`, `/transparency`, `/register`, `/register/picker`,
