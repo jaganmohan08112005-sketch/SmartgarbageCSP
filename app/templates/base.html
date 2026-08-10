@@ -58,7 +58,7 @@
          element — so its woff2 is preloaded too, letting the swap happen on
          first paint instead of after the CSS round-trip. Falls back silently
          if Google rotates the hashed URL (same caveat as the weight-400 file). -->
-    <link rel="preload" as="font" type="font/woff2" crossorigin
+    <link rel="preload" as="font" type="font/woff2" crossorigin fetchpriority="high"
           href="https://fonts.gstatic.com/s/outfit/v15/QGYyz_MVcBeNP4NjuGObqx1XmO1I4deyO4i0ExAo.woff2">
 
     <!-- Bootstrap is self-hosted (same origin, behind Cloudflare) instead of

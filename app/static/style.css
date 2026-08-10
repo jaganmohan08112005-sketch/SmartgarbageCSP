@@ -530,6 +530,22 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     color: #e2e8f0;
 }
 
+/* Task-grouped citizen links: the secondary resident actions render as
+   compact, labeled rows under the one primary button instead of competing
+   full-width buttons (Stackra: "group secondary actions under simple task
+   categories"). */
+.sg-task-link {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: var(--sg-navy-700);
+    text-decoration: none;
+    font-weight: 500;
+}
+.sg-task-link:hover { color: var(--sg-green-700); text-decoration: underline; }
+[data-theme="dark"] .sg-task-link { color: #cbd5e1; }
+[data-theme="dark"] .sg-task-link:hover { color: #6ee7a0; }
+
 /* Dominant primary CTA: the schedule button is the single most important
    resident action — slightly larger and with a deeper shadow than the
    secondary Report button (Stackra: "create a clearer visual priority"). */

@@ -162,12 +162,14 @@
             </div>
             <p class="text-muted small mb-3">{{ _('Report issues, track tickets, pay bills and earn Green Points — built for residents.') }}</p>
             <div class="d-grid gap-2">
-                <!-- One dominant resident path in the citizen card, matching
-                     the hero: schedule lookup is the solid primary; reporting
-                     and account entry stay as quieter outline actions. -->
+                <!-- One dominant resident path (schedule lookup) plus the
+                     secondary tasks grouped under simple action labels
+                     (Stackra: "group related tasks under simple labels"). -->
                 <a href="/schedule" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">📅 {{ _('Check Schedule') }}</a>
-                <a href="/report" class="btn btn-outline-success w-100 rounded-pill">⚠️ {{ _('Report an Issue') }}</a>
-                <a href="/register" class="btn btn-outline-success w-100 rounded-pill">{{ _('Enter Citizen Portal') }}</a>
+                <div class="d-flex flex-column small mt-1">
+                    <a href="/report" class="sg-task-link py-1">⚠️ {{ _('Report a problem') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
+                    <a href="/register" class="sg-task-link py-1">🔎 {{ _('Track a complaint, bills & Green Points') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
+                </div>
             </div>
         </div>
     </div>
