@@ -7,6 +7,12 @@ __pycache__/
 *.pyc
 instance/
 uploads/
+# 26MB trained fill-rate regressor: excluded from the deploy image (the app
+# falls back to its heuristic when absent — see ml_model._load_fill_model).
+# Regenerate with train_model.py if needed; keep for local training.
+app/ml_fill_model.pkl
+# Root-level diagnostic script (survey CSV analytics) — not needed at runtime.
+analyze_survey.py
 .vscode/
 .kilo/
 .env
