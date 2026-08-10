@@ -25,33 +25,31 @@
                     </div>
                 </div>
 
-                <!-- GPS & Time Automatic Mapping Node -->
+                <!-- GPS & Time Automatic Mapping Node: raw coordinates are
+                     auto-filled into hidden inputs — residents never read or
+                     type them, which shortens the form (Stackra: "shorten the
+                     longer reporting form"). The status line confirms sync
+                     and the submit gate still enforces a real GPS fix. -->
                 <div class="card p-3 mb-4 bg-light border-0 shadow-none">
                     <h2 class="h6 fw-bold text-dark mb-3 d-flex align-items-center gap-2">
                         <span>📍</span> {{ _('Automatic Location & Time Sync') }}
                     </h2>
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <button type="button" class="btn btn-sm btn-success px-3" onclick="captureGPSCoordinates()">
-                            🔄 {{ _('Capture GPS Location') }}
-                        </button>
-                        <span id="geoStatus" class="text-muted small">{{ _('GPS coordinates not synced') }}</span>
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="small text-muted fw-bold">{{ _('Latitude') }}</label>
-                            <input type="text" id="latitude" name="latitude" class="form-control form-control-sm bg-white" readonly placeholder="{{ _('Auto-filled') }}">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5 col-lg-4">
+                            <button type="button" class="btn btn-sm btn-success px-3 w-100" onclick="captureGPSCoordinates()">
+                                🔄 {{ _('Capture GPS Location') }}
+                            </button>
                         </div>
-                        <div class="col-6">
-                            <label class="small text-muted fw-bold">{{ _('Longitude') }}</label>
-                            <input type="text" id="longitude" name="longitude" class="form-control form-control-sm bg-white" readonly placeholder="{{ _('Auto-filled') }}">
+                        <div class="col-md-7 col-lg-4">
+                            <span id="geoStatus" class="text-muted small">{{ _('GPS coordinates not synced') }}</span>
+                        </div>
+                        <div class="col-md-12 col-lg-4">
+                            <label class="small text-muted fw-bold mb-1" for="report_time">{{ _('Time of Missed Collection') }}</label>
+                            <input type="datetime-local" id="report_time" name="report_time" class="form-control form-control-sm" required>
                         </div>
                     </div>
-
-                    <div>
-                        <label class="small text-muted fw-bold mb-1">{{ _('Time of Missed Collection') }}</label>
-                        <input type="datetime-local" id="report_time" name="report_time" class="form-control form-control-sm" required>
-                    </div>
+                    <input type="hidden" id="latitude" name="latitude">
+                    <input type="hidden" id="longitude" name="longitude">
                 </div>
 
                 <!-- Sector Selection Segment -->

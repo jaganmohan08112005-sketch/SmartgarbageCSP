@@ -1,2 +1,3 @@
-# Force LF for this template so core.autocrlf=true cannot flag it dirty on any machine.
+# Force LF for these templates so core.autocrlf=true cannot flag them dirty on any machine.
 app/templates/admin.html text eol=lf
+app/templates/report.html text eol=lf
