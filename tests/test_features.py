@@ -4861,6 +4861,31 @@ def test_consent_endpoint_works_with_csrf_enabled(tmp_path):
         pass
 
 
+def test_google_site_verification_meta_is_config_gated(client):
+    """The Search Console ownership meta only ships when
+    GOOGLE_SITE_VERIFICATION is configured — zero markup while unset, and the
+    exact token when set (fallback verification path for the onrender.com
+    subdomain, where DNS and HTML-file methods aren't available)."""
+    body = client.get('/').get_data(as_text=True)
+    assert 'google-site-verification' not in body
+
+    import tempfile as _tf
+    fd, path = _tf.mkstemp(suffix='.db'); os.close(fd)
+    ver_app = create_app(test_config={
+        'TESTING': True,
+        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
+        'GOOGLE_SITE_VERIFICATION': 'ABCDEF1234567890',
+    })
+    with ver_app.app_context():
+        db.create_all()
+    body2 = ver_app.test_client().get('/').get_data(as_text=True)
+    assert 'name="google-site-verification" content="ABCDEF1234567890"' in body2
+    try:
+        os.remove(path)
+    except PermissionError:
+        pass
+
+
 def test_homepage_privacy_at_a_glance(client):
     """The homepage surfaces a privacy-at-a-glance card above the fold with the
     three collection bullets and a link to the full notice."""

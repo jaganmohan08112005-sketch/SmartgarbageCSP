@@ -228,13 +228,26 @@ The reliable fix is a custom domain:
 
 ### 8.4 Submit to Google Search Console
 
-1. Add the property `https://smartgarbage.onrender.com/` (URL-prefix is
-   fine; no DNS changes needed if you use the HTML-tag verification).
-2. **Sitemaps** → submit `https://smartgarbage.onrender.com/sitemap.xml`.
-3. **URL Inspection** → for `/`, `/schedule`, `/report`, `/transparency`:
+Add the property `https://smartgarbage.onrender.com/` (URL-prefix) and verify
+ownership one of two ways — both are config-only, no repo changes (DNS is
+not available on the `*.onrender.com` subdomain; it becomes an option on a
+custom domain, §8.2.1):
+
+- **Google Analytics (preferred):** after §8.3 is done, Search Console offers
+  the "Google Analytics" method because the GA4 data-stream URL matches.
+- **HTML tag (fallback):** Search Console → HTML tag method → copy the
+  `content="…"` token → Render Dashboard → **Environment** → add
+  `GOOGLE_SITE_VERIFICATION=<token>` → redeploy. The meta tag is
+  config-gated in `base.html` (`{% if config.get('GOOGLE_SITE_VERIFICATION') %}`)
+  and renders on every page only while the env var is set — no token ships
+  otherwise.
+
+Then:
+1. **Sitemaps** → submit `https://smartgarbage.onrender.com/sitemap.xml`.
+2. **URL Inspection** → for `/`, `/schedule`, `/report`, `/transparency`:
    "Test live URL" → "Request indexing" (do this after the robots fix so
    the crawler is actually allowed in).
-4. After ~24 h, re-run the Stackra scan and confirm "Blocked from Search"
+3. After ~24 h, re-run the Stackra scan and confirm "Blocked from Search"
    and "AI crawlers blocked" are gone.
 
 ### 8.5 Publish a civic contact email

@@ -23,6 +23,13 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary">
+    {% if config.get('GOOGLE_SITE_VERIFICATION') %}
+    <!-- Search Console ownership (config-gated): renders only when
+         GOOGLE_SITE_VERIFICATION is set in the platform dashboard — the
+         fallback verification path if GA-based verification can't be used
+         on the *.onrender.com subdomain. No token ships while unset. -->
+    <meta name="google-site-verification" content="{{ config['GOOGLE_SITE_VERIFICATION'] }}">
+    {% endif %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-192.png') }}">
 
     <link rel="manifest" href="/manifest.json">
