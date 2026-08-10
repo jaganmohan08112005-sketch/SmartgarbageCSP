@@ -7,7 +7,7 @@
             <div class="text-center mb-4">
                 <span class="fs-1 text-danger">⚠️</span>
                 <h1 class="text-danger fw-bold mt-2">{{ _('Report a Missed Pickup') }}</h1>
-                <p class="text-muted small">{{ _('Fill out the ticket below. GPS coordinates and photographic evidence are highly encouraged to accelerate resolution.') }}</p>
+                <p class="text-muted small">{{ _('Tell us what happened — we\'ll take it from there. A quick GPS fix and an optional photo help our crew resolve it faster.') }}</p>
             </div>
 
             <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue>
@@ -20,8 +20,8 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold text-secondary">{{ _('Phone Number') }}</label>
-                        <input name="phone" type="tel" class="form-control" placeholder="{{ _('e.g., +91 98765 43210') }}" required>
-                        <small class="text-muted">{{ _('We use this number to confirm your report and share status updates — never for marketing.') }}</small>
+                        <input name="phone" type="tel" class="form-control" placeholder="{{ _('e.g., +91 98765 43210') }}">
+                        <small class="text-muted">{{ _('Optional — add your number for SMS status updates. We never use it for marketing.') }}</small>
                     </div>
                 </div>
 
@@ -70,7 +70,7 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="repDescription">{{ _('Describe the Issue') }}</label>
                     <div class="input-group">
-                        <textarea name="description" id="repDescription" class="form-control" rows="3" placeholder="{{ _('Provide details about the missed garbage collection...') }}" required></textarea>
+                        <textarea name="description" id="repDescription" class="form-control" rows="3" placeholder="{{ _('What did you notice? Where was the collection missed?') }}" required></textarea>
                         <button type="button" class="btn btn-outline-primary sg-mic-btn d-none" id="repMicBtn"
                                 title="{{ _('Speak your description') }}" aria-label="{{ _('Speak your description') }}">
                             🎤

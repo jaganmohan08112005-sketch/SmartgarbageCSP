@@ -81,7 +81,7 @@ EN = {
     'Local Sanitation Notices & Seasonal Advisories': 'Local Sanitation Notices & Seasonal Advisories',
     'Monsoon Alert': 'Monsoon Alert',
     'Wet Season Precautions:': 'Wet Season Precautions:',
-    'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every pickup on time. Thank you for helping your ward stay clean.': 'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every pickup on time. Thank you for helping your ward stay clean.',
+    'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every collection on time. Thank you for helping your ward stay clean.': 'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every collection on time. Thank you for helping your ward stay clean.',
     'Community Update': 'Community Update',
     'MVGR College Road Cleanliness:': 'MVGR College Road Cleanliness:',
     'Special collection drive scheduled for MVGR campus surroundings this Saturday morning.': 'Special collection drive scheduled for MVGR campus surroundings this Saturday morning.',
@@ -416,6 +416,9 @@ EN = {
     'check collection times': 'check collection times',
     'file a missed-pickup complaint': 'file a missed-pickup complaint',
     'We use this number to confirm your report and share status updates — never for marketing.': 'We use this number to confirm your report and share status updates — never for marketing.',
+    'Optional — add your number for SMS status updates. We never use it for marketing.': 'Optional — add your number for SMS status updates. We never use it for marketing.',
+    "Tell us what happened — we'll take it from there. A quick GPS fix and an optional photo help our crew resolve it faster.": "Tell us what happened — we'll take it from there. A quick GPS fix and an optional photo help our crew resolve it faster.",
+    'What did you notice? Where was the collection missed?': 'What did you notice? Where was the collection missed?',
     'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.': 'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.',
 
     # ── About page ──
@@ -514,7 +517,7 @@ TE = {
     'Local Sanitation Notices & Seasonal Advisories': 'స్థానిక పారిశుధ్య నోటీసులు & సీజనల్ సలహాలు',
     'Monsoon Alert': 'రుతుపవన హెచ్చరిక',
     'Wet Season Precautions:': 'తడి సీజన్ జాగ్రత్తలు:',
-    'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every pickup on time. Thank you for helping your ward stay clean.': 'వర్షాకాల సిద్ధం: వర్షంలో తడి చెత్త బరువుగా మారుతుంది, కాబట్టి పొడి రీసైకిల్ వస్తువులను విడిగా వేరు చేయడం వల్ల ప్రతి పికప్ సమయానికి జరుగుతుంది. మీ వార్డును శుభ్రంగా ఉంచడంలో సహాయం చేసినందుకు ధన్యవాదాలు.',
+    'Rain-ready collections: wet waste gets heavier in showers, so sorting dry recyclables separately keeps every collection on time. Thank you for helping your ward stay clean.': 'వర్షాకాల సిద్ధం: వర్షంలో తడి చెత్త బరువుగా మారుతుంది, కాబట్టి పొడి రీసైకిల్ వస్తువులను విడిగా వేరు చేయడం వల్ల ప్రతి సేకరణ సమయానికి జరుగుతుంది. మీ వార్డును శుభ్రంగా ఉంచడంలో సహాయం చేసినందుకు ధన్యవాదాలు.',
     'Community Update': 'కమ్యూనిటీ అప్డేట్',
     'MVGR College Road Cleanliness:': 'MVGR కాలేజ్ రోడ్ శుభ్రత:',
     'Driver Portal': 'డ్రైవర్ పోర్టల్',
@@ -872,6 +875,9 @@ TE = {
     'check collection times': 'సేకరణ సమయాలను తనిఖీ చేయండి',
     'file a missed-pickup complaint': 'తప్పిన పికప్ ఫిర్యాదు సమర్పించండి',
     'We use this number to confirm your report and share status updates — never for marketing.': 'మీ నివేదికను నిర్ధారించడానికి మరియు స్థితి నవీకరణలను పంచుకోవడానికి మేము ఈ నంబర్‌ను ఉపయోగిస్తాము — మార్కెటింగ్ కోసం ఎప్పటికీ కాదు.',
+    'Optional — add your number for SMS status updates. We never use it for marketing.': 'ఐచ్ఛికం — SMS స్థితి నవీకరణల కోసం మీ నంబర్‌ను జోడించండి. మేము దీన్ని మార్కెటింగ్ కోసం ఎప్పటికీ ఉపయోగించము.',
+    "Tell us what happened — we'll take it from there. A quick GPS fix and an optional photo help our crew resolve it faster.": "ఏం జరిగిందో చెప్పండి — మేము అక్కడి నుంచే చూసుకుంటాం. త్వరిత GPS మరియు ఐచ్ఛిక ఫోటో మా సిబ్బందికి వేగంగా పరిష్కరించడంలో సహాయపడతాయి.",
+    'What did you notice? Where was the collection missed?': 'మీరు ఏం గమనించారు? సేకరణ ఎక్కడ జరగలేదు?',
     'Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.': 'సేకరణ సిబ్బంది ఇక్కడ ప్రచురించిన వార్డ్ టైమ్‌టేబుల్‌లను అనుసరిస్తారు, కాబట్టి ప్రతి ఇంటికీ చెత్త ఎప్పుడు పెట్టాలో తెలుస్తుంది. తప్పిన పికప్ మీ చిరునామా మరియు ఫోటోతో వార్డ్ సిబ్బందికి పంపబడుతుంది, మరియు ఫిర్యాదు స్థితి పరిష్కారమయ్యే వరకు ట్రాక్ చేయబడుతుంది — మీ డాష్‌బోర్డ్ లేదా మీకు వచ్చిన ట్రాకింగ్ లింక్ నుండి చూడవచ్చు.',
 
     # ── About page ──
