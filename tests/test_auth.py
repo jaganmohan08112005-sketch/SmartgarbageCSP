@@ -44,7 +44,7 @@ def test_report_is_public(client):
     unauthenticated resident can open it and submit without an account."""
     r = client.get('/report')
     assert r.status_code == 200
-    assert b'Report a Missed Pickup' in r.data
+    assert b'Report a Missed Collection' in r.data
     # POST without login is allowed but still enforces the GPS anti-spam gate.
     r2 = client.post('/report', data={
         'name': 'test',

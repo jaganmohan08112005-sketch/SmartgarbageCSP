@@ -269,15 +269,29 @@ def create_app(test_config=None):
 
     # Security headers via Flask-Talisman (HSTS, CSP, secure-cookie, etc.)
     # Scoped to CDNs actually used so Leaflet maps keep working.
-    _csp = (
-        "default-src 'self'; "
-        "img-src 'self' data: https:; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://leaflet.github.io https://checkout.razorpay.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; "
-        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
-        "frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com; "
-        "connect-src 'self' https://*.tile.openstreetmap.org https://api.open-meteo.com https://api.razorpay.com"
-    )
+    _csp = {
+        'default-src': "'self'",
+        'img-src': ["'self'", 'data:', 'https:'],
+        'script-src': [
+            "'self'", "'unsafe-inline'",
+            'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com',
+            'https://unpkg.com', 'https://leaflet.github.io',
+            'https://checkout.razorpay.com', 'https://www.googletagmanager.com',
+            'https://www.google-analytics.com'
+        ],
+        'style-src': [
+            "'self'", "'unsafe-inline'",
+            'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com',
+            'https://cdn.jsdelivr.net', 'https://unpkg.com'
+        ],
+        'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
+        'frame-src': ["'self'", 'https://checkout.razorpay.com', 'https://api.razorpay.com'],
+        'connect-src': [
+            "'self'", 'https://*.tile.openstreetmap.org', 'https://api.open-meteo.com',
+            'https://api.razorpay.com', 'https://www.google-analytics.com',
+            'https://analytics.google.com', 'https://stats.g.doubleclick.net'
+        ]
+    }
     talisman.init_app(app, force_https=_is_deployed(),
                       strict_transport_security=True,
                       strict_transport_security_max_age=31536000,

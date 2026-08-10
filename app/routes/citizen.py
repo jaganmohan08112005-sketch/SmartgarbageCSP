@@ -563,14 +563,14 @@ def bwg_ledger():
 def report():
     if request.method == 'POST':
         uid = session.get('user_id')
-        name = request.form.get('name')
-        phone = request.form.get('phone')
+        name = (request.form.get('name') or '').strip() or 'Anonymous Resident'
+        phone = (request.form.get('phone') or '').strip()
         ward = request.form.get('ward')
-        address = request.form.get('address')
+        address = (request.form.get('address') or '').strip() or 'Chintalavalasa'
         description = request.form.get('description')
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
-        report_time = request.form.get('report_time')
+        report_time = (request.form.get('report_time') or '').strip() or utcnow().strftime('%Y-%m-%dT%H:%M')
 
         dup = find_duplicate_complaint(ward, latitude, longitude)
         if dup:

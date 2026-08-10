@@ -104,6 +104,20 @@
     </div>
 </div>
 
+<!-- Contextual Citizen Action Banner -->
+<div class="card border-0 shadow-sm mt-4 p-4 bg-white animate-fade-in">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+            <h3 class="h6 fw-bold text-dark mb-1">⚠️ {{ _('Was your doorstep collection missed today?') }}</h3>
+            <p class="text-muted small mb-0">{{ _('If a sanitation truck missed your street during its scheduled window, file a quick report for prompt crew resolution.') }}</p>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <a href="/report" class="btn btn-sm btn-danger rounded-pill px-3 fw-semibold">⚠️ {{ _('Report Missed Collection') }}</a>
+            <a href="/transparency" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">📍 {{ _('Ward Status') }}</a>
+        </div>
+    </div>
+</div>
+
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js') }}"></script>
 <script type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
 <script>

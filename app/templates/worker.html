@@ -241,6 +241,9 @@
 <script type="application/json" id="task-bins-data">
 {{ task_bins_data|tojson }}
 </script>
+<!-- Socket.IO is page-scoped (not in base.html): only pages with live
+     telemetry load it, keeping the third-party script off citizen pages. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
     // Bins telemetry data array
     const taskBins = JSON.parse(document.getElementById('task-bins-data').textContent);
