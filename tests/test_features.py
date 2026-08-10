@@ -920,8 +920,8 @@ def test_hot_path_composite_indexes_declared_on_models():
 #    ship on every public page with the full trust set — postalCode, awards,
 #    telephone, geo — so a schema regression fails CI instead of silently
 #    dropping the portal out of Google Rich Results / AI citations. ──
-SCHEMA_ANON_PAGES = ['/', '/about', '/schedule', '/transparency', '/privacy',
-                     '/login', '/register', '/register/picker']
+SCHEMA_ANON_PAGES = ['/', '/about', '/schedule', '/report', '/transparency',
+                     '/privacy', '/login', '/register', '/register/picker']
 
 
 def _jsonld_objects(html):
@@ -961,13 +961,10 @@ def _assert_org_schema(client, path):
 def test_every_public_page_ships_complete_government_schema(client, app):
     """The GovernmentOrganization JSON-LD (rendered by base.html) carries the
     address (postalCode), awards, telephone and geo on every public page —
-    the same signals the SEO/trust audits score. /report is login-gated, so
-    it is checked with a citizen session."""
+    the same signals the SEO/trust audits score. /report is a public form
+    (sitemap-listed, no login required), so it is checked anonymously here."""
     for path in SCHEMA_ANON_PAGES:
         _assert_org_schema(client, path)
-    _make_user(app, 'schemacitizen')
-    _login_admin(client, app, 'schemacitizen')
-    _assert_org_schema(client, '/report')
 
 
 # ── robots.txt must never block crawlers (DEPLOY.md §8.2: the audit once

@@ -38,14 +38,21 @@ def test_admin_registration_requires_approval(client, app):
     assert b'Registration successful' in response.data or b'pending approval' in response.data or b'cannot log in' in response.data or b'approval' in response.data
 
 
-def test_report_requires_login(client):
-    response = client.post('/report', data={
+def test_report_is_public(client):
+    """The missed-pickup report form is public (it is listed in the sitemap
+    and the homepage promises 'no login needed to file a report'): an
+    unauthenticated resident can open it and submit without an account."""
+    r = client.get('/report')
+    assert r.status_code == 200
+    assert b'Report a Missed Pickup' in r.data
+    # POST without login is allowed but still enforces the GPS anti-spam gate.
+    r2 = client.post('/report', data={
         'name': 'test',
         'phone': '9876543210',
         'ward': 'Ward 1',
         'address': 'Test address'
     }, follow_redirects=True)
-    assert b'login' in response.data.lower() or response.status_code == 302
+    assert b'GPS coordinates are required' in r2.data
 
 
 def test_phone_validation_rejects_all_same(client):

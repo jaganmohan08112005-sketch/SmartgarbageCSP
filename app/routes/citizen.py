@@ -553,10 +553,16 @@ def bwg_ledger():
 
 
 @main.route('/report', methods=['GET', 'POST'])
-@login_required
+# Public by design: /report is in the sitemap and the homepage promises
+# "no login needed to file a report" — residents must be able to report a
+# missed pickup without creating an account. Anti-spam stays server-side
+# (rate limit, mandatory GPS, photo EXIF cross-check, duplicate suppression).
+# Logged-in reporters still earn Green Points; anonymous ones get the full
+# resolution flow (SMS tracking link) but no account credit.
 @limiter.limit("15/hour")
 def report():
     if request.method == 'POST':
+        uid = session.get('user_id')
         name = request.form.get('name')
         phone = request.form.get('phone')
         ward = request.form.get('ward')
@@ -631,15 +637,18 @@ def report():
             address=f"Chintalavalasa, {fit_length(address, 200)}", description=description,
             photo=photo_filename, latitude=fit_length(latitude, 50),
             longitude=fit_length(longitude, 50),
-            report_time=fit_length(report_time, 100), user_id=session['user_id'],
+            report_time=fit_length(report_time, 100), user_id=uid,
             status='Submitted', bin_id=_linked_bin,
             sla_deadline=_now + timedelta(hours=48))
         db.session.add(new_complaint)
-        user = User.query.get(session['user_id'])
-        if user is None:
-            flash('Account not found. Please log in again.', 'error')
-            return redirect(url_for('main.logout'))
-        user.green_points += 15
+        # Green Points are a logged-in reward; anonymous reports (the form is
+        # now public) still enter the full resolution flow without credit.
+        if uid:
+            user = User.query.get(uid)
+            if user is None:
+                flash('Account not found. Please log in again.', 'error')
+                return redirect(url_for('main.logout'))
+            user.green_points += 15
         db.session.commit()
         # Citizen-tracking timeline: the first event is the filing itself.
         record_complaint_event(new_complaint, 'Submitted',

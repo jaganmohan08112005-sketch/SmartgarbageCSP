@@ -204,6 +204,7 @@ EN = {
     "Check Today's Pickup Schedule": "Check Today's Pickup Schedule",
     'Report Missed Pickup': 'Report Missed Pickup',
     'Official service of the Directorate of Waste Management & Sanitation': 'Official service of the Directorate of Waste Management & Sanitation',
+    'Submit Report to the Panchayat': 'Submit Report to the Panchayat',
     'Popular services:': 'Popular services:',
     'check pickup schedules': 'check pickup schedules',
     'report a missed pickup': 'report a missed pickup',
@@ -364,7 +365,7 @@ EN = {
     # ── Score-100 round: homepage hero hierarchy, trust strip, services ──
     'across every residential sector in real time.': 'across every residential sector in real time.',
     'Free · Instant · No login needed': 'Free · Instant · No login needed',
-    'Needs a free citizen account': 'Needs a free citizen account',
+    'No login needed': 'No login needed',
     'No login needed to explore schedules or file a report. An account unlocks ticket tracking, bills and Green Points.': 'No login needed to explore schedules or file a report. An account unlocks ticket tracking, bills and Green Points.',
     '5 residential wards': '5 residential wards',
     'covered': 'covered',
@@ -657,6 +658,7 @@ TE = {
     "Check Today's Pickup Schedule": 'ఈరోజు పికప్ షెడ్యూల్ చూడండి',
     'Report Missed Pickup': 'మిస్ అయిన పికప్ నివేదించండి',
     'Official service of the Directorate of Waste Management & Sanitation': 'వ్యర్థ నిర్వహణ & పారిశుధ్య శాఖ యొక్క అధికారిక సేవ',
+    'Submit Report to the Panchayat': 'పంచాయతీకి నివేదిక సమర్పించండి',
     'Popular services:': 'ప్రసిద్ధ సేవలు:',
     'check pickup schedules': 'పికప్ షెడ్యూల్లను చూడండి',
     'report a missed pickup': 'మిస్ అయిన పికప్ను నివేదించండి',
@@ -819,7 +821,7 @@ TE = {
     # ── Score-100 round: homepage hero hierarchy, trust strip, services ──
     'across every residential sector in real time.': 'ప్రతి రెసిడెన్షియల్ సెక్టార్‌లో నిజ సమయంలో.',
     'Free · Instant · No login needed': 'ఉచితం · తక్షణం · లాగిన్ అవసరం లేదు',
-    'Needs a free citizen account': 'ఉచిత పౌర ఖాతా అవసరం',
+    'No login needed': 'లాగిన్ అవసరం లేదు',
     'No login needed to explore schedules or file a report. An account unlocks ticket tracking, bills and Green Points.': 'షెడ్యూల్‌లు చూడటానికి లేదా నివేదిక సమర్పించడానికి లాగిన్ అవసరం లేదు. ఖాతాతో టికెట్ ట్రాకింగ్, బిల్లులు మరియు గ్రీన్ పాయింట్లు అందుబాటులోకి వస్తాయి.',
     '5 residential wards': '5 రెసిడెన్షియల్ వార్డులు',
     'covered': 'కవర్ చేయబడ్డాయి',

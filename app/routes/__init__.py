@@ -373,8 +373,8 @@ def _record_offline_delivery(endpoint, ward=None, has_photo=False, complaint_id=
 
     NOTE: the marker is a self-reported analytics counter, NOT a trust
     boundary — any client can forge it. That's fine here: it only feeds the
-    admin delivery-health dashboard, grants no access, and the endpoints it
-    guards (/report, /report-illegal) are already login/rate-limited.
+    admin delivery-health dashboard, grants no access, and    the endpoints it
+    guards (/report, /report-illegal) are already rate-limited.
     """
     if request.headers.get('X-Offline-Replay') != '1':
         return
