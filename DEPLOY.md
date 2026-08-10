@@ -138,8 +138,17 @@ curl https://your-app.fly.dev/api/analytics-data
 ## 8. SEO & Analytics Go-Live Checklist
 
 Run this after every deploy that touches routing, robots.txt, or analytics.
-The Stackra audit caught the live site serving an OLD robots.txt that blocked
-all crawlers (`Disallow: /`) — verify each time, not just once.
+NOTE — the recurring "old robots.txt" audit finding is now fully diagnosed:
+Render's platform edge intermittently serves a DEFAULT blocking robots.txt
+(`User-agent: *` + `Disallow: /`) for *.onrender.com platform domains. It is
+NOT a code regression — the app's route always serves the open file (CI-
+enforced by `test_robots_txt_never_blocks_crawlers`), and no commit in this
+repo's history ever produced a sitewide `Disallow: /`. Proof: the exact path
+`/robots.txt` returns the edge default while `/robots.txt?cb=<ts>` and
+no-cache requests return the app's open file (the edge response also carries
+none of the app's headers — no `Cache-Control`, no CSP). The reliable fix is a
+CUSTOM DOMAIN (see §8.2.1) — the platform default applies to *.onrender.com
+subdomains, so the scan should be pointed at the custom domain.
 
 ### 8.1 Deploy to Render
 
@@ -155,28 +164,52 @@ all crawlers (`Disallow: /`) — verify each time, not just once.
 
 ### 8.2 Verify robots.txt & sitemap.xml on the live domain
 
+**Important:** because Render's edge may serve its default blocking robots.txt
+for the exact path `/robots.txt` on the *.onrender.com platform domain, ALWAYS
+verify with a cache-busting query string (which reaches the app directly):
+
 ```bash
-curl -s https://smartgarbage.onrender.com/robots.txt
-curl -s https://smartgarbage.onrender.com/sitemap.xml
+curl -s "https://smartgarbage.onrender.com/robots.txt?cb=$(date +%s)"
+curl -sI https://smartgarbage.onrender.com/sitemap.xml
 ```
 
-**robots.txt must:**
-- Contain `Allow: /` and **no** `Disallow: /` line (that was the audit's
-  #1 visibility blocker).
+**robots.txt must (check the cache-busted response):**
+- Contain `Allow: /` and **no** sitewide `Disallow: /` line — the audit's
+  #1 visibility blocker.
 - Have explicit AI-bot groups — `GPTBot`, `OAI-SearchBot`, `ClaudeBot`,
   `Google-Extended`, `PerplexityBot` — each `Allow: /` plus the four
   private-path disallows (`/admin`, `/api/`, `/worker`, `/dashboard`).
 - End with `Sitemap: https://smartgarbage.onrender.com/sitemap.xml`.
-- Send `Cache-Control: no-store` — both `robots.txt` and `sitemap.xml`
-  do now, so a CDN/proxy can never replay a stale blocking version (that
-  is exactly what the audit caught: the live site served an OLD robots.txt
-  with `Disallow: /` while the code was already fixed). If you ever change
-  these routes, keep the no-store header and the `test_robots_txt_never_
-  blocks_crawlers` / `test_sitemap_lists_all_public_pages` tests green.
+- Send `Cache-Control: no-store` (both `robots.txt` and `sitemap.xml` do;
+  keep the header and the `test_robots_txt_never_blocks_crawlers` /
+  `test_sitemap_lists_all_public_pages` tests green if these routes change).
+
+If the **plain** `/robots.txt` (no query string) returns only
+`User-agent: *` + `Disallow: /` with none of the app's headers, that is
+Render's edge default, NOT a code bug — proceed to §8.2.1.
 
 **sitemap.xml must** return `200` with `application/xml` and list `/`,
 `/schedule`, `/report`, `/transparency`, `/register`, `/register/picker`,
 `/privacy`.
+
+### 8.2.1 The robots.txt edge-default problem → use a custom domain
+
+Render's platform edge intermittently serves a default blocking robots.txt
+for `*.onrender.com` subdomains, and the app cannot change that (the request
+never reaches gunicorn — the response carries none of the app's headers).
+The reliable fix is a custom domain:
+
+1. Register a domain (e.g. `smartgarbage-chintalavalasa.in`).
+2. Render Dashboard → the service → **Settings → Custom Domains → Add
+   Domain**, then add the DNS records Render provides (CNAME/ALIAS to
+   `smartgarbage.onrender.com`). Render provisions the SSL certificate.
+3. Verify the app's own robots.txt is served on the custom domain:
+   ```bash
+   curl -s "https://YOURDOMAIN/robots.txt?cb=$(date +%s)"   # must contain Allow: /
+   curl -sI https://YOURDOMAIN/robots.txt                    # must show Cache-Control: no-store
+   ```
+4. Point the Stackra scan, Search Console property and sitemap at the
+   custom domain from then on.
 
 ### 8.3 Enable privacy-first analytics (optional)
 
