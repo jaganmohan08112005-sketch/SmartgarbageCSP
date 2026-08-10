@@ -1,0 +1,2 @@
+# Force LF for this template so core.autocrlf=true cannot flag it dirty on any machine.
+app/templates/admin.html text eol=lf
