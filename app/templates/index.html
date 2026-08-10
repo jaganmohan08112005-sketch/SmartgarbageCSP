@@ -83,15 +83,15 @@
                  badge reads as a guarantee on the green button. -->
             <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
         </div>
-        <div class="mt-2 d-flex flex-wrap justify-content-center align-items-center gap-2 small">
-            <a href="/report" class="sg-hero-secondary-link fw-semibold">⚠️ {{ _('Report Missed Pickup') }}</a>
-            <span class="text-muted">· ✅ {{ _('No login needed') }}</span>
+        <!-- Missed-pickup path: a clearly visible but visually secondary
+             outline button beneath the dominant schedule CTA — urgent
+             residents see exactly where to go without the two actions
+             competing (Stackra: "give missed-pickup reporting a clearer
+             path" while keeping schedule the primary first step). -->
+        <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
+            <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill px-3">⚠️ {{ _('Report Missed Pickup') }}</a>
+            <span class="small text-muted">✅ {{ _('No login needed') }}</span>
         </div>
-        <!-- Path clarity with in-content links: residents see at a glance what
-             works without login, and search engines get more body-copy anchors. -->
-        <p class="mt-3 mb-0 small text-muted">
-            {{ _('No login needed to') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('explore schedules') }}</a> {{ _('or') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a report') }}</a>. {{ _('An account') }} <a href="/register" class="text-decoration-underline text-success fw-semibold">{{ _('unlocks ticket tracking, bills and Green Points') }}</a>.
-        </p>
         <!-- Decision-zone trust strip: the strongest official-service cues sit
              directly under the action buttons — department identity, grievance
              hotline, the Gram Panchayat office address and certifications — so
