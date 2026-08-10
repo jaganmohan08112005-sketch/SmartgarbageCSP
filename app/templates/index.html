@@ -81,7 +81,7 @@
             <!-- Value proposition lives INSIDE the primary button (Stackra:
                  "add benefits like free or save to boost clicks") — the white
                  badge reads as a guarantee on the green button. -->
-            <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
+            <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
         </div>
         <div class="mt-2 d-flex flex-wrap justify-content-center align-items-center gap-2 small">
             <a href="/report" class="sg-hero-secondary-link fw-semibold">⚠️ {{ _('Report Missed Pickup') }}</a>
@@ -105,11 +105,9 @@
                 <span>📍 {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</span>
             </div>
             <div class="d-flex flex-wrap justify-content-center gap-2 mt-2 align-items-center small">
-                <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
-                <span aria-hidden="true">·</span>
-                <span>✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
-                <span class="d-none d-md-inline" aria-hidden="true">·</span>
-                <a href="/privacy" class="sg-hero-trust-link">🔒 {{ _('Read the full privacy notice') }}</a>
+                <span class="sg-trust-pill">✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
+                <span class="sg-trust-pill">✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
+                <a href="/privacy" class="sg-trust-pill sg-hero-trust-link">🔒 {{ _('Read the full privacy notice') }}</a>
             </div>
         </div>
         <!-- Service proof shown early (Stackra: "show service results earlier so
@@ -164,8 +162,11 @@
             </div>
             <p class="text-muted small mb-3">{{ _('Report issues, track tickets, pay bills and earn Green Points — built for residents.') }}</p>
             <div class="d-grid gap-2">
-                <a href="/report" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">⚠️ {{ _('Report an Issue') }}</a>
-                <a href="/schedule" class="btn btn-outline-success w-100 rounded-pill">📅 {{ _('Check Schedule') }}</a>
+                <!-- One dominant resident path in the citizen card, matching
+                     the hero: schedule lookup is the solid primary; reporting
+                     and account entry stay as quieter outline actions. -->
+                <a href="/schedule" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">📅 {{ _('Check Schedule') }}</a>
+                <a href="/report" class="btn btn-outline-success w-100 rounded-pill">⚠️ {{ _('Report an Issue') }}</a>
                 <a href="/register" class="btn btn-outline-success w-100 rounded-pill">{{ _('Enter Citizen Portal') }}</a>
             </div>
         </div>
