@@ -1180,7 +1180,12 @@ def test_tracking_token_roundtrip_and_tamper(app):
         token = make_complaint_token(42)
         assert verify_complaint_token(token) == 42
         # Flipping a character breaks the signature → None, not an exception.
-        tampered = token[:-1] + ('A' if token[-1] != 'A' else 'B')
+        # NOTE: tamper the SECOND-to-last character, not the last one — the
+        # final base64 char carries only padding bits (itsdangerous compares
+        # DECODED bytes), so e.g. flipping a trailing 'A' to 'B' can produce
+        # byte-identical signatures and the token still verifies. Any other
+        # position carries full bits and always breaks the signature.
+        tampered = token[:-2] + ('A' if token[-2] != 'A' else 'B') + token[-1]
         assert verify_complaint_token(tampered) is None
         assert verify_complaint_token('not-a-real-token') is None
         assert verify_complaint_token('') is None
