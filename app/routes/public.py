@@ -1,5 +1,6 @@
 import hashlib
 import os
+import time
 import requests
 
 from datetime import datetime, timezone
@@ -16,6 +17,33 @@ from .. import db, limiter
 from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _redis_client,
                _ward_sla_hours, cache_get, cache_set, get_wmo_phrase, logger, main,
                verify_complaint_token)
+
+
+# impact_stats (wards / smart-bins / resolved complaints on the hero card)
+# has the same flaw the weather block once had: without REDIS_URL, cache_get
+# and cache_set are silent no-ops, so the two COUNT queries below ran on
+# EVERY homepage render — and against the Supabase pooler each pair costs
+# ~1.5–3s, the homepage TTFB bottleneck (all other pages: ~0.5s). A tiny
+# in-process TTL cache (10 minutes, matching the Redis TTL) collapses that
+# to one query batch per window per worker. Each gunicorn worker keeps its
+# own copy; freshness to within one window is fine for hero-card numbers.
+_impact_stats_cache = {'at': 0.0, 'value': None}
+
+
+def _homepage_impact():
+    cached = _impact_stats_cache
+    if time.monotonic() - cached['at'] < 600 and cached['value'] is not None:
+        return cached['value']
+    impact = {'wards': len(WARD_COORDINATES), 'bins': 0, 'resolved': 0}
+    try:
+        impact['bins'] = SmartBin.query.count()
+        impact['resolved'] = Complaint.query.filter_by(status='Resolved').count()
+        cache_set('impact_stats', impact, ttl_seconds=600)
+        cached['at'] = time.monotonic()
+        cached['value'] = impact
+    except Exception as e:
+        logger.error("impact_stats_error", error=str(e))
+    return impact
 
 
 @main.route('/')
@@ -70,17 +98,14 @@ def home():
         return jsonify({"error": "Weather API unavailable"}), 500
     # Community-impact figures for the homepage card: wards from the coverage
     # map (static), smart-bin and resolved-complaint counts from the DB.
-    # Cached for 10 minutes like the weather block; a DB outage must never
-    # take down the homepage, so failures fall back to the ward count only.
+    # Cached for 10 minutes like the weather block — Redis when configured,
+    # otherwise the in-process _homepage_impact() TTL cache (without a
+    # broker these COUNT queries were the homepage's multi-second TTFB
+    # bottleneck). A DB outage must never take down the homepage, so
+    # failures fall back to the ward count only.
     impact = cache_get('impact_stats')
     if impact is None:
-        impact = {'wards': len(WARD_COORDINATES), 'bins': 0, 'resolved': 0}
-        try:
-            impact['bins'] = SmartBin.query.count()
-            impact['resolved'] = Complaint.query.filter_by(status='Resolved').count()
-            cache_set('impact_stats', impact, ttl_seconds=600)
-        except Exception as e:
-            logger.error("impact_stats_error", error=str(e))
+        impact = _homepage_impact()
     return render_template('index.html', impact=impact)
 
 

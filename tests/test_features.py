@@ -1111,6 +1111,46 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
     assert _json.loads(r2.data) == body1
 
 
+# ── Homepage impact stats are cached (COUNT queries once per window) ──
+def test_home_impact_stats_cached_within_ttl(client, app, monkeypatch):
+    """The hero card's ward/bin/resolved counts must not hit the DB on every
+    render. Without Redis the previous code ran two COUNT queries per
+    homepage request — ~1.5–3s against the Supabase pooler, the homepage
+    TTFB bottleneck. The in-process TTL cache collapses them into one batch
+    per 10-minute window."""
+    import app.routes.public as public
+    import time as _time
+    calls = {'n': 0}
+
+    class _FakeQuery:
+        def count(self):
+            calls['n'] += 1
+            return 17
+
+        def filter_by(self, **kwargs):
+            return self
+
+    monkeypatch.setattr(public.SmartBin, 'query', _FakeQuery())
+    monkeypatch.setattr(public.Complaint, 'query', _FakeQuery())
+    monkeypatch.setattr(public, 'cache_get', lambda key: None)
+    monkeypatch.setattr(public, 'cache_set', lambda *a, **k: None)
+    public._impact_stats_cache = {'at': 0.0, 'value': None}
+
+    r1 = client.get('/')
+    assert r1.status_code == 200
+    assert calls['n'] == 2, f"cold cache → 2 COUNTs, got {calls['n']}"
+    assert b'17' in r1.data  # resolved count renders on the hero card
+
+    r2 = client.get('/')
+    assert r2.status_code == 200
+    assert calls['n'] == 2, f"warm cache → no re-query, got {calls['n']}"
+
+    # Age the cache past the TTL → next render must re-query once.
+    public._impact_stats_cache['at'] = _time.monotonic() - 601
+    client.get('/')
+    assert calls['n'] == 4, f"expired cache → 2 more COUNTs, got {calls['n']}"
+
+
 # ── Complaint resolution pushes a notification to citizen ──
 def test_resolve_sends_status_sms_and_whatsapp_prefix(client, app, monkeypatch):
     """Resolving a complaint triggers the out-of-band status alert helper:
