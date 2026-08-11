@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime, timezone
 import structlog
-from flask import Flask, render_template, session, redirect, url_for, request
+from flask import Flask, jsonify, render_template, session, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
