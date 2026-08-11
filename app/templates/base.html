@@ -19,7 +19,7 @@
     <!-- 1200x630 OG image (the size social platforms render) replaces the app
          icon so share cards look like a designed civic card, not a favicon.
          Explicit width/height let crawlers render the card without fetching. -->
-    <meta property="og:image" content="{{ url_for('static', filename='og-image.png', _external=True) }}">
+    <meta property="og:image" content="{{ url_for('static', filename='og-image.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary">
@@ -30,14 +30,14 @@
          on the *.onrender.com subdomain. No token ships while unset. -->
     <meta name="google-site-verification" content="{{ config['GOOGLE_SITE_VERIFICATION'] }}">
     {% endif %}
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-192.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f5132">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,13 +56,13 @@
          vendor file in sync with style.css, whose overrides target Bootstrap
          5.3.0 class names — a vendor bump without re-checking them will
          silently break the custom theming. -->
-    <link href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" rel="stylesheet">
     <!-- Font Awesome is decorative (icon glyphs) — load it without blocking
          first paint; icons pop in a moment later. Fallback via <noscript>. -->
     <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"></noscript>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="{{ url_for('static', filename='js/offline.js') }}" defer></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
+    <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
 
     <!-- Structured data: identifies the operating public body so search
          engines and AI tools can treat this as an official municipal service. -->
@@ -133,7 +133,7 @@
         "name": "SmartGarbage Chintalavalasa",
         "alternateName": "Directorate of Waste Management & Sanitation, Chintalavalasa",
         "url": "{{ request.url_root.rstrip('/') }}",
-        "logo": "{{ url_for('static', filename='icon-192.png', _external=True) }}",
+        "logo": "{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}",
         "description": "Official municipal waste-management service operated by the Chintalavalasa Gram Panchayat: collection schedules, missed-pickup and overflow reporting, ward dashboards and Pay-As-You-Throw billing.",
         "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India"
     }
@@ -321,7 +321,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const toggler = document.querySelector(".navbar-toggler");

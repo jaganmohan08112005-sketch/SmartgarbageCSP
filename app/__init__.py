@@ -367,6 +367,25 @@ def create_app(test_config=None):
             resp.last_modified = app.config['DEPLOY_TIMESTAMP']
         return resp
 
+    # Long-lived caching for static assets (render-blocking CSS is the LCP
+    # bottleneck: without a Cache-Control header Flask sends no-cache, so
+    # Cloudflare marks every /static/* response DYNAMIC and each page load
+    # re-downloads bootstrap.min.css + style.css from Render with a multi-
+    # second TTFB. Static files are immutable because every template reference
+    # carries ?v=<deploy_ts> (see templates) — a deploy changes the URL, so a
+    # year-long max-age is safe and never serves stale CSS. sw.js and
+    # manifest.json are served from custom routes, NOT /static/, so they keep
+    # their default no-cache behavior (a service worker must never be
+    # long-cached — browsers need to fetch it fresh to pick up updates).
+    # /static/uploads/* is user-generated (complaint photos, receipts) and
+    # can be replaced — it must keep no-cache so new uploads are never
+    # shadowed by a year-old cached copy.
+    @app.after_request
+    def cache_static_assets(resp):
+        if request.path.startswith('/static/') and not request.path.startswith('/static/uploads/'):
+            resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return resp
+
     @app.route(IOT_TELEMETRY_PATH, methods=['OPTIONS'])
     def iot_telemetry_preflight():
         # CORS preflight responder for cross-origin sensor POSTs.

@@ -19,6 +19,26 @@ class TestAssetLinkage:
         assert client.get("/manifest.json").status_code == 200
         assert client.get("/sw.js").status_code == 200
 
+    def test_static_assets_are_long_cached(self, client):
+        """Render-blocking /static assets must be immutable-cached so
+        Cloudflare/browsers stop re-fetching bootstrap.css from Render on
+        every page load (the LCP bottleneck). Versioned ?v= URLs bust the
+        cache on deploy."""
+        for path in ("/static/style.css", "/static/vendor/bootstrap.min.css"):
+            r = client.get(path)
+            assert r.status_code == 200
+            cc = r.headers.get("Cache-Control") or ""
+            assert "max-age=31536000" in cc, f"{path} not long-cached: {cc}"
+            assert "immutable" in cc, f"{path} missing immutable: {cc}"
+
+    def test_static_uploads_never_long_cached(self, client):
+        """User-generated uploads (complaint photos, receipts) can be replaced
+        in place — they must stay no-cache so a year-old cached copy never
+        shadows a new upload."""
+        r = client.get("/static/uploads/does_not_exist.jpg")
+        cc = r.headers.get("Cache-Control") or ""
+        assert "max-age=31536000" not in cc, f"uploads long-cached: {cc}"
+
     def test_base_template_renders_without_jinja_error(self, client):
         r = client.get("/")
         assert r.status_code == 200
