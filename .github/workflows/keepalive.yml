@@ -1,0 +1,44 @@
+name: Keepalive
+
+# Free keep-alive for smartgarbage.onrender.com.
+#
+# Render free web services sleep after ~15 min of idle traffic and Supabase
+# free pauses after 7 days of no database activity. This workflow pings the
+# /health endpoint (which runs `SELECT 1` against the database) every 5
+# minutes, so:
+#   - the Render instance stays warm -> no cold-start LCP noise in scans
+#   - Supabase sees constant DB activity -> never enters the 7-day pause
+#
+# GitHub Actions on a *public* repo is unlimited and free, so this costs
+# nothing and needs no accounts, emails, or secrets. GitHub's scheduler is
+# best-effort (runs can occasionally be a few minutes late) — still far
+# inside both thresholds above.
+#
+# No checkout or secrets: the job only needs an HTTP client.
+
+on:
+  schedule:
+    # Every 5 minutes (GitHub Actions' minimum interval).
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        run: |
+          # -f      fail on HTTP errors, -s silent, -S show errors
+          # --retry absorbs transient cold-start timeouts on wake-up
+          # Exit 0 either way: this is a keep-alive, not a monitoring alert —
+          # a down moment here just means one fewer ping, never a red run.
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' \
+              --max-time 45 \
+              "https://smartgarbage.onrender.com/health" \
+            ) && break
+            echo "attempt $attempt failed, retrying..."
+            sleep 10
+          done
+          echo "health endpoint status: ${code:-unreachable}"
+          exit 0
