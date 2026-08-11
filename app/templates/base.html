@@ -479,7 +479,12 @@
     {% endif %}
 
     {% if config.get('ANALYTICS_ID') %}
-    <div id="sgConsentBanner" class="sg-consent-banner d-none" role="region" aria-label="{{ _('Privacy settings') }}">
+    <!-- Consent banner rendered VISIBLE in the raw HTML (no d-none gate) so
+         the consent signal is part of the page for residents AND for
+         non-JS crawlers/auditors — same principle as the essential-cookies
+         notice above. JavaScript hides it once the citizen has made a
+         choice (localStorage), so JS users never see it twice. -->
+    <div id="sgConsentBanner" class="sg-consent-banner" role="region" aria-label="{{ _('Privacy settings') }}">
         <div class="sg-consent-text">
             🍪 {{ _('We use anonymous analytics to improve this public service. No personal data is collected without your consent.') }}
             <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
@@ -550,8 +555,10 @@
             }
         }
         document.addEventListener('DOMContentLoaded', () => {
-            if (!localStorage.getItem('sgAnalyticsConsent')) {
-                document.getElementById('sgConsentBanner')?.classList.remove('d-none');
+            if (localStorage.getItem('sgAnalyticsConsent')) {
+                // Returning visitor already chose: hide the banner (JS only —
+                // non-JS crawlers still see the consent notice in the HTML).
+                document.getElementById('sgConsentBanner')?.classList.add('d-none');
             } else if (sgConsent === 'accepted' && !window.__sgAnalyticsConfigured) {
                 // Returning visitor already accepted: fire the pageview on every
                 // load (the head script only declared consent, never configured).
