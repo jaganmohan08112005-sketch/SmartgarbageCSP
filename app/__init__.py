@@ -12,6 +12,7 @@ from flask_socketio import SocketIO
 from flask_mailman import Mail
 from flask_login import LoginManager
 from flask_talisman import Talisman
+from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import OperationalError
 
@@ -138,6 +139,26 @@ def create_app(test_config=None):
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+
+    # Flask appends `Vary: Cookie` to EVERY response whenever the session is
+    # merely READ — and Flask-Login reads it on every request, so every
+    # response (including static files) carries it. Cloudflare refuses to
+    # cache anything with Vary: Cookie (cf-cache-status: DYNAMIC), which is
+    # the real reason the render-blocking bootstrap.css re-fetched from
+    # Render on every page load — the LCP bottleneck. Immutable, ?v=-versioned
+    # static assets are byte-identical for every visitor, so that Vary is a
+    # lie for them. It must be discarded in save_session() (via this
+    # interface override), which runs AFTER every after_request hook — the
+    # only point where Flask has already added the header. Other Vary values
+    # (e.g. Accept-Encoding) are left untouched.
+    class _StaticNoVarySessionInterface(SecureCookieSessionInterface):
+        def save_session(self, app, session, response):
+            super().save_session(app, session, response)
+            path = request.path
+            if path.startswith('/static/') and not path.startswith('/static/uploads/'):
+                response.vary.discard('Cookie')
+
+    app.session_interface = _StaticNoVarySessionInterface()
 
     # Deploy timestamp shared with routes/templates (see module constant above).
     app.config['DEPLOY_TIMESTAMP'] = DEPLOY_TIMESTAMP

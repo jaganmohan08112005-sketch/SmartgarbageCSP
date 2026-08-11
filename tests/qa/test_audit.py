@@ -30,6 +30,12 @@ class TestAssetLinkage:
             cc = r.headers.get("Cache-Control") or ""
             assert "max-age=31536000" in cc, f"{path} not long-cached: {cc}"
             assert "immutable" in cc, f"{path} missing immutable: {cc}"
+            # Flask-Login makes Flask add Vary: Cookie to every response,
+            # which makes Cloudflare refuse to cache (DYNAMIC) — the exact
+            # LCP bottleneck this fix targets. Static assets are identical
+            # for every visitor, so the Vary must be stripped.
+            assert "cookie" not in (r.headers.get("Vary") or "").lower(), \
+                f"{path} still varies by cookie: {r.headers.get('Vary')}"
 
     def test_static_uploads_never_long_cached(self, client):
         """User-generated uploads (complaint photos, receipts) can be replaced
