@@ -535,6 +535,22 @@
             if (form.getAttribute('action') === '/report') sgTrack('report_submit');
             if (form.getAttribute('action') === '/schedule') sgTrack('schedule_lookup');
         });
+        // Funnel exit signal: the browser blocked a report submission on
+        // validation (missing ward / address / description). Fired once per
+        // attempt (500ms guard) — native validation never dispatches 'submit'
+        // for an invalid form, so 'invalid' is the reliable hook. Consent-gated
+        // via sgTrack; no field values are ever sent.
+        let lastReportValidationError = 0;
+        document.addEventListener('invalid', (e) => {
+            const form = e.target.closest('form');
+            if (form && form.getAttribute('action') === '/report') {
+                const now = Date.now();
+                if (now - lastReportValidationError > 500) {
+                    lastReportValidationError = now;
+                    sgTrack('report_validation_error');
+                }
+            }
+        }, true);
 
         // ── Anonymized consent record (GDPR/DPDP evidence) ──
         // Each banner choice is logged server-side so the Gram Panchayat can
