@@ -24,6 +24,13 @@
                     🔍 {{ _('View Ward Schedule') }}
                 </button>
             </form>
+            <!-- Contextual link: the audit flagged missing body links to the
+                 reporting path — a resident checking a timetable who sees a
+                 missed collection should find the report flow here, not hunt
+                 for it in the menu. -->
+            <p class="small text-muted mt-3 mb-0 text-center">⚠️ {{ _('Missed your pickup?') }}
+                <a href="/report" class="fw-semibold text-decoration-underline text-success">{{ _('report a missed pickup') }}</a>
+            </p>
         </div>
     </div>
 

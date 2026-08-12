@@ -205,6 +205,7 @@ EN = {
     # ── Growth report quick wins: hero CTAs, trust cues, contextual links, footer ──
     "Check Today's Pickup Schedule": "Check Today's Pickup Schedule",
     'Report Missed Pickup': 'Report Missed Pickup',
+    'Missed your pickup?': 'Missed your pickup?',
     'Official service of the Directorate of Waste Management & Sanitation': 'Official service of the Directorate of Waste Management & Sanitation',
     'Submit Report to the Panchayat': 'Submit Report to the Panchayat',
     'Popular services:': 'Popular services:',
@@ -703,6 +704,7 @@ TE = {
     # ── Growth report quick wins: hero CTAs, trust cues, contextual links, footer ──
     "Check Today's Pickup Schedule": 'ఈరోజు పికప్ షెడ్యూల్ చూడండి',
     'Report Missed Pickup': 'మిస్ అయిన పికప్ నివేదించండి',
+    'Missed your pickup?': 'మీ పికప్ మిస్ అయిందా?',
     'Official service of the Directorate of Waste Management & Sanitation': 'వ్యర్థ నిర్వహణ & పారిశుధ్య శాఖ యొక్క అధికారిక సేవ',
     'Submit Report to the Panchayat': 'పంచాయతీకి నివేదిక సమర్పించండి',
     'Popular services:': 'ప్రసిద్ధ సేవలు:',
