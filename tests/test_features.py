@@ -1095,6 +1095,11 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
         return _FakeResp()
 
     cache_store = {}
+    # Reset the module-level SWR layers so the first request is a true cold
+    # miss regardless of what other tests populated (same reset pattern the
+    # ml_model weather tests use for their module cache).
+    public._weather_swr.clear()
+    public._weather_refreshing.clear()
     monkeypatch.setattr(public.requests, 'get', fake_get)
     monkeypatch.setattr(public, 'cache_get', lambda key: cache_store.get(key))
     monkeypatch.setattr(public, 'cache_set', lambda key, value, ttl_seconds=60: cache_store.update({key: value}))

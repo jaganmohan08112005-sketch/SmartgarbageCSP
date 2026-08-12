@@ -1,5 +1,6 @@
 import hashlib
 import os
+import threading
 import time
 import requests
 
@@ -28,6 +29,58 @@ from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _redis_client,
 # to one query batch per window per worker. Each gunicorn worker keeps its
 # own copy; freshness to within one window is fine for hero-card numbers.
 _impact_stats_cache = {'at': 0.0, 'value': None}
+
+# Weather widget stale-while-revalidate cache (in-process). cache_get/cache_set
+# are Redis-only no-ops without REDIS_URL, so on the free plan EVERY weather
+# request previously blocked on a synchronous open-meteo call (~1.6s per load
+# — the slowest resource on the homepage). This layer serves the last known
+# payload instantly and refreshes open-meteo in the background, so the widget
+# never waits on the upstream API and a slow/down provider can't stall it.
+_weather_swr = {}           # cache_key -> {'at': monotonic ts, 'value': payload}
+_weather_refreshing = set() # keys with a background refresh already in flight
+_WEATHER_TTL_S = 600        # must match the Redis TTL used in _weather_store
+_WEATHER_SWR_MAX = 64       # bound the dict (GPS lat/lon keys vary per visitor)
+
+
+def _weather_fetch(lat, lon, city_label):
+    """One synchronous open-meteo call -> widget payload dict (or None)."""
+    try:
+        api_url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}"
+                   f"&longitude={lon}&current=temperature_2m,relative_humidity_2m,"
+                   f"weather_code,wind_speed_10m&wind_speed_unit=kmh")
+        response = requests.get(api_url, timeout=5)
+        if response.status_code == 200:
+            wd = response.json().get('current', {})
+            return {
+                "city": city_label,
+                "temp": f"{round(wd.get('temperature_2m'))}°C",
+                "humidity": f"{wd.get('relative_humidity_2m')}%",
+                "wind": f"{wd.get('wind_speed_10m')} km/h",
+                "condition": get_wmo_phrase(wd.get('weather_code', 0))
+            }
+    except Exception as e:
+        logger.error("weather_api_error", error=str(e))
+    return None
+
+
+def _weather_store(cache_key, payload):
+    """Store a fresh payload in both cache layers (Redis when present + SWR)."""
+    cache_set(cache_key, payload, ttl_seconds=_WEATHER_TTL_S)
+    if len(_weather_swr) >= _WEATHER_SWR_MAX:
+        _weather_swr.pop(next(iter(_weather_swr)))
+    _weather_swr[cache_key] = {'at': time.monotonic(), 'value': payload}
+
+
+def _weather_refresh(cache_key, lat, lon, city_label):
+    """Background open-meteo refresh; a failed fetch keeps the stale entry
+    serving (last-known weather beats an error). The in-flight set dedupes
+    concurrent refreshes so a spike of visitors can't hammer open-meteo."""
+    try:
+        payload = _weather_fetch(lat, lon, city_label)
+        if payload is not None:
+            _weather_store(cache_key, payload)
+    finally:
+        _weather_refreshing.discard(cache_key)
 
 
 def _homepage_impact():
@@ -63,10 +116,10 @@ def home():
             target_lat = DEFAULT_LAT
             target_lon = DEFAULT_LON
             city_label = "Chintalavalasa"
-        # Cache per-location weather for 10 minutes (Redis when configured;
-        # cache_get/set are silent no-ops without a broker). The landing page
-        # previously hit open-meteo synchronously on EVERY render — a slow or
-        # down API stalled the whole homepage for up to 5s.
+        # Stale-while-revalidate: the Redis cache is checked first (survives
+        # restarts when a broker is configured); the in-process layer serves
+        # the last known payload instantly even without Redis and refreshes
+        # open-meteo in the background — a stale answer beats a ~1.6s wait.
         #
         # NOTE: city_label varies by request mode ("My Location" for lat/lon
         # args, the ward name for ?ward=, "Chintalavalasa" for defaults) and
@@ -76,26 +129,25 @@ def home():
         cache_key = f"weather:{city_label}:{target_lat}:{target_lon}"
         cached = cache_get(cache_key)
         if cached:
+            _weather_swr[cache_key] = {'at': time.monotonic(), 'value': cached}
             return jsonify(cached)
-        try:
-            api_url = (f"https://api.open-meteo.com/v1/forecast?latitude={target_lat}"
-                       f"&longitude={target_lon}&current=temperature_2m,relative_humidity_2m,"
-                       f"weather_code,wind_speed_10m&wind_speed_unit=kmh")
-            response = requests.get(api_url, timeout=5)
-            if response.status_code == 200:
-                wd = response.json().get('current', {})
-                payload = {
-                    "city": city_label,
-                    "temp": f"{round(wd.get('temperature_2m'))}°C",
-                    "humidity": f"{wd.get('relative_humidity_2m')}%",
-                    "wind": f"{wd.get('wind_speed_10m')} km/h",
-                    "condition": get_wmo_phrase(wd.get('weather_code', 0))
-                }
-                cache_set(cache_key, payload, ttl_seconds=600)
-                return jsonify(payload)
-        except Exception as e:
-            logger.error("weather_api_error", error=str(e))
-        return jsonify({"error": "Weather API unavailable"}), 500
+        entry = _weather_swr.get(cache_key)
+        if entry:
+            payload = entry['value']
+            if (time.monotonic() - entry['at'] >= _WEATHER_TTL_S
+                    and cache_key not in _weather_refreshing):
+                # Stale: answer now, refresh open-meteo in the background.
+                _weather_refreshing.add(cache_key)
+                threading.Thread(target=_weather_refresh,
+                                 args=(cache_key, target_lat, target_lon, city_label),
+                                 daemon=True).start()
+            return jsonify(payload)
+        # Cache miss (first request for this location): fetch synchronously.
+        payload = _weather_fetch(target_lat, target_lon, city_label)
+        if payload is None:
+            return jsonify({"error": "Weather API unavailable"}), 500
+        _weather_store(cache_key, payload)
+        return jsonify(payload)
     # Community-impact figures for the homepage card: wards from the coverage
     # map (static), smart-bin and resolved-complaint counts from the DB.
     # Cached for 10 minutes like the weather block — Redis when configured,
