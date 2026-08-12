@@ -516,6 +516,10 @@
             'report_start': 'a[href="/report"]',
             'hotline_click': 'a[href^="tel:"]',
             'language_switch': 'a[data-lang]',
+            // Ordered before the generic login selector so the more specific
+            // staff entry wins the first-match loop — separates resident vs
+            // staff behavior in GA4 (audit: "distinguish audiences").
+            'staff_login_click': 'a[data-staff-login]',
             'login_start': 'a[href="/login"]',
             'signup_start': 'a[href="/register"]',
         };

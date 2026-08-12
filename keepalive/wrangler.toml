@@ -1,0 +1,16 @@
+# Cloudflare Worker keep-alive — see worker.js for rationale.
+#
+# Deploy from this directory:
+#   npx wrangler deploy
+# (first run: `npx wrangler login`, free account — the same one used for the
+# custom-domain zone).
+#
+# Free plan: 3 cron triggers allowed, minimum 1-minute interval, 100k
+# requests/day. This fires 288x/day — well inside the limits.
+
+name = "sg-keepalive"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
