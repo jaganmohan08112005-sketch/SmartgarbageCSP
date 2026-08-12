@@ -16,6 +16,7 @@ graph TD
     B --> J[External APIs]
     
     J --> K[Open-Meteo Weather]
+    J --> K2[wttr.in Weather - fallback]
     J --> L[Twilio WhatsApp]
     J --> M[Telegram API]
 ```

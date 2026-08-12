@@ -43,12 +43,21 @@ _WEATHER_SWR_MAX = 64       # bound the dict (GPS lat/lon keys vary per visitor)
 
 
 def _weather_fetch(lat, lon, city_label):
-    """One synchronous open-meteo call -> widget payload dict (or None)."""
+    """Try Open-Meteo first; fall back to wttr.in if it fails.
+
+    Open-Meteo occasionally rate-limits Render's shared egress IPs (403/429).
+    wttr.in uses a different JSON schema so its response is normalised into
+    the same widget payload dict.  Each provider gets an independent 4-second
+    timeout so the worst-case synchronous path (cold cache miss) is ~8s, not
+    10s.  A warning-level log fires on primary failure so egress blocks are
+    visible in Sentry without being error-level.
+    """
+    # ── Primary: Open-Meteo ──────────────────────────────────────────
     try:
         api_url = (f"https://api.open-meteo.com/v1/forecast?latitude={lat}"
                    f"&longitude={lon}&current=temperature_2m,relative_humidity_2m,"
                    f"weather_code,wind_speed_10m&wind_speed_unit=kmh")
-        response = requests.get(api_url, timeout=5)
+        response = requests.get(api_url, timeout=4)
         if response.status_code == 200:
             wd = response.json().get('current', {})
             return {
@@ -58,8 +67,28 @@ def _weather_fetch(lat, lon, city_label):
                 "wind": f"{wd.get('wind_speed_10m')} km/h",
                 "condition": get_wmo_phrase(wd.get('weather_code', 0))
             }
+        logger.warning("weather_primary_failed",
+                        provider="open-meteo", status=response.status_code)
     except Exception as e:
-        logger.error("weather_api_error", error=str(e))
+        logger.warning("weather_primary_failed",
+                        provider="open-meteo", error=str(e))
+
+    # ── Fallback: wttr.in ────────────────────────────────────────────
+    try:
+        wttr_url = f"https://wttr.in/{lat},{lon}?format=j1"
+        resp = requests.get(wttr_url, timeout=4)
+        if resp.status_code == 200:
+            cc = resp.json().get('current_condition', [{}])[0]
+            desc = (cc.get('weatherDesc') or [{}])[0].get('value', '')
+            return {
+                "city": city_label,
+                "temp": f"{cc.get('temp_C', '--')}°C",
+                "humidity": f"{cc.get('humidity', '--')}%",
+                "wind": f"{cc.get('windspeedKmph', '--')} km/h",
+                "condition": desc or "Normal Seasonal Conditions"
+            }
+    except Exception as e:
+        logger.error("weather_fallback_error", provider="wttr.in", error=str(e))
     return None
 
 

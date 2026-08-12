@@ -309,6 +309,7 @@ def create_app(test_config=None):
         'frame-src': ["'self'", 'https://checkout.razorpay.com', 'https://api.razorpay.com'],
         'connect-src': [
             "'self'", 'https://*.tile.openstreetmap.org', 'https://api.open-meteo.com',
+            'https://wttr.in',
             'https://api.razorpay.com', 'https://www.google-analytics.com',
             'https://analytics.google.com', 'https://stats.g.doubleclick.net'
         ]

@@ -144,6 +144,11 @@
                     }
                 }
             });
+            // Funnel step 2 (schedule journey): resident picks a ward. Consent-
+            // gated via sgTrack (base.html); pairs with schedule_lookup on submit.
+            selectEl.addEventListener("change", () => {
+                if (selectEl.value && typeof sgTrack === "function") sgTrack("ward_selected");
+            });
         }
 
         // Auto-select previously submitted ward if any

@@ -14,6 +14,17 @@
             "serviceType": "Solid waste collection schedule lookup",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
+            "serviceArea": {
+                "@type": "AdministrativeArea",
+                "name": "Chintalavalasa Gram Panchayat (5 wards)",
+                "containsPlace": [
+                    { "@type": "Place", "name": "Ward 1 - MVGR College Area" },
+                    { "@type": "Place", "name": "Ward 2 - Chintalavalasa Junction" },
+                    { "@type": "Place", "name": "Ward 3 - RTC Colony" },
+                    { "@type": "Place", "name": "Ward 4 - Ramalayam Street" },
+                    { "@type": "Place", "name": "Ward 5 - Sai Nagar" }
+                ]
+            },
             "url": "{{ url_for('main.schedule', _external=True) }}"
         },
         {
@@ -23,6 +34,17 @@
             "serviceType": "Missed pickup and grievance reporting",
             "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
+            "serviceArea": {
+                "@type": "AdministrativeArea",
+                "name": "Chintalavalasa Gram Panchayat (5 wards)",
+                "containsPlace": [
+                    { "@type": "Place", "name": "Ward 1 - MVGR College Area" },
+                    { "@type": "Place", "name": "Ward 2 - Chintalavalasa Junction" },
+                    { "@type": "Place", "name": "Ward 3 - RTC Colony" },
+                    { "@type": "Place", "name": "Ward 4 - Ramalayam Street" },
+                    { "@type": "Place", "name": "Ward 5 - Sai Nagar" }
+                ]
+            },
             "url": "{{ url_for('main.report', _external=True) }}"
         },
         {
@@ -68,7 +90,7 @@
         <!-- In-sentence contextual links: body links (not just navigation) help
              search engines connect the homepage topic to the service pages. -->
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor localized') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('garbage collection schedules') }}</a>,
+            {{ _('Monitor localized') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('garbage pickup schedules') }}</a>,
             {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('ward-level service status') }}</a>,
             {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a>
             {{ _('across every residential sector in real time.') }}
@@ -95,7 +117,7 @@
         <!-- Outcome-led reassurance under the actions (Stackra: "test a
              supporting line that emphasizes convenience and public service
              value" to balance the problem-focused framing). -->
-        <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily collection, easy schedule lookup and transparent ward service — that\'s what this portal is for.') }}</p>
+        <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily pickup rounds, easy schedule lookup and transparent ward service — that\'s what this portal is for.') }}</p>
         <!-- Decision-zone trust strip: ONE compact row of the strongest
              official-service cues sits directly under the action buttons —
              department identity, grievance hotline and SWM compliance — so
@@ -185,7 +207,7 @@
      homepage and each public-service page. -->
 <div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.08s;">
     <div class="card-body p-4">
-        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Collection schedules, service reports & ward information') }}</h2>
+        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Pickup schedules, service reports & ward information') }}</h2>
         <!-- Paragraph-level links: in-content anchors inside body copy, not just
              list items — the linking pattern search engines weight most heavily. -->
         <p class="small text-muted mb-3">

@@ -70,7 +70,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 7.1 | Processor register published | ✅ | Section 11 covers the actual stack: Supabase (DB + photo storage), Upstash Redis, Razorpay, Render + Cloudflare, Cloudinary, Brevo (email), Twilio, Telegram, Open-Meteo, OpenStreetMap, asset CDNs, consent-gated Google Analytics, Sentry |
+| 7.1 | Processor register published | ✅ | Section 11 covers the actual stack: Supabase (DB + photo storage), Upstash Redis, Razorpay, Render + Cloudflare, Cloudinary, Brevo (email), Twilio, Telegram, Open-Meteo, wttr.in (fallback weather), OpenStreetMap, asset CDNs, consent-gated Google Analytics, Sentry |
 | 7.2 | Processor contracts in place (s.8(2)) | 🟡 | Commitment stated; signed DPAs to be executed by the Panchayat |
 
 ## 8. Data quality & retention (s.8(3), s.8(7))

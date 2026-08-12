@@ -1116,6 +1116,46 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
     assert _json.loads(r2.data) == body1
 
 
+# ── Weather widget falls back to wttr.in when Open-Meteo rejects ──
+def test_weather_fallback_to_wttr_when_openmeteo_fails(client, app, monkeypatch):
+    """When Open-Meteo returns a non-200 (e.g. 403 from Render egress block),
+    the widget must transparently fall back to wttr.in and still return live
+    weather conditions instead of a 500 error."""
+    import app.routes.public as public
+
+    class _OpenMeteo403:
+        status_code = 403
+        def json(self): return {}
+
+    class _WttrOK:
+        status_code = 200
+        def json(self):
+            return {'current_condition': [{
+                'temp_C': '32', 'humidity': '78', 'windspeedKmph': '14',
+                'weatherDesc': [{'value': 'Partly cloudy'}]
+            }]}
+
+    def routing_get(url, timeout=4):
+        if 'open-meteo' in url:
+            return _OpenMeteo403()
+        return _WttrOK()
+
+    public._weather_swr.clear()
+    public._weather_refreshing.clear()
+    monkeypatch.setattr(public.requests, 'get', routing_get)
+    monkeypatch.setattr(public, 'cache_get', lambda key: None)
+    stored = {}
+    monkeypatch.setattr(public, 'cache_set', lambda key, value, ttl_seconds=60: stored.update({key: value}))
+
+    r = client.get('/?fetch_weather=true&lat=18.06&lon=83.41')
+    assert r.status_code == 200
+    body = _json.loads(r.data)
+    assert body['temp'] == '32°C'
+    assert body['humidity'] == '78%'
+    assert body['wind'] == '14 km/h'
+    assert body['condition'] == 'Partly cloudy'
+
+
 # ── Homepage impact stats are cached (COUNT queries once per window) ──
 def test_home_impact_stats_cached_within_ttl(client, app, monkeypatch):
     """The hero card's ward/bin/resolved counts must not hit the DB on every
@@ -4963,7 +5003,7 @@ def test_privacy_policy_dpdp_audit_sections(client):
     # Processor register (s.8(2)) covers the real processors.
     assert 'Data Processors (Register)' in body
     for p in ('Razorpay', 'Render + Cloudflare', 'Twilio', 'Telegram Bot API',
-              'Open-Meteo', 'Google Analytics', 'OpenStreetMap', 'Sentry'):
+              'Open-Meteo', 'wttr.in', 'Google Analytics', 'OpenStreetMap', 'Sentry'):
         assert p in body
     # Security safeguards (s.8(5)) + breach notification (s.8(6)).
     assert 'Security Safeguards' in body

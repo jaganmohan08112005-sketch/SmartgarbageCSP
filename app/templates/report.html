@@ -29,7 +29,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue>
+            <form method="POST" action="/report" enctype="multipart/form-data" data-offline-queue id="reportForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- Step 1: Location & Ward -->
@@ -262,6 +262,18 @@
             if (hint) hint.textContent = '⚠️ {{ _('Voice input not supported on this browser') }}';
         };
         rec.onend = () => mic.classList.remove('listening');
+    })();
+
+    // ── Funnel step 2 (missed-pickup journey): the resident begins filling
+    // the report form. Fires once per page, consent-gated via sgTrack — sits
+    // between the report_start link click and report_submit on submission.
+    (function trackReportFormStart() {
+        const form = document.getElementById('reportForm');
+        if (!form || typeof sgTrack !== 'function') return;
+        let fired = false;
+        const fire = () => { if (!fired) { fired = true; sgTrack('report_form_start'); } };
+        form.addEventListener('input', fire);
+        form.addEventListener('change', fire);
     })();
 </script>
 {% endblock %}
