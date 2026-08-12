@@ -96,37 +96,20 @@
              supporting line that emphasizes convenience and public service
              value" to balance the problem-focused framing). -->
         <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily collection, easy schedule lookup and transparent ward service — that\'s what this portal is for.') }}</p>
-        <!-- Decision-zone trust strip: the strongest official-service cues sit
-             directly under the action buttons — department identity, grievance
-             hotline, the Gram Panchayat office address and certifications — so
-             residents see credibility signals at the moment of decision. -->
+        <!-- Decision-zone trust strip: ONE compact row of the strongest
+             official-service cues sits directly under the action buttons —
+             department identity, grievance hotline and SWM compliance — so
+             residents see credibility at the moment of decision without the
+             first screen reading as a dashboard. The office address (footer),
+             the privacy notice (card below) and the full service figures
+             (Community impact widget) each live in their own place instead of
+             crowding the hero. -->
         <div class="sg-hero-trust-strip mt-4">
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
                 <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>
                 <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a>
-                <span>📍 {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</span>
+                <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
             </div>
-            <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center small">
-                <span class="sg-trust-pill">✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
-                <span class="sg-trust-pill">✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
-                <a href="/privacy" class="sg-trust-pill sg-hero-trust-link">🔒 {{ _('Read the full privacy notice') }}</a>
-            </div>
-        </div>
-        <!-- Service proof shown early (Stackra: "show service results earlier so
-             citizens trust the portal faster"). Zero-value stats are hidden so
-             a fresh database can never display "0 bins / 0 resolved" — the
-             audit explicitly flagged zero figures as confidence-killing. -->
-        <div class="d-flex flex-wrap justify-content-center gap-3 gap-md-4 mt-3 small text-muted">
-            <span>🏘️ <strong class="fw-bold">{{ impact.wards }}</strong> {{ _('wards served') }}</span>
-            {% if impact.bins > 0 %}
-            <span>🗑️ <strong class="fw-bold">{{ impact.bins }}</strong> {{ _('smart bins live') }}</span>
-            {% endif %}
-            {% if impact.resolved > 0 %}
-            <span>✅ <strong class="fw-bold">{{ impact.resolved }}</strong> {{ _('complaints resolved') }}</span>
-            {% endif %}
-            {% if impact.bins == 0 and impact.resolved == 0 %}
-            <span>🟢 {{ _('Live operational tracking active — ward coverage data is published here as service records update') }}</span>
-            {% endif %}
         </div>
     </div>
 </div>

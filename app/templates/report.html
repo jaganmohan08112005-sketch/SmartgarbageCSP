@@ -108,10 +108,25 @@
                     </div>
                 </div>
 
+                <!-- What happens next: an honest walkthrough of the real flow
+                     (control-room alert → tracking link → ward status update),
+                     so residents know their request is not a black hole. Every
+                     step maps to an existing app feature — the success page's
+                     tracking link and the track page's status timeline. -->
+                <div class="rounded-3 bg-light border p-3 mb-3 small">
+                    <div class="fw-bold text-dark mb-1">🔄 {{ _('What happens after you submit') }}</div>
+                    <ol class="mb-0 ps-3 text-muted">
+                        <li>{{ _('The sanitation control room receives your request instantly.') }}</li>
+                        <li>{{ _('You get a tracking link — no login needed — to follow the status.') }}</li>
+                        <li>{{ _('The ward crew updates the request as your collection issue is resolved.') }}</li>
+                    </ol>
+                </div>
+
                 <!-- Submit Button -->
                 <button type="submit" class="btn btn-danger w-100 fw-bold py-2.5 shadow-sm rounded-pill fs-6">
                     🚀 {{ _('Submit Report to Panchayat Sanitation Team') }}
                 </button>
+                <p class="small text-muted text-center mt-2 mb-0">✅ {{ _('Free for residents · No login needed') }}</p>
             </form>
         </div>
 

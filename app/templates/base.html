@@ -41,6 +41,22 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Critical-path preload hints (cold first visit): both start the two
+         above-the-fold fetches before the async preloads below consume the
+         connection, so the render-blocking bootstrap CSS and the hero font
+         begin downloading at the earliest possible byte of the document.
+         The bootstrap preload carries the same ?v= deploy stamp as the
+         stylesheet link so the browser reuses this response for it (one
+         fetch, no double download). The Outfit woff2 is the variable font
+         Google serves for every weight 300-800 (the hero H1 uses 700), so a
+         single file covers the whole family. crossOrigin is REQUIRED on font
+         preloads (fonts are fetched in CORS mode). -->
+    <link rel="preload" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" as="style">
+    <!-- The /v15/ hash below is Google's version stamp and rotates when the
+         Outfit files change: if it 404s after an upstream update the preload
+         degrades silently (the real @font-face still loads), so refresh this
+         URL only when the font visibly fails to appear. -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2" as="font" type="font/woff2" crossorigin>
     <!-- Web font CSS is loaded ASYNCHRONOUSLY (preload + onload swap): the
          Outfit stylesheet lives on Google's edge and can take seconds over a
          cold connection, so it must never gate first paint. Text renders in
@@ -49,13 +65,14 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"></noscript>
 
-    <!-- Bootstrap is self-hosted (same origin, behind Cloudflare) instead of
-         fetched cold from jsdelivr on every visitor's first hit: the CDN hop
-         measured 2.5s uncached and blocked first paint. Render-blocking is
-         fine now because the file comes from our own edge in ~50ms. Keep the
-         vendor file in sync with style.css, whose overrides target Bootstrap
-         5.3.0 class names — a vendor bump without re-checking them will
-         silently break the custom theming. -->
+    <!-- Bootstrap is self-hosted (same origin) instead of fetched cold from
+         jsdelivr on every visitor's first hit: the CDN hop measured 2.5s
+         uncached and blocked first paint. It stays render-blocking (layout
+         correctness — no FOUC/CLS) and the preload hint above starts the
+         fetch at the top of the document. Keep the vendor file in sync with
+         style.css, whose overrides target Bootstrap 5.3.0 class names — a
+         vendor bump without re-checking them will silently break the custom
+         theming. -->
     <link href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" rel="stylesheet">
     <!-- Font Awesome is decorative (icon glyphs) — load it without blocking
          first paint; icons pop in a moment later. Fallback via <noscript>. -->
