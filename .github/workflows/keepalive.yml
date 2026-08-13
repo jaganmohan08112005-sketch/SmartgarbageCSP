@@ -16,9 +16,11 @@ name: Keepalive
 # delays `schedule` events for low-activity repos — this workflow fired
 # ~hourly, not every 5 minutes, so it alone cannot guarantee the instance
 # never sleeps (Render sleeps after ~15 min idle). Treat it as best-effort
-# backup; the reliable 5-minute path is the Cloudflare Worker cron trigger
-# in keepalive/ (free, exact cadence, pairs with the custom-domain zone),
-# with UptimeRobot covering the gap today.
+# backup; the reliable 5-minute path is the Supabase pg_cron + pg_net job
+# in keepalive/supabase_keepalive.sql (free, exact cadence, runs inside
+# the Supabase Postgres the app already uses), with UptimeRobot covering
+# the gap today. See keepalive/README.md for the full Cloudflare-free
+# alternative plan (Render custom domain, Render Starter edge caching).
 #
 # `on: push` wakes the instance immediately after every deploy instead of
 # waiting for the next (possibly delayed) scheduled run.
