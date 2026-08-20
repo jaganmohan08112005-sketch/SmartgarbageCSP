@@ -365,7 +365,7 @@ function initFleetMap(){
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(fleetMap);
     Object.entries(sectorPolygons).forEach(([vid, coords]) => {
         L.polygon(coords, {color: sectorColors[vid]||'#666', fillOpacity:0.1, weight:2, dashArray:'6,4'})
-         .addTo(fleetMap).bindPopup(`<b>Sector: ${vid}</b>`);
+         .addTo(fleetMap).bindPopup(`<b>Sector: ${escapeHtml(vid)}</b>`);
     });
 }
 
@@ -384,13 +384,13 @@ async function loadFleetLocations(){
             const color = truck.in_bounds ? '#27AE60' : '#E67E22';
             const icon = L.divIcon({ className:'', html: `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:10px;">🚛</div>`, iconSize:[20,20] });
             const m = L.marker([truck.lat, truck.lon], {icon})
-                .bindPopup(`<b>${truck.vehicle_id}</b><br>Driver: ${truck.worker_username}<br>Status: <b style="color:${color}">${truck.in_bounds?'In Bounds':'⚠️ Out of Bounds'}</b>`)
+                .bindPopup(`<b>${escapeHtml(truck.vehicle_id)}</b><br>Driver: ${escapeHtml(truck.worker_username)}<br>Status: <b style="color:${color}">${truck.in_bounds?'In Bounds':'⚠️ Out of Bounds'}</b>`)
                 .addTo(fleetMap);
             fleetMarkers.push(m);
             listDiv.innerHTML += `<div class="col-6 col-md-4 col-lg-3">
                 <div class="rounded-3 p-3 border text-center" style="background:${truck.in_bounds?'#e8f8f5':'#fdf2e9'}; border-color:${color}!important;">
                     <div style="font-size:1.5rem;">🚛</div>
-                    <div class="fw-bold small">${truck.vehicle_id}</div>
+                    <div class="fw-bold small">${escapeHtml(truck.vehicle_id)}</div>
                     <div class="small" style="color:${color};">${truck.in_bounds?'✅ In Sector':'⚠️ Out of Bounds'}</div>
                 </div>
             </div>`;
@@ -439,13 +439,13 @@ function loadReports(){
             if (!rows.length){ tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No reports yet.</td></tr>'; return; }
             tb.innerHTML = rows.map(r => `
                 <tr>
-                    <td><strong>#${r.id}</strong></td>
-                    <td>${r.category}</td>
-                    <td><span class="badge ${r.status==='Pending'?'bg-warning text-dark':'bg-success'}">${r.status}</span></td>
-                    <td class="small text-muted">${r.description || '—'}</td>
-                    <td class="small">${r.latitude ?? '—'}</td>
-                    <td class="small">${r.longitude ?? '—'}</td>
-                    <td class="small text-muted">${r.timestamp ? r.timestamp.replace('T',' ').slice(0,19) : '—'}</td>
+                    <td><strong>#${escapeHtml(String(r.id))}</strong></td>
+                    <td>${escapeHtml(r.category)}</td>
+                    <td><span class="badge ${r.status==='Pending'?'bg-warning text-dark':'bg-success'}">${escapeHtml(r.status)}</span></td>
+                    <td class="small text-muted">${escapeHtml(r.description) || '—'}</td>
+                    <td class="small">${escapeHtml(String(r.latitude ?? '—'))}</td>
+                    <td class="small">${escapeHtml(String(r.longitude ?? '—'))}</td>
+                    <td class="small text-muted">${r.timestamp ? escapeHtml(r.timestamp.replace('T',' ').slice(0,19)) : '—'}</td>
                 </tr>`).join('');
         })
         .catch(e => console.error(e));
