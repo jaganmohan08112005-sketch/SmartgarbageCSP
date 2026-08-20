@@ -128,7 +128,7 @@
                                      style="width: 340px; max-height: 400px; overflow-y: auto; z-index: 1050;">
                                     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
                                         <strong class="small">{{ _('Notifications') }}</strong>
-                                        <button class="btn btn-sm btn-link text-muted p-0" onclick="markAdminNotificationsRead()">{{ _('Mark all read') }}</button>
+                                        <button type="button" class="btn btn-sm btn-link text-muted p-0" onclick="markAdminNotificationsRead()">{{ _('Mark all read') }}</button>
                                     </div>
                                     <div id="adminNotifList" class="p-2"></div>
                                 </div>
@@ -291,8 +291,8 @@
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🗺️ {{ _('GIS Telemetry Map') }}</h4>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-danger btn-sm rounded-pill" onclick="simulateAnomalyTrigger()">⚠️ {{ _('Simulate Incident') }}</button>
-                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="refreshBinMarkers()">🔄 {{ _('Refresh Telemetry') }}</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill" onclick="simulateAnomalyTrigger()">⚠️ {{ _('Simulate Incident') }}</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="refreshBinMarkers()">🔄 {{ _('Refresh Telemetry') }}</button>
                 </div>
             </div>
             <p class="text-muted small mb-3">{{ _('Live fill-level, battery, temperature &amp; methane for every smart bin. Click a marker for the full telemetry panel.') }}</p>
@@ -309,7 +309,7 @@
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="routing-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🛣️ {{ _('Route Optimization') }}</h4>
-                <button class="btn btn-success rounded-pill fw-bold" id="optimizeBtn" onclick="executeRoutingDispatch()">🧭 {{ _('Optimize Critical Bin Route') }}</button>
+                <button type="button" class="btn btn-success rounded-pill fw-bold" id="optimizeBtn" onclick="executeRoutingDispatch()">🧭 {{ _('Optimize Critical Bin Route') }}</button>
             </div>
             <p class="text-muted small mb-3">{{ _('Travelling-salesman ordering of every bin at ≥80% fill, from the Municipal HQ depot. Road-network distances via OSRM, Haversine fallback.') }}</p>
             <div id="routingInfo" class="d-none alert alert-success border-0 shadow-sm mb-3">
@@ -340,7 +340,7 @@
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="dispatch-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🚨 {{ _('Proactive Dispatch Queue') }}</h4>
-                <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="refreshDispatchQueue()">🔄 {{ _('Refresh Queue') }}</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="refreshDispatchQueue()">🔄 {{ _('Refresh Queue') }}</button>
             </div>
             <p class="text-muted small mb-3">{{ _('Bins ranked by ML hours-to-overflow forecast. Workers see the same list and accept assignments; this view tracks every assignment live.') }}</p>
             <div class="row g-3 mb-3" id="dispatchKpis"></div>
@@ -363,7 +363,7 @@
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="sensor-fault-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🔧 {{ _('Sensor Health') }}</h4>
-                <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadSensorFaults(); loadMaintenance()">🔄 {{ _('Refresh') }}</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadSensorFaults(); loadMaintenance()">🔄 {{ _('Refresh') }}</button>
             </div>
             <p class="text-muted small mb-3">{{ _('Bins flagged by the stuck-sensor classifier (constant ≥95% level across 5 pings — possible blockage) or the stale-sensor sweep (silent &gt;24h). Auto-dispatch is suppressed while a bin is faulted; clear the fault after on-site inspection to restore service.') }}</p>
             <div class="row g-3 mb-3" id="sensorKpis">
@@ -424,10 +424,10 @@
                 <div class="d-flex gap-2">
                     <form method="POST" action="/admin/run-dunning">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button class="btn btn-sm btn-outline-warning rounded-pill">📣 {{ _('Run Dunning') }}</button>
+                        <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill">📣 {{ _('Run Dunning') }}</button>
                     </form>
                     <a href="/admin/route-sheet.pdf" class="btn btn-sm btn-outline-info rounded-pill" title="Printable A5 route sheet for current dispatch assignments">🖨️ {{ _('Route Sheet PDF') }}</a>
-                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadQueueHealth()">🔄 {{ _('Refresh') }}</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadQueueHealth()">🔄 {{ _('Refresh') }}</button>
                 </div>
             </div>
             <p class="text-muted small mb-3">{{ _('Background-job instrumentation: per-job duration, retry attempts and the dead-letter rate for SMS, webhook, export and dunning jobs.') }}</p>
@@ -457,7 +457,7 @@
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="fleet-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🛰️ {{ _('Fleet Geo-Fencing') }}</h4>
-                <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadFleetLocations()">🔄 {{ _('Refresh Fleet') }}</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadFleetLocations()">🔄 {{ _('Refresh Fleet') }}</button>
             </div>
             <p class="text-muted small mb-3">{{ _('Trucks are auto-flagged when they exit their assigned sector polygon (violations push to the audit trail + webhooks).') }}</p>
             <div id="fleetMap" style="height: 440px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
@@ -539,7 +539,7 @@
                                 <input class="form-control form-control-sm" id="wa_media" placeholder="https://.../photo.jpg">
                             </div>
                         </div>
-                        <button class="btn btn-success w-100 rounded-pill fw-bold" onclick="sendWhatsApp()">📲 Send WhatsApp Report</button>
+                        <button type="button" class="btn btn-success w-100 rounded-pill fw-bold" onclick="sendWhatsApp()">📲 Send WhatsApp Report</button>
                     </div>
                 </div>
 
@@ -569,7 +569,7 @@
                             <label class="form-label small fw-bold">photo file_id (optional)</label>
                             <input class="form-control form-control-sm" id="tg_file" placeholder="AgACAgUAAxkBAA...">
                         </div>
-                        <button class="btn btn-primary w-100 rounded-pill fw-bold" onclick="sendTelegram()">📨 Send Telegram Report</button>
+                        <button type="button" class="btn btn-primary w-100 rounded-pill fw-bold" onclick="sendTelegram()">📨 Send Telegram Report</button>
                     </div>
                 </div>
             </div>
@@ -577,7 +577,7 @@
             <div class="mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="fw-bold mb-0">📥 Webhook Response &amp; Recent Reports</h6>
-                    <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadReports()">🔄 Refresh</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadReports()">🔄 Refresh</button>
                 </div>
                 <pre id="responseBox" class="bg-light border rounded-3 p-3 small mb-3" style="max-height:200px;overflow:auto;">Click a simulator button above to post to the live webhook…</pre>
                 <div class="table-responsive">
@@ -663,7 +663,7 @@
                             <form method="POST" action="/admin/payt/{{ inv.id }}/waive" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="reason" value="Waived by admin">
-                                <button class="btn btn-sm btn-outline-warning rounded-pill">🛡️ Waive</button>
+                                <button type="submit" class="btn btn-sm btn-outline-warning rounded-pill">🛡️ Waive</button>
                             </form>
                             {% endif %}
                             {% if inv.status == 'Paid' and not inv.refund_id %}
@@ -671,7 +671,7 @@
                                   onsubmit="return confirm('Refund Rs {{ '%.2f'|format(inv.amount_rs) }} for invoice #{{ inv.id }}?');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="reason" value="Refunded by admin">
-                                <button class="btn btn-sm btn-outline-danger rounded-pill">↩️ Refund</button>
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">↩️ Refund</button>
                             </form>
                             {% endif %}
                             {% if inv.status in ('Refunded', 'Waived') or (inv.status == 'Paid' and inv.refund_id) %}

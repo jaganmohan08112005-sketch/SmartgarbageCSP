@@ -15,7 +15,7 @@
 
                 <!-- Username -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Username') }}</label>
+                    <label class="form-label fw-bold text-secondary" for="reg_username">{{ _('Username') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">👤</span>
                         <input name="username" id="reg_username" class="form-control" placeholder="{{ _('Choose a username') }}" required autofocus minlength="3" maxlength="50">
@@ -25,7 +25,7 @@
 
                 <!-- Password -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Password') }}</label>
+                    <label class="form-label fw-bold text-secondary" for="reg_password">{{ _('Password') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🔒</span>
                         <input name="password" id="reg_password" type="password" class="form-control" placeholder="{{ _('Choose a password (min. 6 chars)') }}" required minlength="6">
@@ -35,7 +35,7 @@
 
                 <!-- Phone Number — real Indian mobile required -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Mobile Number') }} <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold text-secondary" for="reg_phone">{{ _('Mobile Number') }} <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">📞</span>
                         <input name="phone" id="reg_phone" type="tel" class="form-control"
@@ -49,7 +49,7 @@
 
                 <!-- Email Address -->
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Email Address') }} <span class="text-danger">*</span></label>
+                    <label class="form-label fw-bold text-secondary" for="reg_email">{{ _('Email Address') }} <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">✉️</span>
                         <input name="email" id="reg_email" type="email" class="form-control"
@@ -61,7 +61,7 @@
 
                 <!-- Account Role -->
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">{{ _('Account Role') }}</label>
+                    <label class="form-label fw-bold text-secondary" for="reg_role">{{ _('Account Role') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🛡️</span>
                         <!-- No `required`: the select always carries a value (the

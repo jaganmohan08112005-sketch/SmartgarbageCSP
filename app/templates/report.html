@@ -62,8 +62,8 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-secondary">{{ _('Street / Landmark Address') }} <span class="text-danger">*</span></label>
-                            <input name="address" class="form-control" placeholder="{{ _('Door No, Street Name, Landmark') }}" required>
+                            <label class="form-label fw-bold text-secondary" for="repAddress">{{ _('Street / Landmark Address') }} <span class="text-danger">*</span></label>
+                            <input name="address" id="repAddress" class="form-control" placeholder="{{ _('Door No, Street Name, Landmark') }}" required>
                         </div>
                     </div>
                 </div>
@@ -89,20 +89,20 @@
 
                     <!-- Attachment Proof -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-secondary">{{ _('Upload Photo Proof (Optional)') }}</label>
-                        <input type="file" name="photo" class="form-control" accept="image/*">
+                        <label class="form-label fw-bold text-secondary" for="repPhoto">{{ _('Upload Photo Proof (Optional)') }}</label>
+                        <input type="file" name="photo" id="repPhoto" class="form-control" accept="image/*">
                         <small class="text-muted">{{ _('A photo speeds up crew verification.') }}</small>
                     </div>
 
                     <!-- User Contact Segment (Optional) -->
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-secondary">{{ _('Your Name (Optional)') }}</label>
-                            <input name="name" class="form-control" value="{{ session.get('username', '') }}" placeholder="{{ _('Anonymous Resident') }}">
+                            <label class="form-label fw-bold text-secondary" for="repName">{{ _('Your Name (Optional)') }}</label>
+                            <input name="name" id="repName" class="form-control" value="{{ session.get('username', '') }}" placeholder="{{ _('Anonymous Resident') }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-secondary">{{ _('Phone Number (Optional)') }}</label>
-                            <input name="phone" type="tel" class="form-control" placeholder="{{ _('e.g., +91 98765 43210') }}">
+                            <label class="form-label fw-bold text-secondary" for="repPhone">{{ _('Phone Number (Optional)') }}</label>
+                            <input name="phone" id="repPhone" type="tel" class="form-control" placeholder="{{ _('e.g., +91 98765 43210') }}">
                             <small class="text-muted">{{ _('Add for SMS resolution updates. Never used for marketing.') }}</small>
                         </div>
                     </div>

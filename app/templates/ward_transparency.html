@@ -47,8 +47,8 @@
     </div>
 
     <div class="card border-0 shadow-sm bg-white p-4">
-        <label class="form-label fw-bold text-secondary">{{ _('Select Ward') }}</label>
-        <select class="form-select" onchange="location.href='/ward/'+encodeURIComponent(this.value)">
+        <label class="form-label fw-bold text-secondary" for="wardSelector">{{ _('Select Ward') }}</label>
+        <select id="wardSelector" class="form-select" onchange="location.href='/ward/'+encodeURIComponent(this.value)">
             {% for w in wards %}
             <option value="{{ w }}" {% if w == ward_name %}selected{% endif %}>{{ w }}</option>
             {% endfor %}

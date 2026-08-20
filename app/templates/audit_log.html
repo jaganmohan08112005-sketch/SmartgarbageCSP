@@ -180,7 +180,7 @@
                 {% else %}
                   <span class="badge bg-warning text-dark">📋 {{ _('Scheduled') }}</span>
                 {% endif %}
-                <button class="btn btn-sm btn-outline-secondary no-print" onclick="printTimeline({{ tl.order.id }})">🖨️ {{ _('Print') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary no-print" onclick="printTimeline({{ tl.order.id }})">🖨️ {{ _('Print') }}</button>
               </div>
             </div>
             <div class="small text-muted mb-2">
@@ -228,7 +228,7 @@
               <label class="small text-muted mb-0" for="due-{{ tl.order.id }}">📅 {{ _('Reschedule due date') }}:</label>
               <input type="date" id="due-{{ tl.order.id }}" class="form-control form-control-sm" style="width:160px;"
                      value="{{ tl.due_date.strftime('%Y-%m-%d') if tl.due_date }}">
-              <button class="btn btn-sm btn-outline-primary" id="resched-{{ tl.order.id }}"
+              <button type="button" class="btn btn-sm btn-outline-primary" id="resched-{{ tl.order.id }}"
                       onclick="rescheduleOrder({{ tl.order.id }})">{{ _('Save') }}</button>
             </div>
             {% endif %}

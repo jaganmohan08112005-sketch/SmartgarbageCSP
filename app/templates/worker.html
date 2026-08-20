@@ -65,10 +65,10 @@
                     </div>
                     <p class="text-muted small mb-2">📍 {{ b.ward }}</p>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-outline-success flex-grow-1 fw-bold rounded-pill locate-btn" data-hw-id="{{ b.hardware_id }}">
+                        <button type="button" class="btn btn-sm btn-outline-success flex-grow-1 fw-bold rounded-pill locate-btn" data-hw-id="{{ b.hardware_id }}">
                             🗺️ {{ _('Navigate') }}
                         </button>
-                        <button class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill clear-btn" data-hw-id="{{ b.hardware_id }}">
+                        <button type="button" class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill clear-btn" data-hw-id="{{ b.hardware_id }}">
                             ✔ {{ _('Clear Bins') }}
                         </button>
                     </div>
@@ -372,11 +372,11 @@
             let action = '';
             if (b.dispatch_status === 'assigned' && b.mine) {
                 action = '<span class="badge bg-success flex-grow-1 py-2">✔ Assigned to you</span>' +
-                    `<button class="btn btn-sm btn-outline-danger flex-grow-1 fw-bold rounded-pill dispatch-complete" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">✔ Mark Complete</button>`;
+                    `<button type="button" class="btn btn-sm btn-outline-danger flex-grow-1 fw-bold rounded-pill dispatch-complete" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">✔ Mark Complete</button>`;
             } else if (b.dispatch_status === 'assigned') {
                 action = '<span class="badge bg-secondary flex-grow-1 py-2">🔒 Taken by another truck</span>';
             } else {
-                action = `<button class="btn btn-sm btn-danger flex-grow-1 fw-bold rounded-pill dispatch-accept" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">🚨 Accept Dispatch</button>`;
+                action = `<button type="button" class="btn btn-sm btn-danger flex-grow-1 fw-bold rounded-pill dispatch-accept" data-bin-id="${b.bin_id}" data-hw="${hwEsc}">🚨 Accept Dispatch</button>`;
             }
             el.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -453,7 +453,7 @@
             const dueTxt = o.due_date ? o.due_date.replace('T', ' ').slice(0, 10) : '—';
             const overdue = o.overdue ? ' <span class="badge bg-danger">Overdue</span>' : '';
             const startBtn = o.status === 'Scheduled'
-                ? `<button class="btn btn-sm btn-outline-primary flex-grow-1 fw-bold rounded-pill maint-start" data-maint-id="${o.id}">▶ {{ _('Start') }}</button>` : '';
+                ? `<button type="button" class="btn btn-sm btn-outline-primary flex-grow-1 fw-bold rounded-pill maint-start" data-maint-id="${o.id}">▶ {{ _('Start') }}</button>` : '';
             items.push(`
                 <div class="list-group-item rounded-3 border p-3 bg-light">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -464,7 +464,7 @@
                     ${o.notes ? `<p class="text-muted small mb-2">📝 ${dispatchEscape(o.notes)}</p>` : ''}
                     <div class="d-flex gap-2">
                         ${startBtn}
-                        <button class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill maint-done" data-maint-id="${o.id}">✔ {{ _('Mark Done') }}</button>
+                        <button type="button" class="btn btn-sm btn-success flex-grow-1 fw-bold rounded-pill maint-done" data-maint-id="${o.id}">✔ {{ _('Mark Done') }}</button>
                     </div>
                 </div>`);
         });

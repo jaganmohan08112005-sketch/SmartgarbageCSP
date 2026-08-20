@@ -12,21 +12,21 @@
             <form method="POST" action="/register/picker">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Full Name') }}</label>
-                    <input name="username" class="form-control" placeholder="{{ _('Your name') }}" required>
+                    <label class="form-label fw-bold text-secondary" for="pk_username">{{ _('Full Name') }}</label>
+                    <input name="username" id="pk_username" class="form-control" placeholder="{{ _('Your name') }}" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Mobile Number') }}</label>
-                    <input name="phone" type="tel" class="form-control" placeholder="{{ _('+91 98765 43210') }}" pattern="^(\+91|91)?[6-9]\d{9}$" required>
+                    <label class="form-label fw-bold text-secondary" for="pk_phone">{{ _('Mobile Number') }}</label>
+                    <input name="phone" id="pk_phone" type="tel" class="form-control" placeholder="{{ _('+91 98765 43210') }}" pattern="^(\+91|91)?[6-9]\d{9}$" required>
                     <small class="text-muted">{{ _('Indian mobile only — 10 digits starting 6–9.') }}</small>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Operates In (Ward/Area)') }}</label>
-                    <input name="area" class="form-control" placeholder="{{ _('e.g. Ward 3 - RTC Colony') }}">
+                    <label class="form-label fw-bold text-secondary" for="pk_area">{{ _('Operates In (Ward/Area)') }}</label>
+                    <input name="area" id="pk_area" class="form-control" placeholder="{{ _('e.g. Ward 3 - RTC Colony') }}">
                 </div>
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">{{ _('Set Password') }}</label>
-                    <input name="password" type="password" class="form-control" minlength="6" placeholder="{{ _('Min 6 characters') }}" required>
+                    <label class="form-label fw-bold text-secondary" for="pk_password">{{ _('Set Password') }}</label>
+                    <input name="password" id="pk_password" type="password" class="form-control" minlength="6" placeholder="{{ _('Min 6 characters') }}" required>
                 </div>
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold rounded-pill">{{ _('Register as Recognised Picker') }}</button>
             </form>

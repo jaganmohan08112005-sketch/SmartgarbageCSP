@@ -12,7 +12,7 @@
             "@id": "{{ url_for('main.schedule', _external=True) }}#service",
             "name": "Chintalavalasa Municipal Waste Management Service",
             "serviceType": "Solid waste collection schedule lookup",
-            "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
+            "provider": { "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "serviceArea": {
                 "@type": "AdministrativeArea",
@@ -32,7 +32,7 @@
             "@id": "{{ url_for('main.report', _external=True) }}#service",
             "name": "Chintalavalasa Municipal Waste Management Service",
             "serviceType": "Missed pickup and grievance reporting",
-            "provider": { "@type": "GovernmentOrganization", "name": "Directorate of Waste Management & Sanitation, Chintalavalasa" },
+            "provider": { "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "serviceArea": {
                 "@type": "AdministrativeArea",
@@ -294,7 +294,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="text-primary fw-bold mb-0 sg-card-h">🌤️ {{ _('Local Weather Monitor') }}</h3>
-                    <button class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS Locator') }}</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS Locator') }}</button>
                 </div>
 
                 <!-- Front-End Event-Driven Select Handler -->

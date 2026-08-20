@@ -30,17 +30,17 @@
                     <form method="POST" action="/login">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
-                            <label class="form-label fw-bold text-secondary">{{ _('Username') }}</label>
+                            <label class="form-label fw-bold text-secondary" for="lg_username">{{ _('Username') }}</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
-                                <input name="username" class="form-control" placeholder="{{ _('Enter username') }}" required autofocus>
+                                <input name="username" id="lg_username" class="form-control" placeholder="{{ _('Enter username') }}" required autofocus>
                             </div>
                         </div>
                         <div class="mb-4">
-                            <label class="form-label fw-bold text-secondary">{{ _('Password') }}</label>
+                            <label class="form-label fw-bold text-secondary" for="lg_password">{{ _('Password') }}</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
-                                <input name="password" type="password" class="form-control" placeholder="{{ _('Enter password') }}" required>
+                                <input name="password" id="lg_password" type="password" class="form-control" placeholder="{{ _('Enter password') }}" required>
                             </div>
                         </div>
 
@@ -58,7 +58,7 @@
                     <form method="POST" action="/auth/phone-login" id="phoneLoginForm" novalidate>
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-4">
-                            <label class="form-label fw-bold text-secondary">{{ _('Phone Number') }}</label>
+                            <label class="form-label fw-bold text-secondary" for="otp_phone">{{ _('Phone Number') }}</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-phone"></i></span>
                                 <input name="phone_number" id="otp_phone" type="tel" class="form-control"

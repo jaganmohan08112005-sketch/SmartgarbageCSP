@@ -15,7 +15,7 @@
             <form method="POST" action="/schedule">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-4">
-                    <label class="form-label fw-bold text-secondary">{{ _('Select Your Ward / Area') }}</label>
+                    <label class="form-label fw-bold text-secondary" for="schedWard">{{ _('Select Your Ward / Area') }}</label>
                     <select name="ward" id="schedWard" class="form-select form-select-lg" required>
                         <option value="" disabled selected>{{ _('-- Choose Ward --') }}</option>
                     </select>
