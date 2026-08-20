@@ -87,6 +87,7 @@ def register():
 
 
 @main.route('/register/picker', methods=['GET', 'POST'])
+@limiter.limit("10/hour")
 def register_picker():
     """Lightweight informal waste-picker recognition registration
     (SBM Grameen Phase II) — separate from formal fleet drivers."""

@@ -22,8 +22,14 @@ from . import (DUMP_YARDS, WARD_COORDINATES, GPS_VERIFY_RADIUS_M, _ai_verify_pho
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    page = max(1, int(request.args.get('page', 1)))
-    per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    except (ValueError, TypeError):
+        per_page = 20
     complaints = Complaint.query.filter_by(user_id=session['user_id']).order_by(Complaint.id.desc()).limit(per_page).offset((page - 1) * per_page).all()
     # Signed tracking tokens for the citizen's own complaints (Track button)
     complaint_tokens = {c.id: make_complaint_token(c.id) for c in complaints}
@@ -88,8 +94,14 @@ def dashboard():
 @login_required
 def green_points_leaderboard():
     ward = request.args.get('ward', '').strip()
-    page = max(1, int(request.args.get('page', 1)))
-    per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        per_page = min(50, max(1, int(request.args.get('per_page', 20))))
+    except (ValueError, TypeError):
+        per_page = 20
     cache_key = f"leaderboard:{ward}:{page}:{per_page}"
     cached = cache_get(cache_key)
     if cached is not None:
@@ -362,7 +374,10 @@ def redeem_rewards():
     user = User.query.get(session['user_id'])
     if user is None:
         return jsonify({"success": False, "message": "Account not found."}), 404
-    points_to_redeem = int(request.form.get('points', 0))
+    try:
+        points_to_redeem = int(request.form.get('points', 0))
+    except (ValueError, TypeError):
+        points_to_redeem = 0
     reward_type = request.form.get('reward_type', '')
     if points_to_redeem <= 0:
         return jsonify({"success": False, "message": "Invalid points amount."}), 400

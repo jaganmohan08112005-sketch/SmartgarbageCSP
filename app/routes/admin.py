@@ -30,7 +30,10 @@ from . import (DEFAULT_LAT, DEFAULT_LON, DUMP_YARDS, FORECAST_URGENT_HOURS, SECT
 @admin_required
 def api_illegal_reports():
     """Recent illegal-dump reports (dev/demo helper for the sandbox UI)."""
-    limit = min(int(request.args.get('limit', 10) or 10), 50)
+    try:
+        limit = min(int(request.args.get('limit', 10) or 10), 50)
+    except (ValueError, TypeError):
+        limit = 10
     rows = IllegalDumpReport.query.order_by(IllegalDumpReport.timestamp.desc()).limit(limit).all()
     return jsonify([
         {
