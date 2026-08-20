@@ -59,17 +59,42 @@
                 {
                     "@type": "Question",
                     "name": "How do I check my garbage collection schedule?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Open the collection schedule page and select your ward or area to see the pickup timetable for your sector." }
+                    "acceptedAnswer": { "@type": "Answer", "text": "Open the collection schedule page and select your ward or area to see the pickup timetable for your sector. No login is needed. You can check the daily schedule for any of the 5 wards in Chintalavalasa." }
                 },
                 {
                     "@type": "Question",
                     "name": "How do I report a missed pickup?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Use the report page to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster." }
+                    "acceptedAnswer": { "@type": "Answer", "text": "Use the report page to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster. You will receive a tracking link via SMS." }
                 },
                 {
                     "@type": "Question",
                     "name": "How should I segregate waste before collection?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Separate dry recyclable plastics from biodegradable wet food waste before the morning collection — heavier wet waste in the monsoon slows down collection crews." }
+                    "acceptedAnswer": { "@type": "Answer", "text": "Separate dry recyclable plastics from biodegradable wet food waste before the morning pickup — heavier wet waste in the monsoon slows down the sanitation crew. The portal also lets you declare your daily segregation to earn Green Points." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Can I track my complaint after filing?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Yes. After filing a report you receive a signed tracking link via SMS. You can also register an account to view all your complaints and ward resolution times on your dashboard." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "What are Green Points and how do I earn them?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Green Points reward residents for filing waste reports and declaring daily segregation. You earn 15 points per report and additional points based on declared waste weight. Points can be redeemed for local vouchers and municipal tax discounts." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Which wards are covered by the service?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "The portal covers all 5 wards of Chintalavalasa Gram Panchayat: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street and Sai Nagar. Each ward has its own collection timetable and live transparency dashboard." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "Is there a fee for using this portal?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "No. The portal is free for all residents of Chintalavalasa. Checking schedules, reporting issues and tracking complaints require no payment. Pay-As-You-Throw billing applies only to bulk waste generators who exceed household norms." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "How do I check ward transparency and bin status?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Visit the ward transparency page to see live fill levels, complaint resolution rates and segregation percentages for your ward. The dashboard shows real-time data from smart bins and community records." }
                 }
             ]
         }
@@ -147,7 +172,7 @@
         <ul class="small text-muted mb-0 flex-grow-1 d-flex flex-column flex-md-row flex-wrap gap-1 gap-md-4 list-unstyled">
             <li><span aria-hidden="true">📝</span> {{ _('Forms: only what you enter — never sold or shared for marketing') }}</li>
             <li><span aria-hidden="true">📍</span> {{ _('GPS & photos: captured only when you file a report') }}</li>
-            <li><span aria-hidden="true">💳</span> {{ _('Payments via Razorpay; analytics only after you Accept') }}</li>
+            <li><span aria-hidden="true">💳</span> {{ _('Payments via Razorpay; analytics only after you Accept. See our') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('privacy policy') }}</a>.</li>
         </ul>
         <a href="/privacy" class="fw-semibold text-decoration-underline text-success flex-shrink-0">{{ _('Read the full privacy notice') }} →</a>
     </div>
@@ -211,10 +236,10 @@
         <!-- Paragraph-level links: in-content anchors inside body copy, not just
              list items — the linking pattern search engines weight most heavily. -->
         <p class="small text-muted mb-3">
-            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check collection times') }}</a>,
+            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check your ward\'s pickup timetable') }}</a>,
             <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed-pickup complaint') }}</a> {{ _('or') }}
             <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live ward bin status') }}</a> —
-            {{ _('all free, no login needed.') }}
+            {{ _('all free, no login needed. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register') }}</a> {{ _('to track complaints and earn') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('Green Points') }}</a>.
         </p>
         <ul class="list-unstyled small mb-0 d-flex flex-column gap-2">
             <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('ward collection timetable') }}</a> {{ _('and see today\'s collection times in seconds — no login needed.') }}</span></li>
@@ -238,7 +263,7 @@
             </div>
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
-                <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special collection drive scheduled for MVGR campus surroundings this Saturday morning.') }}
+                <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning.') }} — <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view ward status') }}</a>.
             </div>
         </div>
     </div>
@@ -260,7 +285,7 @@
                 </h3>
                 <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Open the') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('collection schedule page') }}</a> {{ _('and select your ward or area to see the pickup timetable for your sector — no login needed.') }}
+                        {{ _('Open the') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('collection schedule page') }}</a> {{ _('and select your ward or area to see the pickup timetable for your sector — no login needed. You can check today\'s schedule for any of the 5 wards in Chintalavalasa.') }}
                     </div>
                 </div>
             </div>
@@ -272,7 +297,7 @@
                 </h3>
                 <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Use the') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('report page') }}</a> {{ _('to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster.') }}
+                        {{ _('Use the') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('report page') }}</a> {{ _('to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster. You will receive a tracking link via SMS.') }}
                     </div>
                 </div>
             </div>
@@ -284,7 +309,7 @@
                 </h3>
                 <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Separate dry recyclable plastics from biodegradable wet food waste before the morning collection — heavier wet waste in the monsoon slows down collection crews.') }}
+                        {{ _('Separate dry recyclable plastics from biodegradable wet food waste before the morning pickup — heavier wet waste in the monsoon slows down the sanitation crew. The portal also lets you') }} <a href="/" class="fw-semibold text-decoration-underline">{{ _('declare your daily segregation') }}</a> {{ _('to earn Green Points.') }}
                     </div>
                 </div>
             </div>
@@ -296,7 +321,55 @@
                 </h3>
                 <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Yes — after filing, you receive a') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints and ward resolution times on your dashboard.') }}
+                        {{ _('Yes. After filing a report you receive a signed') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints and ward resolution times on your dashboard.') }}
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                        {{ _('What are Green Points and how do I earn them?') }}
+                    </button>
+                </h3>
+                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        {{ _('Green Points reward residents for filing waste reports and declaring daily segregation. You earn 15 points per report and additional points based on declared weight. Points can be') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('redeemed for local vouchers') }}</a> {{ _('and municipal tax discounts.') }}
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                        {{ _('Which wards are covered by the service?') }}
+                    </button>
+                </h3>
+                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        {{ _('The portal covers all 5 wards of Chintalavalasa Gram Panchayat: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street and Sai Nagar. Each ward has its own') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('transparency dashboard') }}</a> {{ _('with live bin status.') }}
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                        {{ _('Is there a fee for using this portal?') }}
+                    </button>
+                </h3>
+                <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        {{ _('No. The portal is free for all residents of Chintalavalasa. Checking schedules, reporting issues and tracking complaints require no payment.') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('Pay-As-You-Throw billing') }}</a> {{ _('applies only to bulk waste generators who exceed household norms.') }}
+                    </div>
+                </div>
+            </div>
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq8">
+                        {{ _('How do I check ward transparency and bin status?') }}
+                    </button>
+                </h3>
+                <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        {{ _('Visit the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('ward transparency page') }}</a> {{ _('to see live fill levels, complaint resolution rates and segregation percentages for your ward. The dashboard shows real-time data from smart bins and community records.') }}
                     </div>
                 </div>
             </div>

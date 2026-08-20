@@ -1197,3 +1197,7 @@ textarea:focus-visible {
 /* Keep hotline phone numbers on one line without non-breaking hyphens (validator-clean). */
 .sg-phone { white-space: nowrap; }
 a[href^="tel:"] strong { white-space: nowrap; }
+
+/* CLS prevention: reserve space for dynamic content */
+#weatherDisplay { min-height: 120px; }
+.weather-emoji { font-size: 2.5rem; }
