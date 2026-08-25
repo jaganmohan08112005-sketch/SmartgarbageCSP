@@ -6,12 +6,15 @@
     <title>{% block title %}SmartGarbage Chintalavalasa | Waste Collection Schedules & Missed Pickup Reports{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
+    <meta name="keywords" content="waste collection schedule, garbage pickup, missed pickup report, Chintalavalasa, Vizianagaram, sanitation, smart bin, ward transparency, Green Points, Swachh Bharat">
+    <meta name="author" content="Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat">
     <!-- og:title follows the page's own <title> block so sharing cards never
          drift from the visible title (no duplicated title maintenance). -->
     <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
     <meta property="og:description" content="Civic waste-management portal for Chintalavalasa — report, track, declare, and earn rewards.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:site_name" content="SmartGarbage Chintalavalasa">
     <!-- Canonical drops the query string (request.base_url): no page uses
          query params for content, and a clean canonical prevents duplicate
          signals (e.g. the AJAX ?fetch_weather=true variant of the homepage). -->
@@ -24,9 +27,12 @@
     <meta property="og:image:height" content="630">
     <!-- Twitter/X Card tags — complete set for rich previews -->
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@SmartGarbageIN">
+    <meta name="twitter:creator" content="@SmartGarbageIN">
     <meta name="twitter:title" content="{% block twitter_title %}{{ self.title() }}{% endblock %}">
     <meta name="twitter:description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
     <meta name="twitter:image" content="{{ url_for('static', filename='og-image.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}">
+    <meta name="twitter:image:alt" content="SmartGarbage Chintalavalasa — Waste Collection Portal">
     {% if config.get('GOOGLE_SITE_VERIFICATION') %}
     <!-- Search Console ownership (config-gated): renders only when
          GOOGLE_SITE_VERIFICATION is set in the platform dashboard — the
@@ -42,6 +48,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
+    <!-- Hreflang for bilingual support (English + Telugu) -->
+    <link rel="alternate" hreflang="en" href="{{ request.base_url }}?lang=en">
+    <link rel="alternate" hreflang="te" href="{{ request.base_url }}?lang=te">
+    <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

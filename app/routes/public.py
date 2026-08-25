@@ -378,11 +378,22 @@ def sitemap_xml():
     # date auto-updates on every deploy instead of going stale by hand.
     last_mod = current_app.config.get('DEPLOY_TIMESTAMP')
     last_mod_str = last_mod.strftime('%Y-%m-%d') if last_mod else '2026-08-06'
-    paths = ['/', '/about', '/schedule', '/report', '/transparency',
-             '/register', '/register/picker', '/privacy']
+    # Priority and changefreq help search engines understand page importance.
+    # Homepage gets highest priority; utility pages get medium; auth pages low.
+    url_data = [
+        ('/',            '1.0', 'daily'),
+        ('/about',       '0.8', 'monthly'),
+        ('/schedule',    '0.9', 'daily'),
+        ('/report',      '0.9', 'daily'),
+        ('/transparency','0.8', 'daily'),
+        ('/register',    '0.7', 'monthly'),
+        ('/register/picker', '0.5', 'monthly'),
+        ('/privacy',     '0.6', 'yearly'),
+    ]
     urls = ''.join(
-        f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod></url>\n"
-        for p in paths)
+        f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod>"
+        f"<changefreq>{cf}</changefreq><priority>{pr}</priority></url>\n"
+        for p, pr, cf in url_data)
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             + urls + '</urlset>\n')
