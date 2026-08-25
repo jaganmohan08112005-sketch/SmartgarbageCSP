@@ -18,20 +18,28 @@ depends_on = None
 
 def upgrade():
     # Add email_verified boolean to user table.
-    # server_default='0' ensures existing rows get False without a
-    # full-table UPDATE (which would be slow on large tables).
-    with op.batch_alter_table('user', schema=None) as batch_op:
-        batch_op.add_column(
+    # Use 'false' (not 0) so PostgreSQL BOOLEAN accepts the default.
+    # batch_alter_table is required for SQLite; PostgreSQL uses regular DDL.
+    default_val = sa.text('false')
+    dialect = op.get_bind().dialect.name
+    if dialect == 'sqlite':
+        with op.batch_alter_table('user', schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column('email_verified', sa.Boolean(), nullable=False,
+                          server_default=default_val)
+            )
+    else:
+        op.add_column(
+            'user',
             sa.Column('email_verified', sa.Boolean(), nullable=False,
-                      server_default=sa.text('0'))
+                      server_default=default_val)
         )
-
-    # After the column is live, drop the server_default so new inserts
-    # use the ORM default (False) instead of the raw SQL default.
-    with op.batch_alter_table('user', schema=None) as batch_op:
-        batch_op.alter_column('email_verified', server_default=None)
 
 
 def downgrade():
-    with op.batch_alter_table('user', schema=None) as batch_op:
-        batch_op.drop_column('email_verified')
+    dialect = op.get_bind().dialect.name
+    if dialect == 'sqlite':
+        with op.batch_alter_table('user', schema=None) as batch_op:
+            batch_op.drop_column('email_verified')
+    else:
+        op.drop_column('user', 'email_verified')
