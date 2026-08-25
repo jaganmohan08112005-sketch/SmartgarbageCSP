@@ -22,7 +22,11 @@
     <meta property="og:image" content="{{ url_for('static', filename='og-image.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta name="twitter:card" content="summary">
+    <!-- Twitter/X Card tags — complete set for rich previews -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ self.title() }}{% endblock %}">
+    <meta name="twitter:description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
+    <meta name="twitter:image" content="{{ url_for('static', filename='og-image.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}">
     {% if config.get('GOOGLE_SITE_VERIFICATION') %}
     <!-- Search Console ownership (config-gated): renders only when
          GOOGLE_SITE_VERIFICATION is set in the platform dashboard — the
@@ -164,6 +168,36 @@
             "{{ request.url_root.rstrip('/') }}",
             "https://www.ap.gov.in/"
         ]
+    }
+    </script>
+    <!-- SiteLinks Searchbox: enables the Google search box for this site -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "SmartGarbage Chintalavalasa",
+        "url": "{{ request.url_root.rstrip('/') }}",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "{{ request.url_root.rstrip('/') }}/schedule?ward={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+    <!-- Speakable: marks content eligible for voice assistants (Google Assistant, Siri) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Waste Collection Schedules & Pickup Reports | Chintalavalasa",
+        "url": "{{ request.url }}",
+        "speakable": {
+            "@type": "SpeakableSpecification",
+            "cssSelector": [".sg-hero-value-prop", ".sg-hero-tagline"]
+        }
     }
     </script>
 

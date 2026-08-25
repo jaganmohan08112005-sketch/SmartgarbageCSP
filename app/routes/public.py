@@ -392,6 +392,23 @@ def sitemap_xml():
                     headers={'Cache-Control': 'no-store, max-age=0'})
 
 
+@main.route('/csp-report', methods=['POST'])
+def csp_report():
+    """Receive CSP violation reports from the browser.
+
+    The report-uri CSP directive sends JSON payloads here when the browser
+    blocks a resource that violates the policy. Logged for triage; never
+    returns error to the reporter (best-effort).
+    """
+    try:
+        report = request.get_json(silent=True) or {}
+        logger.warning("csp_violation", report=report,
+                        violation=report.get('csp-report', {}).get('violated-directive', 'unknown'))
+    except Exception:
+        pass
+    return ('', 204)
+
+
 @main.route('/health')
 def health_check():
     import time

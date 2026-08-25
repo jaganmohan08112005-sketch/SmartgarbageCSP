@@ -319,6 +319,11 @@ def create_app(test_config=None):
             'https://analytics.google.com', 'https://stats.g.doubleclick.net'
         ]
     }
+    # CSP report-uri: sends violation reports to the app's own endpoint so
+    # admins can monitor for injection attempts. 'unsafe-inline' in script-src
+    # is required for inline GA4 gtag initialization and Bootstrap JS events;
+    # removing it would break analytics and interactive components.
+    _csp['report-uri'] = ['/csp-report']
     talisman.init_app(app, force_https=_is_deployed(),
                       strict_transport_security=True,
                       strict_transport_security_max_age=31536000,
@@ -378,6 +383,20 @@ def create_app(test_config=None):
             resp.headers['Access-Control-Allow-Origin'] = '*'
             resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
             resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return resp
+
+    # Additional security headers not covered by Flask-Talisman.
+    # COOP/COEP/CORP harden cross-origin isolation; X-Permitted-Cross-Domain
+    # blocks legacy Flash/PDF cross-domain policy files.
+    @app.after_request
+    def add_security_headers(resp):
+        resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+        resp.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+        # COEP with credentialless allows cross-origin subresources (fonts,
+        # CDN scripts) without breaking them, while still enforcing isolation.
+        if not request.path.startswith('/static/'):
+            resp.headers['Cross-Origin-Embedder-Policy'] = 'credentialless'
         return resp
 
     # Freshness signals: Last-Modified for public, anonymous, full-HTML GET
