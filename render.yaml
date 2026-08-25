@@ -95,7 +95,6 @@ services:
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
 
-# NOTE: Supabase replaces Render's managed Postgres.
-# Create a Supabase project, copy the "Connection pooler" (port 5432) URI,
-# and paste it as DATABASE_URL in Render env vars.
-# Remove any `databases:` block below once Supabase is live.
+# Supabase replaces Render's managed Postgres.
+# DATABASE_URL is set in the Render dashboard, pointing at the Supabase
+# connection pooler (port 5432).

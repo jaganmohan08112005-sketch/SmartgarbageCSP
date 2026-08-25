@@ -1,6 +1,6 @@
 """Seed demo smart bins + fleet workers for local development.
 
-Populates the SQLite/dev DB with:
+Populates the dev database with:
   - Smart bins spread across the 5 wards, including some at Critical level
     (>=80% fill, plus one with high temperature/methane for the simulator),
     some Warning, some with sensor faults, and some with solar pre-compaction

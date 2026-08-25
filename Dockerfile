@@ -23,7 +23,7 @@ EXPOSE 10000
 # Worker scaling: gevent + Redis message queue supports MULTIPLE gunicorn
 # workers sharing socket.io state. `-w 2` lets HTTP and WebSocket traffic
 # contend across two processes instead of stalling a single gevent loop.
-# When REDIS_URL is unset (SQLite dev), fall back to a single worker — the
+# When REDIS_URL is unset, fall back to a single worker — the
 # in-memory rate-limiter and socket.io room state would otherwise silently
 # multiply/desync across processes.
 #

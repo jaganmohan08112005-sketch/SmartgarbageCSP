@@ -223,21 +223,19 @@ def create_app(test_config=None):
     app.config.setdefault('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads'))
     if not test_config or 'SQLALCHEMY_DATABASE_URI' not in test_config:
         db_url = os.environ.get('DATABASE_URL')
-        if db_url:
-            # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
-            # when it isn't already present (Supabase connection strings may
-            # carry their own options like ?sslmode=require or ?options=...).
-            if 'sslmode' not in db_url:
-                sep = '&' if '?' in db_url else '?'
-                db_url = f"{db_url}{sep}sslmode=require"
-            app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
-            app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
-        elif os.environ.get('RENDER') and os.path.isdir('/data'):
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/garbage.db'
-            app.config['UPLOAD_FOLDER'] = '/data/uploads'
-        else:
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///garbage.db'
-            app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+        if not db_url:
+            raise RuntimeError(
+                "DATABASE_URL is not set. Set it in your environment to point "
+                "at the Supabase/PostgreSQL connection string."
+            )
+        # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
+        # when it isn't already present (Supabase connection strings may
+        # carry their own options like ?sslmode=require or ?options=...).
+        if 'sslmode' not in db_url:
+            sep = '&' if '?' in db_url else '?'
+            db_url = f"{db_url}{sep}sslmode=require"
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
+        app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
 
     # Connection pooling tuned for Render + Supabase: pool_pre_ping revalidates
     # connections Supabase idle-drops (the #1 cause of random 500s on Render),
