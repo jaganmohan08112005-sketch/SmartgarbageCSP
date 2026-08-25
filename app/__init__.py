@@ -377,6 +377,17 @@ def create_app(test_config=None):
     # to same-origin. (Avoids pulling in flask-cors for the whole app.)
     IOT_TELEMETRY_PATH = '/api/bin-telemetry'
 
+    # WWW canonicalization: redirect www.* to bare domain so search engines
+    # don't treat them as separate sites. Only fires in production (Render)
+    # where a custom domain may be configured.
+    @app.before_request
+    def redirect_www():
+        host = request.host.split(':')[0]
+        if _is_deployed() and host.startswith('www.'):
+            from flask import redirect as _redirect
+            new_url = request.url.replace(f'//{host}', f'//{host[4:]}', 1)
+            return _redirect(new_url, code=301)
+
     @app.after_request
     def add_iot_cors(resp):
         if request.path == IOT_TELEMETRY_PATH:
