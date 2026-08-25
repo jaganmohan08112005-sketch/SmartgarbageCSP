@@ -49,6 +49,8 @@
                         </button>
                         <div class="text-center">
                             <a href="{{ url_for('main.reset_password_request') }}" class="text-muted small text-decoration-none">{{ _('Forgot password?') }}</a>
+                            <span class="text-muted small mx-1">·</span>
+                            <a href="{{ url_for('main.resend_verification') }}" class="text-muted small text-decoration-none">{{ _('Resend verification email') }}</a>
                         </div>
                     </form>
                 </div>

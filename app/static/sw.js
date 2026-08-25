@@ -114,15 +114,24 @@ function buildReplayRequest(item) {
 //  - Navigation requests (HTML pages): network-first, fall back to cached
 //    page, then to the dedicated /offline page when fully offline.
 //  - Static assets: cache-first with background refresh.
+// Sensitive routes that should never be stored in static CacheStorage for offline fallback
+const SENSITIVE_ROUTES = ['/admin', '/dashboard', '/payt', '/login', '/mfa'];
+
 self.addEventListener('fetch', evt => {
     const req = evt.request;
     if (req.method !== 'GET') return; // never cache POST/PUT/etc.
 
+    const url = new URL(req.url);
+    const isSensitive = SENSITIVE_ROUTES.some(path => url.pathname.startsWith(path));
+
     if (req.mode === 'navigate') {
         evt.respondWith(
             fetch(req).then(res => {
-                const copy = res.clone();
-                caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                // Only cache non-sensitive, valid 200 OK non-redirected HTML pages
+                if (res.ok && res.status === 200 && !res.redirected && !isSensitive) {
+                    const copy = res.clone();
+                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
+                }
                 return res;
             }).catch(() =>
                 caches.match(req).then(cached =>
@@ -136,14 +145,16 @@ self.addEventListener('fetch', evt => {
     evt.respondWith(
         caches.match(req).then(cached => {
             if (cached) {
-                // Refresh in background.
+                // Refresh in background if response is valid.
                 fetch(req).then(res => {
-                    caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
+                    if (res.ok && res.status === 200 && !isSensitive) {
+                        caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
+                    }
                 }).catch(() => {});
                 return cached;
             }
             return fetch(req).then(res => {
-                if (res.ok && (res.type === 'basic' || res.type === 'cors')) {
+                if (res.ok && res.status === 200 && (res.type === 'basic' || res.type === 'cors') && !isSensitive) {
                     const copy = res.clone();
                     caches.open(CACHE_NAME).then(c => c.put(req, copy));
                 }
@@ -152,3 +163,4 @@ self.addEventListener('fetch', evt => {
         })
     );
 });
+

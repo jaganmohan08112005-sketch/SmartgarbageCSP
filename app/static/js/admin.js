@@ -3,21 +3,30 @@
    and live socket connections. Also lazy-loads Leaflet and Socket.IO. */
 "use strict";
 
-// ---- Toast notification helper ----
+// ---- HTML Escaping & Toast notification helper ----
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+}
+
 function showToast(msg) {
     const box = document.getElementById('toast-container') || (() => {
         const d = document.createElement('div');
         d.id = 'toast-container';
+        d.setAttribute('role', 'status');
+        d.setAttribute('aria-live', 'polite');
         d.style.cssText = 'position:fixed;top:80px;right:16px;z-index:1080;max-width:320px;';
         document.body.appendChild(d);
         return d;
     })();
     const t = document.createElement('div');
     t.className = 'sg-toast success';
-    t.innerHTML = msg;
+    t.innerHTML = typeof msg === 'string' ? msg : escapeHtml(msg);
     box.appendChild(t);
     setTimeout(() => t.remove(), 8000);
 }
+
 
 // ---- Sidebar nav: scroll-to-section + active highlight on click ----
 document.addEventListener('DOMContentLoaded', () => {

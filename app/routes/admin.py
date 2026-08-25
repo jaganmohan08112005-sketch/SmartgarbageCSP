@@ -1143,6 +1143,15 @@ def firmware_upload():
         return redirect(url_for('main.firmware_hub'))
     # ── Artifact validation: only real firmware images, bounded size ──
     ALLOWED_FW_EXT = ('.bin', '.hex', '.uf2', '.elf')
+    # Magic-byte signatures so a .bin extension can't be abused to upload an
+    # arbitrary binary (defense-in-depth: admin-gated, but prevents accidental
+    # mis-uploads that could be OTA-pushed to IoT devices).
+    FW_MAGIC = {
+        '.hex': b':02000004',    # Intel HEX extended-address record
+        '.uf2': b'UF2\x21',     # UF2 magic bytes
+        '.elf': b'\x7fELF',     # ELF magic bytes
+        # .bin: raw firmware — no standard header, skip magic check
+    }
     MAX_FW_BYTES = 8 * 1024 * 1024  # 8 MB
     fname = file.filename or ''
     ext = os.path.splitext(fname)[1].lower()
@@ -1152,6 +1161,13 @@ def firmware_upload():
     raw = file.read(MAX_FW_BYTES + 1)
     if len(raw) > MAX_FW_BYTES:
         flash("Firmware file exceeds the 8 MB limit.", "error")
+        return redirect(url_for('main.firmware_hub'))
+    if len(raw) == 0:
+        flash("Firmware file is empty.", "error")
+        return redirect(url_for('main.firmware_hub'))
+    expected_magic = FW_MAGIC.get(ext)
+    if expected_magic and not raw.startswith(expected_magic):
+        flash(f"File content does not match the expected {ext} format (magic-byte check failed).", "error")
         return redirect(url_for('main.firmware_hub'))
     file.seek(0)  # rewind so file.save() below can write the full content
     sha256 = hashlib.sha256(raw).hexdigest()

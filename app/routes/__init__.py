@@ -57,6 +57,16 @@ from ..models import (Complaint, ComplaintStatusLog, User, SmartBin, WorkerProfi
 logger = structlog.get_logger("smartgarbage.routes")
 
 
+def _is_deployed():
+    """True when running on a managed platform (Render or Fly.io).
+
+    Used by webhook verifiers to fail-closed: when credentials are not
+    configured on a production deployment, reject the request instead of
+    silently accepting unsigned payloads.
+    """
+    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+
+
 # ──────────────────────────────────────────────
 # OTP HASHING HELPER
 # ──────────────────────────────────────────────
@@ -550,6 +560,42 @@ def send_reset_email(user_email, user_id):
         return False
 
 
+def send_verification_email(user_email, user_id):
+    """Send an email-verification link after registration.
+
+    The token is a URLSafeTimedSerializer signature (same scheme as password
+    reset, different salt) that expires in 24 hours. In dev (no SMTP
+    configured) the link is logged so the operator can click it manually.
+    """
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    token = serializer.dumps(str(user_id), salt='email-verify-salt')
+    verify_url = url_for('main.verify_email', token=token, _external=True)
+    subject = 'SmartGarbage — Verify Your Email Address'
+    body = (
+        f'Thank you for registering with SmartGarbage.\n\n'
+        f'Click the link below to verify your email address (valid for 24 hours):\n\n'
+        f'{verify_url}\n\n'
+        f'If you did not create an account, you can safely ignore this email.'
+    )
+    sent = send_email_via_smtp(user_email, subject, body)
+    if not sent:
+        try:
+            from flask_mailman import Message
+            msg = Message(subject, recipients=[user_email], body=body)
+            from .. import mail
+            mail.send(msg)
+            sent = True
+        except Exception as e:
+            logger.error("verification_email_error", error=str(e))
+    if sent:
+        logger.info("verification_email_sent", email=user_email, user_id=user_id)
+    else:
+        # Dev fallback: log the link so the operator can verify manually.
+        logger.warning("verification_email_skipped_no_mail", email=user_email,
+                        verify_url=verify_url)
+    return sent
+
+
 def _is_local_request():
     """True only when the app is running in DEBUG/TEST mode or from loopback.
 
@@ -869,7 +915,9 @@ def _verify_twilio_signature():
     request URL + sorted POST params, keyed by TWILIO_AUTH_TOKEN."""
     token = os.environ.get('TWILIO_AUTH_TOKEN')
     if not token:
-        return True  # no credentials configured (dev sandbox) — skip
+        # In dev (no credentials) allow the request through so the sandbox
+        # keeps working. In production, reject unsigned webhooks (fail-closed).
+        return not _is_deployed()
     provided = request.headers.get('X-Twilio-Signature', '')
     url = request.url
     params = ''.join(f'{k}{v}' for k, v in sorted(request.form.items()))
@@ -882,7 +930,7 @@ def _verify_telegram_secret():
     registration via setWebhook?secret_token=...)."""
     secret = os.environ.get('TELEGRAM_BOT_SECRET')
     if not secret:
-        return True  # not configured — skip
+        return not _is_deployed()
     provided = request.headers.get('X-Telegram-Bot-Api-Secret-Token', '')
     return hmac.compare_digest(provided, secret)
 
@@ -988,7 +1036,7 @@ def _verify_razorpay_webhook_signature():
     Twilio verifier above — the header is the trust boundary for public hooks)."""
     secret = os.environ.get('RAZORPAY_WEBHOOK_SECRET')
     if not secret:
-        return True  # no credentials configured (dev sandbox) — skip
+        return not _is_deployed()
     provided = request.headers.get('X-Razorpay-Signature', '')
     raw = request.get_data(cache=True)
     expected = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()

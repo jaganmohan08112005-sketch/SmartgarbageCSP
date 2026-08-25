@@ -1201,3 +1201,74 @@ a[href^="tel:"] strong { white-space: nowrap; }
 /* CLS prevention: reserve space for dynamic content */
 #weatherDisplay { min-height: 120px; }
 .weather-emoji { font-size: 2.5rem; }
+
+/* ---- Anti-Gravity Hardened Production CSS Standards ---- */
+
+/* 1. Universal WCAG 2.1 AA Focus-Visible Rings */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.btn:focus-visible {
+    outline: 3px solid var(--sg-green-500, #2ecc71) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.25) !important;
+}
+
+/* 2. Skip-to-content accessible link */
+.skip-to-content {
+    position: absolute;
+    top: -100px;
+    left: 1rem;
+    z-index: 9999;
+    padding: 0.75rem 1.25rem;
+    background: var(--sg-green-700, #0f5132);
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 0 0 0.5rem 0.5rem;
+    text-decoration: none;
+    transition: top 0.2s ease-in-out;
+}
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+    top: 0;
+}
+
+/* 3. Viewport Resilience: Ultra-wide 4K containment & Micro-mobile 320px fold */
+@media (min-width: 1920px) {
+    .container, .container-lg, .container-xl, .container-xxl {
+        max-width: 1440px !important;
+    }
+}
+
+@media (max-width: 380px) {
+    html, body {
+        overflow-x: hidden !important;
+    }
+    .container, .container-fluid {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+    .btn {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        font-size: 0.875rem;
+    }
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* 4. High-Contrast Assistive Mode */
+@media (forced-colors: active) {
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+        outline: 3px solid Highlight !important;
+    }
+    .badge {
+        border: 1px solid CanvasText;
+    }
+}
+

@@ -14,7 +14,7 @@ from ..models import (User, WorkerProfile, utcnow)
 
 from .. import db, limiter
 
-from . import (_clear_login_failures, _hash_otp, _is_account_locked, _locked_until_utc, _record_failed_login, _send_otp_with_fallback, fit_length, logger, main, send_reset_email, validate_indian_phone, write_audit)
+from . import (_clear_login_failures, _hash_otp, _is_account_locked, _locked_until_utc, _record_failed_login, _send_otp_with_fallback, fit_length, logger, main, send_reset_email, send_verification_email, validate_indian_phone, write_audit)
 
 import app.routes as _routes  # call-time: honors test monkeypatches
 
@@ -54,8 +54,11 @@ def register():
         if len(email) > 120:
             flash('Email must be 120 characters or fewer.', 'error')
             return redirect(url_for('main.register'))
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'error')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return redirect(url_for('main.register'))
+        if password.lower() == username.lower():
+            flash('Password must be different from your username.', 'error')
             return redirect(url_for('main.register'))
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
@@ -81,7 +84,13 @@ def register():
             return redirect(url_for('main.login'))
         write_audit("REGISTER", target=username, detail=f"New {role} account created. Phone: {phone}, Email: {email}")
         logger.info("registration_success", username=username, role=role, phone=phone, email=email)
-        flash('Registration successful! Please log in.', 'success')
+        # Send email verification link (non-blocking: a mail failure must not
+        # block registration — the citizen can log in after verifying via phone MFA).
+        try:
+            send_verification_email(email, new_user.id)
+        except Exception as e:
+            logger.warning("verification_email_send_error", error=str(e))
+        flash('Registration successful! Please verify your email and log in.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html')
 
@@ -106,8 +115,11 @@ def register_picker():
         if not phone:
             flash('Enter a valid Indian mobile number.', 'error')
             return redirect(url_for('main.register_picker'))
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'error')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return redirect(url_for('main.register_picker'))
+        if password.lower() == username.lower():
+            flash('Password must be different from your username.', 'error')
             return redirect(url_for('main.register_picker'))
         if User.query.filter_by(username=username).first():
             flash('Name already registered.', 'error')
@@ -160,6 +172,13 @@ def login():
         _clear_login_failures(user)
         if user.role == 'admin' and not user.is_approved:
             flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
+            return redirect(url_for('main.login'))
+        # Email verification gate: citizens with an email must verify before
+        # first login. Accounts without an email (pre-verification, workers)
+        # are allowed through so legacy accounts are not locked out.
+        if (user.role == 'citizen' and user.email
+                and not getattr(user, 'email_verified', False)):
+            flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'error')
             return redirect(url_for('main.login'))
         # Session-fixation defense: start each login with a fresh session
         # (preserving the user's language preference).
@@ -277,6 +296,58 @@ def auth_phone_login():
     return redirect(url_for('main.mfa_verify'))
 
 
+@main.route('/verify-email/<token>')
+def verify_email(token):
+    """Email verification link handler.
+
+    The token is a URLSafeTimedSerializer signature (salt='email-verify-salt')
+    that expires after 24 hours. On success, the user's email_verified flag
+    is set to True and they can log in.
+    """
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        user_id = serializer.loads(token, salt='email-verify-salt', max_age=86400)
+    except SignatureExpired:
+        flash('Verification link has expired. Please register again or request a new link.', 'error')
+        return redirect(url_for('main.login'))
+    except BadSignature:
+        flash('Invalid verification link.', 'error')
+        return redirect(url_for('main.login'))
+    user = User.query.get(int(user_id))
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('main.login'))
+    if user.email_verified:
+        flash('Your email is already verified. Please log in.', 'success')
+    else:
+        user.email_verified = True
+        db.session.commit()
+        write_audit("EMAIL_VERIFIED", target=user.username, detail=f"Email {user.email} verified.")
+        logger.info("email_verified", username=user.username, email=user.email)
+        flash('Email verified successfully! You can now log in.', 'success')
+    return redirect(url_for('main.login'))
+
+
+@main.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    """Let an unverified user request a new email-verification link."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        if not email or '@' not in email:
+            flash('Please enter a valid email address.', 'error')
+            return redirect(url_for('main.resend_verification'))
+        user = User.query.filter_by(email=email).first()
+        if user and not getattr(user, 'email_verified', False):
+            try:
+                send_verification_email(email, user.id)
+            except Exception as e:
+                logger.warning("resend_verification_error", error=str(e))
+        # Always show success to prevent email enumeration.
+        flash('If an unverified account exists with that email, a new verification link has been sent.', 'success')
+        return redirect(url_for('main.login'))
+    return render_template('resend_verification.html')
+
+
 @main.route('/logout')
 def logout():
     write_audit("LOGOUT", target=session.get('username'))
@@ -317,8 +388,8 @@ def reset_password(token):
         return redirect(url_for('main.login'))
     if request.method == 'POST':
         password = request.form.get('password', '')
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'error')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
             return redirect(url_for('main.reset_password', token=token))
         user.password_hash = generate_password_hash(password)
         db.session.commit()

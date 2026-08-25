@@ -274,13 +274,20 @@ def create_app(test_config=None):
     # When REDIS_URL is set, SocketIO uses Redis as a message queue so
     # broadcasts work across multiple gunicorn workers/instances.
     mq = os.environ.get("REDIS_URL")
+    # CORS for SocketIO: in production only the app's own origin may connect
+    # (prevents any third-party site from subscribing to live fleet/complaint
+    # updates). Locally, allow all origins for convenience.
+    _sio_origins = "*" if not _is_deployed() else (
+        os.environ.get("SOCKETIO_CORS_ORIGINS")
+        or "https://smartgarbage.onrender.com"
+    )
     try:
-        socketio.init_app(app, async_mode='gevent', cors_allowed_origins="*", message_queue=mq)
+        socketio.init_app(app, async_mode='gevent', cors_allowed_origins=_sio_origins, message_queue=mq)
     except Exception:
         try:
-            socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*", message_queue=mq)
+            socketio.init_app(app, async_mode='eventlet', cors_allowed_origins=_sio_origins, message_queue=mq)
         except Exception:
-            socketio.init_app(app, cors_allowed_origins="*", message_queue=mq)
+            socketio.init_app(app, cors_allowed_origins=_sio_origins, message_queue=mq)
     # Quiet the SQLAlchemy 1.x LegacyAPIWarning emitted by the app-wide
     # use of `Model.query.get()` (deprecated in 2.0). Tracked separately
     # from a real migration to Session.get().

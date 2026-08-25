@@ -6,6 +6,7 @@ instance/
 uploads/
 .vscode/
 .env
+.env.*
 *.db
 boot.log
 boot_err.log
@@ -16,6 +17,13 @@ Smartgarbage round4/
 tmp_*.py
 scratch/
 .freebuff/
+
+# Secrets / credentials (never commit)
+*.pem
+*.key
+*.cert
+*.p12
+*secret_key*
 
 # 26MB trained model: excluded from git (purged 2026-08-10) and the Docker
 # image. Regenerate with train_model.py if needed.

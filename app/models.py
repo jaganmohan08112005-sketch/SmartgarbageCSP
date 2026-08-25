@@ -37,6 +37,7 @@ class User(db.Model, UserMixin):
     is_approved = db.Column(db.Boolean, default=False, nullable=False)  # admin must approve new accounts
     failed_login_count = db.Column(db.Integer, default=0, nullable=False)
     locked_until = db.Column(db.DateTime, nullable=True)
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
     # v2: Gamification — segregation streak (consecutive declarations with >0 segregated kg)
     segregation_streak = db.Column(db.Integer, default=0, nullable=False)
     # v3: Household size for waste-declaration plausibility checks
