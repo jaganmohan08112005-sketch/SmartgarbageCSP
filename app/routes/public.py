@@ -355,12 +355,17 @@ def robots_txt():
                      "Disallow: /api/\n"
                      "Disallow: /worker\n"
                      "Disallow: /dashboard\n")
+    # Standard robots.txt: default allow-all first, then specific AI bot
+    # overrides.  Most crawlers (including Googlebot, Bingbot) use the
+    # catch-all; AI bots get explicit Allow groups so their intent is
+    # visible in the file itself.  Putting User-agent: * FIRST fixes
+    # auditor warnings about 'AI crawlers blocked'.
     ai_rules = ''.join(f"User-agent: {bot}\nAllow: /\n{private_paths}\n"
                        for bot in ai_bots)
-    body = (ai_rules +
-            "User-agent: *\n"
+    body = ("User-agent: *\n"
             "Allow: /\n"
-            + private_paths +
+            + private_paths + "\n"
+            + ai_rules +
             f"Sitemap: {request.url_root.rstrip('/')}/sitemap.xml\n")
     # no-store: a stale cached robots.txt (the DEPLOY.md §8.2 documented
     # failure — the live site once served an OLD version blocking all
