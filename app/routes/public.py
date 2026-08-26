@@ -244,6 +244,13 @@ def schedule():
 
 # Ward transparency — read-only, no login: civic accountability per
 # waste-governance norms (public ward health dashboard).
+@main.route('/ward')
+def ward_redirect():
+    """Redirect bare /ward to the default ward transparency page."""
+    from flask import redirect, url_for
+    return redirect(url_for('main.ward_transparency', ward_name='Chintalavalasa'), code=302)
+
+
 @main.route('/ward/<path:ward_name>')
 @main.route('/transparency')
 def ward_transparency(ward_name=None):

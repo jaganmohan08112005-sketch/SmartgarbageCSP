@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Resend Verification Email - SmartGarbage{% endblock %}
+{% block title %}Resend Verification Email – SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_desc %}Resend your SmartGarbage email verification link. Enter your registered email to receive a new verification link and activate your account.{% endblock %}
 {% block content %}
 <div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
     <div class="col-md-6 col-lg-5">
@@ -7,6 +8,7 @@
             <div class="text-center mb-4">
                 <span class="fs-1 text-success">✉️</span>
                 <h1 class="fw-bold mt-2 text-success">{{ _('Resend Verification Email') }}</h1>
+                <h2 class="h5 text-muted mt-1">{{ _('Get a new email verification link for your SmartGarbage account') }}</h2>
                 <p class="text-muted small">{{ _('Enter the email address you used to register, and we will send a new verification link.') }}</p>
             </div>
             <form method="POST" action="{{ url_for('main.resend_verification') }}">
