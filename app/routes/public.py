@@ -345,8 +345,9 @@ def robots_txt():
     # get explicit Allow groups so they outrank the catch-all: a public-service
     # portal WANTS to be citable in AI answers. These are deliberately listed
     # before the generic group so their intent is visible in the file itself.
-    ai_bots = ['GPTBot', 'OAI-SearchBot', 'ClaudeBot', 'Google-Extended',
-               'PerplexityBot']
+    ai_bots = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot',
+               'anthropic-ai', 'Google-Extended', 'Google-InsightsBot',
+               'PerplexityBot', 'CCBot', 'Bytespider', 'YouBot']
     # Non-public paths stay off-limits for EVERY bot: robots.txt applies only
     # the most specific matching group, so an AI group that only said
     # "Allow: /" would silently drop the private-path disallows below.
@@ -368,6 +369,15 @@ def robots_txt():
     # fetched fresh from origin.
     return Response(body, mimetype='text/plain',
                     headers={'Cache-Control': 'no-store, max-age=0'})
+
+
+@main.route('/llms.txt')
+def llms_txt():
+    """Serve the llms.txt file describing the portal for AI systems."""
+    return send_from_directory(
+        current_app.static_folder,
+        'llms.txt', mimetype='text/plain',
+        max_age=86400)
 
 
 @main.route('/sitemap.xml')

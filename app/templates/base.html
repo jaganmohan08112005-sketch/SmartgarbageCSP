@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}SmartGarbage Chintalavalasa | Waste Collection Schedules & Missed Pickup Reports{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
+    <meta name="description" content="{% block meta_description %}Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points{% endblock %}">
     <meta name="keywords" content="waste collection schedule, garbage pickup, missed pickup report, Chintalavalasa, Vizianagaram, sanitation, smart bin, ward transparency, Green Points, Swachh Bharat">
     <meta name="author" content="Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat">
     <!-- og:title follows the page's own <title> block so sharing cards never
@@ -30,7 +30,7 @@
     <meta name="twitter:site" content="@SmartGarbageIN">
     <meta name="twitter:creator" content="@SmartGarbageIN">
     <meta name="twitter:title" content="{% block twitter_title %}{{ self.title() }}{% endblock %}">
-    <meta name="twitter:description" content="Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.">
+    <meta name="twitter:description" content="{% block meta_description_twitter %}{{ self.meta_description() }}{% endblock %}">
     <meta name="twitter:image" content="{{ url_for('static', filename='og-image.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}">
     <meta name="twitter:image:alt" content="SmartGarbage Chintalavalasa — Waste Collection Portal">
     {% if config.get('GOOGLE_SITE_VERIFICATION') %}
@@ -48,9 +48,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
-    <!-- Hreflang for bilingual support (English + Telugu) -->
-    <link rel="alternate" hreflang="en" href="{{ request.base_url }}?lang=en">
-    <link rel="alternate" hreflang="te" href="{{ request.base_url }}?lang=te">
+    <!-- Hreflang for bilingual support (English + Telugu).
+         Language is session-based (not URL-based), so all hreflang variants
+         point at the canonical URL to avoid duplicate-content crawl signals. -->
     <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -357,9 +357,9 @@
                              /set-lang route that sets the session cookie. -->
                         <noscript>
                             <div class="mt-2 small px-3">
-                                <a class="text-white" href="{{ enc_path }}?lang=en">🇬🇧 English</a>
+                                <a class="text-white" href="/set-lang/en?next={{ enc_path }}">🇬🇧 English</a>
                                 <span class="text-white-50 mx-1" aria-hidden="true">·</span>
-                                <a class="text-white" href="{{ enc_path }}?lang=te">🇮🇳 తెలుగు</a>
+                                <a class="text-white" href="/set-lang/te?next={{ enc_path }}">🇮🇳 తెలుగు</a>
                             </div>
                         </noscript>
                     </div>
