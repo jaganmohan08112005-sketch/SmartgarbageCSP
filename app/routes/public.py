@@ -244,18 +244,18 @@ def schedule():
 
 # Ward transparency — read-only, no login: civic accountability per
 # waste-governance norms (public ward health dashboard).
-@main.route('/ward')
-def ward_redirect():
-    """Redirect bare /ward to the default ward transparency page."""
-    from flask import redirect, url_for
-    return redirect(url_for('main.ward_transparency', ward_name='Chintalavalasa'), code=302)
-
-
 @main.route('/ward/<path:ward_name>')
+def ward_redirect(ward_name):
+    """Redirect /ward/<name> to /transparency to avoid duplicate content."""
+    from flask import redirect, url_for
+    return redirect(url_for('main.ward_transparency', ward=ward_name), code=301)
+
+
 @main.route('/transparency')
-def ward_transparency(ward_name=None):
+def ward_transparency():
     wards = list(WARD_COORDINATES.keys())
-    if ward_name is None:
+    ward_name = request.args.get('ward', wards[0])
+    if ward_name not in wards:
         ward_name = wards[0]
     bins = SmartBin.query.filter_by(ward=ward_name).all()
     complaints = Complaint.query.filter_by(ward=ward_name).all()
@@ -354,7 +354,9 @@ def robots_txt():
     # before the generic group so their intent is visible in the file itself.
     ai_bots = ['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot',
                'anthropic-ai', 'Google-Extended', 'Google-InsightsBot',
-               'PerplexityBot', 'CCBot', 'Bytespider', 'YouBot']
+               'PerplexityBot', 'CCBot', 'Bytespider', 'YouBot',
+               'Applebot-Extended', 'FacebookBot', 'Amazonbot',
+              'Bingbot', 'YandexBot', 'DuckDuckBot']
     # Non-public paths stay off-limits for EVERY bot: robots.txt applies only
     # the most specific matching group, so an AI group that only said
     # "Allow: /" would silently drop the private-path disallows below.

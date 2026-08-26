@@ -11,7 +11,7 @@
     <!-- og:title follows the page's own <title> block so sharing cards never
          drift from the visible title (no duplicated title maintenance). -->
     <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
-    <meta property="og:description" content="Civic waste-management portal for Chintalavalasa — report, track, declare, and earn rewards.">
+    <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
     <meta property="og:site_name" content="SmartGarbage Chintalavalasa">
