@@ -156,7 +156,7 @@
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
                 <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>
                 <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a>
-                <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
+                <span>✅ {{ _('Compliant with the') }} <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">{{ _('Solid Waste Management Rules, 2026') }}</a></span>
             </div>
         </div>
     </div>
@@ -246,7 +246,10 @@
             <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('ward collection timetable') }}</a> {{ _('and see today\'s collection times in seconds — no login needed.') }}</span></li>
             <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed pickup or overflowing-bin report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
             <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('ward service dashboard') }}</a> {{ _('for live bin status and collection coverage across the 5 wards.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">♻️ <span>{{ _('Are you a waste picker?') }} <a href="/register/picker" class="fw-semibold text-decoration-underline">{{ _('Register as a sanitation worker') }}</a> {{ _('to join the collection ecosystem under Swachh Bharat recognition.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">ℹ️ <span>{{ _('Learn more about the') }} <a href="/about" class="fw-semibold text-decoration-underline">{{ _('SmartGarbage portal team and mission') }}</a>.</span></li>
             <li class="d-flex align-items-start gap-2">🔒 <span>{{ _('See how resident data is handled in the') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('privacy notice') }}</a>.</span></li>
+            <li class="d-flex align-items-start gap-2">🚫 <span>{{ _('Found illegal dumping? File an') }} <a href="/report-illegal" class="fw-semibold text-decoration-underline">{{ _('anonymous illegal-dump report') }}</a> {{ _('without creating an account.') }}</span></li>
         </ul>
     </div>
 </div>
@@ -322,7 +325,7 @@
                 </h3>
                 <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Yes. After filing a report you receive a signed') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints and ward resolution times on your dashboard.') }}
+                        {{ _('Yes. After filing a report you receive a signed') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints, track status and check ward resolution times on your') }} <a href="/dashboard" class="fw-semibold text-decoration-underline">{{ _('citizen dashboard') }}</a>.
                     </div>
                 </div>
             </div>
@@ -418,6 +421,7 @@
                     {% endif %}
                 </div>
                 <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live ward dashboards') }}</a> →</p>
+        <p class="small text-muted mt-2 mb-0">Part of the <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Swachh Bharat Mission (Grameen)</a> &middot; <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Government of Andhra Pradesh</a></p>
             </div>
         </div>
     </div>
