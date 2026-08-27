@@ -55,6 +55,13 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Font preload: Outfit is a variable font (one woff2 covers weights
+         400-700). Preloading with fetchpriority=high lets the browser start
+         downloading the font BEFORE parsing the CSS @font-face block —
+         eliminates the extra round-trip that delays LCP text render. -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2"
+          fetchpriority="high">
     <!-- Critical-path notes (cold first visit): the inline critical block
          below styles the first screen with zero round-trips, so first paint
          no longer waits on bootstrap/style.css. The async preloads start the
