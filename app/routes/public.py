@@ -253,10 +253,13 @@ def ward_redirect(ward_name):
 
 @main.route('/transparency')
 def ward_transparency():
+    from flask import redirect, url_for
     wards = list(WARD_COORDINATES.keys())
-    ward_name = request.args.get('ward', wards[0])
-    if ward_name not in wards:
-        ward_name = wards[0]
+    ward_param = request.args.get('ward')
+    # Redirect bare /transparency?ward= (empty) to canonical /transparency
+    if ward_param is not None and (not ward_param or ward_param not in wards):
+        return redirect(url_for('main.ward_transparency'), code=301)
+    ward_name = ward_param or wards[0]
     bins = SmartBin.query.filter_by(ward=ward_name).all()
     complaints = Complaint.query.filter_by(ward=ward_name).all()
     open_complaints = [c for c in complaints if c.status != 'Resolved']
