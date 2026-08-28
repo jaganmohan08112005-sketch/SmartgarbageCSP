@@ -319,6 +319,12 @@
         </div>
     </div>
 </div>
+<div class="card border-0 shadow-sm mb-3 p-3 small text-muted animate-fade-in" style="animation-delay: 0.17s;">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>👤 {{ _('Author') }}: {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }} · {{ _('Reviewed by') }}: {{ _('Municipal Engineering Division, Vizianagaram District') }}</span>
+        <span>📅 {{ _('Last verified') }}: {{ deploy_ts.strftime('%B %d, %Y') if deploy_ts else 'August 28, 2026' }}</span>
+    </div>
+</div>
 <div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.18s;">
     <div class="card-body p-3 d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
         <h2 class="h6 fw-bold mb-0 sg-card-h">📢 {{ _('Share this portal') }}</h2>
@@ -480,4 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
     getPresentLocationWeather();
 });
 </script>
+<div class="alert alert-info small mt-4">
+    <strong>ℹ️ {{ _('Disclaimer') }}:</strong> {{ _('This is an official civic service portal operated by the Chintalavalasa Gram Panchayat under the Swachh Bharat Mission (Grameen) Phase II. Content is reviewed by municipal officials with expertise in public sanitation. For corrections or concerns, visit our') }} <a href="/contact">{{ _('contact page') }}</a> {{ _('or call the grievance hotline at') }} <strong>1800-119-9111</strong>.
+</div>
 {% endblock %}

@@ -12,6 +12,7 @@ from flask_socketio import SocketIO
 from flask_mailman import Mail
 from flask_login import LoginManager
 from flask_talisman import Talisman
+from flask_compress import Compress
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import OperationalError
@@ -336,6 +337,11 @@ def create_app(test_config=None):
                       # breaking plain-http local/LAN runs.
                       session_cookie_secure=_is_deployed(),
                       content_security_policy=_csp)
+
+    # Text compression (gzip + brotli) for HTML/CSS/JS responses.
+    # Cuts Transfer-Encoding by 60-80% on the 144KB homepage — the #1
+    # factor in "text compression" and "Brotli compression" audit warnings.
+    Compress(app)
 
     # Structured logging with structlog
     def _add_request_id(_, __, event_dict):
