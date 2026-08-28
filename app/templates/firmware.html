@@ -16,9 +16,7 @@
       <p class="text-muted mb-0">{{ _('Push software updates to ESP32/Arduino smart bins over Wi-Fi — no physical access required') }}</p>
     </div>
   </div>
-
   <div class="row g-4">
-    <!-- Upload New Firmware -->
     <div class="col-lg-4">
       <div class="card border-0 shadow-sm">
         <div class="card-header bg-transparent border-0 pt-4 px-4">
@@ -51,8 +49,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Firmware Releases Table -->
     <div class="col-lg-8">
       <div class="card border-0 shadow-sm">
         <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
@@ -105,8 +101,6 @@
           {% endif %}
         </div>
       </div>
-
-      <!-- Bin Status Grid -->
       <div class="card border-0 shadow-sm mt-4">
         <div class="card-header bg-transparent border-0 pt-4 px-4">
           <h5 class="fw-bold mb-0">🗑️ {{ _('Bin Connectivity Status') }}</h5>
@@ -131,8 +125,6 @@
     </div>
   </div>
 </div>
-
-<!-- OTA Push Modal -->
 <div class="modal fade" id="otaPushModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -162,7 +154,6 @@
     </div>
   </div>
 </div>
-
 <script>
 let activeReleaseId = null;
 function showPushModal(releaseId, version){

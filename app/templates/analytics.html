@@ -4,10 +4,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://leaflet.github.io/Leaflet.heat/dist/leaflet-heat.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 <div class="row g-4 mb-5 animate-fade-in">
     <div class="col-12">
         <div class="card p-4 border-0 shadow-sm bg-white d-flex flex-row justify-content-between align-items-center flex-wrap gap-3">
@@ -28,7 +26,6 @@
             </div>
         </div>
     </div>
-
     <div class="col-lg-7 col-sm-12">
         <div class="card p-3 border-0 shadow-sm bg-white h-100" style="z-index: 1;">
             <h5 class="fw-bold mb-1 text-dark">{{ _('🔥 Predictive Waste Hotspot Heatmap') }}</h5>
@@ -36,7 +33,6 @@
             <div id="heatmapContainer" style="height: 380px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
         </div>
     </div>
-
     <div class="col-lg-5 col-sm-12">
         <div class="card p-4 border-0 shadow-sm bg-white h-100 justify-content-between">
             <h5 class="fw-bold text-dark mb-3">{{ _('📊 Monthly Optimization Summary') }}</h5>
@@ -68,14 +64,12 @@
             </div>
         </div>
     </div>
-
     <div class="col-md-6">
         <div class="card p-3 border-0 shadow-sm bg-white">
             <h5 class="fw-bold mb-3 text-dark">{{ _('🕒 Peak Garbage Disposal Times') }}</h5>
             <canvas id="disposalTimesChart" height="220"></canvas>
         </div>
     </div>
-
     <div class="col-md-6">
         <div class="card p-3 border-0 shadow-sm bg-white">
             <h5 class="fw-bold mb-3 text-dark">{{ _('♻️ Waste Generation By Type (Tons)') }}</h5>
@@ -83,7 +77,6 @@
         </div>
     </div>
 </div>
-
 <div class="row g-4 mb-4">
     <div class="col-lg-4 col-md-6">
         <div class="card border-0 shadow-sm p-4 h-100" style="background:linear-gradient(135deg,#1a3a2a,#2C3E50);color:white;">
@@ -113,7 +106,6 @@
             </div>
         </div>
     </div>
-
     <div class="col-lg-4 col-md-6">
         <div class="card border-0 shadow-sm p-4 h-100">
             <h5 class="fw-bold mb-1">{{ _('♻️ Circular Economy Auditor') }}</h5>
@@ -124,7 +116,6 @@
             </div>
         </div>
     </div>
-
     <div class="col-lg-4 col-md-12">
         <div class="card border-0 shadow-sm p-4 h-100">
             <h5 class="fw-bold mb-3">{{ _('📊 4-Stream Waste Breakdown') }}</h5>
@@ -175,7 +166,6 @@
         </div>
     </div>
 </div>
-
 <div class="alert border-0 shadow-sm mb-4" style="background:linear-gradient(135deg,#fef9e7,#fdebd0);border-left:4px solid #F1C40F!important;">
     <div class="d-flex align-items-start gap-3">
         <span style="font-size:1.8rem;">🚦</span>
@@ -185,8 +175,6 @@
         </div>
     </div>
 </div>
-
-<!-- ══ SENSOR FAULT ANALYTICS (stuck-sensor incident trends) ══ -->
 <div class="row g-4 mb-4" id="sensorFaultAnalytics">
     <div class="col-12">
         <div class="card p-4 border-0 shadow-sm bg-white">
@@ -232,7 +220,6 @@
         </div>
     </div>
 </div>
-
 <script>
     // Analytics data is loaded from the API at runtime (no server-injected
     // Jinja in the markup), so the template validates as plain JavaScript/HTML
@@ -248,19 +235,15 @@
             initAnalytics(); buildDonut(); buildStreams();
         })
         .catch(e => console.error('Analytics load failed:', e));
-
     // 1. Heatmap + Peak/Waste charts (runs after data loads)
     function initAnalytics() {
-
     // 1. Initialize Leaflet Map for Heatmap
     let heatMap = L.map('heatmapContainer').setView([18.0675, 83.4094], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(heatMap);
-
     // Map the bins data points to Leaflet Heat [lat, lon, intensity/weight]
     const heatPoints = heatBins.map(b => [b.lat, b.lon, b.level / 100.0]);
-
     // Create and add heatmap layer
     let heatLayer = L.heatLayer(heatPoints, {
         radius: 35,
@@ -269,7 +252,6 @@
         max: 1.0,
         gradient: {0.4: 'blue', 0.6: 'cyan', 0.8: 'yellow', 1.0: 'red'}
     }).addTo(heatMap);
-
     // 2. Chart.js Peak Times Line Chart
     const timesCtx = document.getElementById('disposalTimesChart').getContext('2d');
     new Chart(timesCtx, {
@@ -292,7 +274,6 @@
             scales: { y: { beginAtZero: true } }
         }
     });
-
     // 3. Chart.js Waste Composition Bar Chart
     const typeCtx = document.getElementById('wasteTypeChart').getContext('2d');
     new Chart(typeCtx, {
@@ -326,7 +307,6 @@
         }
     });
     }
-
     // Circular Economy Donut Chart
     function buildDonut() {
         const ceCtx = document.getElementById('circularEconomyChart').getContext('2d');
@@ -356,7 +336,6 @@
         }
     });
     }
-
     // CSRD ESG Compliance PDF Export
     async function exportCSRDReport() {
         const btn = event.target;
@@ -367,7 +346,6 @@
             const data = await res.json();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-
             // Cover page
             doc.setFillColor(44, 62, 80);
             doc.rect(0, 0, 210, 45, 'F');
@@ -379,7 +357,6 @@
             doc.setFont('helvetica', 'normal');
             doc.text(`Municipality: ${data.municipality}`, 15, 35);
             doc.text(`Generated: ${new Date().toLocaleString()}`, 15, 42);
-
             // CO2 section
             doc.setTextColor(44, 62, 80);
             doc.setFontSize(13); doc.setFont('helvetica', 'bold');
@@ -388,7 +365,6 @@
             doc.text(`• CO2 Saved (AI vs Traditional Routes): ${carbonData.co2_saved_kg} kg (${carbonData.co2_saved_tonnes} metric tons)`, 20, 70);
             doc.text(`• Optimized Route Distance: ${carbonData.optimized_km} km vs ${carbonData.traditional_km} km traditional`, 20, 78);
             doc.text(`• Trees Equivalent: ${carbonData.trees_equivalent}`, 20, 86);
-
             // Circular Economy
             doc.setFontSize(13); doc.setFont('helvetica', 'bold');
             doc.text('II. Circular Economy & Waste Streams', 15, 100);
@@ -398,7 +374,6 @@
             doc.text(`• Dry / Recyclables: ${circularData.dry_kg} kg`, 20, 126);
             doc.text(`• Sanitary: ${circularData.sanitary_kg} kg`, 20, 134);
             doc.text(`• Hazardous / E-Waste: ${circularData.hazardous_kg} kg`, 20, 142);
-
             // Audit Trail sample
             doc.setFontSize(13); doc.setFont('helvetica', 'bold');
             doc.text('III. Audit Trail (Recent Actions)', 15, 158);
@@ -409,7 +384,6 @@
                 doc.text(`• [${entry.timestamp.slice(0,16)}] ${entry.username} — ${entry.action} ${entry.target ? '→ ' + entry.target : ''}`, 20, ay);
                 ay += 7;
             });
-
             doc.save('SmartGarbage_CSRD_ESG_Report.pdf');
         } catch(e) {
             alert('CSRD export failed: ' + e.message);
@@ -418,7 +392,6 @@
             btn.textContent = '📂 Export ESG/CSRD Report';
         }
     }
-
     async function exportPerformancePDF() {
         const btn = event.target;
         btn.disabled = true;
@@ -441,7 +414,6 @@
             btn.textContent = '📥 Export Performance PDF';
         }
     }
-
     // Apply 4-stream values, progress-bar widths/colors from data attributes
     // (kept out of the inline `style` attribute so the markup stays valid)
     function buildStreams() {
@@ -457,11 +429,9 @@
             bar.style.background = bar.getAttribute('data-color');
         });
     }
-
     // ── Sensor Fault Analytics (stuck-sensor incident trends) ──
     let sfaChart = null;
     let sfaDays = 90;
-
     function setSfaWindow(days) {
         sfaDays = days;
         document.querySelectorAll('.sfa-window').forEach(b => {
@@ -469,14 +439,12 @@
         });
         loadSensorFaultAnalytics();
     }
-
     // Ward/bin names are DB-controlled — escape before innerHTML injection.
     function sfaEscape(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[c]);
     }
-
     function renderSensorFaultAnalytics(data) {
         const k = data.kpis || {};
         const kpisEl = document.getElementById('sfaKpis');
@@ -502,7 +470,6 @@
                     <div class="text-muted small fw-bold">🛠️ Currently Faulted</div>
                     <div class="fs-4 fw-bold ${(k.currently_faulted || 0) > 0 ? 'text-warning' : ''}">${k.currently_faulted ?? 0}</div></div></div>`;
         }
-
         const ctx = document.getElementById('sensorFaultChart');
         // Best-effort chart: a Chart.js CDN failure must not block the tables
         // below from rendering (same degradation pattern as the Leaflet maps).
@@ -524,7 +491,6 @@
                 }
             });
         }
-
         const topEl = document.getElementById('sfaTopBins');
         if (topEl) {
             if (!data.top_bins.length) {
@@ -537,7 +503,6 @@
                     </div>`).join('');
             }
         }
-
         const body = document.getElementById('sfaWardBody');
         if (body) {
             if (!data.wards.length) {
@@ -557,14 +522,12 @@
                 </tr>`).join('');
         }
     }
-
     function loadSensorFaultAnalytics() {
         fetch(`/api/analytics/sensor-faults?days=${sfaDays}`)
             .then(r => r.json())
             .then(renderSensorFaultAnalytics)
             .catch(e => console.error('sensor fault analytics load failed:', e));
     }
-
     loadSensorFaultAnalytics();
 </script>
 {% endblock %}

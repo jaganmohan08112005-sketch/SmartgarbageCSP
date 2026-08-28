@@ -2,12 +2,10 @@
 {% block title %}Ward Collection Schedules | SmartGarbage Chintalavalasa{% endblock %}
 {% block meta_description %}Check waste collection schedules for your ward in Chintalavalasa — view daily pickup timetables, vehicle IDs and ML-powered missed collection risk forecasts{% endblock %}
 {% block content %}
-<!-- Page-level H1: the scan flagged /schedule as missing an H1 (a11y + SEO). -->
 <h1 class="mb-4 fw-bold text-success d-flex align-items-center gap-2">
     <span aria-hidden="true">📅</span> {{ _('Chintalavalasa Ward Collection Schedules') }}
 </h1>
 <div class="row g-4 animate-fade-in">
-    <!-- Form Segment -->
     <div class="col-lg-5">
         <div class="card p-4 shadow-sm border-0">
             <h2 class="mb-4 text-success fw-bold d-flex align-items-center gap-2">
@@ -25,24 +23,16 @@
                     🔍 {{ _('View Ward Schedule') }}
                 </button>
             </form>
-            <!-- Contextual link: the audit flagged missing body links to the
-                 reporting path — a resident checking a timetable who sees a
-                 missed collection should find the report flow here, not hunt
-                 for it in the menu. -->
             <p class="small text-muted mt-3 mb-0 text-center">⚠️ {{ _('Missed your pickup?') }}
                 <a href="/report" class="fw-semibold text-decoration-underline text-success">{{ _('report a missed pickup') }}</a>
             </p>
         </div>
     </div>
-
-    <!-- Prediction & Timetable Segment -->
     <div class="col-lg-7">
         {% if selected_ward %}
             <div class="card p-4 shadow-sm border-0 h-100 d-flex flex-column justify-content-between">
                 <div>
                     <h3 class="mb-3 text-dark fw-bold">{{ selected_ward }}</h3>
-
-                    <!-- ML Route failure Prediction Indicator -->
                     {% if prediction is not none %}
                         <div class="card mb-4 border-0 shadow-sm">
                             {% if prediction == 1 %}
@@ -72,8 +62,6 @@
                             {% endif %}
                         </div>
                     {% endif %}
-
-                    <!-- Results rendering table -->
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mt-2">
                             <thead>
@@ -111,8 +99,6 @@
         {% endif %}
     </div>
 </div>
-
-<!-- Contextual Citizen Action Banner -->
 <div class="card border-0 shadow-sm mt-4 p-4 bg-white animate-fade-in">
     <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
         <div>
@@ -125,13 +111,11 @@
         </div>
     </div>
 </div>
-
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
 <script type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("schedWard", "{{ _('-- Choose Ward --') }}");
-
         // Guarantee the ward <select> opens on click (all screen sizes),
         // not relying solely on Bootstrap's native dropdown behavior.
         const selectEl = document.getElementById("schedWard");
@@ -158,7 +142,6 @@
                 if (selectEl.value && typeof sgTrack === "function") sgTrack("ward_selected");
             });
         }
-
         // Auto-select previously submitted ward if any
         const selectedWard = JSON.parse(document.getElementById("selected-ward-data").textContent);
         if (selectedWard) {

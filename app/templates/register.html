@@ -11,11 +11,8 @@
                 <h2 class="h6 fw-bold text-dark mb-0">{{ _('Join SmartGarbage to track complaints and earn Green Points') }}</h2>
                 <p class="text-muted small">{{ _('Register to track and report sanitation issues in Chintalavalasa') }}</p>
             </div>
-
             <form method="POST" action="/register" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                <!-- Username -->
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_username">{{ _('Username') }}</label>
                     <div class="input-group">
@@ -24,8 +21,6 @@
                     </div>
                     <small class="text-muted">{{ _('At least 3 characters, no spaces.') }}</small>
                 </div>
-
-                <!-- Password -->
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_password">{{ _('Password') }}</label>
                     <div class="input-group">
@@ -34,8 +29,6 @@
                     </div>
                     <small class="text-muted">{{ _('Minimum 6 characters.') }}</small>
                 </div>
-
-                <!-- Phone Number — real Indian mobile required -->
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_phone">{{ _('Mobile Number') }} <span class="text-danger">*</span></label>
                     <div class="input-group">
@@ -48,8 +41,6 @@
                     </div>
                     <small class="text-muted">{{ _('Indian mobile only — 10 digits starting with 6-9 (e.g. 9876543210 or +91 9876543210).') }}</small>
                 </div>
-
-                <!-- Email Address -->
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_email">{{ _('Email Address') }} <span class="text-danger">*</span></label>
                     <div class="input-group">
@@ -60,16 +51,10 @@
                     </div>
                     <small class="text-muted">{{ _('Required for password reset and notifications.') }}</small>
                 </div>
-
-                <!-- Account Role -->
                 <div class="mb-4">
                     <label class="form-label fw-bold text-secondary" for="reg_role">{{ _('Account Role') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🛡️</span>
-                        <!-- No `required`: the select always carries a value (the
-                             first option is pre-selected), and a required select's
-                             first option must be a placeholder per the HTML spec.
-                             The server still validates the role on submit. -->
                         <select name="role" id="reg_role" class="form-select">
                             <option value="citizen" selected>{{ _('Standard Citizen (User)') }}</option>
                             <option value="worker">{{ _('Sanitation Worker (Worker)') }}</option>
@@ -78,11 +63,9 @@
                     </div>
                     <small class="text-muted">{{ _('Admin accounts require super-admin approval before login is enabled.') }}</small>
                 </div>
-
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
                     {{ _('Register Account') }}
                 </button>
-
                 <div class="text-center mt-3">
                     <p class="mb-0 text-muted small">{{ _('Already have an account?') }} <a href="/login" class="text-success fw-bold text-decoration-none">{{ _('Log In Here') }}</a></p>
                 </div>
@@ -90,7 +73,6 @@
         </div>
     </div>
 </div>
-
 <script>
     (function() {
         const form = document.querySelector('form');
@@ -98,48 +80,40 @@
         const password = document.getElementById('reg_password');
         const phone = document.getElementById('reg_phone');
         const email = document.getElementById('reg_email');
-
         function setValid(el, isValid) {
             el.classList.toggle('is-valid', isValid);
             el.classList.toggle('is-invalid', !isValid);
         }
-
         function validatePhone() {
             const cleaned = phone.value.replace(/[\s\-().]/g, '');
             const match = cleaned.match(/^(?:\+91|91)?([6-9]\d{9})$/);
             setValid(phone, !!match);
             return !!match;
         }
-
         function validateEmail() {
             const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim());
             setValid(email, valid || email.value.trim() === '');
             return valid;
         }
-
         function validatePassword() {
             const valid = password.value.length >= 6;
             setValid(password, valid);
             return valid;
         }
-
         function validateUsername() {
             const valid = username.value.trim().length >= 3;
             setValid(username, valid);
             return valid;
         }
-
         phone.addEventListener('input', validatePhone);
         email.addEventListener('input', validateEmail);
         password.addEventListener('input', validatePassword);
         username.addEventListener('input', validateUsername);
-
         form.addEventListener('submit', function(e) {
             const phoneValid = validatePhone();
             const emailValid = validateEmail();
             const passwordValid = validatePassword();
             const usernameValid = validateUsername();
-
             if (!phoneValid || !emailValid || !passwordValid || !usernameValid) {
                 e.preventDefault();
                 if (!phoneValid) phone.reportValidity();

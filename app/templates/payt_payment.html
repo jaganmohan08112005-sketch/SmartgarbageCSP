@@ -7,13 +7,11 @@
             <div class="fs-1 mb-2">💳</div>
             <h1 class="fw-bold mt-2 mb-1">{{ _('PAYT Invoice') }}</h1>
             <p class="text-muted small">{{ _('Pay securely — the invoice is confirmed automatically once the payment is captured.') }}</p>
-
             <div class="amt" style="font-size:2.5rem;font-weight:800;color:var(--sg-primary);">
                 ₹{{ "%.2f"|format(invoice.amount_rs) }}
             </div>
             <p class="mb-1"><strong>{{ _('Period:') }}</strong> {{ invoice.period }}</p>
             <p class="mb-3"><strong>{{ _('Compliance:') }}</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
-
             {% if invoice.status == 'Paid' %}
                 <div class="alert alert-success border-0 shadow-sm text-start small">
                     <i class="fa-solid fa-circle-check me-1"></i>
@@ -37,23 +35,18 @@
                     </div>
                 {% endif %}
                 {% if razorpay_order_id %}
-                    <!-- Primary path: server-created Razorpay order + Checkout UI -->
                     <button type="button" id="razorpayBtn" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
                         <i class="fa-solid fa-lock me-1"></i>
                         {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('securely') }}
                     </button>
                     <p class="text-muted small mb-3">{{ _('Secure payment via Razorpay (UPI, cards, net-banking, wallets).') }}</p>
-
                     <div class="hr-text small text-muted my-3">{{ _('or') }}</div>
                 {% endif %}
-
-                <!-- Fallback: UPI deep-link -->
                 <a class="btn btn-outline-success w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
                     <i class="fa-solid fa-mobile-screen-button me-1"></i>
                     {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('via UPI') }}
                 </a>
                 <p class="text-muted small mb-3">{{ _('You\'ll be redirected to your UPI app to authorize the payment.') }}</p>
-
                 <form method="POST" action="{{ url_for('main.payt_confirm_payment', inv_id=invoice.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-success w-100 fw-bold rounded-pill">
@@ -66,7 +59,6 @@
     </div>
 </div>
 {% endblock %}
-
 {% block scripts %}
 {% if razorpay_order_id %}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>

@@ -1,14 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Worker Portal - SmartGarbage{% endblock %}
 {% block content %}
-<!-- Leaflet Map CSS/JS Dependencies -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <div class="row g-4 justify-content-center">
-    <!-- Worker Profile and Task List Column (Mobile First) -->
     <div class="col-md-5 col-sm-12">
-        <!-- Worker Header Summary Card -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <div class="d-flex align-items-center gap-3">
                 <span class="sg-icon-lg">🚛</span>
@@ -22,8 +18,6 @@
                 <span>{{ _('Rating:') }} <strong class="text-warning">★ {{ profile.performance_rating if profile else '4.9' }}</strong></span>
             </div>
         </div>
-
-        <!-- Proactive Dispatch Queue (ML forecast ranked by hours-to-overflow) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-4 border-danger">
             <h5 class="fw-bold mb-1 text-dark d-flex align-items-center justify-content-between">
                 <span>🚨 {{ _('Proactive Dispatch Queue') }}</span>
@@ -34,8 +28,6 @@
                 <div class="text-center py-3 text-muted small" id="dispatchQueueEmpty">{{ _('Loading queue…') }}</div>
             </div>
         </div>
-
-        <!-- Maintenance Work Orders (sensor-health follow-up from the control room) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-4 border-warning">
             <h5 class="fw-bold mb-1 text-dark d-flex align-items-center justify-content-between">
                 <span>🧰 {{ _('Maintenance Tasks') }}</span>
@@ -46,14 +38,11 @@
                 <div class="text-center py-3 text-muted small" id="maintTaskEmpty">{{ _('Loading…') }}</div>
             </div>
         </div>
-
-        <!-- Task Checklist queue (High contrast mobile responsive) -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-dark d-flex align-items-center justify-content-between">
                 <span>📋 {{ _('Active Pickups Queue') }}</span>
                 <span class="badge bg-danger rounded-pill small" id="taskCount">{{ work_bins|length }} {{ _('Pending') }}</span>
             </h5>
-
             <div class="list-group gap-2" id="taskQueueList">
                 {% for b in work_bins %}
                 <div class="list-group-item rounded-3 border p-3 bg-light" id="task-card-{{ b.hardware_id }}">
@@ -81,8 +70,6 @@
                 {% endfor %}
             </div>
         </div>
-
-        <!-- Immediate Issue Reporter Form -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h5 class="fw-bold mb-3 text-danger">⚠️ {{ _('Incident / Obstruction Reporter') }}</h5>
             <form method="POST" action="/worker/report-issue" data-offline-queue>
@@ -113,12 +100,9 @@
                 </button>
             </form>
         </div>
-
-        <!-- Offloading Checkpoint / Digital Manifest Form -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-3 border-success">
             <h5 class="fw-bold mb-1 text-success">🚛 {{ _('Offloading Checkpoint') }}</h5>
             <p class="text-muted small">{{ _('Log landfill/processing weight below. Required AI Computer-Vision impurity verification is run automatically.') }}</p>
-
             <form method="POST" action="/worker/offload" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
@@ -142,8 +126,6 @@
                 </button>
             </form>
         </div>
-
-        <!-- Recent Offload Verification Logs -->
         <div class="card p-3 border-0 shadow-sm bg-white mb-3">
             <h6 class="fw-bold text-dark mb-2">📜 {{ _('Irreversible Offload Ledger') }}</h6>
             <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
@@ -183,23 +165,16 @@
             </div>
         </div>
     </div>
-
-    <!-- Navigation Map Column -->
     <div class="col-md-7 col-sm-12">
         <div class="card p-3 border-0 shadow-sm bg-white h-100 sticky-top" style="top: 85px; min-height: 400px; z-index: 1;">
             <h5 class="fw-bold mb-3 text-dark">🗺️ {{ _('Shift Route Navigation Map') }}</h5>
-
             <div id="workerNavMap" style="height: 520px; border-radius: 12px; border: 1px solid #dee2e6;"></div>
-
             <div class="alert alert-info mt-3 border-0 small mb-0">
                 <strong>💡 {{ _('Routing tip:') }}</strong> {{ _('Click') }} <b>"Navigate"</b> {{ _('in the pickup checklist queue to pan the map directly to the destination and draw the quickest path.') }}
             </div>
         </div>
     </div>
 </div>
-
-<!-- Close-the-loop modal: a bin may ONLY be cleared with a live After-photo
-     + on-site GPS. The server rejects clears without either (resolve_bin). -->
 <div class="modal fade" id="clearBinModal" tabindex="-1" aria-labelledby="clearBinModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -237,17 +212,13 @@
         </div>
     </div>
 </div>
-
 <script type="application/json" id="task-bins-data">
 {{ task_bins_data|tojson }}
 </script>
-<!-- Socket.IO is page-scoped (not in base.html): only pages with live
-     telemetry load it, keeping the third-party script off citizen pages. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
     // Bins telemetry data array
     const taskBins = JSON.parse(document.getElementById('task-bins-data').textContent);
-
     // Wire up pickup-queue action buttons (data kept in HTML, not inline JS)
     document.querySelectorAll('.locate-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -258,14 +229,11 @@
     document.querySelectorAll('.clear-btn').forEach(btn => {
         btn.addEventListener('click', () => openClearModal(btn.dataset.hwId));
     });
-
     // Initialize Leaflet Map focused on Chintalavalasa Junction
     let map = L.map('workerNavMap').setView([18.0675, 83.4094], 14);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
-
     // Current driver location marker
     const driverIcon = L.divIcon({
         html: '<div style="background:#4285F4; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>',
@@ -273,12 +241,10 @@
         iconSize: [16, 16]
     });
     const driverMarker = L.marker([18.0675, 83.4094], {icon: driverIcon}).bindPopup("<b>My Vehicle (CV-01)</b>").addTo(map);
-
     // Color marker depending on status
     function getMarkerColor(status) {
         return status === 'Critical' ? '#E74C3C' : '#F1C40F';
     }
-
     // Place active pickup markers
     let markersList = {};
     taskBins.forEach(bin => {
@@ -290,21 +256,17 @@
             opacity: 1,
             fillOpacity: 0.9
         }).bindPopup(`<b>${bin.hardware_id}</b><br>Ward: ${bin.ward}<br>Level: ${bin.level}%`).addTo(map);
-
         markersList[bin.hardware_id] = marker;
     });
-
     // Locate Bin map helper
     let currentNavLine = null;
     function locateBin(hwId, lat, lon) {
         map.setView([lat, lon], 16);
         markersList[hwId].openPopup();
-
         // Draw dynamic navigation vector from driver location
         if (currentNavLine) {
             map.removeLayer(currentNavLine);
         }
-
         currentNavLine = L.polyline([
             [18.0675, 83.4094], // Driver start point
             [lat, lon]          // Target bin point
@@ -315,12 +277,10 @@
             dashArray: '5, 5'
         }).addTo(map);
     }
-
     // ── Proactive dispatch queue ──
     const dispatchList = document.getElementById('dispatchQueueList');
     const dispatchCount = document.getElementById('dispatchCount');
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-
     function dispatchToast(msg, isError) {
         const box = document.getElementById('dispatch-toast-box') || (() => {
             const d = document.createElement('div');
@@ -336,7 +296,6 @@
         box.appendChild(t);
         setTimeout(() => t.remove(), 5000);
     }
-
     async function refreshDispatchQueue() {
         try {
             const res = await fetch('/api/dispatch/queue');
@@ -345,7 +304,6 @@
             renderDispatchQueue(data.bins || []);
         } catch (e) { console.warn('dispatch queue refresh failed', e); }
     }
-
     // Ward/hardware names are DB-controlled (citizen/seed input) — escape
     // before injecting into innerHTML (same discipline as admin.js escapeHtml).
     function dispatchEscape(s) {
@@ -353,7 +311,6 @@
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[c]);
     }
-
     function renderDispatchQueue(bins) {
         if (!dispatchList) return;
         if (dispatchCount) dispatchCount.textContent = bins.length;
@@ -388,14 +345,12 @@
             dispatchList.appendChild(el);
         });
     }
-
     document.addEventListener('click', (e) => {
         const accept = e.target.closest('.dispatch-accept');
         if (accept) { dispatchAction('/api/dispatch/accept', accept.dataset.binId, accept.dataset.hw); return; }
         const done = e.target.closest('.dispatch-complete');
         if (done) { dispatchAction('/api/dispatch/complete', done.dataset.binId, done.dataset.hw); }
     });
-
     async function dispatchAction(url, binId, hw) {
         try {
             const res = await fetch(url, {
@@ -419,7 +374,6 @@
             refreshMaintenanceTasks();
         } catch (e) { console.warn('dispatch action failed', e); }
     }
-
     // Live nudge: a bin just crossed the 6h overflow forecast threshold.
     if (typeof io !== 'undefined') {
         const dSocket = io({ transports: ['websocket', 'polling'] });
@@ -432,13 +386,10 @@
         dSocket.on('dispatch_update', () => refreshDispatchQueue());
         dSocket.on('maintenance_update', () => refreshMaintenanceTasks());
     }
-
     refreshDispatchQueue();
-
     // ── Maintenance work orders (sensor-health follow-up) ──
     const maintList = document.getElementById('maintTaskList');
     const maintCount = document.getElementById('maintCount');
-
     function renderMaintenanceTasks(orders) {
         if (!maintList) return;
         const active = orders.filter(o => o.status !== 'Completed');
@@ -479,7 +430,6 @@
         });
         maintList.innerHTML = items.join('');
     }
-
     async function refreshMaintenanceTasks() {
         try {
             const res = await fetch('/api/maintenance/my');
@@ -488,7 +438,6 @@
             renderMaintenanceTasks(data.orders || []);
         } catch (e) { console.warn('maintenance tasks refresh failed', e); }
     }
-
     document.addEventListener('click', (e) => {
         const start = e.target.closest('.maint-start');
         if (start) { maintenanceAction('/api/maintenance/' + start.dataset.maintId + '/start', '▶ {{ _('Task started — head to the bin') }}.'); return; }
@@ -498,7 +447,6 @@
             maintenanceAction('/api/maintenance/' + done.dataset.maintId + '/complete', '✔ {{ _('Maintenance task completed — thanks!') }}');
         }
     });
-
     async function maintenanceAction(url, okMsg) {
         try {
             const res = await fetch(url, {
@@ -514,15 +462,12 @@
             refreshMaintenanceTasks();
         } catch (e) { console.warn('maintenance action failed', e); }
     }
-
     refreshMaintenanceTasks();
-
     // ── Close-the-loop: clear a bin with After-photo + on-site GPS ──
     // The old confirm() + bare POST let a driver mark a bin cleared from down
     // the street. The server now rejects clears without a live After-photo and
     // GPS within range — this modal collects both before submitting multipart.
     let clearTargetHw = null;
-
     function openClearModal(hwId) {
         clearTargetHw = hwId;
         document.getElementById('afterLat').value = '';
@@ -535,7 +480,6 @@
         if (m) bootstrap.Modal.getOrCreateInstance(m).show();
         captureClearGps();
     }
-
     function captureClearGps() {
         const st = document.getElementById('afterGpsStatus');
         if (!navigator.geolocation) {
@@ -553,7 +497,6 @@
             if (st) { st.textContent = '❌ {{ _('GPS required to file a report') }} — {{ _('Enable location access and try again') }}'; st.className = 'small text-danger fw-bold'; }
         }, { timeout: 5000, enableHighAccuracy: true });
     }
-
     document.getElementById('afterPhotoInput').addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         const preview = document.getElementById('afterPhotoPreview');
@@ -563,14 +506,12 @@
             preview.classList.remove('d-none');
         }
     });
-
     async function submitClearEvidence() {
         const lat = document.getElementById('afterLat').value;
         const lon = document.getElementById('afterLon').value;
         const photo = document.getElementById('afterPhotoInput').files[0];
         const btn = document.getElementById('afterSubmitBtn');
         const st = document.getElementById('afterGpsStatus');
-
         if (!clearTargetHw) return;
         if (!photo) {
             dispatchToast('📸 {{ _('Clear Bin requires After-photo') }} — {{ _('Upload a live photo of the cleared bin to close this ticket') }}.', true);
@@ -582,7 +523,6 @@
             captureClearGps();
             return;
         }
-
         if (btn) { btn.disabled = true; btn.innerHTML = '⏳ {{ _('Submitting…') }}'; }
         const fd = new FormData();
         fd.append('after_photo', photo);

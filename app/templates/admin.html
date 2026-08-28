@@ -1,11 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Admin Control Center - SmartGarbage{% endblock %}
 {% block content %}
-<!-- Leaflet Map CSS Dependency (JS is lazy-loaded by admin.js) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
 <div class="row g-4">
-    <!-- Left Navigation Sticky Sidebar (desktop only) -->
     <div class="col-lg-3 d-none d-lg-block">
         <div class="card border-0 shadow-sm sticky-top" style="top: 85px; z-index: 100;">
             <div class="card-body p-3">
@@ -30,8 +27,6 @@
                     </a>
                     <a href="#sensor-fault-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="sensor-fault-section">
                         <span>🔧</span> {{ _('Sensor Health') }}
-                        <!-- Rendered always (hidden by default) so a fault that
-                             appears AFTER page load can light up the badge. -->
                         <span class="badge bg-warning text-dark ms-auto d-none" id="sensorFaultNavCount">0</span>
                     </a>
                     <a href="#bot-simulator-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bot-simulator-section">
@@ -72,10 +67,7 @@
             </div>
         </div>
     </div>
-
-    <!-- Main Canvas Content Grid -->
     <div class="col-lg-9 col-md-12">
-        <!-- Mobile section jumper (sidebar is hidden below lg) -->
         <div class="d-lg-none mb-3">
             <div class="card border-0 shadow-sm bg-white">
                 <div class="card-body p-2">
@@ -101,11 +93,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- ══ OVERVIEW METRICS ══ -->
         <div class="admin-section active" id="kpi-section">
             <div class="animate-fade-in">
-                <!-- Header Row -->
                 <div class="card p-4 border-0 shadow-sm bg-white mb-4">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
                         <div class="d-flex align-items-center gap-3">
@@ -117,7 +106,6 @@
                         </div>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge bg-success p-2 rounded-pill small" id="liveIndicator">🟢 {{ _('LIVE') }}</span>
-                            <!-- Admin notification bell (dead-letter alerts + status pushes) -->
                             <div class="position-relative">
                                 <button class="btn btn-outline-dark btn-sm rounded-pill position-relative"
                                         type="button" onclick="toggleAdminNotifications()" aria-label="Notifications">
@@ -136,8 +124,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- KPI Analytics Hub -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-3 col-sm-6">
                         <div class="card border-0 shadow-sm p-3 h-100 bg-white">
@@ -196,7 +182,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- v2 KPI Row 2: Maintenance & Compliance -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-3 col-sm-6">
                         <div class="card border-0 shadow-sm p-3 h-100 bg-white {% if kpis.sensor_faults > 0 %}border-start border-warning border-3{% endif %}" onclick="setActive('sensor-fault-section')" role="button" title="{{ _('Open Sensor Health view') }}" style="cursor:pointer">
@@ -247,8 +232,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- ══ SMART BIN INTELLIGENCE FEATURES (discoverability) ══ -->
                 <div class="row g-4 mb-4">
                     <div class="col-12">
                         <div class="card border-0 shadow-sm p-4 bg-white">
@@ -285,8 +268,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- ══ GIS TELEMETRY MAP ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="gis-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🗺️ {{ _('GIS Telemetry Map') }}</h4>
@@ -297,15 +278,12 @@
             </div>
             <p class="text-muted small mb-3">{{ _('Live fill-level, battery, temperature &amp; methane for every smart bin. Click a marker for the full telemetry panel.') }}</p>
             <div id="gisMap" style="height: 440px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
-            <!-- Map Legend -->
             <div class="d-flex flex-wrap justify-content-center gap-4 mt-3 small">
                 <span><strong class="text-success">●</strong> {{ _('Safe (&lt; 50%)') }}</span>
                 <span><strong class="text-warning">●</strong> {{ _('Warning (50-79%)') }}</span>
                 <span><strong class="text-danger">●</strong> {{ _('Critical (≥ 80%)') }}</span>
             </div>
         </div>
-
-        <!-- ══ ROUTE OPTIMIZATION ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="routing-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🛣️ {{ _('Route Optimization') }}</h4>
@@ -335,8 +313,6 @@
                 <p class="small mb-0">{{ _('Click "Optimize Critical Bin Route" to sequence today\'s critical pickups.') }}</p>
             </div>
         </div>
-
-        <!-- ══ PROACTIVE DISPATCH QUEUE ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="dispatch-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🚨 {{ _('Proactive Dispatch Queue') }}</h4>
@@ -358,8 +334,6 @@
                 </table>
             </div>
         </div>
-
-        <!-- ══ SENSOR HEALTH (stuck-sensor + stale-sensor control room) ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="sensor-fault-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🔧 {{ _('Sensor Health') }}</h4>
@@ -416,8 +390,6 @@
                 </table>
             </div>
         </div>
-
-        <!-- ══ JOB QUEUE HEALTH (duration / retries / dead-letter KPIs) ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="queue-health-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">⏱️ {{ _('Job Queue Health') }}</h4>
@@ -452,8 +424,6 @@
                 </table>
             </div>
         </div>
-
-        <!-- ══ FLEET GEO-FENCING MAP ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="fleet-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">🛰️ {{ _('Fleet Geo-Fencing') }}</h4>
@@ -463,8 +433,6 @@
             <div id="fleetMap" style="height: 440px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
             <div id="fleetStatusList" class="row g-3 mt-3"></div>
         </div>
-
-        <!-- ══ WEBHOOK CONFIGURATION ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="webhook-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🔗 Webhook Configuration</h4>
@@ -493,8 +461,6 @@
             </div>
             {% endif %}
         </div>
-
-        <!-- ══ WHATSAPP / TELEGRAM BOT SIMULATOR ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="bot-simulator-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🤖 WhatsApp / Telegram Bot Simulator</h4>
@@ -502,9 +468,7 @@
             </div>
             <p class="text-muted small mb-4">Test the "report illegal dump without login" flow by posting straight to the public webhooks
                 (<code>/webhook/whatsapp</code>, <code>/webhook/telegram</code>). A real anonymous <strong>IllegalDumpReport</strong> is created, just like a citizen's phone message.</p>
-
             <div class="row g-4">
-                <!-- WhatsApp -->
                 <div class="col-lg-6">
                     <div class="border rounded-4 p-3 h-100">
                         <h6 class="fw-bold mb-3">🟢 Simulate WhatsApp Message</h6>
@@ -542,8 +506,6 @@
                         <button type="button" class="btn btn-success w-100 rounded-pill fw-bold" onclick="sendWhatsApp()">📲 Send WhatsApp Report</button>
                     </div>
                 </div>
-
-                <!-- Telegram -->
                 <div class="col-lg-6">
                     <div class="border rounded-4 p-3 h-100">
                         <h6 class="fw-bold mb-3">🔵 Simulate Telegram Message</h6>
@@ -573,7 +535,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="mt-4">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="fw-bold mb-0">📥 Webhook Response &amp; Recent Reports</h6>
@@ -598,8 +559,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- ══ BWG PICKUP APPROVALS ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="bwg-section">
             <div class="d-flex align-items-center justify-content-between mb-3">
                 <h4 class="fw-bold mb-0">🏢 Bulk Waste Generator Pickup Requests</h4>
@@ -627,8 +586,6 @@
             <div class="text-center py-4 text-muted"><div style="font-size:2rem;">✅</div><p>No pending bulk pickup requests.</p></div>
             {% endif %}
         </div>
-
-        <!-- ══ PAYT INVOICE LEDGER (waive / refund) ══ -->
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="payt-section">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                 <h4 class="fw-bold mb-0">💳 PAYT Invoice Ledger</h4>
@@ -687,13 +644,10 @@
             <div class="text-center py-4 text-muted"><div style="font-size:2rem;">💳</div><p>No PAYT invoices issued yet.</p></div>
             {% endif %}
         </div>
-
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
         <script src="{{ url_for('static', filename='js/admin.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></script>
     </div>
 </div>
-
-<!-- Telemetry Quick View Modal -->
 <div class="modal fade" id="telemetryModal" tabindex="-1" aria-labelledby="telemetryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -749,8 +703,6 @@
         </div>
     </div>
 </div>
-
-<!-- Clear sensor fault + optional maintenance work order modal -->
 <div class="modal fade" id="clearFaultModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -792,8 +744,6 @@
         </div>
     </div>
 </div>
-
-<!-- Edit maintenance work order (reassign / reschedule / notes / pool) -->
 <div class="modal fade" id="editOrderModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -827,6 +777,4 @@
         </div>
     </div>
 </div>
-
-
 {% endblock %}

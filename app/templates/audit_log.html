@@ -45,8 +45,6 @@
       </select>
     </div>
   </div>
-
-  <!-- Summary KPIs -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="card border-0 shadow-sm text-center p-3">
@@ -77,8 +75,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Anonymized Consent Register (GDPR/DPDP evidence) -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
       <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
@@ -150,8 +146,6 @@
       {% endif %}
     </div>
   </div>
-
-  <!-- Maintenance Work-Order Lifecycles (reconstructed from the ledger) -->
   <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
       <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
@@ -243,8 +237,6 @@
       {% endif %}
     </div>
   </div>
-
-  <!-- Audit Log Table -->
   <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
       <div class="table-responsive" style="max-height:65vh;overflow-y:auto;">
@@ -309,7 +301,6 @@
     </div>
   </div>
 </div>
-
 <script>
 function filterTable(){
   const q = document.getElementById('search_audit').value.toLowerCase();
@@ -322,7 +313,6 @@ function filterTable(){
     row.style.display = (matchQ && matchRole) ? '' : 'none';
   });
 }
-
 // Print ONLY the chosen per-order timeline card (print CSS hides the rest).
 function printTimeline(orderId) {
   document.querySelectorAll('.timeline-card.print-active')
@@ -341,7 +331,6 @@ function printTimeline(orderId) {
   window.print();
   restore();
 }
-
 async function rescheduleOrder(orderId) {
   const input = document.getElementById('due-' + orderId);
   if (!input || !input.value) return;
