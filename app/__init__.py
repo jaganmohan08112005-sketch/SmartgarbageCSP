@@ -328,6 +328,7 @@ def create_app(test_config=None):
                       strict_transport_security=True,
                       strict_transport_security_max_age=31536000,
                       strict_transport_security_include_subdomains=True,
+                      strict_transport_security_preload=True,
                       # Pass the same value the app configures explicitly: without
                       # this, flask-talisman's session_cookie_secure default (True)
                       # force-sets SESSION_COOKIE_SECURE on every request in

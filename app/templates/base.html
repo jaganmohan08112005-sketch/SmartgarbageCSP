@@ -8,6 +8,7 @@
     <meta name="description" content="{% block meta_description %}Official Chintalavalasa waste-management portal — check collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points{% endblock %}">
     <meta name="keywords" content="waste collection schedule, garbage pickup, missed pickup report, Chintalavalasa, Vizianagaram, sanitation, smart bin, ward transparency, Green Points, Swachh Bharat">
     <meta name="author" content="Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat">
+    <meta property="article:modified_time" content="{{ deploy_ts.strftime('%Y-%m-%dT%H:%M:%SZ') if deploy_ts else '2026-08-28T00:00:00Z' }}">
     <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
     <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
     <meta property="og:type" content="website">
@@ -37,18 +38,17 @@
     <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://www.googletagmanager.com">
+    <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2"
           fetchpriority="high">
     <style>{{ critical_css()|safe }}</style>
     <link rel="preload" as="style" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></noscript>
     <link rel="preload" as="style" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></noscript>
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"></noscript>
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"></noscript>
+    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'>
     <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script type="application/ld+json">
     {
@@ -190,6 +190,12 @@
     </script>
 </head>
 <body>
+    <noscript>
+        <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    </noscript>
     {% set enc_path = request.path.replace(' ', '%20') %}
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
     <nav class="navbar navbar-expand-lg navbar-dark sg-navbar sticky-top" aria-label="Main navigation">
@@ -425,7 +431,7 @@
                     <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
                     <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
                 </div>
-                <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %Y') if deploy_ts else '2026-08' }}</div>
+                <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }} · {{ _('Author') }}: Directorate of Waste Management & Sanitation</div>
             </div>
             <div class="small text-white-75 mt-2 d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
                 <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
