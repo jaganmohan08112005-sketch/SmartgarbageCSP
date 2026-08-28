@@ -105,9 +105,9 @@
         <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa') }}</h1>
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor localized') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('garbage collection schedules') }}</a>,
-            {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('ward-level service status') }}</a>,
-            {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a>
+            {{ _('Monitor') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('local pickup schedules') }}</a>,
+            {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('neighborhood service status') }}</a>,
+            {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a missed-pickup complaint') }}</a>
             {{ _('across every residential sector in real time.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
@@ -117,7 +117,7 @@
             <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill px-3">⚠️ {{ _('Report Missed Pickup') }}</a>
             <span class="small text-muted">✅ {{ _('No login needed') }}</span>
         </div>
-        <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily waste service, easy schedule lookup and transparent ward service — that\'s what this portal is for.') }}</p>
+        <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily sanitation service, easy timetable lookup and transparent neighborhood service — that\'s what this portal is for.') }}</p>
         <div class="sg-hero-trust-strip mt-4">
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
                 <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>
@@ -183,15 +183,15 @@
     <div class="card-body p-4">
         <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Sanitation timetables, service reports & ward information') }}</h2>
         <p class="small text-muted mb-3">
-            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check your ward\'s pickup timetable') }}</a>,
+            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check your neighborhood\'s pickup timetable') }}</a>,
             <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed-pickup complaint') }}</a> {{ _('or') }}
-            <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live ward bin status') }}</a> —
+            <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live bin fill levels') }}</a> —
             {{ _('all free, no login needed. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register') }}</a> {{ _('to track complaints and earn') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('Green Points') }}</a>.
         </p>
         <ul class="list-unstyled small mb-0 d-flex flex-column gap-2">
-            <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('ward collection timetable') }}</a> {{ _('and see today\'s collection times in seconds — no login needed.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ ('local pickup timetable') }}</a> {{ _('and see today\'s schedule in seconds — no login needed.') }}</span></li>
             <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed pickup or overflowing-bin report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
-            <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('ward service dashboard') }}</a> {{ _('for live bin status and collection coverage across the 5 wards.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('neighborhood service dashboard') }}</a> {{ _('for live bin status and pickup coverage across the 5 areas.') }}</span></li>
             <li class="d-flex align-items-start gap-2">♻️ <span>{{ _('Are you a waste picker?') }} <a href="/register/picker" class="fw-semibold text-decoration-underline">{{ _('Register as a sanitation worker') }}</a> {{ _('to join the collection ecosystem under Swachh Bharat recognition.') }}</span></li>
             <li class="d-flex align-items-start gap-2">ℹ️ <span>{{ _('Learn more about the') }} <a href="/about" class="fw-semibold text-decoration-underline">{{ _('SmartGarbage portal team and mission') }}</a>.</span></li>
             <li class="d-flex align-items-start gap-2">🔒 <span>{{ _('See how resident data is handled in the') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('privacy notice') }}</a>.</span></li>
@@ -207,7 +207,7 @@
         <div class="list-group list-group-flush small">
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-warning text-dark me-2">{{ _('Wet Season Advisory') }}</span>
-                <strong>{{ _('Rain-ready service:') }}</strong> {{ _('Wet waste gets heavier in showers, so sorting dry recyclables separately keeps every collection on time. Thank you for helping your ward stay clean.') }} — <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('see today\'s collection times') }}</a>.
+                <strong>{{ _('Rain-ready service:') }}</strong> {{ _('Wet refuse gets heavier in showers, so sorting dry recyclables separately keeps every pickup on time. Thank you for helping your neighborhood stay clean.') }} — <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('see today\'s collection times') }}</a>.
             </div>
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
@@ -252,7 +252,7 @@
                 </h3>
                 <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Separate dry recyclable plastics from biodegradable wet food waste before the morning pickup — heavier wet waste in the monsoon slows down the sanitation crew. The portal also lets you') }} <a href="/" class="fw-semibold text-decoration-underline">{{ _('declare your daily segregation') }}</a> {{ _('to earn Green Points.') }}
+                        {{ _('Separate dry recyclable plastics from biodegradable wet food refuse before the morning pickup — heavier soggy materials in the monsoon slow down the sanitation crew. The portal also lets you') }} <a href="/" class="fw-semibold text-decoration-underline">{{ _('declare your daily segregation') }}</a> {{ _('to earn Green Points.') }}
                     </div>
                 </div>
             </div>
@@ -276,7 +276,7 @@
                 </h3>
                 <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Green Points reward residents for filing waste reports and declaring daily segregation. You earn 15 points per report and additional points based on declared weight. Points can be') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('redeemed for local vouchers') }}</a> {{ _('and municipal tax discounts.') }}
+                        {{ _('Green Points reward residents for filing sanitation reports and declaring daily segregation. You earn 15 points per report and additional points based on declared weight. Points can be') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('redeemed for local vouchers') }}</a> {{ _('and municipal tax discounts.') }}
                     </div>
                 </div>
             </div>
@@ -319,6 +319,16 @@
         </div>
     </div>
 </div>
+<div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.18s;">
+    <div class="card-body p-3 d-flex flex-column flex-sm-row align-items-center justify-content-between gap-3">
+        <h2 class="h6 fw-bold mb-0 sg-card-h">📢 {{ _('Share this portal') }}</h2>
+        <div class="d-flex gap-2">
+            <a href="https://twitter.com/intent/tweet?text=Waste+Collection+Schedules+%26+Pickup+Reports+in+Chintalavalasa&url=https://smartgarbage.onrender.com/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill">🐦 Twitter</a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=https://smartgarbage.onrender.com/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill">📘 Facebook</a>
+            <a href="https://api.whatsapp.com/send?text=Check+out+the+SmartGarbage+portal+for+Chintalavalasa:+https://smartgarbage.onrender.com/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill">💬 WhatsApp</a>
+        </div>
+    </div>
+</div>
 <div class="row g-4 mb-5 animate-fade-in" style="animation-delay: 0.2s;">
     <div class="col-md-6">
         <div class="card border-start border-success border-4 p-4 h-100 bg-white shadow-sm">
@@ -352,7 +362,7 @@
                     {% endif %}
                 </div>
                 <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live ward dashboards') }}</a> →</p>
-        <p class="small text-muted mt-2 mb-0">Part of the <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Swachh Bharat Mission (Grameen)</a> &middot; <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Government of Andhra Pradesh</a></p>
+        <p class="small text-muted mt-2 mb-0">Part of the <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Swachh Bharat Mission (Grameen)</a> &middot; <a href="https://www.ap.gov.in/" target="_blank" rel="nofollow noopener noreferrer" class="fw-semibold text-decoration-underline">Government of Andhra Pradesh</a></p>
             </div>
         </div>
     </div>

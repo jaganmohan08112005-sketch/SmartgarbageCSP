@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Terms of Service — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}Terms of service for the SmartGarbage Chintalavalasa civic waste-management portal. Read our usage terms, liability limits, and service agreements.{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="fw-bold text-success mb-4">Terms of Service</h1>
+        <p class="text-muted mb-2">Last updated: {{ deploy_ts.strftime('%B %d, %Y') if deploy_ts else 'August 28, 2026' }}</p>
+        <p class="text-muted mb-4">These terms govern your use of the SmartGarbage Chintalavalasa civic waste-management portal operated by the Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">1. Acceptance of Terms</h2>
+        <p class="text-muted">By accessing or using this portal, you agree to be bound by these Terms of Service. If you do not agree, please do not use the service.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">2. Service Description</h2>
+        <p class="text-muted">This portal provides public civic services including waste-collection schedule lookup, missed-pickup complaint filing, ward transparency dashboards, and Green Points tracking for residents of Chintalavalasa Gram Panchayat.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">3. User Responsibilities</h2>
+        <ul class="text-muted">
+            <li>Provide accurate information when filing complaints or registering</li>
+            <li>Use the service only for legitimate civic purposes</li>
+            <li>Do not attempt to disrupt or abuse the portal's systems</li>
+            <li>Keep your account credentials secure</li>
+        </ul>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">4. Complaint Filing</h2>
+        <p class="text-muted">Complaints filed through this portal are forwarded to the relevant municipal authorities. Filing a false or malicious complaint may result in account suspension. Resolution timelines are targets, not guarantees.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">5. Green Points</h2>
+        <p class="text-muted">Green Points are a civic incentive program, not a financial instrument. Points may be redeemed for local vouchers and municipal tax discounts as per program rules. The Gram Panchayat reserves the right to modify the points program.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">6. Limitation of Liability</h2>
+        <p class="text-muted">This portal is provided "as is" for public service. The Chintalavalasa Gram Panchayat makes no warranties about uninterrupted availability. We are not liable for indirect, incidental, or consequential damages arising from portal use.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">7. Privacy</h2>
+        <p class="text-muted">Your use of this portal is also governed by our <a href="/privacy">Privacy Policy</a>, which describes how we collect, use, and protect your personal data.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">8. Changes to Terms</h2>
+        <p class="text-muted">We may update these terms from time to time. Continued use of the portal after changes constitutes acceptance of the updated terms.</p>
+
+        <h2 class="h5 fw-bold mt-4 mb-3">9. Contact</h2>
+        <p class="text-muted">For questions about these terms, contact us at <a href="/contact">our contact page</a> or call the grievance hotline at <strong>1800-119-9111</strong>.</p>
+
+        <div class="alert alert-info small mt-4">
+            <strong>ℹ️ Official Service:</strong> This portal is operated under the Swachh Bharat Mission (Grameen) Phase II, compliant with the Solid Waste Management Rules, 2026.
+        </div>
+    </div>
+</div>
+{% endblock %}

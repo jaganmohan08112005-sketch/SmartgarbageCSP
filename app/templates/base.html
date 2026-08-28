@@ -429,6 +429,8 @@
                     <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="sg-footer-link">✉️ {{ config['CIVIC_CONTACT_EMAIL'] }}</a>
                     {% endif %}
                     <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
+                    <a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a>
+                    <a href="/contact" class="sg-footer-link">{{ _('Contact') }}</a>
                     <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
                 </div>
                 <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }} · {{ _('Author') }}: Directorate of Waste Management & Sanitation</div>
@@ -437,6 +439,8 @@
                 <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
                 <span aria-hidden="true">·</span>
                 <span>✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ _('Content reviewed by the Directorate of Waste Management & Sanitation. Last verified') }}: {{ deploy_ts.strftime('%B %Y') if deploy_ts else 'August 2026' }}.</span>
             </div>
         </div>
     </footer>

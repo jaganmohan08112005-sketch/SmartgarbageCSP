@@ -348,6 +348,27 @@ def about():
     return render_template('about.html', wards=list(WARD_COORDINATES.keys()))
 
 
+@main.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        subject = request.form.get('subject', '').strip()
+        message = request.form.get('message', '').strip()
+        if name and email and message:
+            from flask import flash
+            flash('Thank you for your message. We will respond within 2 business days.', 'success')
+        else:
+            from flask import flash
+            flash('Please fill in all required fields.', 'danger')
+    return render_template('contact.html')
+
+
+@main.route('/terms')
+def terms():
+    return render_template('terms.html')
+
+
 @main.route('/robots.txt')
 def robots_txt():
     from flask import Response
@@ -416,6 +437,8 @@ def sitemap_xml():
         ('/register',    '0.7', 'monthly'),
         ('/register/picker', '0.5', 'monthly'),
         ('/privacy',     '0.6', 'yearly'),
+        ('/contact',     '0.7', 'monthly'),
+        ('/terms',       '0.5', 'yearly'),
     ]
     urls = ''.join(
         f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod>"

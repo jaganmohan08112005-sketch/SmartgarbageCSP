@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Contact Us — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}Contact the Directorate of Waste Management & Sanitation in Chintalavalasa. Reach our grievance hotline at 1800-119-9111 or visit our Gram Panchayat office.{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="fw-bold text-success mb-4">Contact Us</h1>
+        <p class="text-muted mb-4">Reach the Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat. We are here to help with sanitation services, complaints, and portal support.</p>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <h2 class="h5 fw-bold mb-3">📞 Grievance Hotline</h2>
+                    <p class="mb-2"><strong>1800-119-9111</strong></p>
+                    <p class="small text-muted">Toll-free, available Monday–Saturday, 8 AM – 6 PM IST</p>
+                    <a href="tel:+9118001199111" class="btn btn-success btn-sm rounded-pill">Call Now</a>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <h2 class="h5 fw-bold mb-3">✉️ Email</h2>
+                    <p class="mb-2"><strong>chintalavalasa.gp@ap.gov.in</strong></p>
+                    <p class="small text-muted">For portal support, complaints, and general enquiries</p>
+                    <a href="mailto:chintalavalasa.gp@ap.gov.in" class="btn btn-outline-success btn-sm rounded-pill">Send Email</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-5">
+            <h2 class="h5 fw-bold mb-3">🏛️ Office Address</h2>
+            <address class="text-muted mb-0">
+                <strong>Directorate of Waste Management & Sanitation</strong><br>
+                Chintalavalasa Gram Panchayat Office,<br>
+                Denkada Mandal,<br>
+                Vizianagaram District,<br>
+                Andhra Pradesh – 535005, India
+            </address>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">📋 Send Us a Message</h2>
+            <form method="POST" action="/contact">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label for="contactName" class="form-label">Your Name</label>
+                    <input type="text" class="form-control" id="contactName" name="name" required placeholder="Enter your full name">
+                </div>
+                <div class="mb-3">
+                    <label for="contactEmail" class="form-label">Email Address</label>
+                    <input type="email" class="form-control" id="contactEmail" name="email" required placeholder="you@example.com">
+                </div>
+                <div class="mb-3">
+                    <label for="contactSubject" class="form-label">Subject</label>
+                    <select class="form-select" id="contactSubject" name="subject" required>
+                        <option value="">-- Select a topic --</option>
+                        <option value="complaint">Complaint about sanitation service</option>
+                        <option value="portal">Portal support or bug report</option>
+                        <option value="feedback">Feedback or suggestion</option>
+                        <option value="other">Other enquiry</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="contactMessage" class="form-label">Message</label>
+                    <textarea class="form-control" id="contactMessage" name="message" rows="5" required placeholder="Describe your enquiry..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-success rounded-pill px-4">Send Message</button>
+            </form>
+        </div>
+
+        <div class="alert alert-info small">
+            <strong>ℹ️ Disclaimer:</strong> This is an official civic service portal operated by the Chintalavalasa Gram Panchayat under the Swachh Bharat Mission (Grameen) Phase II. For emergencies, please call the grievance hotline directly.
+        </div>
+    </div>
+</div>
+{% endblock %}
