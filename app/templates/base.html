@@ -170,13 +170,7 @@
     }
     </script>
     {% if config.get('ANALYTICS_ID') %}
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        const sgConsent = localStorage.getItem('sgAnalyticsConsent');
-        gtag('consent', 'default', { analytics_storage: sgConsent === 'accepted' ? 'granted' : 'denied' });
-    </script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('consent','default',{analytics_storage:localStorage.getItem('sgAnalyticsConsent')==='accepted'?'granted':'denied'})</script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
     {% endif %}
     <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>console.log('PWA Service Worker Active!',r)).catch(e=>console.log('PWA Registration Failed!',e))})}</script>
