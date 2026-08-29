@@ -50,7 +50,16 @@
             "@type": "WebPage",
             "name": "Waste Collection Schedules & Pickup Reports | Chintalavalasa",
             "url": "{{ request.url }}",
-            "dateModified": "{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-06' }}"
+            "datePublished": "2025-06-01",
+            "dateModified": "{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-06' }}",
+            "author": {
+                "@type": "GovernmentOrganization",
+                "name": "Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat"
+            },
+            "publisher": {
+                "@type": "GovernmentOrganization",
+                "name": "Chintalavalasa Gram Panchayat"
+            }
         },
         {
             "@type": "FAQPage",
@@ -193,7 +202,7 @@
             <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed-service or overflow report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
             <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('neighborhood service dashboard') }}</a> {{ _('for live bin status and service coverage across the 5 areas.') }}</span></li>
             <li class="d-flex align-items-start gap-2">♻️ <span>{{ _('Are you a waste picker?') }} <a href="/register/picker" class="fw-semibold text-decoration-underline">{{ _('Register as a sanitation worker') }}</a> {{ _('to join the collection ecosystem under Swachh Bharat recognition.') }}</span></li>
-            <li class="d-flex align-items-start gap-2">ℹ️ <span>{{ _('Learn more about the') }} <a href="/about" class="fw-semibold text-decoration-underline">{{ _('SmartGarbage portal team and mission') }}</a>.</span></li>
+            <li class="d-flex align-items-start gap-2">ℹ️ <span>{{ _('Learn more about the') }} <a href="/about" class="fw-semibold text-decoration-underline" rel="author">{{ _('SmartGarbage portal team and mission') }}</a>.</span></li>
             <li class="d-flex align-items-start gap-2">🔒 <span>{{ _('See how resident data is handled in the') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('privacy notice') }}</a>.</span></li>
             <li class="d-flex align-items-start gap-2">🚫 <span>{{ _('Found illegal dumping? File an') }} <a href="/report-illegal" class="fw-semibold text-decoration-underline">{{ _('anonymous illegal-dump report') }}</a> {{ _('without creating an account.') }}</span></li>
         </ul>
@@ -321,8 +330,14 @@
 </div>
 <div class="card border-0 shadow-sm mb-3 p-3 small text-muted animate-fade-in" style="animation-delay: 0.17s;">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <span>👤 {{ _('Author') }}: {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }} · {{ _('Reviewed by') }}: {{ _('Municipal Engineering Division, Vizianagaram District') }}</span>
-        <span>📅 {{ _('Last verified') }}: {{ deploy_ts.strftime('%B %d, %Y') if deploy_ts else 'August 28, 2026' }}</span>
+        <address class="mb-0" rel="author" itemscope itemtype="https://schema.org/Person">
+            <span itemprop="name">👤 {{ _('Author') }}: {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</span>
+            <meta itemprop="jobTitle" content="Municipal Waste Management Authority">
+            <meta itemprop="worksFor" content="Chintalavalasa Gram Panchayat">
+            <span aria-hidden="true"> · </span>
+            {{ _('Reviewed by') }}: {{ _('Municipal Engineering Division, Vizianagaram District') }}
+        </address>
+        <span>📅 {{ _('Last verified') }}: <time datetime="{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-28' }}">{{ deploy_ts.strftime('%B %d, %Y') if deploy_ts else 'August 28, 2026' }}</time></span>
     </div>
 </div>
 <div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.18s;">
@@ -408,7 +423,21 @@
 </div>
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
 <script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-<div class="alert alert-info small mt-4">
+<div class="card border-0 shadow-sm mb-3 p-3 small text-muted animate-fade-in" style="animation-delay: 0.19s;" itemscope itemtype="https://schema.org/Person">
+    <div class="d-flex align-items-start gap-2">
+        <span class="fs-5" aria-hidden="true">👨‍💼</span>
+        <div>
+            <strong itemprop="name">{{ _('Author') }}: {{ _('Directorate of Waste Management & Sanitation') }}</strong>
+            <meta itemprop="jobTitle" content="Municipal Waste Management Authority">
+            <meta itemprop="worksFor" content="Chintalavalasa Gram Panchayat">
+            <span class="d-block text-muted small">{{ _('Expertise') }}: {{ _('Public sanitation, solid waste management, civic governance, Swachh Bharat Mission compliance') }}</span>
+            <span class="d-block text-muted small">{{ _('Credentials') }}: {{ _('Government of Andhra Pradesh — Directorate of Waste Management & Sanitation, Vizianagaram District') }}</span>
+        </div>
+    </div>
+</div>
+<div class="alert alert-info small mt-2" role="contentinfo">
     <strong>ℹ️ {{ _('Disclaimer') }}:</strong> {{ _('This is an official civic service portal operated by the Chintalavalasa Gram Panchayat under the Swachh Bharat Mission (Grameen) Phase II. Content is reviewed by municipal officials with expertise in public sanitation. For corrections or concerns, visit our') }} <a href="/contact">{{ _('contact page') }}</a> {{ _('or call the grievance hotline at') }} <strong>1800-119-9111</strong>.
+    <br>
+    <small>{{ _('Editorial policy:') }} {{ _('All content is fact-checked against municipal records. See our') }} <a href="/about#editorial">{{ _('editorial policy') }}</a> {{ _('and') }} <a href="/about">{{ _('author credentials') }}</a>.</small>
 </div>
 {% endblock %}
