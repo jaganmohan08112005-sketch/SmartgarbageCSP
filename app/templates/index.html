@@ -11,7 +11,7 @@
             "@id": "{{ url_for('main.schedule', _external=True) }}#service",
             "name": "Chintalavalasa Municipal Waste Management Service",
             "serviceType": "Solid waste collection schedule lookup",
-            "provider": { "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
+            "provider": { "@type": "GovernmentOrganization", "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "serviceArea": {
                 "@type": "AdministrativeArea",
@@ -31,7 +31,7 @@
             "@id": "{{ url_for('main.report', _external=True) }}#service",
             "name": "Chintalavalasa Municipal Waste Management Service",
             "serviceType": "Missed pickup and grievance reporting",
-            "provider": { "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
+            "provider": { "@type": "GovernmentOrganization", "@id": "{{ request.url_root.rstrip('/') }}/#organization" },
             "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
             "serviceArea": {
                 "@type": "AdministrativeArea",
