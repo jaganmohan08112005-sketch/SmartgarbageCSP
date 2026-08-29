@@ -10,7 +10,7 @@
     --sg-green-400: #34d399;
     --sg-green-500: #2ecc71;
     --sg-green-600: #27ae60;
-    --sg-green-700: #1e8449;
+    --sg-green-700: #166534;
     --sg-navy-700: #1f2d3a;
     --sg-navy-800: #16212b;
     --sg-navy-900: #0f1922;
@@ -74,10 +74,18 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -.4px;
 }
 
-a { color: var(--sg-primary-strong); text-decoration: none; transition: color .15s var(--ease); }
-a:hover { color: var(--sg-green-700); }
+a { color: var(--sg-primary-strong); text-decoration: underline; text-decoration-color: rgba(22, 101, 52, .35); text-underline-offset: 2px; transition: color .15s var(--ease), text-decoration-color .15s var(--ease); }
+a:hover { color: var(--sg-green-700); text-decoration-color: var(--sg-green-700); }
 
-/* Text-only success green: uses the darker green-700 (4.7:1 on white, WCAG AA)
+/* Remove underline from interactive / non-text links (nav, buttons, badges,
+   hero CTAs) — keep it only on inline text links for WCAG distinguishability. */
+.nav-link, .btn, .badge, .dropdown-item, .accordion-button,
+.sg-footer-link, .sg-hero-trust-link, .sg-task-link,
+.sr-only a, .skip-to-content, a.navbar-brand {
+    text-decoration: none !important;
+}
+
+/* Text-only success green: uses the darker green-700 (~7:1 on white, WCAG AAA)
    instead of the brand green-600 which only reached ~2.9:1. Buttons keep the
    brighter gradient; only text is darkened so headings stay readable. */
 .text-success { color: var(--sg-primary-strong) !important; }
@@ -452,7 +460,7 @@ h3.sg-card-h { font-size: 1.25rem; }
    .text-white-50 (0.5 opacity) fails AA on --sg-navy-800; this matches the
    proven .sg-footer-link value. */
 .text-white-75 {
-    color: rgba(255, 255, 255, .78) !important;
+    color: rgba(255, 255, 255, .88) !important;
 }
 
 /* Official-service emblem badge in the hero decision zone: light-green pill
@@ -505,11 +513,10 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .sg-hero-trust-link {
     color: var(--sg-navy-700);
-    text-decoration: none;
     font-weight: 500;
     transition: color .15s var(--ease);
 }
-.sg-hero-trust-link:hover { color: var(--sg-green-700); text-decoration: underline; }
+.sg-hero-trust-link:hover { color: var(--sg-green-700); }
 .sg-hero-trust-strip strong { color: var(--sg-green-700); }
 [data-theme="dark"] .sg-hero-trust-strip {
     background: rgba(15, 23, 42, .7);
@@ -550,7 +557,6 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     align-items: center;
     gap: .5rem;
     color: var(--sg-navy-700);
-    text-decoration: none;
     font-weight: 500;
 }
 .sg-task-link:hover { color: var(--sg-green-700); text-decoration: underline; }
@@ -623,8 +629,7 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 }
 
 .sg-footer-link {
-    color: rgba(255, 255, 255, .78);
-    text-decoration: none;
+    color: rgba(255, 255, 255, .88);
     transition: color .15s var(--ease);
 }
 .sg-footer-link:hover { color: #ffc107; }

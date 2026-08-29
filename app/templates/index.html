@@ -105,16 +105,16 @@
         <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa') }}</h1>
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('local pickup schedules') }}</a>,
+            {{ _('Monitor') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('local collection schedules') }}</a>,
             {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('neighborhood service status') }}</a>,
-            {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a missed-pickup complaint') }}</a>
+            {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a missed-service complaint') }}</a>
             {{ _('across every residential sector in real time.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-            <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Pickup Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
+            <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Collection Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
         </div>
         <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
-            <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill px-3">⚠️ {{ _('Report Missed Pickup') }}</a>
+            <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill px-3">⚠️ {{ _('Report Missed Collection') }}</a>
             <span class="small text-muted">✅ {{ _('No login needed') }}</span>
         </div>
         <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily sanitation service, easy timetable lookup and transparent neighborhood service — that\'s what this portal is for.') }}</p>
@@ -157,7 +157,7 @@
                 <div class="d-flex flex-column small mt-1">
                     <a href="/report" class="sg-task-link py-1">⚠️ {{ _('Report a problem') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
                     <a href="/register" class="sg-task-link py-1">🔎 {{ _('Track a complaint, bills & Green Points') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
-                    <a href="/transparency" class="sg-task-link py-1">📍 {{ _('View ward transparency') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
+                    <a href="/transparency" class="sg-task-link py-1">📍 {{ _('View area transparency') }}<span class="text-muted ms-auto" aria-hidden="true">→</span></a>
                 </div>
             </div>
         </div>
@@ -181,17 +181,17 @@
 </div>
 <div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.08s;">
     <div class="card-body p-4">
-        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Sanitation timetables, service reports & ward information') }}</h2>
+        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🧰 {{ _('Sanitation timetables, service reports & area information') }}</h2>
         <p class="small text-muted mb-3">
-            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check your neighborhood\'s pickup timetable') }}</a>,
-            <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed-pickup complaint') }}</a> {{ _('or') }}
+            {{ _('Use this portal to') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('check your neighborhood\'s collection timetable') }}</a>,
+            <a href="/report" class="fw-semibold text-decoration-underline">{{ _('file a missed-service complaint') }}</a> {{ _('or') }}
             <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('see live bin fill levels') }}</a> —
             {{ _('all free, no login needed. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register') }}</a> {{ _('to track complaints and earn') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('Green Points') }}</a>.
         </p>
         <ul class="list-unstyled small mb-0 d-flex flex-column gap-2">
-            <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ ('local pickup timetable') }}</a> {{ _('and see today\'s schedule in seconds — no login needed.') }}</span></li>
-            <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed pickup or overflowing-bin report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
-            <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('neighborhood service dashboard') }}</a> {{ _('for live bin status and pickup coverage across the 5 areas.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">📅 <span>{{ _('Check your') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ ('local collection timetable') }}</a> {{ _('and see today\'s schedule in seconds — no login needed.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">⚠️ <span>{{ _('File a') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('missed-service or overflow report') }}</a> {{ _('with your address, GPS and a photo for faster resolution.') }}</span></li>
+            <li class="d-flex align-items-start gap-2">📍 <span>{{ _('Follow the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('neighborhood service dashboard') }}</a> {{ _('for live bin status and service coverage across the 5 areas.') }}</span></li>
             <li class="d-flex align-items-start gap-2">♻️ <span>{{ _('Are you a waste picker?') }} <a href="/register/picker" class="fw-semibold text-decoration-underline">{{ _('Register as a sanitation worker') }}</a> {{ _('to join the collection ecosystem under Swachh Bharat recognition.') }}</span></li>
             <li class="d-flex align-items-start gap-2">ℹ️ <span>{{ _('Learn more about the') }} <a href="/about" class="fw-semibold text-decoration-underline">{{ _('SmartGarbage portal team and mission') }}</a>.</span></li>
             <li class="d-flex align-items-start gap-2">🔒 <span>{{ _('See how resident data is handled in the') }} <a href="/privacy" class="fw-semibold text-decoration-underline">{{ _('privacy notice') }}</a>.</span></li>
@@ -207,11 +207,11 @@
         <div class="list-group list-group-flush small">
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-warning text-dark me-2">{{ _('Wet Season Advisory') }}</span>
-                <strong>{{ _('Rain-ready service:') }}</strong> {{ _('Wet refuse gets heavier in showers, so sorting dry recyclables separately keeps every pickup on time. Thank you for helping your neighborhood stay clean.') }} — <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('see today\'s collection times') }}</a>.
+                <strong>{{ _('Rain-ready service:') }}</strong> {{ _('Wet refuse gets heavier in showers, so sorting dry recyclables separately keeps every collection on time. Thank you for helping your neighborhood stay clean.') }} — <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('see today\'s collection times') }}</a>.
             </div>
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
-                <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning.') }} — <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view ward status') }}</a>.
+                <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning.') }} — <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view area status') }}</a>.
             </div>
         </div>
     </div>
@@ -235,12 +235,12 @@
             <div class="accordion-item border-0 bg-transparent">
                 <h3 class="accordion-header">
                     <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                        {{ _('How do I report a missed pickup?') }}
+                        {{ _('How do I report a missed service?') }}
                     </button>
                 </h3>
                 <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Use the') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('report page') }}</a> {{ _('to file a missed-pickup complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster. You will receive a tracking link via SMS.') }}
+                        {{ _('Use the') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('report page') }}</a> {{ _('to file a missed-service complaint with your address, GPS coordinates and an optional photo so the crew can resolve it faster. You will receive a tracking link via SMS.') }}
                     </div>
                 </div>
             </div>
@@ -264,7 +264,7 @@
                 </h3>
                 <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                     <div class="accordion-body small text-muted">
-                        {{ _('Yes. After filing a report you receive a signed') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints, track status and check ward resolution times on your citizen dashboard.') }}
+                        {{ _('Yes. After filing a report you receive a signed') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. You can also') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('register an account') }}</a> {{ _('to view all your complaints, track status and check area resolution times on your citizen dashboard.') }}
                     </div>
                 </div>
             </div>
@@ -367,7 +367,7 @@
                     </div>
                     {% endif %}
                 </div>
-                <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live ward dashboards') }}</a> →</p>
+                <p class="small text-muted mt-3 mb-0">{{ _('Live figures from the Gram Panchayat service records.') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live area dashboards') }}</a> →</p>
         <p class="small text-muted mt-2 mb-0">Part of the <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline">Swachh Bharat Mission (Grameen)</a> &middot; <a href="https://www.ap.gov.in/" target="_blank" rel="nofollow noopener noreferrer" class="fw-semibold text-decoration-underline">Government of Andhra Pradesh</a></p>
             </div>
         </div>
@@ -380,7 +380,7 @@
                     <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS Locator') }}</button>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label text-muted small mb-1" for="homeWardSelector">{{ _('Select your ward / area for local weather:') }}</label>
+                    <label class="form-label text-muted small mb-1" for="homeWardSelector">{{ _('Select your neighborhood for local weather:') }}</label>
                     <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
                         <option value="" disabled selected>-- {{ _('Choose Ward / Area') }} --</option>
                     </select>
@@ -407,85 +407,7 @@
     </div>
 </div>
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-<script>
-// --- 2. Populate Dropdown ---
-function populateHomeWardDropdown() {
-    initializeWardDropdown("homeWardSelector", "-- Choose Ward / Area --");
-}
-// --- 3. Weather Fetcher ---
-async function fetchLiveWeatherFromServer(queryParams = '', targetName = 'Chintalavalasa') {
-    const loader = document.getElementById("weatherLoading");
-    const descEl = document.getElementById("weatherDesc");
-    if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "Syncing live weather feeds...";
-    try {
-        const cacheBuster = new Date().getTime();
-        const response = await fetch(`/?fetch_weather=true&${queryParams}&_=${cacheBuster}`);
-        const contentType = response.headers.get("content-type");
-        if (!response.ok || !contentType || !contentType.includes("application/json")) {
-            throw new Error("Weather api server connection loss");
-        }
-        const data = await response.json();
-        document.getElementById("weatherCity").textContent = data.city;
-        document.getElementById("weatherTemp").textContent = data.temp;
-        document.getElementById("weatherHumidity").textContent = data.humidity;
-        document.getElementById("weatherWind").textContent = data.wind;
-        if (descEl) descEl.textContent = data.condition;
-    } catch (error) {
-        console.error("Weather Fetch Error:", error);
-        // Random fallback values inside normal seasonal temperature bounds
-        const fallbackTemp = Math.floor(Math.random() * (34 - 28 + 1)) + 28;
-        const fallbackHumidity = Math.floor(Math.random() * (85 - 70 + 1)) + 70;
-        const fallbackWind = Math.floor(Math.random() * (15 - 8 + 1)) + 8;
-        document.getElementById("weatherCity").textContent = targetName;
-        document.getElementById("weatherTemp").textContent = `${fallbackTemp}°C`;
-        document.getElementById("weatherHumidity").textContent = `${fallbackHumidity}%`;
-        document.getElementById("weatherWind").textContent = `${fallbackWind} km/h`;
-        if (descEl) descEl.textContent = "Normal Seasonal Conditions (Cache)";
-    } finally {
-        if (loader) loader.classList.add("d-none");
-    }
-}
-// --- 4. Interactive Change ---
-function loadWardWeatherChange() {
-    const selector = document.getElementById("homeWardSelector");
-    if (!selector) return;
-    const wardName = selector.value;
-    if (!wardName) return;
-    fetchLiveWeatherFromServer(`ward=${encodeURIComponent(wardName)}`, wardName);
-}
-// --- 5. GPS Locator ---
-function getPresentLocationWeather() {
-    const loader = document.getElementById("weatherLoading");
-    const descEl = document.getElementById("weatherDesc");
-    if (!navigator.geolocation) {
-        if (descEl) descEl.textContent = "GPS hardware unsupported.";
-        fetchLiveWeatherFromServer('', 'Chintalavalasa');
-        return;
-    }
-    if (loader) loader.classList.remove("d-none");
-    if (descEl) descEl.textContent = "Requesting device GPS coordinates...";
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude.toFixed(4);
-            const lon = position.coords.longitude.toFixed(4);
-            fetchLiveWeatherFromServer(`lat=${lat}&lon=${lon}`, 'My Location');
-            const selector = document.getElementById("homeWardSelector");
-            if (selector) selector.value = "";
-        },
-        (error) => {
-            console.warn("GPS access declined or timed out. Defaulting to Chintalavalasa.");
-            fetchLiveWeatherFromServer('', 'Chintalavalasa');
-        },
-        { timeout: 4000, enableHighAccuracy: true }
-    );
-}
-// --- Page Load Hook ---
-document.addEventListener("DOMContentLoaded", () => {
-    populateHomeWardDropdown();
-    getPresentLocationWeather();
-});
-</script>
+<script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
 <div class="alert alert-info small mt-4">
     <strong>ℹ️ {{ _('Disclaimer') }}:</strong> {{ _('This is an official civic service portal operated by the Chintalavalasa Gram Panchayat under the Swachh Bharat Mission (Grameen) Phase II. Content is reviewed by municipal officials with expertise in public sanitation. For corrections or concerns, visit our') }} <a href="/contact">{{ _('contact page') }}</a> {{ _('or call the grievance hotline at') }} <strong>1800-119-9111</strong>.
 </div>

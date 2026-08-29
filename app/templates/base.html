@@ -179,15 +179,7 @@
     </script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
     {% endif %}
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('PWA Service Worker Active!', reg))
-                    .catch(err => console.log('PWA Registration Failed!', err));
-            });
-        }
-    </script>
+    <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>console.log('PWA Service Worker Active!',r)).catch(e=>console.log('PWA Registration Failed!',e))})}</script>
 </head>
 <body>
     <noscript>
@@ -380,96 +372,7 @@
         </div>
     </div>
     <script>
-        // ── Service-event tracking (consent-gated) ──
-        // Key public-service actions → GA4 events, so the team can see which
-        // services residents actually use. Events fire only after the citizen
-        // accepted the analytics consent banner (localStorage gate).
-        const SG_SERVICE_EVENTS = {
-            'schedule_check': 'a[href="/schedule"]',
-            'report_start': 'a[href="/report"]',
-            'hotline_click': 'a[href^="tel:"]',
-            'language_switch': 'a[data-lang]',
-            // Ordered before the generic login selector so the more specific
-            // staff entry wins the first-match loop — separates resident vs
-            // staff behavior in GA4 (audit: "distinguish audiences").
-            'staff_login_click': 'a[data-staff-login]',
-            'login_start': 'a[href="/login"]',
-            'signup_start': 'a[href="/register"]',
-        };
-        function sgTrack(name) {
-            if (localStorage.getItem('sgAnalyticsConsent') !== 'accepted') return;
-            if (typeof gtag === 'function') gtag('event', name);
-        }
-        document.addEventListener('click', (e) => {
-            for (const [name, selector] of Object.entries(SG_SERVICE_EVENTS)) {
-                if (e.target.closest(selector)) { sgTrack(name); break; }
-            }
-        });
-        // Completion events on submit (report filed / schedule looked up).
-        document.addEventListener('submit', (e) => {
-            const form = e.target.closest('form');
-            if (!form) return;
-            if (form.getAttribute('action') === '/report') sgTrack('report_submit');
-            if (form.getAttribute('action') === '/schedule') sgTrack('schedule_lookup');
-        });
-        // Funnel exit signal: the browser blocked a report submission on
-        // validation (missing ward / address / description). Fired once per
-        // attempt (500ms guard) — native validation never dispatches 'submit'
-        // for an invalid form, so 'invalid' is the reliable hook. Consent-gated
-        // via sgTrack; no field values are ever sent.
-        let lastReportValidationError = 0;
-        document.addEventListener('invalid', (e) => {
-            const form = e.target.closest('form');
-            if (form && form.getAttribute('action') === '/report') {
-                const now = Date.now();
-                if (now - lastReportValidationError > 500) {
-                    lastReportValidationError = now;
-                    sgTrack('report_validation_error');
-                }
-            }
-        }, true);
-        // ── Anonymized consent record (GDPR/DPDP evidence) ──
-        // Each banner choice is logged server-side so the Gram Panchayat can
-        // prove consent was captured. The register stores only a salted hash
-        // of IP+user-agent — never a name, phone, or address. Fire-and-forget:
-        // a logging failure must never block the citizen's choice.
-        // Consent-policy version from server config: bump CONSENT_VERSION with
-        // any banner-copy change so the register stays auditable.
-        const SG_CONSENT_VERSION = {{ config.get('CONSENT_VERSION', 'v1')|tojson }};
-        function sgRecordConsent(choice) {
-            try {
-                fetch('/api/consent', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    body: JSON.stringify({ choice: choice, version: SG_CONSENT_VERSION, source: location.pathname })
-                });
-            } catch (e) { /* non-blocking */ }
-        }
-        function sgSetConsent(accepted) {
-            localStorage.setItem('sgAnalyticsConsent', accepted ? 'accepted' : 'declined');
-            document.getElementById('sgConsentBanner')?.classList.add('d-none');
-            sgRecordConsent(accepted ? 'accept' : 'decline');
-            gtag('consent', 'update', { analytics_storage: accepted ? 'granted' : 'denied' });
-            if (accepted && !window.__sgAnalyticsConfigured) {
-                gtag('config', '{{ config['ANALYTICS_ID'] }}');
-                window.__sgAnalyticsConfigured = true;
-            }
-        }
-        document.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('sgAnalyticsConsent')) {
-                // Returning visitor already chose: hide the banner (JS only —
-                // non-JS crawlers still see the consent notice in the HTML).
-                document.getElementById('sgConsentBanner')?.classList.add('d-none');
-            } else if (sgConsent === 'accepted' && !window.__sgAnalyticsConfigured) {
-                // Returning visitor already accepted: fire the pageview on every
-                // load (the head script only declared consent, never configured).
-                gtag('config', '{{ config['ANALYTICS_ID'] }}');
-                window.__sgAnalyticsConfigured = true;
-            }
-        });
+const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="/report"]',hotline_click:'a[href^="tel:"]',language_switch:'a[data-lang]',staff_login_click:'a[data-staff-login]',login_start:'a[href="/login"]',signup_start:'a[href="/register"]'};function sgTrack(n){if(localStorage.getItem('sgAnalyticsConsent')!=='accepted')return;if(typeof gtag==='function')gtag('event',n)}document.addEventListener('click',e=>{for(const[n,s]of Object.entries(SG_SVC_EVENTS)){if(e.target.closest(s)){sgTrack(n);break}}});document.addEventListener('submit',e=>{const f=e.target.closest('form');if(!f)return;if(f.getAttribute('action')==='/report')sgTrack('report_submit');if(f.getAttribute('action')==='/schedule')sgTrack('schedule_lookup')});let _lrve=0;document.addEventListener('invalid',e=>{const f=e.target.closest('form');if(f&&f.getAttribute('action')==='/report'){const n=Date.now();if(n-_lrve>500){_lrve=n;sgTrack('report_validation_error')}}},true);const SG_CONSENT_VERSION={{ config.get('CONSENT_VERSION', 'v1')|tojson }};function sgRecordConsent(c){try{fetch('/api/consent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({choice:c,version:SG_CONSENT_VERSION,source:location.pathname})})}catch(e){}}function sgSetConsent(a){localStorage.setItem('sgAnalyticsConsent',a?'accepted':'declined');document.getElementById('sgConsentBanner')?.classList.add('d-none');sgRecordConsent(a?'accept':'decline');gtag('consent','update',{analytics_storage:a?'granted':'denied'});if(a&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}}document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem('sgAnalyticsConsent')){document.getElementById('sgConsentBanner')?.classList.add('d-none')}else if(sgConsent==='accepted'&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}});
     </script>
     {% endif %}
 </body>
