@@ -623,6 +623,19 @@ h3.sg-card-h { font-size: 1.25rem; }
 .sg-mobile-actions a:hover { background: rgba(255,255,255,.1); }
 .sg-mobile-actions a .fa-solid { font-size: 1.1rem; display: block; margin-bottom: 2px; }
 
+/* ---------- Collapsible sections (Read more pattern) ---------- */
+.sg-collapsible {
+    max-height: 3.6em;
+    overflow: hidden;
+    transition: max-height .3s ease;
+}
+.sg-collapsible.sg-expanded {
+    max-height: 600px;
+}
+.sg-read-more-btn {
+    font-size: .85rem;
+}
+
 /* ---------- Footer (department identity + hotline + privacy link) ---------- */
 .sg-footer {
     background: var(--sg-navy-800);

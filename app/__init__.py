@@ -463,7 +463,7 @@ def create_app(test_config=None):
 
     @app.errorhandler(404)
     def not_found(e):
-        return render_template('error.html', code=404, message="Page not found."), 404
+        return render_template('404.html'), 404
 
     @app.errorhandler(403)
     def forbidden(e):

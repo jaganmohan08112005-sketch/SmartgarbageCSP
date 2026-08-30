@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Page not found — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}The page you are looking for could not be found on the SmartGarbage Chintalavalasa portal.{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <div style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
+    <h1 class="display-4 fw-bold text-dark mb-3">404</h1>
+    <h2 class="h4 fw-bold text-muted mb-4">Page not found</h2>
+    <p class="text-muted col-md-6 mx-auto mb-4">
+        The page you are looking for does not exist, has been moved, or is temporarily unavailable.
+    </p>
+    <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+        <a href="/" class="btn btn-success rounded-pill px-4"><i class="fa-solid fa-house me-1"></i>Back to home</a>
+        <a href="/schedule" class="btn btn-outline-success rounded-pill px-4"><i class="fa-solid fa-calendar-days me-1"></i>Check schedule</a>
+        <a href="/report" class="btn btn-outline-success rounded-pill px-4"><i class="fa-solid fa-triangle-exclamation me-1"></i>Report a problem</a>
+        <a href="/contact" class="btn btn-outline-success rounded-pill px-4"><i class="fa-solid fa-headset me-1"></i>Contact us</a>
+    </div>
+    <p class="small text-muted">
+        If you believe this is an error, please <a href="/contact" class="fw-semibold text-decoration-underline text-success">contact us</a> or call the grievance hotline at <a href="tel:+9118001199111" class="fw-semibold text-decoration-underline text-success">1800-119-9111</a>.
+    </p>
+</div>
+{% endblock %}

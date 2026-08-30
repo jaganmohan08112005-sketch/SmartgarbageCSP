@@ -166,7 +166,10 @@
             <span class="small text-muted">✅ {{ _('No login needed') }}</span>
         </div>
         <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily sanitation service, easy timetable lookup and transparent neighborhood service — that\'s what this portal is for.') }}</p>
-        <p class="text-muted small mt-3 text-start mx-auto sg-hero-desc">{{ _('SmartGarbage Chintalavalasa is the official digital service portal operated by the Chintalavalasa Gram Panchayat in Vizianagaram District, Andhra Pradesh. The platform helps residents across all five residential areas check daily collection timetables, report missed pickups with GPS-tagged photos, monitor smart-bin fill levels in real time, and earn Green Points for responsible waste segregation. Built under the Swachh Bharat Mission (Grameen) Phase II, the portal connects citizens directly with municipal sanitation crews for faster complaint resolution and transparent service delivery.') }}</p>
+        <div class="sg-collapsible text-muted small mt-3 text-start mx-auto sg-hero-desc" id="heroAbout">
+            <p>{{ _('SmartGarbage Chintalavalasa is the official digital service portal operated by the Chintalavalasa Gram Panchayat in Vizianagaram District, Andhra Pradesh. The platform helps residents across all five residential areas check daily collection timetables, report missed pickups with GPS-tagged photos, monitor smart-bin fill levels in real time, and earn Green Points for responsible waste segregation. Built under the Swachh Bharat Mission (Grameen) Phase II, the portal connects citizens directly with municipal sanitation crews for faster complaint resolution and transparent service delivery.') }}</p>
+        </div>
+        <button class="btn btn-sm btn-link text-success text-decoration-none sg-read-more-btn" onclick="document.getElementById('heroAbout').classList.toggle('sg-expanded');this.textContent=this.textContent.includes('more')?'Show less':'Read more about this portal'" aria-expanded="false">Read more about this portal →</button>
         <div class="sg-hero-trust-strip mt-4">
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
                 <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>

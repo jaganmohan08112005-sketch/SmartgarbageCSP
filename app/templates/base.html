@@ -36,6 +36,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
     <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
+    <link rel="alternate" type="application/rss+xml" title="SmartGarbage Notices" href="/feed.xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
@@ -277,16 +278,20 @@
                         <ul id="sgSearchDropdown" class="list-unstyled sg-search-dropdown d-none" role="listbox"></ul>
                     </form>
                 </div>
-                {# Mobile search (inside collapsed nav) ── #}
-                <li class="nav-item d-lg-none mt-2">
+                {# Mobile search (inside collapsed nav, with autocomplete) ── #}
+                <li class="nav-item d-lg-none mt-2 position-relative">
                     <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}">
                         <div class="input-group input-group-sm">
                             <span class="input-group-text bg-transparent border-secondary text-white-50"><i class="fa-solid fa-magnifying-glass"></i></span>
-                            <input type="search" name="q" class="form-control bg-dark text-white border-secondary"
+                            <input type="search" name="q" class="form-control bg-dark text-white border-secondary sg-search-input"
+                                   id="sgMobileSearchInput"
                                    placeholder="{{ _('Search schedules, reports, FAQs…') }}"
-                                   aria-label="{{ _('Search the site') }}" autocomplete="off">
+                                   aria-label="{{ _('Search the site') }}" autocomplete="off"
+                                   aria-autocomplete="list" aria-controls="sgMobileSearchDropdown"
+                                   role="searchbox">
                             <button class="btn btn-outline-light" type="submit">{{ _('Search') }}</button>
                         </div>
+                        <ul id="sgMobileSearchDropdown" class="list-unstyled sg-search-dropdown d-none" role="listbox"></ul>
                     </form>
                 </li>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -416,9 +421,6 @@
     <script>
     // ── Search autocomplete (GOV.UK pattern with keyboard nav) ──
     (function() {
-        const input = document.getElementById('sgSearchInput');
-        if (!input) return;
-        const dropdown = document.getElementById('sgSearchDropdown');
         const SEARCH_DATA = [
             {t:'Collection Schedules',p:'/schedule',i:'fa-calendar-days'},
             {t:'Report a Missed Pickup',p:'/report',i:'fa-triangle-exclamation'},
@@ -437,37 +439,44 @@
             {t:'PAYT billing',p:'/terms',i:'fa-receipt'},
             {t:'Grievance Hotline 1800-119-9111',p:'tel:+9118001199111',i:'fa-headset'},
         ];
-        let activeIdx = -1;
         function filterData(q) {
             if (!q || q.length < 2) return [];
             const lower = q.toLowerCase();
             return SEARCH_DATA.filter(d => d.t.toLowerCase().includes(lower) || d.p.toLowerCase().includes(lower)).slice(0, 8);
         }
-        function render(items) {
-            if (!items.length) { dropdown.classList.add('d-none'); return; }
-            dropdown.innerHTML = items.map((d,i) =>
-                `<li class="sg-search-item" role="option" data-path="${d.p}" data-idx="${i}">`+
-                `<i class="fa-solid ${d.i} sg-search-item-icon" aria-hidden="true"></i>`+
-                `<span class="sg-search-item-title">${d.t}</span></li>`
-            ).join('');
-            dropdown.classList.remove('d-none');
-            activeIdx = -1;
+        function initSearch(inputId, dropdownId) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const dropdown = document.getElementById(dropdownId);
+            let activeIdx = -1;
+            function render(items) {
+                if (!items.length) { dropdown.classList.add('d-none'); return; }
+                dropdown.innerHTML = items.map((d,i) =>
+                    `<li class="sg-search-item" role="option" data-path="${d.p}" data-idx="${i}">`+
+                    `<i class="fa-solid ${d.i} sg-search-item-icon" aria-hidden="true"></i>`+
+                    `<span class="sg-search-item-title">${d.t}</span></li>`
+                ).join('');
+                dropdown.classList.remove('d-none');
+                activeIdx = -1;
+            }
+            input.addEventListener('input', () => render(filterData(input.value)));
+            input.addEventListener('keydown', (e) => {
+                const items = dropdown.querySelectorAll('.sg-search-item');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
+                else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); window.location.href = items[activeIdx].dataset.path; }
+                else if (e.key === 'Escape') { dropdown.classList.add('d-none'); }
+            });
+            dropdown.addEventListener('click', (e) => {
+                const item = e.target.closest('.sg-search-item');
+                if (item) window.location.href = item.dataset.path;
+            });
+            document.addEventListener('click', (e) => { if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add('d-none'); });
+            input.addEventListener('focus', () => { if (input.value.length >= 2) render(filterData(input.value)); });
         }
-        input.addEventListener('input', () => render(filterData(input.value)));
-        input.addEventListener('keydown', (e) => {
-            const items = dropdown.querySelectorAll('.sg-search-item');
-            if (!items.length) return;
-            if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
-            else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); window.location.href = items[activeIdx].dataset.path; }
-            else if (e.key === 'Escape') { dropdown.classList.add('d-none'); }
-        });
-        dropdown.addEventListener('click', (e) => {
-            const item = e.target.closest('.sg-search-item');
-            if (item) window.location.href = item.dataset.path;
-        });
-        document.addEventListener('click', (e) => { if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add('d-none'); });
-        input.addEventListener('focus', () => { if (input.value.length >= 2) render(filterData(input.value)); });
+        initSearch('sgSearchInput', 'sgSearchDropdown');
+        initSearch('sgMobileSearchInput', 'sgMobileSearchDropdown');
     })();
     </script>
     <script>
