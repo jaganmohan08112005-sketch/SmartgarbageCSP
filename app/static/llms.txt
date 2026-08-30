@@ -1,5 +1,7 @@
 # SmartGarbage Chintalavalasa
 
+Official municipal waste-management portal of Chintalavalasa Gram Panchayat, Andhra Pradesh, India. Provides ward-level collection schedules, GPS-enabled missed-pickup reporting, live bin-fill monitoring, and Green Points incentives for residents across 5 wards.
+
 ## Core Product
 SmartGarbage Chintalavalasa is the official digital sanitation portal of Chintalavalasa Gram Panchayat. It provides ward-level waste collection schedules, GPS-enabled missed-pickup reporting, live bin-fill monitoring, and a PAYT (Pay-As-You-Throw) billing system for residents across all 5 wards.
 
