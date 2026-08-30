@@ -62,8 +62,12 @@ HEADER = (
     # Outfit (variable font, 400-700). Without this inline declaration the
     # browser waits for Google Fonts CSS to learn about the font, adding
     # ~300-500ms to LCP text render.
+    # size-adjust + ascent/descent-override make the fallback font match Outfit's
+    # metrics so font-display:swap causes near-zero CLS on first paint.
     "@font-face{font-family:'Outfit';font-style:normal;font-weight:100 900;"
-    "font-display:swap;src:url(https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2) format('woff2')}\n"
+    "font-display:swap;"
+    "src:url(https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2) format('woff2');"
+    "size-adjust:105%;ascent-override:88%;descent-override:22%}\n"
 )
 
 

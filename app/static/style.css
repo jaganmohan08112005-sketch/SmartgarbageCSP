@@ -228,6 +228,7 @@ h3.sg-card-h { font-size: 1.25rem; }
 [data-theme="dark"] .sg-hero a.text-success { color: #4ade80 !important; }
 .sg-hero { background: linear-gradient(135deg, rgba(209, 231, 221, 0.4) 0%, rgba(255, 255, 255, 1) 100%); }
 .sg-hero-desc { max-width: 700px; }
+.sg-weather-stable { min-height: 100px; }
 
 .bg-warning { background-color: var(--sg-amber-500) !important; color: #3b2f06 !important; }
 .bg-primary { background-color: var(--sg-info) !important; }
