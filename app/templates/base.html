@@ -260,6 +260,30 @@
                         <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about"><i class="fa-solid fa-circle-info me-1"></i>{{ _('About') }}</a>
                     </li>
                 </ul>
+                {# ── Site search (GOV.UK pattern) ── #}
+                <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}"
+                      class="d-none d-lg-flex align-items-center sg-nav-search me-2">
+                    <div class="input-group input-group-sm">
+                        <input type="search" name="q" class="form-control sg-search-input"
+                               placeholder="{{ _('Search…') }}" aria-label="{{ _('Search the site') }}"
+                               autocomplete="off" value="">
+                        <button class="btn btn-outline-light" type="submit" aria-label="{{ _('Search') }}">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                </form>
+                {# Mobile search (inside collapsed nav) ── #}
+                <li class="nav-item d-lg-none mt-2">
+                    <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-secondary text-white-50"><i class="fa-solid fa-magnifying-glass"></i></span>
+                            <input type="search" name="q" class="form-control bg-dark text-white border-secondary"
+                                   placeholder="{{ _('Search schedules, reports, FAQs…') }}"
+                                   aria-label="{{ _('Search the site') }}" autocomplete="off">
+                            <button class="btn btn-outline-light" type="submit">{{ _('Search') }}</button>
+                        </div>
+                    </form>
+                </li>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="sg-account-dropdown dropdown">
                         <button id="accountMenuBtn" class="btn btn-outline-light btn-sm px-3 rounded-pill dropdown-toggle" type="button"

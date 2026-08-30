@@ -6,7 +6,8 @@ import requests
 
 from datetime import datetime, timezone
 
-from flask import (abort, current_app, jsonify, render_template, request, send_from_directory)
+from flask import (abort, current_app, jsonify, render_template, request,
+                   send_from_directory, redirect, url_for)
 
 from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, Schedule,
                       SmartBin, WasteDeclaration, utcnow)
@@ -18,6 +19,8 @@ from .. import db, limiter
 from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _redis_client,
                _ward_sla_hours, cache_get, cache_set, get_wmo_phrase, logger, main,
                verify_complaint_token)
+
+from ..search_index import search_pages
 
 
 # impact_stats (wards / smart-bins / resolved complaints on the hero card)
@@ -468,6 +471,18 @@ def csp_report():
     except Exception:
         pass
     return ('', 204)
+
+
+# ── Site-wide search ─────────────────────────────────────────────────────
+# GOV.UK pattern: a single search bar in the header that searches across
+# all pages, FAQs, schedules, and service descriptions.  Results are
+# ranked by keyword match and deduplicated.
+
+@main.route('/search')
+def search():
+    q = request.args.get('q', '').strip()
+    results = search_pages(q) if q else []
+    return render_template('search.html', query=q, results=results)
 
 
 @main.route('/health')
