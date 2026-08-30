@@ -36,7 +36,7 @@ import tinycss2
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "app" / "templates"
 STATIC = ROOT / "app" / "static"
-OUT = TEMPLATES / "partials" / "critical.css"
+OUT = ROOT / "app" / "static" / "css" / "critical.css"
 
 # Public templates whose markup defines the first screen. base.html is the
 # shared shell (navbar, footer, consent banner) and is always included.
