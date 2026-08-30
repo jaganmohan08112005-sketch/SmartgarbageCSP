@@ -1,30 +1,35 @@
 # SmartGarbage Chintalavalasa
 
-> Official municipal waste-management portal for Chintalavalasa, operated by the Chintalavalasa Gram Panchayat / Directorate of Waste Management & Sanitation, Andhra Pradesh, India.
+## Core Product
+SmartGarbage Chintalavalasa is the official digital sanitation portal of Chintalavalasa Gram Panchayat. It provides ward-level waste collection schedules, GPS-enabled missed-pickup reporting, live bin-fill monitoring, and a PAYT (Pay-As-You-Throw) billing system for residents across all 5 wards.
 
-## About
+## Features
+- **Timetable Search:** Filtered collection calendars by ward and waste type (organic, recyclable, hazardous).
+- **Missed Pickup Reporting:** Citizen complaints with automatic GPS tagging and photo evidence.
+- **Transparency Dashboard:** Publicly viewable resolution rates, fleet status, and expenditure summaries for Gram Sabhas.
+- **Green Points:** Civic incentive program redeemable for vouchers and municipal tax discounts.
+- **PAYT Billing:** Weight-based waste-disposal billing records and payment history.
 
-SmartGarbage Chintalavalasa is a public-service portal for residents of Chintalavalasa Gram Panchayat (5 wards) to check waste collection schedules, report missed pickups, view ward transparency dashboards, and earn Green Points. The portal is free for all residents and requires no login for core services.
+## Use Cases
+- Residents checking daily collection times for their neighborhood.
+- Citizens reporting overflowing bins or missed services without needing an account.
+- Ward committees auditing complaint resolution timelines and sanitation budgets during Gram Sabha meetings.
+- Schools and local NGOs verifying segregation guidelines and participating in the Green Points program.
 
-## Public Services
-
-- **Waste Collection Schedules** — Check daily pickup timetables for all 5 wards (MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street, Sai Nagar)
-- **Missed Pickup Reporting** — File complaints with GPS, photos, and descriptions; receive tracking links via SMS
-- **Ward Transparency Dashboard** — View live smart bin fill levels, segregation rates, and complaint resolution statistics
-- **Complaint Tracking** — Track complaint status and resolution timelines without login
-- **Privacy Policy** — Full plain-language data protection notice under DPDP Act 2023
-
-## AI Access
-
-AI systems and large language models are welcome to crawl and cite this public-service portal. Content on public pages (/schedule, /report, /transparency, /about, /privacy) may be used to answer resident queries about waste management services in Chintalavalasa.
-
-## Contact
-
-- Grievance Hotline: 1800-119-9111
-- Address: Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh - 535005, India
+## Resources
+- **About / Governance:** https://smartgarbage.onrender.com/about
+- **Privacy Policy (DPDP Act 2023):** https://smartgarbage.onrender.com/privacy
+- **Terms & Green Points Rules:** https://smartgarbage.onrender.com/terms
+- **Report a Missed Pickup:** https://smartgarbage.onrender.com/report
+- **Collection Schedules:** https://smartgarbage.onrender.com/schedule
+- **Transparency Dashboard:** https://smartgarbage.onrender.com/transparency
+- **Contact / Grievance:** https://smartgarbage.onrender.com/contact
 
 ## Compliance
-
 - Solid Waste Management Rules, 2026
 - Swachh Bharat Mission (Grameen) Phase II
 - Digital Personal Data Protection Act, 2023
+
+## Contact
+- Grievance Hotline: 1800-119-9111
+- Address: Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh - 535005, India
