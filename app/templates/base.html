@@ -161,6 +161,39 @@
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
+        "@type": "GovernmentOffice",
+        "name": "Chintalavalasa Gram Panchayat — Waste Management Office",
+        "description": "Official waste management office of Chintalavalasa Gram Panchayat, providing solid waste collection, grievance redressal, and sanitation services under the Swachh Bharat Mission.",
+        "url": "{{ request.url_root.rstrip('/') }}",
+        "telephone": "+91-1800-119-9111",
+        "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "Chintalavalasa Gram Panchayat Office",
+            "addressLocality": "Denkada Mandal",
+            "addressRegion": "Vizianagaram District, Andhra Pradesh",
+            "postalCode": "535005",
+            "addressCountry": "IN"
+        },
+        "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 18.1173,
+            "longitude": 83.4114
+        },
+        "openingHoursSpecification": {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
+            "opens": "08:00",
+            "closes": "17:00"
+        },
+        "areaServed": {
+            "@type": "AdministrativeArea",
+            "name": "Chintalavalasa Gram Panchayat"
+        }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
         "@type": "WebPage",
         "name": "Waste Collection Schedules & Pickup Reports | Chintalavalasa",
         "url": "{{ request.url }}",
@@ -291,7 +324,7 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show shadow" role="alert" style="border-radius: 12px;">
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show shadow" role="alert">
                         <div class="d-flex align-items-center gap-2">
                             {% if category == 'success' %}
                                 <span>🎉</span>
@@ -316,9 +349,7 @@
                 <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</div>
                 <div class="d-flex align-items-center gap-3">
                     <a href="tel:+9118001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
-                    {% if config.get('CIVIC_CONTACT_EMAIL') %}
-                    <a href="mailto:{{ config['CIVIC_CONTACT_EMAIL'] }}" class="sg-footer-link">✉️ {{ config['CIVIC_CONTACT_EMAIL'] }}</a>
-                    {% endif %}
+                    <a href="/contact" class="sg-footer-link">✉️ {{ _('Contact Us') }}</a>
                     <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
                     <a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a>
                     <a href="/contact" class="sg-footer-link">{{ _('Contact') }}</a>
