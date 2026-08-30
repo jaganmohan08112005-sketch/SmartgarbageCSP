@@ -127,6 +127,7 @@
             <span class="small text-muted">✅ {{ _('No login needed') }}</span>
         </div>
         <p class="small text-muted mb-0 mt-3">🟢 {{ _('Reliable daily sanitation service, easy timetable lookup and transparent neighborhood service — that\'s what this portal is for.') }}</p>
+        <p class="text-muted small mt-3 text-start mx-auto" style="max-width:700px;">{{ _('SmartGarbage Chintalavalasa is the official digital service portal operated by the Chintalavalasa Gram Panchayat in Vizianagaram District, Andhra Pradesh. The platform helps residents across all five residential areas check daily collection timetables, report missed pickups with GPS-tagged photos, monitor smart-bin fill levels in real time, and earn Green Points for responsible waste segregation. Built under the Swachh Bharat Mission (Grameen) Phase II, the portal connects citizens directly with municipal sanitation crews for faster complaint resolution and transparent service delivery.') }}</p>
         <div class="sg-hero-trust-strip mt-4">
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
                 <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>
@@ -160,7 +161,7 @@
                     <small class="text-muted">{{ _('Public · No login needed to explore') }}</small>
                 </div>
             </div>
-            <p class="text-muted small mb-3">{{ _('Report issues, track tickets, pay bills and earn Green Points — built for residents.') }}</p>
+            <p class="text-muted small mb-3">{{ _('Report issues, track tickets, pay bills and earn Green Points — built for residents of all five neighborhoods: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street and Sai Nagar.') }}</p>
             <div class="d-grid gap-2">
                 <a href="/schedule" class="btn btn-success w-100 fw-bold rounded-pill shadow-sm">📅 {{ _('Check Schedule') }}</a>
                 <div class="d-flex flex-column small mt-1">
@@ -184,6 +185,40 @@
             <div class="d-grid gap-2">
                 <a href="/login" class="btn btn-outline-success w-100 rounded-pill" data-staff-login>🔐 {{ _('Officer Login') }}</a>
                 <a href="/transparency" class="btn btn-outline-secondary w-100 rounded-pill">📍 {{ _('Wards') }}</a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.06s;">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🚀 {{ _('How it works — three simple steps') }}</h2>
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="fs-3" aria-hidden="true">1️⃣</span>
+                    <div>
+                        <strong class="text-dark">{{ _('Check your schedule') }}</strong>
+                        <p class="small text-muted mb-0">{{ _('Select your neighborhood from the dropdown to see today\'s collection timetable. Schedules update every morning before 7 AM so you know exactly when the sanitation crew arrives at your street.') }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="fs-3" aria-hidden="true">2️⃣</span>
+                    <div>
+                        <strong class="text-dark">{{ _('Report a problem') }}</strong>
+                        <p class="small text-muted mb-0">{{ _('Missed a pickup or spotted an overflowing bin? File a report with your address and an optional photo. GPS coordinates are captured automatically so the crew can locate the issue quickly.') }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="d-flex align-items-start gap-2">
+                    <span class="fs-3" aria-hidden="true">3️⃣</span>
+                    <div>
+                        <strong class="text-dark">{{ _('Track and earn') }}</strong>
+                        <p class="small text-muted mb-0">{{ _('Follow your complaint status in real time on your citizen dashboard. Earn Green Points for every report filed and for declaring daily waste segregation — redeemable for local vouchers and tax discounts.') }}</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -348,6 +383,45 @@
             <a href="https://www.facebook.com/sharer/sharer.php?u=https://smartgarbage.onrender.com/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm rounded-pill">📘 Facebook</a>
             <a href="https://api.whatsapp.com/send?text=Check+out+the+SmartGarbage+portal+for+Chintalavalasa:+https://smartgarbage.onrender.com/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-success btn-sm rounded-pill">💬 WhatsApp</a>
         </div>
+    </div>
+</div>
+<div class="card border-0 shadow-sm mb-4 animate-fade-in" style="animation-delay: 0.19s;">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🏘️ {{ _('Neighborhoods served by this portal') }}</h2>
+        <p class="small text-muted mb-3">{{ _('Chintalavalasa Gram Panchayat serves approximately 12,000 residents across five distinct neighborhoods in Vizianagaram District. Each area has its own collection timetable, dedicated sanitation crew, and live transparency dashboard showing real-time bin fill levels and complaint resolution rates.') }}</p>
+        <div class="row g-3">
+            <div class="col-sm-6 col-md-4 col-lg">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="fw-bold text-success">{{ _('Ward 1') }}</div>
+                    <small class="text-muted">{{ _('MVGR College Area — student housing and campus surroundings') }}</small>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="fw-bold text-success">{{ _('Ward 2') }}</div>
+                    <small class="text-muted">{{ _('Chintalavalasa Junction — commercial hub and main road corridor') }}</small>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="fw-bold text-success">{{ _('Ward 3') }}</div>
+                    <small class="text-muted">{{ _('RTC Colony — residential area near the bus depot') }}</small>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="fw-bold text-success">{{ _('Ward 4') }}</div>
+                    <small class="text-muted">{{ _('Ramalayam Street — temple district and heritage neighborhood') }}</small>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg">
+                <div class="border rounded-3 p-3 text-center h-100">
+                    <div class="fw-bold text-success">{{ _('Ward 5') }}</div>
+                    <small class="text-muted">{{ _('Sai Nagar — newer residential extension with growing population') }}</small>
+                </div>
+            </div>
+        </div>
+        <p class="small text-muted mt-3 mb-0">{{ _('Select your neighborhood above to check today\'s timetable, or') }} <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view live area dashboards') }}</a> {{ _('for real-time service data.') }}</p>
     </div>
 </div>
 <div class="row g-4 mb-5 animate-fade-in" style="animation-delay: 0.2s;">
