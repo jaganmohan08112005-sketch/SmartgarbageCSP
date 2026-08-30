@@ -9,36 +9,23 @@ from werkzeug.security import generate_password_hash
 def app():
     import os
     test_db_url = os.environ.get('TEST_DATABASE_URL')
-    # Pass the URI at CREATION time (test_config) so the SQLAlchemy engine
-    # binds to the isolated temp/CI DB from the start. Mutating
-    # SQLALCHEMY_DATABASE_URI after create_app() is too late: the demo-seeder
-    # inside create_app already touched the DB, leaving the engine bound to the
-    # stale default sqlite:///garbage.db (whose schema lacks newer columns).
-    if test_db_url:
-        # Postgres mode (CI parity job): shared DB needs per-test isolation.
-        a = create_app(test_config={
-            'TESTING': True,
-            'WTF_CSRF_ENABLED': False,
-            'SQLALCHEMY_DATABASE_URI': test_db_url,
-        })
-        with a.app_context():
-            db.drop_all()
-            db.create_all()
-            yield a
-            db.session.remove()
-            db.drop_all()
-    else:
-        fd, path = __import__('tempfile').mkstemp(suffix='.db')
-        os.close(fd)
-        a = create_app(test_config={
-            'TESTING': True,
-            'WTF_CSRF_ENABLED': False,
-            'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
-        })
-        with a.app_context():
-            db.create_all()
-            yield a
-            db.session.remove()
+    if not test_db_url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL must be set to a Supabase/PostgreSQL connection string.\n"
+            "Example: export TEST_DATABASE_URL='postgresql://user:pass@host:5432/test_db?sslmode=require'"
+        )
+    # Postgres mode: shared DB needs per-test isolation.
+    a = create_app(test_config={
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': False,
+        'SQLALCHEMY_DATABASE_URI': test_db_url,
+    })
+    with a.app_context():
+        db.drop_all()
+        db.create_all()
+        yield a
+        db.session.remove()
+        db.drop_all()
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 
 import os
-import sqlite3
+# sqlite3 removed — PostgreSQL only
 
 import pytest
 from app.models import User, Complaint, WorkerProfile
@@ -66,29 +66,21 @@ class TestAssetLinkage:
 
 
 class TestDatabaseSchema:
-    def test_sqlite_file_is_writable(self, app):
-        uri = app.config["SQLALCHEMY_DATABASE_URI"]
-        if not uri.startswith("sqlite:///"):
-            pytest.skip("SQLite-only probe — current DB is not SQLite")
-        path = uri.replace("sqlite:///", "")
-        assert os.path.exists(path)
-        conn = sqlite3.connect(path)
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("CREATE TABLE IF NOT EXISTS _probe__(id INTEGER PRIMARY KEY)")
-        conn.execute("INSERT INTO _probe__ DEFAULT VALUES")
-        conn.execute("DROP TABLE _probe__")
-        conn.commit()
-        conn.close()
+    def test_postgres_connection_works(self, app):
+        """Verify PostgreSQL connection is healthy."""
+        from sqlalchemy import text
+        from app import db as sa_db
+        with app.app_context():
+            with sa_db.session.connection() as conn:
+                result = conn.execute(text("SELECT 1"))
+                assert result.scalar() == 1
 
     def test_foreign_key_user_complaint_enforced(self, app):
         from sqlalchemy import text
         from app import db as sa_db
         with app.app_context():
             with sa_db.session.connection() as conn:
-                if conn.dialect.name == "sqlite":
-                    # SQLite defers FK enforcement until per-connection PRAGMA;
-                    # Postgres enforces FKs natively (no setup needed).
-                    conn.exec_driver_sql("PRAGMA foreign_keys = ON")
+                # Postgres enforces FKs natively (no setup needed).
                 with pytest.raises(Exception):
                     conn.execute(
                         text(

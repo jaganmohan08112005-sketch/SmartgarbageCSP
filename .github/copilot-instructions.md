@@ -29,7 +29,7 @@ Type `@crewpilot` in GitHub Copilot Chat. The agent will ask for a session role 
 ```
 User → @crewpilot (router) → SKILL.md (methodology) → MCP tools (execution)
                                                       ↓
-                                          SQLite (knowledge + workflows)
+                                          PostgreSQL (Supabase — knowledge + workflows)
                                           gh CLI / az CLI / jira CLI (Board providers)
 ```
 

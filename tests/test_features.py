@@ -4915,16 +4915,18 @@ def test_consent_endpoint_works_with_csrf_enabled(tmp_path):
     """The anonymous /api/consent flow works with CSRF protection on (as in
     production): the page renders a session-bound token that the banner fetch
     echoes back via the X-CSRFToken header."""
-    import tempfile as _tf
-    fd, path = _tf.mkstemp(suffix='.db'); os.close(fd)
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if not test_db_url:
+        raise RuntimeError('TEST_DATABASE_URL required for CSRF test')
     csrf_app = create_app(test_config={
         'TESTING': True,
         'WTF_CSRF_ENABLED': True,
-        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
+        'SQLALCHEMY_DATABASE_URI': test_db_url,
         'SERVER_NAME': 'localhost:5001',
         'ANALYTICS_ID': 'G-TEST',
     })
     with csrf_app.app_context():
+        db.drop_all()
         db.create_all()
     c = csrf_app.test_client()
     r = c.get('/')  # renders base.html → meta csrf-token bound to this session
@@ -4945,10 +4947,8 @@ def test_consent_endpoint_works_with_csrf_enabled(tmp_path):
         row = ConsentRecord.query.first()
         assert row is not None and row.choice == 'accept' and row.version == 'v2'
         assert row.source is None or row.source == ''
-    try:
-        os.remove(path)
-    except PermissionError:
-        pass
+    with csrf_app.app_context():
+        db.drop_all()
 
 
 def test_google_site_verification_meta_is_config_gated(client):
@@ -4959,19 +4959,21 @@ def test_google_site_verification_meta_is_config_gated(client):
     body = client.get('/').get_data(as_text=True)
     assert 'google-site-verification' not in body
 
-    import tempfile as _tf
-    fd, path = _tf.mkstemp(suffix='.db'); os.close(fd)
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if not test_db_url:
+        raise RuntimeError('TEST_DATABASE_URL required for verification test')
     ver_app = create_app(test_config={
         'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': f'sqlite:///{path}',
+        'SQLALCHEMY_DATABASE_URI': test_db_url,
         'GOOGLE_SITE_VERIFICATION': 'ABCDEF1234567890',
     })
     with ver_app.app_context():
+        db.drop_all()
         db.create_all()
     body2 = ver_app.test_client().get('/').get_data(as_text=True)
     assert 'name="google-site-verification" content="ABCDEF1234567890"' in body2
-    try:
-        os.remove(path)
+    with ver_app.app_context():
+        db.drop_all()
     except PermissionError:
         pass
 

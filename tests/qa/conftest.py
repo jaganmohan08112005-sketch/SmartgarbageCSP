@@ -52,30 +52,23 @@ def _make_app(db_uri):
 @pytest.fixture
 def app():
     test_db_url = os.environ.get('TEST_DATABASE_URL')
-    if test_db_url:
-        # Postgres mode (CI parity job): the service-container database is
-        # shared across tests, so drop/recreate the schema per test to keep
-        # each test isolated (SQLite got that for free via a fresh temp file).
-        app = _make_app(test_db_url)
-        with app.app_context():
-            db.drop_all()
-            db.create_all()
-            _seed(app)
-            yield app
-            db.session.remove()
-            db.drop_all()
-        with app.app_context():
-            db.engine.dispose()
-    else:
-        fd, path = tempfile.mkstemp(suffix=".db")
-        os.close(fd)
-        app = _make_app(f"sqlite:///{path}")
-        with app.app_context():
-            db.create_all()
-            _seed(app)
-            yield app
-            db.session.remove()
-            db.drop_all()
+    if not test_db_url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL must be set to a Supabase/PostgreSQL connection string.\n"
+            "Example: export TEST_DATABASE_URL='postgresql://user:pass@host:5432/test_db?sslmode=require'"
+        )
+    # Postgres mode: the service-container database is shared across tests,
+    # so drop/recreate the schema per test to keep each test isolated.
+    app = _make_app(test_db_url)
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        _seed(app)
+        yield app
+        db.session.remove()
+        db.drop_all()
+    with app.app_context():
+        db.engine.dispose()
         with app.app_context():
             db.engine.dispose()
         os.remove(path)
@@ -184,11 +177,16 @@ def admin_client(client):
 @pytest.fixture(scope="session")
 def live_server_url():
     port = _free_port()
-    db_path = "sqlite:///" + tempfile.mktemp(suffix=".db")
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if not test_db_url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL must be set for live server tests.\n"
+            "Example: export TEST_DATABASE_URL='postgresql://user:pass@host:5432/test_db?sslmode=require'"
+        )
     app = create_app(test_config={
         "TESTING": False,
         "WTF_CSRF_ENABLED": False,
-        "SQLALCHEMY_DATABASE_URI": db_path
+        "SQLALCHEMY_DATABASE_URI": test_db_url
     })
     with app.app_context():
         db.create_all()

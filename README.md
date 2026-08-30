@@ -24,7 +24,7 @@ A Flask-based digital reporting and monitoring platform for municipal solid wast
 |-------|------------|
 | **Backend** | Python 3.11, Flask, SQLAlchemy, Flask-Migrate |
 | **Frontend** | Bootstrap 5, Leaflet.js, Chart.js |
-| **Database** | SQLite (dev), PostgreSQL (production) |
+| **Database** | PostgreSQL (Supabase) |
 | **Deployment** | Docker, Render.com |
 | **Messaging** | Twilio WhatsApp, Telegram Bot API |
 
@@ -87,7 +87,7 @@ python run.py
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `SECRET_KEY` | Yes | Flask session secret (auto-generated if missing) |
-| `DATABASE_URL` | No | Database connection URL (default: SQLite) |
+| `DATABASE_URL` | Yes | Supabase PostgreSQL connection string |
 | `FLASK_ENV` | No | Set to `production` for production mode |
 | `REDIS_URL` | No | Redis for shared rate limits + KPI cache (needed when running >1 worker) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase Storage for photos (recommended in production) |

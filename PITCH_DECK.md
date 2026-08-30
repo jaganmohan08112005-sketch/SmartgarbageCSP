@@ -58,7 +58,7 @@ SmartGarbage was **architected around the 2026 rules** — not retrofitted:
 ## 5. Market Fit
 
 - Target: **2,500+ Gram Panchayats** and thousands of tier-3 ULBs facing the same 2026 compliance deadline.
-- Low infra cost (free-tier deployable, SQLite→Postgres path documented).
+- Low infra cost (free-tier deployable, Supabase PostgreSQL).
 - Reusable across any Indian municipality with ward-based collection.
 
 ---
