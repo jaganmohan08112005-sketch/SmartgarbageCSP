@@ -223,34 +223,19 @@
 {# ── 3. HOW IT WORKS ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-2">
     <div class="card-body p-4">
-        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🚀 {{ _('How it works — three simple steps') }}</h2>
-        <div class="row g-3 mt-1">
-            <div class="col-md-4">
-                <div class="d-flex align-items-start gap-2">
-                    <span class="fs-3" aria-hidden="true">1️⃣</span>
-                    <div>
-                        <strong class="text-dark">{{ _('Check your schedule') }}</strong>
-                        <p class="small text-muted mb-0">{{ _('Select your neighborhood from the dropdown to see today\'s collection timetable. Schedules update every morning before 7 AM so you know exactly when the sanitation crew arrives at your street.') }}</p>
-                    </div>
-                </div>
+        <h2 class="h5 fw-bold text-success mb-3 sg-card-h">🚀 {{ _('How it works') }}</h2>
+        <div class="d-flex flex-wrap gap-4">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success rounded-circle p-2">1️⃣</span>
+                <div><strong class="text-dark">{{ _('Check schedule') }}</strong> <span class="text-muted small">— {{ _('daily timetables by ward') }}</span></div>
             </div>
-            <div class="col-md-4">
-                <div class="d-flex align-items-start gap-2">
-                    <span class="fs-3" aria-hidden="true">2️⃣</span>
-                    <div>
-                        <strong class="text-dark">{{ _('Report a problem') }}</strong>
-                        <p class="small text-muted mb-0">{{ _('Missed a pickup or spotted an overflowing bin? File a report with your address and an optional photo. GPS coordinates are captured automatically so the crew can locate the issue quickly.') }}</p>
-                    </div>
-                </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success rounded-circle p-2">2️⃣</span>
+                <div><strong class="text-dark">{{ _('Report problem') }}</strong> <span class="text-muted small">— {{ _('GPS + photo, no login needed') }}</span></div>
             </div>
-            <div class="col-md-4">
-                <div class="d-flex align-items-start gap-2">
-                    <span class="fs-3" aria-hidden="true">3️⃣</span>
-                    <div>
-                        <strong class="text-dark">{{ _('Track and earn') }}</strong>
-                        <p class="small text-muted mb-0">{{ _('Follow your complaint status in real time on your citizen dashboard. Earn Green Points for every report filed and for declaring daily waste segregation — redeemable for local vouchers and tax discounts.') }}</p>
-                    </div>
-                </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success rounded-circle p-2">3️⃣</span>
+                <div><strong class="text-dark">{{ _('Track & earn') }}</strong> <span class="text-muted small">— {{ _('Green Points for every report') }}</span></div>
             </div>
         </div>
     </div>
@@ -259,8 +244,7 @@
 {# ── 4. NEIGHBORHOODS (find your area early) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-3">
     <div class="card-body p-4">
-        <h2 class="h5 fw-bold text-success mb-2 sg-card-h">🏘️ {{ _('Neighborhoods served by this portal') }}</h2>
-        <p class="small text-muted mb-3">{{ _('Chintalavalasa Gram Panchayat serves approximately 12,000 residents across five distinct neighborhoods in Vizianagaram District. Each area has its own collection timetable, dedicated sanitation crew, and live transparency dashboard showing real-time bin fill levels and complaint resolution rates.') }}</p>
+        <h2 class="h5 fw-bold text-success mb-3 sg-card-h">🏘️ {{ _('5 wards served') }}</h2>
         <div class="row g-3">
             <div class="col-sm-6 col-md-4 col-lg">
                 <div class="border rounded-3 p-3 text-center h-100">
@@ -316,136 +300,20 @@
     </div>
 </div>
 
-{# ── 5b. WHAT'S NEW (GOV.UK pattern) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-5">
-    <div class="card-body p-4">
-        <h3 class="h5 fw-bold mb-3 sg-card-h">🆕 {{ _('What\'s new') }}</h3>
-        <div class="d-flex flex-column gap-2">
-            <div class="d-flex align-items-start gap-2 small">
-                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
-                <div><strong>{{ _('Site-wide search') }}</strong> — {{ _('Search schedules, FAQs, and pages from the header bar.') }}</div>
-            </div>
-            <div class="d-flex align-items-start gap-2 small">
-                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
-                <div><strong>{{ _('Open data API') }}</strong> — {{ _('Download ward-level statistics from') }} <a href="/api/data" class="fw-semibold">/api/data</a>.</div>
-            </div>
-            <div class="d-flex align-items-start gap-2 small">
-                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
-                <div><strong>{{ _('Accessibility statement') }}</strong> — {{ _('Full WCAG 2.1 AA compliance details at') }} <a href="/accessibility" class="fw-semibold">/accessibility</a>.</div>
-            </div>
-            <div class="d-flex align-items-start gap-2 small">
-                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
-                <div><strong>{{ _('RSS feed') }}</strong> — {{ _('Subscribe to sanitation notices at') }} <a href="/feed.xml" class="fw-semibold">/feed.xml</a>.</div>
-            </div>
-            <div class="d-flex align-items-start gap-2 small">
-                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
-                <div><strong>{{ _('Breadcrumbs') }}</strong> — {{ _('Navigation breadcrumbs on all inner pages.') }}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{# ── 6. FAQ (after service context — users now understand what we do) ── #}
+{# ── 6. FAQ (compact — full answers on /faq page) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-5">
     <div class="card-body p-4">
         <h2 class="h5 fw-bold text-dark mb-3 sg-card-h">❓ {{ _('Frequently Asked Questions') }}</h2>
-        <div class="accordion" id="faqAccordion">
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq1" aria-expanded="true">
-                        {{ _('How do I check my garbage collection schedule?') }}
-                    </button>
-                </h3>
-                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Go to the') }} <a href="/schedule" class="fw-semibold text-decoration-underline">{{ _('schedules page') }}</a> {{ _('and select your ward. Timetables update daily before 7 AM — no login needed.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                        {{ _('How do I report a missed service?') }}
-                    </button>
-                </h3>
-                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Use the') }} <a href="/report" class="fw-semibold text-decoration-underline">{{ _('report page') }}</a> {{ _('to file a complaint with your address and photo. No account needed — you get a tracking link via SMS. Average resolution: under 24 hours.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                        {{ _('How should I segregate waste before collection?') }}
-                    </button>
-                </h3>
-                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Keep') }} <a href="/" class="fw-semibold text-decoration-underline">{{ _('dry recyclables') }}</a> {{ _('(paper, plastic, metal) separate from wet food waste. Two bags, two categories — it helps recycle 40% more material.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
-                        {{ _('Can I track my complaint after filing?') }}
-                    </button>
-                </h3>
-                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Yes. You get a') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('tracking link') }}</a> {{ _('via SMS. Register to see real-time status on your dashboard: filed → assigned → resolved.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
-                        {{ _('What are Green Points and how do I earn them?') }}
-                    </button>
-                </h3>
-                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Earn 15 points per report filed. Points can be') }} <a href="/register" class="fw-semibold text-decoration-underline">{{ _('redeemed for vouchers') }}</a> {{ _('and tax discounts under the Swachh Bharat Mission incentive framework.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
-                        {{ _('Which wards are covered by the service?') }}
-                    </button>
-                </h3>
-                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('All 5 wards: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street, and Sai Nagar. Each has a') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('live transparency dashboard') }}</a>.
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
-                        {{ _('Is there a fee for using this portal?') }}
-                    </button>
-                </h3>
-                <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Yes, it is free. All core services — schedules, reporting, tracking — require no payment or login.') }} <a href="/terms" class="fw-semibold text-decoration-underline">{{ _('PAYT billing') }}</a> {{ _('applies only to bulk waste generators.') }}
-                    </div>
-                </div>
-            </div>
-            <div class="accordion-item border-0 bg-transparent">
-                <h3 class="accordion-header">
-                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq8">
-                        {{ _('How do I check ward transparency and bin status?') }}
-                    </button>
-                </h3>
-                <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
-                    <div class="accordion-body small text-muted">
-                        {{ _('Visit the') }} <a href="/transparency" class="fw-semibold text-decoration-underline">{{ _('transparency page') }}</a> {{ _('to see live bin fill levels, resolution rates, and segregation data for your ward.') }}
-                    </div>
-                </div>
-            </div>
+        <div class="d-flex flex-column gap-2 small">
+            <a href="/faq#faq1" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How do I check my collection schedule?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq2" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How do I report a missed service?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq3" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How should I segregate waste?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq4" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('Can I track my complaint?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq5" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('What are Green Points?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq6" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('Which wards are covered?') }}</span> <span class="text-muted ms-auto">→</span></a>
+        </div>
+        <div class="mt-3 text-center">
+            <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ _('View all FAQs') }} →</a>
         </div>
     </div>
 </div>

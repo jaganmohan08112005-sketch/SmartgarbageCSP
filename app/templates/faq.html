@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Frequently Asked Questions — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}Answers to common questions about waste collection schedules, missed pickup reporting, Green Points, and ward services in Chintalavalasa.{% endblock %}
+
+{% block content %}
+{% include "_breadcrumbs.html" with context %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h1 class="fw-bold text-success mb-4">❓ Frequently Asked Questions</h1>
+
+        <div class="accordion" id="faqAccordion">
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq1" aria-expanded="true">
+                        How do I check my garbage collection schedule?
+                    </button>
+                </h3>
+                <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Go to the <a href="/schedule" class="fw-semibold text-decoration-underline">schedules page</a> and select your ward. Timetables update daily before 7 AM — no login needed. You can check today's schedule for any of the 5 wards in Chintalavalasa: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street, and Sai Nagar. The schedule shows the expected arrival window for the sanitation crew in your street.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        How do I report a missed service?
+                    </button>
+                </h3>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Use the <a href="/report" class="fw-semibold text-decoration-underline">report page</a> to file a complaint with your address and photo. No account needed — you get a tracking link via SMS. Average resolution: under 24 hours. GPS coordinates are captured automatically so the crew can locate the issue quickly.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        How should I segregate waste before collection?
+                    </button>
+                </h3>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Keep <a href="/" class="fw-semibold text-decoration-underline">dry recyclables</a> (paper, plastic, metal) separate from wet food waste. Two bags, two categories — it helps recycle 40% more material. The portal also lets you declare your daily segregation to earn Green Points.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                        Can I track my complaint after filing?
+                    </button>
+                </h3>
+                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Yes. You get a <a href="/register" class="fw-semibold text-decoration-underline">tracking link</a> via SMS. Register to see real-time status on your dashboard: filed → assigned → resolved. Average resolution time across all 5 wards is under 24 hours.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                        What are Green Points and how do I earn them?
+                    </button>
+                </h3>
+                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Earn 15 points per report filed. Points can be <a href="/register" class="fw-semibold text-decoration-underline">redeemed for vouchers</a> and tax discounts under the Swachh Bharat Mission incentive framework. You also earn points for declaring daily waste segregation.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                        Which wards are covered by the service?
+                    </button>
+                </h3>
+                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        All 5 wards: MVGR College Area, Chintalavalasa Junction, RTC Colony, Ramalayam Street, and Sai Nagar. Each has a <a href="/transparency" class="fw-semibold text-decoration-underline">live transparency dashboard</a>. The service serves approximately 12,000 residents across Vizianagaram District.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                        Is there a fee for using this portal?
+                    </button>
+                </h3>
+                <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Yes, it is free. All core services — schedules, reporting, tracking — require no payment or login. <a href="/terms" class="fw-semibold text-decoration-underline">PAYT billing</a> applies only to bulk waste generators who exceed household norms. The portal is funded by the Swachh Bharat Mission (Grameen) Phase II.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item border-0 bg-transparent">
+                <h3 class="accordion-header">
+                    <button class="accordion-button collapsed bg-light fw-semibold text-dark rounded-3 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#faq8">
+                        How do I check ward transparency and bin status?
+                    </button>
+                </h3>
+                <div id="faq8" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body small text-muted">
+                        Visit the <a href="/transparency" class="fw-semibold text-decoration-underline">transparency page</a> to see live bin fill levels, resolution rates, and segregation data for your ward. The dashboard shows real-time data from smart bins and community records.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-light rounded-3 text-center">
+            <p class="small text-muted mb-2">Still have questions?</p>
+            <a href="/contact" class="btn btn-outline-success btn-sm rounded-pill px-3"><i class="fa-solid fa-headset me-1"></i>Contact us</a>
+            <a href="tel:+9118001199111" class="btn btn-outline-success btn-sm rounded-pill px-3"><i class="fa-solid fa-phone me-1"></i>Call 1800-119-9111</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -387,6 +387,11 @@ def accessibility():
     return render_template('accessibility.html')
 
 
+@main.route('/faq')
+def faq():
+    return render_template('faq.html')
+
+
 @main.route('/contact', methods=['GET', 'POST'])
 def contact():
     if request.method == 'POST':

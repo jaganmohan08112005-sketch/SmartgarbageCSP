@@ -73,6 +73,14 @@ SEARCH_INDEX = [
         "icon": "fa-circle-info",
     },
     {
+        "path": "/faq",
+        "title": "Frequently Asked Questions",
+        "description": "Answers to common questions about schedules, reporting, Green Points, segregation, wards, and billing.",
+        "keywords": "faq questions answers help schedule report green points segregation wards billing fee",
+        "category": "Information",
+        "icon": "fa-circle-question",
+    },
+    {
         "path": "/contact",
         "title": "Contact Us",
         "description": "Reach the grievance hotline at 1800-119-9111, visit our Gram Panchayat office, or send a message via the contact form.",
