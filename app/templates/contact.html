@@ -19,9 +19,8 @@
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm p-4 h-100">
                     <h2 class="h5 fw-bold mb-3">✉️ Email</h2>
-                    <p class="mb-2"><strong>chintalavalasa.gp@ap.gov.in</strong></p>
-                    <p class="small text-muted">For portal support, complaints, and general enquiries</p>
-                    <a href="mailto:chintalavalasa.gp@ap.gov.in" class="btn btn-outline-success btn-sm rounded-pill">Send Email</a>
+                    <p class="mb-2 small text-muted">For portal support, complaints, and general enquiries, use the form below or call our hotline.</p>
+                    <a href="/contact#contactForm" class="btn btn-outline-success btn-sm rounded-pill">Use Contact Form →</a>
                 </div>
             </div>
         </div>
@@ -39,7 +38,7 @@
 
         <div class="card border-0 shadow-sm p-4 mb-4">
             <h2 class="h5 fw-bold mb-3">📋 Send Us a Message</h2>
-            <form method="POST" action="/contact">
+            <form id="contactForm" method="POST" action="/contact">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label for="contactName" class="form-label">Your Name</label>

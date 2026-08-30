@@ -199,9 +199,8 @@ h3.sg-card-h { font-size: 1.25rem; }
 .alert {
     border: none !important;
     border-left: 4px solid transparent !important;
-    border-radius: 12px;
-    box-shadow: var(--sh-sm);
     border-radius: var(--r-sm);
+    box-shadow: var(--sh-sm);
     padding: .85rem 1.1rem;
 }
 .alert-success { background: var(--sg-green-50); border-left-color: var(--sg-green-500) !important; color: var(--sg-green-700); }
@@ -1114,17 +1113,19 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 
 .skip-to-content {
     position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--sg-navy-800);
-    color: #fff;
-    padding: 8px 16px;
-    z-index: 1040;
+    top: -100px;
+    left: 1rem;
+    z-index: 9999;
+    padding: 0.75rem 1.25rem;
+    background: var(--sg-green-700);
+    color: #ffffff;
+    font-weight: 600;
+    border-radius: 0 0 0.5rem 0.5rem;
     text-decoration: none;
-    border-radius: 0 0 var(--r-md) 0;
-    transition: top .2s ease;
+    transition: top 0.2s ease-in-out;
 }
-.skip-to-content:focus {
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
     top: 0;
 }
 
@@ -1217,8 +1218,7 @@ textarea:focus-visible {
 .sg-phone { white-space: nowrap; }
 a[href^="tel:"] strong { white-space: nowrap; }
 
-/* CLS prevention: reserve space for dynamic content */
-#weatherDisplay { min-height: 120px; }
+/* CLS prevention: reserve space for dynamic content — min-height set via .sg-weather-stable class */
 .weather-emoji { font-size: 2.5rem; }
 
 /* ---- Anti-Gravity Hardened Production CSS Standards ---- */
@@ -1235,24 +1235,7 @@ textarea:focus-visible,
     box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.25) !important;
 }
 
-/* 2. Skip-to-content accessible link */
-.skip-to-content {
-    position: absolute;
-    top: -100px;
-    left: 1rem;
-    z-index: 9999;
-    padding: 0.75rem 1.25rem;
-    background: var(--sg-green-700, #0f5132);
-    color: #ffffff;
-    font-weight: 600;
-    border-radius: 0 0 0.5rem 0.5rem;
-    text-decoration: none;
-    transition: top 0.2s ease-in-out;
-}
-.skip-to-content:focus,
-.skip-to-content:focus-visible {
-    top: 0;
-}
+
 
 /* 3. Viewport Resilience: Ultra-wide 4K containment & Micro-mobile 320px fold */
 @media (min-width: 1920px) {
