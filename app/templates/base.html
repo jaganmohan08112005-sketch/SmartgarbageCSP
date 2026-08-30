@@ -378,6 +378,7 @@
                     <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
                     <a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a>
                     <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
+                    <a href="/accessibility" class="sg-footer-link">{{ _('Accessibility') }}</a>
                 </div>
                 <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }} · {{ _('Author') }}: Directorate of Waste Management & Sanitation</div>
             </div>
@@ -390,6 +391,14 @@
             </div>
         </div>
     </footer>
+    {# ── Mobile quick-action bar (visible on phones) ── #}
+    <nav class="sg-mobile-actions" aria-label="{{ _('Quick actions') }}">
+        <a href="/"><i class="fa-solid fa-house"></i>{{ _('Home') }}</a>
+        <a href="/schedule"><i class="fa-solid fa-calendar-days"></i>{{ _('Schedule') }}</a>
+        <a href="/report"><i class="fa-solid fa-triangle-exclamation"></i>{{ _('Report') }}</a>
+        <a href="/transparency"><i class="fa-solid fa-location-dot"></i>{{ _('Wards') }}</a>
+        <a href="tel:+9118001199111"><i class="fa-solid fa-headset"></i>{{ _('Help') }}</a>
+    </nav>
     {% if not config.get('ANALYTICS_ID') %}
     <div id="sgPrivacyNotice" class="sg-consent-banner cookie-consent" role="region" aria-label="{{ _('Cookie consent') }}">
         <div class="sg-consent-text">

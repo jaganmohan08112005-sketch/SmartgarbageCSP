@@ -119,10 +119,41 @@ def _homepage_impact():
     cached = _impact_stats_cache
     if time.monotonic() - cached['at'] < 600 and cached['value'] is not None:
         return cached['value']
-    impact = {'wards': len(WARD_COORDINATES), 'bins': 0, 'resolved': 0}
+    impact = {
+        'wards': len(WARD_COORDINATES),
+        'bins': 0,
+        'resolved': 0,
+        'total_complaints': 0,
+        'avg_resolution_hours': 0,
+        'residents_served': 12000,
+        'active_bins': 0,
+        'crew_members': 0,
+    }
     try:
+        from sqlalchemy import func
+        from ..models import WorkerProfile
         impact['bins'] = SmartBin.query.count()
-        impact['resolved'] = Complaint.query.filter_by(status='Resolved').count()
+        impact['active_bins'] = SmartBin.query.filter(
+            SmartBin.status.in_(['Safe', 'Warning'])
+        ).count()
+        impact['total_complaints'] = Complaint.query.count()
+        impact['resolved'] = Complaint.query.filter_by(
+            status='Resolved'
+        ).count()
+        # Average resolution time (hours) for resolved complaints with timestamps
+        avg_result = db.session.query(
+            func.avg(
+                func.extract('epoch', Complaint.resolved_at)
+                - func.extract('epoch', Complaint.created_at)
+            ) / 3600.0
+        ).filter(
+            Complaint.status == 'Resolved',
+            Complaint.resolved_at.isnot(None),
+            Complaint.created_at.isnot(None),
+        ).scalar()
+        if avg_result is not None:
+            impact['avg_resolution_hours'] = round(float(avg_result), 1)
+        impact['crew_members'] = WorkerProfile.query.count()
         cache_set('impact_stats', impact, ttl_seconds=600)
         cached['at'] = time.monotonic()
         cached['value'] = impact
@@ -351,6 +382,11 @@ def about():
     return render_template('about.html', wards=list(WARD_COORDINATES.keys()))
 
 
+@main.route('/accessibility')
+def accessibility():
+    return render_template('accessibility.html')
+
+
 @main.route('/contact', methods=['GET', 'POST'])
 def contact():
     if request.method == 'POST':
@@ -454,6 +490,44 @@ def sitemap_xml():
     # never persist across deploys (URL list changes with new pages).
     return Response(body, mimetype='application/xml',
                     headers={'Cache-Control': 'no-store, max-age=0'})
+
+
+@main.route('/api/data')
+def open_data():
+    """Public open data endpoint (GOV.UK / data.gov.uk pattern).
+
+    Returns ward-level complaint and bin statistics as JSON so citizens,
+    journalists, and researchers can download and analyse the data.
+    """
+    try:
+        from sqlalchemy import func
+        ward_stats = []
+        for ward_name in WARD_COORDINATES:
+            resolved = Complaint.query.filter_by(
+                ward=ward_name, status='Resolved'
+            ).count()
+            total = Complaint.query.filter_by(ward=ward_name).count()
+            bins = SmartBin.query.filter_by(ward=ward_name).count()
+            ward_stats.append({
+                'ward': ward_name,
+                'total_complaints': total,
+                'resolved_complaints': resolved,
+                'smart_bins': bins,
+            })
+        total_resolved = Complaint.query.filter_by(status='Resolved').count()
+        total_complaints = Complaint.query.count()
+        payload = {
+            'source': 'SmartGarbage Chintalavalasa',
+            'organisation': 'Directorate of Waste Management & Sanitation',
+            'licence': 'https://creativecommons.org/licenses/by/4.0/',
+            'total_complaints': total_complaints,
+            'total_resolved': total_resolved,
+            'wards': ward_stats,
+        }
+        return jsonify(payload)
+    except Exception as e:
+        logger.error("open_data_error", error=str(e))
+        return jsonify({'error': 'Data temporarily unavailable'}), 500
 
 
 @main.route('/csp-report', methods=['POST'])

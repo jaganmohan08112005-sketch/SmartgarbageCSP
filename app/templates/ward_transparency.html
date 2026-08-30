@@ -2,11 +2,13 @@
 {% block title %}Ward Transparency Dashboard — SmartGarbage Chintalavalasa{% endblock %}
 {% block meta_description %}View live ward transparency dashboards for Chintalavalasa — smart bin fill levels, segregation rates, complaint resolution stats and collection coverage across all 5 wards{% endblock %}
 {% block content %}
+{% include "_breadcrumbs.html" with context %}
 <div class="container py-4">
     <div class="text-center mb-4">
         <span class="sg-icon-lg">🏘️</span>
         <h1 class="fw-bold text-success mb-1">{{ _('Ward Transparency Dashboard') }}</h1>
         <p class="text-muted small">{{ _('Public accountability view for Ward Committees & Gram Sabhas — no login required.') }}</p>
+        <a href="/api/data" class="btn btn-sm btn-outline-success rounded-pill mt-2" download><i class="fa-solid fa-download me-1"></i>{{ _('Download open data (JSON)') }}</a>
     </div>
 
     <div class="row g-3 mb-4">
