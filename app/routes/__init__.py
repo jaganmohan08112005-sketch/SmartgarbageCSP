@@ -725,10 +725,8 @@ def _ward_sla_hours():
         return cached
     created = Complaint.created_at
     resolved = Complaint.resolved_at
-    if db.engine.dialect.name == 'sqlite':
-        delta_h = (func.julianday(resolved) - func.julianday(created)) * 24.0
-    else:
-        delta_h = (func.extract('epoch', resolved) - func.extract('epoch', created)) / 3600.0
+    # PostgreSQL-only: use epoch extraction for hour delta
+    delta_h = (func.extract('epoch', resolved) - func.extract('epoch', created)) / 3600.0
     rows = db.session.query(
         Complaint.ward,
         func.avg(delta_h),
