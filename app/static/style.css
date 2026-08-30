@@ -515,6 +515,42 @@ h3.sg-card-h { font-size: 1.25rem; }
 [data-theme="dark"] .sg-search-hero .form-control { background: var(--sg-card-bg); border-color: var(--sg-line); color: #e2e8f0; }
 [data-theme="dark"] .sg-search-hero .form-control:focus { background: #1a2332; }
 
+/* ---------- Search autocomplete dropdown ---------- */
+.sg-search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1060;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0 0 .5rem .5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    max-height: 320px;
+    overflow-y: auto;
+}
+.sg-search-dropdown .sg-search-item {
+    padding: .5rem .75rem;
+    font-size: .85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+.sg-search-dropdown .sg-search-item:last-child { border-bottom: none; }
+.sg-search-dropdown .sg-search-item:hover,
+.sg-search-dropdown .sg-search-item.sg-search-active {
+    background: rgba(16,185,129,.08);}
+.sg-search-dropdown .sg-search-item-icon { color: var(--sg-green-600); width: 18px; text-align: center; font-size: .8rem; }
+.sg-search-dropdown .sg-search-item-title { font-weight: 600; color: #212529; }
+.sg-search-dropdown .sg-search-item-path { font-size: .75rem; color: #6c757d; }
+[data-theme="dark"] .sg-search-dropdown { background: var(--sg-card-bg); border-color: var(--sg-line); }
+[data-theme="dark"] .sg-search-dropdown .sg-search-item { border-color: var(--sg-line); color: #e2e8f0; }
+[data-theme="dark"] .sg-search-dropdown .sg-search-item:hover,
+[data-theme="dark"] .sg-search-dropdown .sg-search-item.sg-search-active { background: rgba(16,185,129,.12); }
+[data-theme="dark"] .sg-search-dropdown .sg-search-item-title { color: #e2e8f0; }
+
 /* ---------- Stats Dashboard (SBM Urban pattern) ---------- */
 .sg-stat-card {
     background: #f8faf8;

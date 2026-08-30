@@ -137,6 +137,19 @@
 {# ── 1. HERO ── #}
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero">
     <div class="container-fluid py-4">
+        <div class="sg-hero-illustration mb-3" aria-hidden="true">
+            <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="20" y="30" width="40" height="40" rx="6" fill="#10b981" opacity=".15"/>
+                <rect x="25" y="25" width="30" height="45" rx="4" stroke="#10b981" stroke-width="2" fill="#fff"/>
+                <path d="M30 25V20a5 5 0 015-5h10a5 5 0 015 5v5" stroke="#10b981" stroke-width="2" fill="none"/>
+                <rect x="32" y="35" width="16" height="3" rx="1.5" fill="#10b981" opacity=".5"/>
+                <rect x="32" y="42" width="12" height="3" rx="1.5" fill="#10b981" opacity=".3"/>
+                <circle cx="80" cy="45" r="18" fill="#10b981" opacity=".1"/>
+                <path d="M75 45l4 4 8-8" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="95" cy="25" r="6" fill="#fbbf24" opacity=".3"/>
+                <path d="M95 21v8M91 25h8" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+        </div>
         <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa') }}</h1>
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
@@ -295,6 +308,35 @@
             <div class="list-group-item bg-transparent px-0 py-2">
                 <span class="badge bg-success me-2">{{ _('Community Update') }}</span>
                 <strong>{{ _('MVGR College Road Cleanliness:') }}</strong> {{ _('Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning.') }} — <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('view area status') }}</a>.
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── 5b. WHAT'S NEW (GOV.UK pattern) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-5">
+    <div class="card-body p-4">
+        <h3 class="h5 fw-bold mb-3 sg-card-h">🆕 {{ _('What\'s new') }}</h3>
+        <div class="d-flex flex-column gap-2">
+            <div class="d-flex align-items-start gap-2 small">
+                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
+                <div><strong>{{ _('Site-wide search') }}</strong> — {{ _('Search schedules, FAQs, and pages from the header bar.') }}</div>
+            </div>
+            <div class="d-flex align-items-start gap-2 small">
+                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
+                <div><strong>{{ _('Open data API') }}</strong> — {{ _('Download ward-level statistics from') }} <a href="/api/data" class="fw-semibold">/api/data</a>.</div>
+            </div>
+            <div class="d-flex align-items-start gap-2 small">
+                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
+                <div><strong>{{ _('Accessibility statement') }}</strong> — {{ _('Full WCAG 2.1 AA compliance details at') }} <a href="/accessibility" class="fw-semibold">/accessibility</a>.</div>
+            </div>
+            <div class="d-flex align-items-start gap-2 small">
+                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
+                <div><strong>{{ _('RSS feed') }}</strong> — {{ _('Subscribe to sanitation notices at') }} <a href="/feed.xml" class="fw-semibold">/feed.xml</a>.</div>
+            </div>
+            <div class="d-flex align-items-start gap-2 small">
+                <span class="badge bg-success rounded-pill flex-shrink-0">{{ _('Live') }}</span>
+                <div><strong>{{ _('Breadcrumbs') }}</strong> — {{ _('Navigation breadcrumbs on all inner pages.') }}</div>
             </div>
         </div>
     </div>

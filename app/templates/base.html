@@ -260,18 +260,23 @@
                         <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about"><i class="fa-solid fa-circle-info me-1"></i>{{ _('About') }}</a>
                     </li>
                 </ul>
-                {# ── Site search (GOV.UK pattern) ── #}
-                <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}"
-                      class="d-none d-lg-flex align-items-center sg-nav-search me-2">
-                    <div class="input-group input-group-sm">
-                        <input type="search" name="q" class="form-control sg-search-input"
-                               placeholder="{{ _('Search…') }}" aria-label="{{ _('Search the site') }}"
-                               autocomplete="off" value="">
-                        <button class="btn btn-outline-light" type="submit" aria-label="{{ _('Search') }}">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </button>
-                    </div>
-                </form>
+                {# ── Site search (GOV.UK pattern with autocomplete) ── #}
+                <div class="d-none d-lg-flex align-items-center sg-nav-search me-2" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+                    <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}" class="position-relative w-100">
+                        <div class="input-group input-group-sm">
+                            <input type="search" name="q" class="form-control sg-search-input"
+                                   id="sgSearchInput"
+                                   placeholder="{{ _('Search…') }}" aria-label="{{ _('Search the site') }}"
+                                   autocomplete="off" value=""
+                                   aria-autocomplete="list" aria-controls="sgSearchDropdown"
+                                   role="searchbox">
+                            <button class="btn btn-outline-light" type="submit" aria-label="{{ _('Search') }}">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                        </div>
+                        <ul id="sgSearchDropdown" class="list-unstyled sg-search-dropdown d-none" role="listbox"></ul>
+                    </form>
+                </div>
                 {# Mobile search (inside collapsed nav) ── #}
                 <li class="nav-item d-lg-none mt-2">
                     <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}">
@@ -379,6 +384,7 @@
                     <a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a>
                     <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
                     <a href="/accessibility" class="sg-footer-link">{{ _('Accessibility') }}</a>
+                    <a href="/feed.xml" class="sg-footer-link" type="application/rss+xml">{{ _('RSS') }}</a>
                 </div>
                 <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }} · {{ _('Author') }}: Directorate of Waste Management & Sanitation</div>
             </div>
@@ -407,6 +413,63 @@
         </div>
         <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgDismissPrivacyNotice()">{{ _('Got it') }}</button>
     </div>
+    <script>
+    // ── Search autocomplete (GOV.UK pattern with keyboard nav) ──
+    (function() {
+        const input = document.getElementById('sgSearchInput');
+        if (!input) return;
+        const dropdown = document.getElementById('sgSearchDropdown');
+        const SEARCH_DATA = [
+            {t:'Collection Schedules',p:'/schedule',i:'fa-calendar-days'},
+            {t:'Report a Missed Pickup',p:'/report',i:'fa-triangle-exclamation'},
+            {t:'Ward Transparency Dashboard',p:'/transparency',i:'fa-location-dot'},
+            {t:'Resident Registration',p:'/register',i:'fa-user-plus'},
+            {t:'Waste Picker Registration',p:'/register/picker',i:'fa-recycle'},
+            {t:'About SmartGarbage',p:'/about',i:'fa-circle-info'},
+            {t:'Contact Us',p:'/contact',i:'fa-envelope'},
+            {t:'Privacy Policy',p:'/privacy',i:'fa-shield-halved'},
+            {t:'Terms of Service',p:'/terms',i:'fa-file-contract'},
+            {t:'Accessibility Statement',p:'/accessibility',i:'fa-universal-access'},
+            {t:'How do I check my schedule?',p:'/schedule',i:'fa-circle-question'},
+            {t:'How do I report a missed service?',p:'/report',i:'fa-circle-question'},
+            {t:'Waste segregation guide',p:'/',i:'fa-recycle'},
+            {t:'Green Points program',p:'/register',i:'fa-leaf'},
+            {t:'PAYT billing',p:'/terms',i:'fa-receipt'},
+            {t:'Grievance Hotline 1800-119-9111',p:'tel:+9118001199111',i:'fa-headset'},
+        ];
+        let activeIdx = -1;
+        function filterData(q) {
+            if (!q || q.length < 2) return [];
+            const lower = q.toLowerCase();
+            return SEARCH_DATA.filter(d => d.t.toLowerCase().includes(lower) || d.p.toLowerCase().includes(lower)).slice(0, 8);
+        }
+        function render(items) {
+            if (!items.length) { dropdown.classList.add('d-none'); return; }
+            dropdown.innerHTML = items.map((d,i) =>
+                `<li class="sg-search-item" role="option" data-path="${d.p}" data-idx="${i}">`+
+                `<i class="fa-solid ${d.i} sg-search-item-icon" aria-hidden="true"></i>`+
+                `<span class="sg-search-item-title">${d.t}</span></li>`
+            ).join('');
+            dropdown.classList.remove('d-none');
+            activeIdx = -1;
+        }
+        input.addEventListener('input', () => render(filterData(input.value)));
+        input.addEventListener('keydown', (e) => {
+            const items = dropdown.querySelectorAll('.sg-search-item');
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, items.length - 1); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); items.forEach((it,i) => it.classList.toggle('sg-search-active', i === activeIdx)); }
+            else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); window.location.href = items[activeIdx].dataset.path; }
+            else if (e.key === 'Escape') { dropdown.classList.add('d-none'); }
+        });
+        dropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.sg-search-item');
+            if (item) window.location.href = item.dataset.path;
+        });
+        document.addEventListener('click', (e) => { if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.add('d-none'); });
+        input.addEventListener('focus', () => { if (input.value.length >= 2) render(filterData(input.value)); });
+    })();
+    </script>
     <script>
         function sgDismissPrivacyNotice() {
             localStorage.setItem('sgPrivacyNoticeDismissed', '1');

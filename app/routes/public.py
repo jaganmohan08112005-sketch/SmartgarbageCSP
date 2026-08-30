@@ -492,6 +492,45 @@ def sitemap_xml():
                     headers={'Cache-Control': 'no-store, max-age=0'})
 
 
+@main.route('/feed.xml')
+def rss_feed():
+    """RSS 2.0 feed for sanitation notices and advisories."""
+    from flask import Response
+    base = request.url_root.rstrip('/')
+    items = [
+        {'title': 'Wet Season Advisory — Sorting Dry Recyclables',
+         'link': f'{base}/',
+         'description': 'Rain-ready service: Wet refuse gets heavier in showers, so sorting dry recyclables separately keeps every collection on time.',
+         'pubDate': 'Sat, 30 Aug 2026 06:00:00 +0530',
+         'category': 'Advisory'},
+        {'title': 'MVGR College Road Cleanliness Drive — This Saturday',
+         'link': f'{base}/transparency',
+         'description': 'Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning.',
+         'pubDate': 'Fri, 29 Aug 2026 10:00:00 +0530',
+         'category': 'Community Update'},
+    ]
+    now_str = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')
+    xml_items = ''
+    for item in items:
+        xml_items += (f'  <item>\r\n    <title>{item["title"]}</title>\r\n'
+            f'    <link>{item["link"]}</link>\r\n'
+            f'    <description>{item["description"]}</description>\r\n'
+            f'    <pubDate>{item["pubDate"]}</pubDate>\r\n'
+            f'    <category>{item["category"]}</category>\r\n  </item>\r\n')
+    body = ('<?xml version="1.0" encoding="UTF-8"?>\r\n'
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\r\n'
+        '<channel>\r\n'
+        '  <title>SmartGarbage Chintalavalasa — Notices</title>\r\n'
+        f'  <link>{base}</link>\r\n'
+        '  <description>Sanitation notices and community updates for Chintalavalasa Gram Panchayat.</description>\r\n'
+        '  <language>en</language>\r\n'
+        f'  <lastBuildDate>{now_str}</lastBuildDate>\r\n'
+        f'  <atom:link href="{base}/feed.xml" rel="self" type="application/rss+xml" />\r\n'
+        + xml_items + '</channel>\r\n</rss>\r\n')
+    return Response(body, mimetype='application/rss+xml',
+                    headers={'Cache-Control': 'no-store, max-age=0'})
+
+
 @main.route('/api/data')
 def open_data():
     """Public open data endpoint (GOV.UK / data.gov.uk pattern).
