@@ -133,15 +133,15 @@
         <div class="d-flex flex-wrap gap-4 mb-3">
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-success rounded-circle p-2">1️⃣</span>
-                <div><strong class="text-dark">{{ _('Check schedule') }}</strong> <span class="text-muted small">— {{ _('daily timetables by ward') }}</span></div>
+                <strong class="text-dark">{{ _('Check schedule') }}</strong>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-success rounded-circle p-2">2️⃣</span>
-                <div><strong class="text-dark">{{ _('Report problem') }}</strong> <span class="text-muted small">— {{ _('GPS + photo, no login needed') }}</span></div>
+                <strong class="text-dark">{{ _('Report problem') }}</strong>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-success rounded-circle p-2">3️⃣</span>
-                <div><strong class="text-dark">{{ _('Track & earn') }}</strong> <span class="text-muted small">— {{ _('Green Points for every report') }}</span></div>
+                <strong class="text-dark">{{ _('Track & earn') }}</strong>
             </div>
         </div>
         <div class="border-top pt-3 mb-3">
@@ -255,7 +255,7 @@
                 {% endif %}
             </div>
             <div class="small text-muted mt-2">
-                📊 {{ _('Live figures from Gram Panchayat records.') }} · Part of <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline text-success">Swachh Bharat Mission</a>
+                📊 {{ _('Live data') }} · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline text-success">SBM</a>
             </div>
         </div>
     </div>
@@ -266,10 +266,7 @@
                 <span class="fs-4" aria-hidden="true">🔒</span>
                 <h3 class="h6 fw-bold mb-0 text-success">{{ _('Your privacy at a glance') }}</h3>
             </div>
-            <ul class="small text-muted mb-0 flex-grow-1 d-flex flex-column flex-md-row flex-wrap gap-1 gap-md-3 list-unstyled">
-                <li>{{ _('Only what you enter — never sold') }}</li>
-                <li>{{ _('GPS & photos only when you report') }}</li>
-            </ul>
+            <span class="small text-muted flex-grow-1">{{ _('Only what you enter — never sold') }}</span>
             <a href="/privacy" class="fw-semibold text-decoration-underline text-success flex-shrink-0">{{ _('Full privacy notice') }} →</a>
         </div>
     </div>

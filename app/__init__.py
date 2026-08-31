@@ -410,6 +410,9 @@ def create_app(test_config=None):
     def add_security_headers(resp):
         resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
         resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+        # Ensure CDN caches different encodings (Brotli vs Gzip)
+        if 'Vary' not in resp.headers:
+            resp.headers['Vary'] = 'Accept-Encoding'
         resp.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
         # COEP with credentialless allows cross-origin subresources (fonts,
         # CDN scripts) without breaking them, while still enforcing isolation.
@@ -429,6 +432,8 @@ def create_app(test_config=None):
                 and (resp.mimetype or '').startswith('text/html')
                 and not session.get('user_id')):
             resp.last_modified = app.config['DEPLOY_TIMESTAMP']
+            # Short-lived cache for HTML pages (improves TTFB for repeat visitors)
+            resp.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60'
         return resp
 
     # Long-lived caching for static assets (render-blocking CSS is the LCP
