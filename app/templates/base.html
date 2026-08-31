@@ -46,8 +46,8 @@
           fetchpriority="high">
     <link rel="preload" as="style" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></noscript>
-    <link rel="preload" as="style" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" as="style" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print" onload="this.onload=null;this.media='all'">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print" onload="this.onload=null;this.media='all'">
     <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script type="application/ld+json">
     {
@@ -206,6 +206,10 @@
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('consent','default',{analytics_storage:localStorage.getItem('sgAnalyticsConsent')==='accepted'?'granted':'denied'})</script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
     {% endif %}
+    <script>
+    /* media="print" swap fallback: ensure deferred CSS loads even without onload support */
+    document.querySelectorAll('link[media="print"]').forEach(l=>{l.media='all'});
+    </script>
     <script>
     if('serviceWorker' in navigator){
         window.addEventListener('load',()=>{
