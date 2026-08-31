@@ -1,54 +1,276 @@
-const CACHE_NAME = 'smartgarbage-pwa-v10';
-const OFFLINE_DB_NAME = 'smartgarbage-offline';
-const OFFLINE_STORE = 'pending-forms';
+/* ================================================================
+   SmartGarbage Service Worker v11
+   Three-tier caching: Static assets, HTML pages, CDN resources
+   ================================================================ */
 
-// Core citizen + public pages precached on install so they work fully offline.
-// (Rural Andhra deployments hit spotty connectivity — offline-first matters here.)
-const PRECACHE = [
-    '/',
-    '/login',
-    '/dashboard',
-    '/schedule',
-    '/report',
-    '/transparency',
-    '/faq',
-    '/offline',
+const SW_VERSION = 'v11';
+const CACHE_PREFIX = 'smartgarbage';
+
+// ── Cache tiers ──────────────────────────────────────────────────
+const STATIC_CACHE  = `${CACHE_PREFIX}-static-${SW_VERSION}`;   // Immutable assets
+const PAGES_CACHE   = `${CACHE_PREFIX}-pages-${SW_VERSION}`;    // HTML pages
+const CDN_CACHE     = `${CACHE_PREFIX}-cdn-${SW_VERSION}`;      // External CDN
+
+// ── Cache size limits (LRU eviction) ────────────────────────────
+const MAX_STATIC_ENTRIES = 80;
+const MAX_PAGES_ENTRIES  = 30;
+const MAX_CDN_ENTRIES    = 20;
+
+// ── Immutable assets (cache-first, never revalidate) ─────────────
+const IMMUTABLE_ASSETS = [
     '/static/css/critical.css',
     '/static/style.css',
     '/static/fonts/outfit-v15.woff2',
-    '/static/chintalavalasa_locations.js',
     '/static/js/offline.js',
-    '/static/manifest.json',
+    '/static/js/global.min.js',
+    '/static/chintalavalasa_locations.js',
     '/static/vendor/bootstrap.min.css',
     '/static/vendor/bootstrap.bundle.min.js',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    '/static/manifest.json',
+    '/static/icon-192.png',
+    '/static/icon-512.png',
 ];
 
-// Install: precache core assets + the offline fallback page.
+// ── Pages to prefetch after first load (background) ──────────────
+const PREFETCH_PAGES = [
+    '/schedule',
+    '/report',
+    '/faq',
+    '/transparency',
+    '/about',
+];
+
+// ── Sensitive routes (never cache for offline) ───────────────────
+const SENSITIVE_ROUTES = ['/admin', '/dashboard', '/payt', '/login', '/mfa', '/register'];
+
+// ── Offline database ─────────────────────────────────────────────
+const OFFLINE_DB_NAME = 'smartgarbage-offline';
+const OFFLINE_STORE = 'pending-forms';
+
+/* ================================================================
+   INSTALL — precache immutable assets + offline page
+   ================================================================ */
 self.addEventListener('install', evt => {
     evt.waitUntil(
-        caches.open(CACHE_NAME).then(cache => {
-            console.log('SmartGarbage SW: precaching assets');
-            return cache.addAll(PRECACHE);
-        })
+        (async () => {
+            const staticCache = await caches.open(STATIC_CACHE);
+
+            // Precache immutable assets (best-effort — don't fail install if one is missing)
+            await Promise.allSettled(
+                IMMUTABLE_ASSETS.map(url =>
+                    fetch(url).then(res => {
+                        if (res.ok) return staticCache.put(url, res);
+                    }).catch(() => {})
+                )
+            );
+
+            // Cache the offline page
+            const pagesCache = await caches.open(PAGES_CACHE);
+            try {
+                const offlineRes = await fetch('/offline');
+                if (offlineRes.ok) await pagesCache.put('/offline', offlineRes);
+            } catch (e) {}
+
+            console.log(`[SW ${SW_VERSION}] Installed — ${IMMUTABLE_ASSETS.length} assets precached`);
+        })()
     );
     self.skipWaiting();
 });
 
-// Activate: drop stale caches from previous versions.
+/* ================================================================
+   ACTIVATE — clean old caches + claim clients + prefetch
+   ================================================================ */
 self.addEventListener('activate', evt => {
     evt.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(
-                keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-            )
-        ).then(() => self.clients.claim())
+        (async () => {
+            // Delete old versioned caches
+            const keys = await caches.keys();
+            await Promise.all(
+                keys
+                    .filter(k => k.startsWith(CACHE_PREFIX) && !k.includes(SW_VERSION))
+                    .map(k => caches.delete(k))
+            );
+
+            // Claim all clients immediately
+            await self.clients.claim();
+
+            // Background prefetch of critical pages
+            prefetchPages();
+
+            console.log(`[SW ${SW_VERSION}] Activated — old caches cleaned`);
+        })()
     );
 });
 
-// Background Sync: replay queued offline submissions when connectivity returns,
-// even if the tab is closed.
+/* ================================================================
+   FETCH — smart routing by resource type
+   ================================================================ */
+self.addEventListener('fetch', evt => {
+    const req = evt.request;
+    if (req.method !== 'GET') return;
+
+    const url = new URL(req.url);
+    const isSameOrigin = url.origin === self.location.origin;
+    const isSensitive = SENSITIVE_ROUTES.some(p => url.pathname.startsWith(p));
+
+    // ── Navigation requests (HTML pages) ─────────────────────────
+    if (req.mode === 'navigate') {
+        evt.respondWith(networkFirstPages(req, isSensitive));
+        return;
+    }
+
+    // ── Same-origin static assets (cache-first) ──────────────────
+    if (isSameOrigin && isStaticAsset(url.pathname)) {
+        evt.respondWith(cacheFirstStatic(req));
+        return;
+    }
+
+    // ── Same-origin HTML/API requests (stale-while-revalidate) ───
+    if (isSameOrigin && !isSensitive) {
+        evt.respondWith(staleWhileRevalidate(req));
+        return;
+    }
+
+    // ── Cross-origin CDN resources (stale-while-revalidate) ──────
+    if (!isSameOrigin) {
+        evt.respondWith(staleWhileRevalidateCDN(req));
+        return;
+    }
+
+    // ── Sensitive routes — network only ──────────────────────────
+    evt.respondWith(fetch(req));
+});
+
+/* ================================================================
+   CACHING STRATEGIES
+   ================================================================ */
+
+// ── Strategy: Network-first for HTML pages ───────────────────────
+// Serves cached version instantly, updates in background.
+// Falls back to /offline page when completely offline.
+async function networkFirstPages(req, isSensitive) {
+    try {
+        const res = await fetch(req);
+        if (res.ok && res.status === 200 && !res.redirected && !isSensitive) {
+            const cache = await caches.open(PAGES_CACHE);
+            cache.put(req, res.clone());
+            // Evict old pages if over limit
+            trimCache(PAGES_CACHE, MAX_PAGES_ENTRIES);
+        }
+        return res;
+    } catch (e) {
+        // Network failed — try cache
+        const cached = await caches.match(req);
+        if (cached) return cached;
+
+        // Last resort — offline page
+        const offline = await caches.match('/offline');
+        return offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+    }
+}
+
+// ── Strategy: Cache-first for immutable static assets ────────────
+// Never revalidates — assets have cache-busting ?v= timestamps.
+async function cacheFirstStatic(req) {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+
+    try {
+        const res = await fetch(req);
+        if (res.ok) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(req, res.clone());
+            trimCache(STATIC_CACHE, MAX_STATIC_ENTRIES);
+        }
+        return res;
+    } catch (e) {
+        return new Response('', { status: 408 });
+    }
+}
+
+// ── Strategy: Stale-while-revalidate for same-origin ─────────────
+// Serve cached instantly, update cache in background.
+async function staleWhileRevalidate(req) {
+    const cached = await caches.match(req);
+
+    // Fetch in background to update cache
+    const fetchPromise = fetch(req).then(res => {
+        if (res.ok && res.status === 200) {
+            const cache = caches.open(PAGES_CACHE);
+            cache.then(c => c.put(req, res.clone()));
+        }
+        return res;
+    }).catch(() => cached);
+
+    return cached || fetchPromise;
+}
+
+// ── Strategy: Stale-while-revalidate for CDN ─────────────────────
+// Serve cached instantly, refresh in background (longer TTL).
+async function staleWhileRevalidateCDN(req) {
+    const cached = await caches.match(req);
+
+    const fetchPromise = fetch(req).then(res => {
+        if (res.ok && res.status === 200) {
+            const cache = caches.open(CDN_CACHE);
+            cache.then(c => {
+                c.put(req, res.clone());
+                trimCache(CDN_CACHE, MAX_CDN_ENTRIES);
+            });
+        }
+        return res;
+    }).catch(() => cached);
+
+    return cached || fetchPromise;
+}
+
+/* ================================================================
+   HELPERS
+   ================================================================ */
+
+// Check if a pathname is a static asset
+function isStaticAsset(pathname) {
+    return pathname.startsWith('/static/') ||
+           pathname.endsWith('.css') ||
+           pathname.endsWith('.js') ||
+           pathname.endsWith('.woff2') ||
+           pathname.endsWith('.png') ||
+           pathname.endsWith('.jpg') ||
+           pathname.endsWith('.svg') ||
+           pathname.endsWith('.ico');
+}
+
+// Evict oldest entries when cache exceeds max size (LRU)
+async function trimCache(cacheName, maxEntries) {
+    try {
+        const cache = await caches.open(cacheName);
+        const keys = await cache.keys();
+        if (keys.length > maxEntries) {
+            // Delete oldest entries (first in cache = oldest)
+            const toDelete = keys.slice(0, keys.length - maxEntries);
+            await Promise.all(toDelete.map(k => cache.delete(k)));
+        }
+    } catch (e) {}
+}
+
+// Background prefetch of critical pages after activation
+async function prefetchPages() {
+    try {
+        const cache = await caches.open(PAGES_CACHE);
+        await Promise.allSettled(
+            PREFETCH_PAGES.map(url =>
+                fetch(url).then(res => {
+                    if (res.ok) return cache.put(url, res);
+                }).catch(() => {})
+            )
+        );
+        console.log(`[SW ${SW_VERSION}] Prefetched ${PREFETCH_PAGES.length} pages`);
+    } catch (e) {}
+}
+
+/* ================================================================
+   BACKGROUND SYNC — replay offline form submissions
+   ================================================================ */
 self.addEventListener('sync', evt => {
     if (evt.tag === 'sg-replay-queue') {
         evt.waitUntil(replayQueuedSubmissions());
@@ -78,6 +300,7 @@ async function replayQueuedSubmissions() {
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
+
     for (const item of items) {
         try {
             const init = buildReplayRequest(item);
@@ -112,57 +335,45 @@ function buildReplayRequest(item) {
     return { method, body: form };
 }
 
-// Fetch:
-//  - Navigation requests (HTML pages): network-first, fall back to cached
-//    page, then to the dedicated /offline page when fully offline.
-//  - Static assets: cache-first with background refresh.
-// Sensitive routes that should never be stored in static CacheStorage for offline fallback
-const SENSITIVE_ROUTES = ['/admin', '/dashboard', '/payt', '/login', '/mfa'];
+/* ================================================================
+   MESSAGE HANDLER — allow pages to control caching
+   ================================================================ */
+self.addEventListener('message', evt => {
+    const data = evt.data;
+    if (!data) return;
 
-self.addEventListener('fetch', evt => {
-    const req = evt.request;
-    if (req.method !== 'GET') return; // never cache POST/PUT/etc.
-
-    const url = new URL(req.url);
-    const isSensitive = SENSITIVE_ROUTES.some(path => url.pathname.startsWith(path));
-
-    if (req.mode === 'navigate') {
-        evt.respondWith(
-            fetch(req).then(res => {
-                // Only cache non-sensitive, valid 200 OK non-redirected HTML pages
-                if (res.ok && res.status === 200 && !res.redirected && !isSensitive) {
-                    const copy = res.clone();
-                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
-                }
-                return res;
-            }).catch(() =>
-                caches.match(req).then(cached =>
-                    cached || caches.match('/offline')
-                )
-            )
-        );
-        return;
+    if (data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
     }
 
-    evt.respondWith(
-        caches.match(req).then(cached => {
-            if (cached) {
-                // Refresh in background if response is valid.
-                fetch(req).then(res => {
-                    if (res.ok && res.status === 200 && !isSensitive) {
-                        caches.open(CACHE_NAME).then(c => c.put(req, res.clone()));
-                    }
-                }).catch(() => {});
-                return cached;
-            }
-            return fetch(req).then(res => {
-                if (res.ok && res.status === 200 && (res.type === 'basic' || res.type === 'cors') && !isSensitive) {
-                    const copy = res.clone();
-                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
-                }
-                return res;
-            });
-        })
-    );
-});
+    if (data.type === 'CACHE_URLS') {
+        // Allow pages to request specific URLs be cached
+        (async () => {
+            const cache = await caches.open(PAGES_CACHE);
+            await Promise.allSettled(
+                (data.urls || []).map(url =>
+                    fetch(url).then(res => {
+                        if (res.ok) return cache.put(url, res);
+                    }).catch(() => {})
+                )
+            );
+        })();
+    }
 
+    if (data.type === 'GET_CACHE_STATS') {
+        // Report cache sizes back to the page
+        (async () => {
+            const stats = {};
+            for (const name of [STATIC_CACHE, PAGES_CACHE, CDN_CACHE]) {
+                try {
+                    const cache = await caches.open(name);
+                    const keys = await cache.keys();
+                    stats[name] = keys.length;
+                } catch (e) {
+                    stats[name] = -1;
+                }
+            }
+            evt.source.postMessage({ type: 'CACHE_STATS', stats });
+        })();
+    }
+});

@@ -206,7 +206,31 @@
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('consent','default',{analytics_storage:localStorage.getItem('sgAnalyticsConsent')==='accepted'?'granted':'denied'})</script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
     {% endif %}
-    <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>console.log('PWA Service Worker Active!',r)).catch(e=>console.log('PWA Registration Failed!',e))})}</script>
+    <script>
+    if('serviceWorker' in navigator){
+        window.addEventListener('load',()=>{
+            navigator.serviceWorker.register('/sw.js').then(reg=>{
+                console.log('PWA SW Active!',reg.scope);
+                // Check for updates every 60 minutes
+                setInterval(()=>reg.update(),3600000);
+                // Notify user when new version is available
+                reg.addEventListener('updatefound',()=>{
+                    const sw=reg.installing;
+                    if(!sw)return;
+                    sw.addEventListener('statechange',()=>{
+                        if(sw.state==='installed'&&navigator.serviceWorker.controller){
+                            console.log('SW update available — will activate on next reload');
+                        }
+                    });
+                });
+            }).catch(e=>console.log('PWA Registration Failed!',e));
+        });
+        // Allow page to trigger SW skip waiting
+        navigator.serviceWorker.addEventListener('controllerchange',()=>{
+            console.log('SW activated — new version live');
+        });
+    }
+    </script>
 </head>
 <body>
     {% from '_icons.html' import icon %}
