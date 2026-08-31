@@ -1,9 +1,9 @@
 /* ================================================================
-   SmartGarbage Service Worker v11
+   SmartGarbage Service Worker v12
    Three-tier caching: Static assets, HTML pages, CDN resources
    ================================================================ */
 
-const SW_VERSION = 'v11';
+const SW_VERSION = 'v12';
 const CACHE_PREFIX = 'smartgarbage';
 
 // ── Cache tiers ──────────────────────────────────────────────────
@@ -115,7 +115,11 @@ self.addEventListener('fetch', evt => {
 
     // ── Navigation requests (HTML pages) ─────────────────────────
     if (req.mode === 'navigate') {
-        evt.respondWith(networkFirstPages(req, isSensitive));
+        if (isSensitive) {
+            evt.respondWith(networkFirstPages(req, true));
+        } else {
+            evt.respondWith(staleWhileRevalidatePages(req));
+        }
         return;
     }
 
@@ -167,6 +171,28 @@ async function networkFirstPages(req, isSensitive) {
         const offline = await caches.match('/offline');
         return offline || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
     }
+}
+
+// ── Strategy: Stale-while-revalidate for HTML pages ────────────
+// Serves cached version instantly, updates in background.
+// This gives instant repeat visits (<10ms) even on cold starts.
+async function staleWhileRevalidatePages(req) {
+    const cached = await caches.match(req);
+
+    // Fetch in background to update cache
+    const fetchPromise = fetch(req).then(res => {
+        if (res.ok && res.status === 200 && !res.redirected) {
+            const cache = caches.open(PAGES_CACHE);
+            cache.then(c => {
+                c.put(req, res.clone());
+                trimCache(PAGES_CACHE, MAX_PAGES_ENTRIES);
+            });
+        }
+        return res;
+    }).catch(() => cached); // Network failed, return cached
+
+    // Return cached immediately if available, otherwise wait for network
+    return cached || fetchPromise;
 }
 
 // ── Strategy: Cache-first for immutable static assets ────────────
