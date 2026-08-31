@@ -4,21 +4,134 @@
 
 {% block content %}
 {% from '_icons.html' import icon %}
-<div class="text-center py-5">
-    <div style="font-size: 4rem; margin-bottom: 1rem;">🔍</div>
-    <h1 class="display-4 fw-bold text-dark mb-3">404</h1>
-    <h2 class="h4 fw-bold text-muted mb-4">Page not found</h2>
-    <p class="text-muted col-md-6 mx-auto mb-4">
-        The page you are looking for does not exist, has been moved, or is temporarily unavailable.
-    </p>
-    <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
-        <a href="/" class="btn btn-success rounded-pill px-4">{{ icon('home') }} Back to home</a>
-        <a href="/schedule" class="btn btn-outline-success rounded-pill px-4">{{ icon('calendar') }} Check schedule</a>
-        <a href="/report" class="btn btn-outline-success rounded-pill px-4">{{ icon('warning') }} Report a problem</a>
-        <a href="/contact" class="btn btn-outline-success rounded-pill px-4">{{ icon('headset') }} Contact us</a>
+
+{# ── Breadcrumb ── #}
+<nav aria-label="Breadcrumb" class="mb-3">
+    <ol class="breadcrumb small">
+        <li class="breadcrumb-item"><a href="/" class="text-decoration-none">{{ icon('home') }} {{ _('Home') }}</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ _('Page not found') }}</li>
+    </ol>
+</nav>
+
+{# ── GOV.UK-style 404: friendly, helpful, actionable ── #}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        {# ── Hero: Friendly error message ── #}
+        <div class="text-center mb-5">
+            <div class="sg-404-icon mb-3" aria-hidden="true">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="40" cy="40" r="38" fill="#fef2f2" stroke="#fca5a5" stroke-width="2"/>
+                    <path d="M28 28L52 52M52 28L28 52" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <h1 class="display-5 fw-bold text-dark mb-2">{{ _('Page not found') }}</h1>
+            <p class="lead text-muted col-md-8 mx-auto">
+                {{ _('Sorry, we could not find the page you are looking for. It may have been moved, renamed, or is temporarily unavailable.') }}
+            </p>
+        </div>
+
+        {# ── Search bar (GOV.UK pattern) ── #}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 fw-bold mb-3">{{ icon('search') }} {{ _('Search for it') }}</h2>
+                <form action="/search" method="get" role="search" aria-label="{{ _('Search the site') }}">
+                    <div class="input-group input-group-lg">
+                        <input type="search" name="q" class="form-control" placeholder="{{ _('Search schedules, reports, FAQs…') }}" aria-label="{{ _('Search the site') }}" autofocus>
+                        <button class="btn btn-success px-4" type="submit">{{ _('Search') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {# ── Popular pages (GOV.UK pattern) ── #}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 fw-bold mb-3">{{ icon('fire') }} {{ _('Popular pages') }}</h2>
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <a href="/schedule" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">📅</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('Collection schedules') }}</div>
+                                <small class="text-muted">{{ _('Check when bins are collected in your ward') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="/report" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">⚠️</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('Report a problem') }}</div>
+                                <small class="text-muted">{{ _('Report overflowing bins or missed collection') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="/transparency" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">📍</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('Ward dashboards') }}</div>
+                                <small class="text-muted">{{ _('Live bin fill levels and fleet status') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="/faq" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">❓</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('Frequently asked questions') }}</div>
+                                <small class="text-muted">{{ _('Help with using the portal') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="/about" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">ℹ️</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('About SmartGarbage') }}</div>
+                                <small class="text-muted">{{ _('Mission, team and governance') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-sm-6">
+                        <a href="/contact" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded hover-bg-light">
+                            <span class="sg-icon-sm" aria-hidden="true">📞</span>
+                            <div>
+                                <div class="fw-semibold text-dark">{{ _('Contact us') }}</div>
+                                <small class="text-muted">{{ _('Grievance hotline and office address') }}</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Helpful links (GOV.UK pattern) ── #}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body p-4">
+                <h2 class="h5 fw-bold mb-3">{{ icon('info') }} {{ _('Other things you can try') }}</h2>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <a href="/" class="text-decoration-none">{{ icon('home') }} {{ _('Go to the homepage') }}</a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="tel:+9118001199111" class="text-decoration-none">{{ icon('headset') }} {{ _('Call the grievance hotline') }}: <strong>1800-119-9111</strong></a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="/contact" class="text-decoration-none">{{ icon('headset') }} {{ _('Contact us online') }}</a>
+                    </li>
+                    <li>
+                        <a href="/privacy" class="text-decoration-none">{{ _('Read the privacy policy') }}</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        {# ── Feedback prompt (GOV.UK pattern) ── #}
+        <div class="text-center small text-muted">
+            <p class="mb-1">{{ _('Is this page useful?') }} <a href="/contact" class="text-decoration-underline text-success fw-semibold">{{ _('Let us know') }}</a></p>
+            <p class="mb-0">{{ _('Or call the grievance hotline at') }} <a href="tel:+9118001199111" class="text-decoration-underline text-success fw-semibold">1800-119-9111</a></p>
+        </div>
     </div>
-    <p class="small text-muted">
-        If you believe this is an error, please <a href="/contact" class="fw-semibold text-decoration-underline text-success">contact us</a> or call the grievance hotline at <a href="tel:+9118001199111" class="fw-semibold text-decoration-underline text-success">1800-119-9111</a>.
-    </p>
 </div>
 {% endblock %}
