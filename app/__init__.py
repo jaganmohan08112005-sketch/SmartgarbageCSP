@@ -153,6 +153,13 @@ def create_app(test_config=None):
     # only point where Flask has already added the header. Other Vary values
     # (e.g. Accept-Encoding) are left untouched.
     class _StaticNoVarySessionInterface(SecureCookieSessionInterface):
+        # Always signal that the session was modified so save_session() fires
+        # on every request — even anonymous page views where Flask-Login only
+        # reads the session without writing.  Without this, Flask skips
+        # save_session() and Vary: Cookie is never stripped.
+        def is_session_modified(self, app, session):
+            return True
+
         def save_session(self, app, session, response):
             super().save_session(app, session, response)
             path = request.path
@@ -479,6 +486,20 @@ def create_app(test_config=None):
     def cache_static_assets(resp):
         if request.path.startswith('/static/') and not request.path.startswith('/static/uploads/'):
             resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return resp
+
+    # Belt-and-suspenders: strip Vary: Cookie from public HTML responses
+    # even if save_session() didn't fire (e.g. edge cases in session handling).
+    # This runs AFTER save_session() in the request lifecycle, so it catches
+    # any Vary: Cookie that sneaked through. Cloudflare needs this removed
+    # to cache HTML at the edge (cf-cache-status: DYNAMIC → HIT).
+    @app.after_request
+    def strip_vary_cookie(resp):
+        if (request.method in ('GET', 'HEAD')
+                and resp.status_code == 200
+                and (resp.mimetype or '').startswith('text/html')
+                and not session.get('user_id')):
+            resp.vary.discard('Cookie')
         return resp
 
     @app.route(IOT_TELEMETRY_PATH, methods=['OPTIONS'])
