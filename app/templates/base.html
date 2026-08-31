@@ -266,25 +266,57 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
-                <ul class="navbar-nav me-auto align-items-center gap-1">
+                <ul class="navbar-nav me-auto align-items-center gap-1 d-none d-lg-flex">
                     <li class="nav-item">
                         <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/">{{ icon('home') }} {{ _('Home') }}</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule">{{ icon('calendar') }} {{ _('Schedules') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report">{{ icon('warning') }} {{ _('Report') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker">{{ icon('recycle') }} {{ _('Picker') }}</a>
+                    <li class="nav-item sg-mega-parent">
+                        <button class="nav-link px-3 sg-mega-trigger {% if '/schedule' in request.path or '/report' in request.path or '/transparency' in request.path or '/register/picker' in request.path %}active{% endif %}" type="button" aria-expanded="false" aria-haspopup="true">
+                            {{ icon('services') }} {{ _('Services') }} <span class="caret" aria-hidden="true"></span>
+                        </button>
+                        <div class="sg-mega-menu" role="menu">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-lg-4">
+                                        <h3 class="sg-mega-heading">{{ _('Waste collection') }}</h3>
+                                        <ul class="sg-mega-list">
+                                            <li><a href="/schedule" role="menuitem"><strong>{{ _('Collection schedules') }}</strong><br><small>{{ _('Check when bins are collected in your ward') }}</small></a></li>
+                                            <li><a href="/transparency" role="menuitem"><strong>{{ _('Ward dashboards') }}</strong><br><small>{{ _('Live bin fill levels and fleet status') }}</small></a></li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <h3 class="sg-mega-heading">{{ _('Report a problem') }}</h3>
+                                        <ul class="sg-mega-list">
+                                            <li><a href="/report" role="menuitem"><strong>{{ _('Missed pickup') }}</strong><br><small>{{ _('Report overflowing bins or missed collection') }}</small></a></li>
+                                            <li><a href="/register/picker" role="menuitem"><strong>{{ _('Register as picker') }}</strong><br><small>{{ _('Join the sanitation workforce') }}</small></a></li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <h3 class="sg-mega-heading">{{ _('About this service') }}</h3>
+                                        <ul class="sg-mega-list">
+                                            <li><a href="/about" role="menuitem"><strong>{{ _('About SmartGarbage') }}</strong><br><small>{{ _('Mission, team and governance') }}</small></a></li>
+                                            <li><a href="/contact" role="menuitem"><strong>{{ _('Contact us') }}</strong><br><small>{{ _('Grievance hotline and office address') }}</small></a></li>
+                                            <li><a href="/faq" role="menuitem"><strong>{{ _('Frequently asked questions') }}</strong><br><small>{{ _('Help with using the portal') }}</small></a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about">{{ icon('info') }} {{ _('About') }}</a>
                     </li>
+                </ul>
+                {# ── Mobile nav (simplified, no mega menu) ── #}
+                <ul class="navbar-nav d-lg-none">
+                    <li class="nav-item"><a class="nav-link" href="/">{{ icon('home') }} {{ _('Home') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/schedule">{{ icon('calendar') }} {{ _('Schedules') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/report">{{ icon('warning') }} {{ _('Report') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/register/picker">{{ icon('recycle') }} {{ _('Picker') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/about">{{ icon('info') }} {{ _('About') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/contact">{{ icon('headset') }} {{ _('Contact') }}</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/faq">{{ icon('question') }} {{ _('FAQ') }}</a></li>
                 </ul>
                 {# ── Site search (GOV.UK pattern with autocomplete) ── #}
                 <div class="d-none d-lg-flex align-items-center sg-nav-search me-2" role="combobox" aria-expanded="false" aria-haspopup="listbox">
@@ -555,6 +587,32 @@ const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="
             });
         },{rootMargin:'200px 0px'});
         document.querySelectorAll('.sg-lazy-section').forEach(el=>io.observe(el));
+    })();
+    </script>
+    <script>
+    /* Mega menu: toggle on click (GOV.UK pattern) */
+    (function(){
+        document.querySelectorAll('.sg-mega-trigger').forEach(btn=>{
+            btn.addEventListener('click',e=>{
+                e.stopPropagation();
+                const expanded=btn.getAttribute('aria-expanded')==='true';
+                // Close all others
+                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
+                btn.setAttribute('aria-expanded',String(!expanded));
+            });
+        });
+        // Close on outside click
+        document.addEventListener('click',e=>{
+            if(!e.target.closest('.sg-mega-parent')){
+                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
+            }
+        });
+        // Close on Escape
+        document.addEventListener('keydown',e=>{
+            if(e.key==='Escape'){
+                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
+            }
+        });
     })();
     </script>
 </body>

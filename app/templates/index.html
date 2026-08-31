@@ -71,8 +71,7 @@
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
             {{ _('Check') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('schedules') }}</a>,
             <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('ward status') }}</a>,
-            {{ _('or') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a problem') }}</a>
-            {{ _('— free, no login needed.') }}
+            {{ _('or') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a problem') }}</a> — {{ _('free, no login needed.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
             <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Collection Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
@@ -148,22 +147,22 @@
         <div class="border-top pt-3 mb-3">
             <h3 class="h6 fw-bold text-success mb-2">🏘️ {{ _('5 wards served') }}</h3>
             <div class="d-flex flex-wrap gap-2 small">
-                <span class="badge bg-light text-dark border">{{ _('Ward 1') }}: {{ _('MVGR College Area') }}</span>
-                <span class="badge bg-light text-dark border">{{ _('Ward 2') }}: {{ _('Chintalavalasa Junction') }}</span>
-                <span class="badge bg-light text-dark border">{{ _('Ward 3') }}: {{ _('RTC Colony') }}</span>
-                <span class="badge bg-light text-dark border">{{ _('Ward 4') }}: {{ _('Ramalayam Street') }}</span>
-                <span class="badge bg-light text-dark border">{{ _('Ward 5') }}: {{ _('Sai Nagar') }}</span>
+                <span class="badge bg-light text-dark border">MVGR College Area</span>
+                <span class="badge bg-light text-dark border">Junction</span>
+                <span class="badge bg-light text-dark border">RTC Colony</span>
+                <span class="badge bg-light text-dark border">Ramalayam Street</span>
+                <span class="badge bg-light text-dark border">Sai Nagar</span>
             </div>
         </div>
         <div class="border-top pt-3">
             <h3 class="h6 fw-bold mb-2">📢 {{ _('Notices & Advisories') }}</h3>
             <div class="small">
                 <span class="badge bg-warning text-dark me-1">{{ _('Wet Season') }}</span>
-                {{ _('Sort dry recyclables separately — wet waste gets heavier in rain.') }}
+                {{ _('Sort dry recyclables separately.') }}
                 <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('See schedule') }}</a>
                 <span class="mx-1">·</span>
                 <span class="badge bg-success me-1">{{ _('Update') }}</span>
-                {{ _('MVGR College Road drive this Saturday.') }}
+                {{ _('MVGR College Road drive Saturday.') }}
                 <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('View status') }}</a>
             </div>
         </div>
@@ -175,12 +174,12 @@
     <div class="card-body p-4">
         <h2 class="h5 fw-bold text-dark mb-3 sg-card-h">❓ {{ _('Frequently Asked Questions') }}</h2>
         <div class="d-flex flex-column gap-2 small">
-            <a href="/faq#faq1" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How do I check my collection schedule?') }}</span> <span class="text-muted ms-auto">→</span></a>
-            <a href="/faq#faq2" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How do I report a missed service?') }}</span> <span class="text-muted ms-auto">→</span></a>
-            <a href="/faq#faq3" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('How should I segregate waste?') }}</span> <span class="text-muted ms-auto">→</span></a>
-            <a href="/faq#faq4" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('Can I track my complaint?') }}</span> <span class="text-muted ms-auto">→</span></a>
-            <a href="/faq#faq5" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('What are Green Points?') }}</span> <span class="text-muted ms-auto">→</span></a>
-            <a href="/faq#faq6" class="d-flex align-items-center gap-2 text-decoration-none"><span class="text-success fw-bold">Q:</span> <span class="text-dark">{{ _('Which wards are covered?') }}</span> <span class="text-muted ms-auto">→</span></a>
+            <a href="/faq#faq1" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Check my collection schedule?') }} <span class="text-muted">→</span></a>
+            <a href="/faq#faq2" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Report a missed service?') }} <span class="text-muted">→</span></a>
+            <a href="/faq#faq3" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Segregate waste?') }} <span class="text-muted">→</span></a>
+            <a href="/faq#faq4" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Track my complaint?') }} <span class="text-muted">→</span></a>
+            <a href="/faq#faq5" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Green Points?') }} <span class="text-muted">→</span></a>
+            <a href="/faq#faq6" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Which wards covered?') }} <span class="text-muted">→</span></a>
         </div>
         <div class="mt-3 text-center">
             <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ _('View all FAQs') }} →</a>
@@ -286,7 +285,7 @@
             </select>
             <div id="weatherLoading" class="text-muted small py-2 d-none">
                 <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                {{ _('Loading...') }}
+                {{ _('Loading…') }}
             </div>
             <div id="weatherDisplay" class="sg-weather-stable">
                 <div class="d-flex align-items-center justify-content-between">
@@ -309,14 +308,14 @@
     <div class="card-body p-4">
         <h3 class="h5 fw-bold mb-3 sg-card-h">🔥 {{ _('Popular on SmartGarbage') }}</h3>
         <div class="d-flex flex-wrap gap-2">
-            <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Check today\'s schedule') }}</a>
-            <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report a missed pickup') }}</a>
-            <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Ward transparency dashboards') }}</a>
-            <a href="/search?q=green+points" class="sg-popular-link">{{ icon('leaf') }} {{ _('Green Points program') }}</a>
-            <a href="/search?q=segregation" class="sg-popular-link">{{ icon('recycle') }} {{ _('Waste segregation guide') }}</a>
+            <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Schedule') }}</a>
+            <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report') }}</a>
+            <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Wards') }}</a>
+            <a href="/search?q=green+points" class="sg-popular-link">{{ icon('leaf') }} {{ _('Green Points') }}</a>
+            <a href="/search?q=segregation" class="sg-popular-link">{{ icon('recycle') }} {{ _('Segregation') }}</a>
             <a href="/search?q=payt" class="sg-popular-link">{{ icon('receipt') }} {{ _('PAYT billing') }}</a>
-            <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact grievance hotline') }}</a>
-            <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About this portal') }}</a>
+            <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact') }}</a>
+            <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About') }}</a>
         </div>
     </div>
 </div>
@@ -327,8 +326,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
         <div>
             <strong itemprop="name">👤 {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</strong>
-            <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>
-            <span class="d-block text-muted small">{{ _('Reviewed by Municipal Engineering Division') }} · <time datetime="{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-28' }}">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }}</time> · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong></span>
+            <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>                <span class="d-block text-muted small">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }} · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong></span>
         </div>
     </div>
 </div>
