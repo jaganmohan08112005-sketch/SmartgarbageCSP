@@ -390,8 +390,8 @@ h3.sg-card-h{ font-size: 1.25rem; }
 #admin-pills .nav-link.active{ background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; box-shadow: var(--sh-green); }
 .nav-pills .nav-link{ border-radius: var(--r-pill); font-weight: 600; color: var(--sg-ink); }
 .nav-pills .nav-link.active{ background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; }
-@keyframes sgFadeIn{ from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.animate-fade-in{ animation: sgFadeIn .45s var(--ease) both; }
+@keyframes sgFadeIn{ from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in{ animation: sgFadeIn .45s var(--ease) both; will-change: transform, opacity; contain: layout style; backface-visibility: hidden; }
 @keyframes sgShimmer{
     0%   { background-position: -480px 0; }
     100% { background-position: 480px 0; }
