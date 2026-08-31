@@ -590,28 +590,54 @@ const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="
     })();
     </script>
     <script>
-    /* Mega menu: toggle on click (GOV.UK pattern) */
+    /* Mega menu with hover delay (GOV.UK pattern) */
     (function(){
-        document.querySelectorAll('.sg-mega-trigger').forEach(btn=>{
+        const DELAY=200; // ms before open/close
+        const timers=new Map();
+        function openMega(btn){
+            clearTimeout(timers.get(btn));
+            timers.set(btn,setTimeout(()=>{
+                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
+                btn.setAttribute('aria-expanded','true');
+            },DELAY));
+        }
+        function closeMega(btn){
+            clearTimeout(timers.get(btn));
+            timers.set(btn,setTimeout(()=>{
+                btn.setAttribute('aria-expanded','false');
+            },DELAY));
+        }
+        function closeAll(){
+            document.querySelectorAll('.sg-mega-trigger').forEach(b=>{
+                clearTimeout(timers.get(b));
+                b.setAttribute('aria-expanded','false');
+            });
+        }
+        document.querySelectorAll('.sg-mega-parent').forEach(parent=>{
+            const btn=parent.querySelector('.sg-mega-trigger');
+            const menu=parent.querySelector('.sg-mega-menu');
+            if(!btn||!menu)return;
+            // Hover: open with delay
+            btn.addEventListener('mouseenter',()=>openMega(btn));
+            btn.addEventListener('mouseleave',()=>closeMega(btn));
+            menu.addEventListener('mouseenter',()=>openMega(btn));
+            menu.addEventListener('mouseleave',()=>closeMega(btn));
+            // Click: toggle immediately (touch/mouse)
             btn.addEventListener('click',e=>{
                 e.stopPropagation();
+                clearTimeout(timers.get(btn));
                 const expanded=btn.getAttribute('aria-expanded')==='true';
-                // Close all others
-                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
-                btn.setAttribute('aria-expanded',String(!expanded));
+                closeAll();
+                if(!expanded)btn.setAttribute('aria-expanded','true');
             });
         });
         // Close on outside click
         document.addEventListener('click',e=>{
-            if(!e.target.closest('.sg-mega-parent')){
-                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
-            }
+            if(!e.target.closest('.sg-mega-parent'))closeAll();
         });
         // Close on Escape
         document.addEventListener('keydown',e=>{
-            if(e.key==='Escape'){
-                document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
-            }
+            if(e.key==='Escape')closeAll();
         });
     })();
     </script>
