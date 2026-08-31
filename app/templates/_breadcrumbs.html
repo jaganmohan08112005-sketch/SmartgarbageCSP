@@ -13,6 +13,9 @@
     '/login': _('Staff Login'),
 } %}
 {% set page_title = page_titles.get(request.path, _('Page')) %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"{{ request.url_root.rstrip('/') }}"},{"@type":"ListItem","position":2,"name":"{{ page_title }}","item":"{{ request.url }}"}]}
+</script>
 <nav class="sg-breadcrumb" aria-label="{{ _('Breadcrumb') }}">
     <ol class="breadcrumb mb-0" itemscope itemtype="https://schema.org/BreadcrumbList">
         <li class="breadcrumb-item" itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
