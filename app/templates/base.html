@@ -505,5 +505,31 @@
 const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="/report"]',hotline_click:'a[href^="tel:"]',language_switch:'a[data-lang]',staff_login_click:'a[data-staff-login]',login_start:'a[href="/login"]',signup_start:'a[href="/register"]'};function sgTrack(n){if(localStorage.getItem('sgAnalyticsConsent')!=='accepted')return;if(typeof gtag==='function')gtag('event',n)}document.addEventListener('click',e=>{for(const[n,s]of Object.entries(SG_SVC_EVENTS)){if(e.target.closest(s)){sgTrack(n);break}}});document.addEventListener('submit',e=>{const f=e.target.closest('form');if(!f)return;if(f.getAttribute('action')==='/report')sgTrack('report_submit');if(f.getAttribute('action')==='/schedule')sgTrack('schedule_lookup')});let _lrve=0;document.addEventListener('invalid',e=>{const f=e.target.closest('form');if(f&&f.getAttribute('action')==='/report'){const n=Date.now();if(n-_lrve>500){_lrve=n;sgTrack('report_validation_error')}}},true);const SG_CONSENT_VERSION={{ config.get('CONSENT_VERSION', 'v1')|tojson }};function sgRecordConsent(c){try{fetch('/api/consent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({choice:c,version:SG_CONSENT_VERSION,source:location.pathname})})}catch(e){}}function sgSetConsent(a){localStorage.setItem('sgAnalyticsConsent',a?'accepted':'declined');document.getElementById('sgConsentBanner')?.classList.add('d-none');sgRecordConsent(a?'accept':'decline');gtag('consent','update',{analytics_storage:a?'granted':'denied'});if(a&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}}document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem('sgAnalyticsConsent')){document.getElementById('sgConsentBanner')?.classList.add('d-none')}else if(sgConsent==='accepted'&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}});
     </script>
     {% endif %}
+    <script>
+    /* Lazy-load below-fold sections (GOV.UK pattern: defer until visible) */
+    (function(){
+        if(!('IntersectionObserver' in window))return;
+        const io=new IntersectionObserver((entries)=>{
+            entries.forEach(e=>{
+                if(!e.isIntersecting)return;
+                const el=e.target;
+                const key=el.dataset.lazy;
+                el.classList.add('sg-lazy-visible');
+                if(key==='weather'){
+                    document.querySelectorAll('script[data-lazy-script="weather"]').forEach(s=>{
+                        const n=document.createElement('script');
+                        if(s.src)n.src=s.src;
+                        if(s.textContent)n.textContent=s.textContent;
+                        Array.from(s.attributes).forEach(a=>n.setAttribute(a.name,a.value));
+                        n.removeAttribute('data-lazy-script');
+                        s.parentNode.replaceChild(n,s);
+                    });
+                }
+                io.unobserve(el);
+            });
+        },{rootMargin:'200px 0px'});
+        document.querySelectorAll('.sg-lazy-section').forEach(el=>io.observe(el));
+    })();
+    </script>
 </body>
 </html>

@@ -245,7 +245,7 @@
 </div>
 
 {# ── 8. COMMUNITY IMPACT + WEATHER (social proof) ── #}
-<div class="mb-5 animate-fade-in sg-delay-7">
+<div class="mb-5 animate-fade-in sg-delay-7 sg-lazy-section" data-lazy="stats">
     {# ── Service Statistics Dashboard (SBM Urban pattern) ── #}
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body p-4">
@@ -319,8 +319,7 @@
         </div>
     </div>
     {# ── Weather Widget + Popular Links ── #}
-    <div class="row g-4">
-    <div class="col-md-6">
+    <div class="row g-4 sg-lazy-section" data-lazy="weather">
         <div class="card border-start border-primary border-4 p-4 h-100 bg-white shadow-sm">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -356,7 +355,7 @@
 </div>
 
 {# ── POPULAR ON SMARTGARBAGE (GOV.UK pattern) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8">
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8 sg-lazy-section" data-lazy="popular">
     <div class="card-body p-4">
         <h3 class="h5 fw-bold mb-3 sg-card-h">🔥 {{ _('Popular on SmartGarbage') }}</h3>
         <div class="d-flex flex-wrap gap-2">
@@ -371,8 +370,8 @@
         </div>
     </div>
 </div>
-<script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-<script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
+<script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
+<script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
 
 {# ── 9. AUTHOR & DISCLAIMER (E-E-A-T + legal — consolidated) ── #}
 <div class="card border-0 shadow-sm mb-4 p-3 small text-muted animate-fade-in sg-delay-8" itemscope itemtype="https://schema.org/Person">

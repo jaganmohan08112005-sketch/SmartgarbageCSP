@@ -564,6 +564,21 @@ h3.sg-card-h { font-size: 1.25rem; }
 [data-theme="dark"] .sg-stat-card { background: rgba(16,185,129,.06); border-color: rgba(16,185,129,.15); }
 [data-theme="dark"] .sg-stat-value { color: #e2e8f0; }
 
+/* ---------- Lazy-load sections ---------- */
+.sg-lazy-section {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity .4s var(--ease), transform .4s var(--ease);
+}
+.sg-lazy-section.sg-lazy-visible,
+.sg-lazy-section[style] {
+    opacity: 1;
+    transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .sg-lazy-section { opacity: 1; transform: none; transition: none; }
+}
+
 /* ---------- Popular links (GOV.UK pattern) ---------- */
 .sg-popular-link {
     display: inline-flex;
