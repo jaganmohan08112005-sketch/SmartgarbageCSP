@@ -46,6 +46,11 @@
    ═══════════════════════════════════════════════════════════════ #}
 
 {# ── 1. HERO ── #}
+<nav class="sg-breadcrumb mb-3" aria-label="{{ _('Breadcrumb') }}">
+    <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item active" aria-current="page">{{ _('Home') }}</li>
+    </ol>
+</nav>
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero">
     <div class="container-fluid py-4">
         <div class="sg-hero-illustration mb-3" aria-hidden="true">
@@ -64,10 +69,10 @@
         <span class="badge rounded-pill sg-official-badge mb-3 px-3 py-2 fs-6">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</span>
         <h1 class="display-5 fw-bold text-success mb-3">{{ _('Waste Collection Schedules & Missed Pickup Reports in Chintalavalasa') }}</h1>
         <p class="col-md-8 fs-5 mx-auto text-muted mb-4">
-            {{ _('Monitor') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('local collection schedules') }}</a>,
-            {{ _('verify') }} <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('neighborhood service status') }}</a>,
-            {{ _('and') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('file a missed-service complaint') }}</a>
-            {{ _('across every residential sector in real time.') }}
+            {{ _('Check') }} <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('schedules') }}</a>,
+            <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('ward status') }}</a>,
+            {{ _('or') }} <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a problem') }}</a>
+            {{ _('— free, no login needed.') }}
         </p>
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
             <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Collection Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
@@ -78,10 +83,10 @@
         </div>
         
         <div class="sg-hero-trust-strip mt-4">
-            <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center">
-                <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service of the Directorate of Waste Management & Sanitation') }}</a>
-                <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a>
-                <span>✅ {{ _('Compliant with the') }} <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">{{ _('Solid Waste Management Rules, 2026') }}</a></span>
+            <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center gap-2 small">
+                <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service') }}</a>
+                <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 <strong>1800-119-9111</strong></a>
+                <span>✅ {{ _('SWM Rules 2026 compliant') }}</span>
             </div>
         </div>
     </div>
@@ -95,7 +100,7 @@
                 <span class="sg-portal-icon" style="width:36px;height:36px;font-size:1.1rem;">👨‍👩‍👧‍👦</span>
                 <div>
                     <h2 class="fw-bold text-success mb-0" style="font-size:1.1rem;">{{ _('Citizen Portal') }}</h2>
-                    <small class="text-muted">{{ _('Public · No login needed') }}</small>
+                    <small class="text-muted">{{ _('Public · No login') }}</small>
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-2 small">
@@ -112,7 +117,6 @@
                 <span class="sg-portal-icon" style="width:36px;height:36px;font-size:1.1rem;">🏛️</span>
                 <div>
                     <h2 class="fw-bold mb-0" style="font-size:1.1rem;">{{ _('Municipal Staff') }}</h2>
-                    <small class="text-muted">{{ _('Staff only') }}</small>
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-2 small">
@@ -157,10 +161,9 @@
                 <span class="badge bg-warning text-dark me-1">{{ _('Wet Season') }}</span>
                 {{ _('Sort dry recyclables separately — wet waste gets heavier in rain.') }}
                 <a href="/schedule" class="fw-semibold text-decoration-underline text-success">{{ _('See schedule') }}</a>
-            </div>
-            <div class="small mt-1">
+                <span class="mx-1">·</span>
                 <span class="badge bg-success me-1">{{ _('Update') }}</span>
-                {{ _('MVGR College Road cleanliness drive this Saturday.') }}
+                {{ _('MVGR College Road drive this Saturday.') }}
                 <a href="/transparency" class="fw-semibold text-decoration-underline text-success">{{ _('View status') }}</a>
             </div>
         </div>
@@ -252,10 +255,8 @@
                 </div>
                 {% endif %}
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-3 small text-muted">
-                <span>📊 {{ _('Live figures from the Gram Panchayat service records.') }}</span>
-                <span aria-hidden="true">·</span>
-                <span>Part of the <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline text-success">Swachh Bharat Mission (Grameen)</a> &middot; <a href="https://www.ap.gov.in/" target="_blank" rel="nofollow noopener noreferrer" class="fw-semibold text-decoration-underline">Government of Andhra Pradesh</a></span>
+            <div class="small text-muted mt-2">
+                📊 {{ _('Live figures from Gram Panchayat records.') }} · Part of <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline text-success">Swachh Bharat Mission</a>
             </div>
         </div>
     </div>
@@ -266,10 +267,9 @@
                 <span class="fs-4" aria-hidden="true">🔒</span>
                 <h3 class="h6 fw-bold mb-0 text-success">{{ _('Your privacy at a glance') }}</h3>
             </div>
-            <ul class="small text-muted mb-0 flex-grow-1 d-flex flex-column flex-md-row flex-wrap gap-1 gap-md-4 list-unstyled">
+            <ul class="small text-muted mb-0 flex-grow-1 d-flex flex-column flex-md-row flex-wrap gap-1 gap-md-3 list-unstyled">
                 <li>{{ _('Only what you enter — never sold') }}</li>
-                <li>{{ _('GPS & photos: only when you file a report') }}</li>
-                <li>{{ _('Payments via Razorpay') }}</li>
+                <li>{{ _('GPS & photos only when you report') }}</li>
             </ul>
             <a href="/privacy" class="fw-semibold text-decoration-underline text-success flex-shrink-0">{{ _('Full privacy notice') }} →</a>
         </div>
@@ -277,30 +277,25 @@
     {# ── Weather widget (merged from original section 9) ── #}
     <div class="card border-start border-primary border-4 p-4 bg-white shadow-sm mb-4">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h3 class="text-primary fw-bold mb-0 sg-card-h">🌤️ {{ _('Local Weather') }}</h3>
-                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-3 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS') }}</button>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="text-primary fw-bold mb-0" style="font-size:1.1rem;">🌤️ {{ _('Weather') }}</h3>
+                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS') }}</button>
             </div>
-            <div class="mb-2">
-                <select id="homeWardSelector" class="form-select form-select-sm" onchange="loadWardWeatherChange()">
-                    <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
-                </select>
-            </div>
+            <select id="homeWardSelector" class="form-select form-select-sm mb-2" onchange="loadWardWeatherChange()">
+                <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
+            </select>
             <div id="weatherLoading" class="text-muted small py-2 d-none">
                 <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                {{ _('Loading weather...') }}
+                {{ _('Loading...') }}
             </div>
             <div id="weatherDisplay" class="sg-weather-stable">
                 <div class="d-flex align-items-center justify-content-between">
-                    <div>
-                        <span id="weatherCity" class="fs-5 fw-bold text-dark d-block">{{ _('Detecting...') }}</span>
-                        <span id="weatherDesc" class="text-muted text-capitalize small">{{ _('Please wait') }}</span>
-                    </div>
+                    <span id="weatherCity" class="fw-bold text-dark">{{ _('Detecting...') }}</span>
                     <span id="weatherTemp" class="display-6 fw-bold text-primary">--°C</span>
                 </div>
-                <div class="row g-2 pt-2 border-top text-dark small">
-                    <div class="col-6">🏢 {{ _('Humidity') }}: <strong id="weatherHumidity">--%</strong></div>
-                    <div class="col-6">💨 {{ _('Wind') }}: <strong id="weatherWind">-- km/h</strong></div>
+                <div class="d-flex gap-3 pt-1 small text-muted">
+                    <span>💧 <strong id="weatherHumidity">--%</strong></span>
+                    <span>💨 <strong id="weatherWind">-- km/h</strong></span>
                 </div>
             </div>
         </div>
@@ -333,8 +328,7 @@
         <div>
             <strong itemprop="name">👤 {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</strong>
             <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>
-            <span class="d-block">{{ _('Reviewed by Municipal Engineering Division, Vizianagaram District') }} · <time datetime="{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-28' }}">{{ deploy_ts.strftime('%B %d, %Y') if deploy_ts else 'August 28, 2026' }}</time></span>
-            <span class="d-block text-muted small">{{ _('Official portal under') }} <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">{{ _('Swachh Bharat Mission (Grameen)') }}</a> · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong></span>
+            <span class="d-block text-muted small">{{ _('Reviewed by Municipal Engineering Division') }} · <time datetime="{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-28' }}">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }}</time> · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong></span>
         </div>
     </div>
 </div>
