@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ _('Pay PAYT Invoice - SmartGarbage') }}{% endblock %}
 {% block content %}
+{% from '_icons.html' import icon %}
 <div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
     <div class="col-md-6 col-lg-5">
         <div class="card p-4 border-0 shadow-sm text-center">
@@ -14,19 +15,19 @@
             <p class="mb-3"><strong>{{ _('Compliance:') }}</strong> {{ invoice.compliance_score }}% → {{ invoice.penalty_multiplier }}x</p>
             {% if invoice.status == 'Paid' %}
                 <div class="alert alert-success border-0 shadow-sm text-start small">
-                    <i class="fa-solid fa-circle-check me-1"></i>
+                    {{ icon('checkcircle') }}
                     <strong>{{ _('Payment confirmed.') }}</strong> {{ _('Thank you!') }}<br>
                     <span class="text-muted">{{ _('Ref:') }} {{ invoice.transaction_ref or '—' }} · {{ invoice.payment_method or 'UPI' }}</span>
                 </div>
                 <a class="btn btn-outline-success w-100 fw-bold shadow-sm mb-2" href="{{ url_for('main.payt_receipt', inv_id=invoice.id) }}">
-                    <i class="fa-solid fa-file-pdf me-1"></i>
+                    {{ icon('pdf') }}
                     {{ _('Download Receipt (PDF)') }}
                 </a>
                 <p class="text-muted small mb-0">{{ _('A copy was also emailed to your registered address.') }}</p>
             {% else %}
                 {% if invoice.failed_attempts %}
                     <div class="alert alert-warning border-0 shadow-sm text-start small mb-3">
-                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        {{ icon('warning') }}
                         <strong>{{ _('Payment not completed') }}</strong> — {{ _('no money was deducted.') }}<br>
                         <span class="text-muted">
                             {{ _('Attempt') }} {{ invoice.failed_attempts }}{% if invoice.last_failed_reason %}: {{ invoice.last_failed_reason }}{% endif %}
@@ -36,21 +37,21 @@
                 {% endif %}
                 {% if razorpay_order_id %}
                     <button type="button" id="razorpayBtn" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
-                        <i class="fa-solid fa-lock me-1"></i>
+                        {{ icon('lock') }}
                         {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('securely') }}
                     </button>
                     <p class="text-muted small mb-3">{{ _('Secure payment via Razorpay (UPI, cards, net-banking, wallets).') }}</p>
                     <div class="hr-text small text-muted my-3">{{ _('or') }}</div>
                 {% endif %}
                 <a class="btn btn-outline-success w-100 fw-bold shadow-sm mb-2" href="{{ upi_url }}">
-                    <i class="fa-solid fa-mobile-screen-button me-1"></i>
+                    {{ icon('mobile') }}
                     {{ _('Pay') }} ₹{{ "%.2f"|format(invoice.amount_rs) }} {{ _('via UPI') }}
                 </a>
                 <p class="text-muted small mb-3">{{ _('You\'ll be redirected to your UPI app to authorize the payment.') }}</p>
                 <form method="POST" action="{{ url_for('main.payt_confirm_payment', inv_id=invoice.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-outline-success w-100 fw-bold rounded-pill">
-                        <i class="fa-solid fa-check me-1"></i> {{ _('I\'ve completed the UPI payment') }}
+                        {{ icon('check') }} {{ _('I\'ve completed the UPI payment') }}
                     </button>
                 </form>
                 <p class="text-muted mt-2 mb-0 small">{{ _('Confirm here once the payment succeeds in your UPI app (fallback).') }}</p>

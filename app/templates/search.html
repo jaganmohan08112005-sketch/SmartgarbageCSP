@@ -3,6 +3,7 @@
 {% block meta_description %}{{ _('Search results for') }} {{ query }} {{ _('on the SmartGarbage Chintalavalasa waste management portal.') }}{% endblock %}
 
 {% block content %}
+{% from '_icons.html' import icon %}
 <div class="sg-search-page">
     {# ── Search Form (GOV.UK pattern: large, prominent) ── #}
     <div class="sg-search-hero mb-4">
@@ -10,7 +11,7 @@
         <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}">
             <div class="input-group input-group-lg sg-search-input-group">
                 <span class="input-group-text bg-white border-end-0" aria-hidden="true">
-                    <i class="fa-solid fa-magnifying-glass text-muted"></i>
+                    {{ icon('search') }}
                 </span>
                 <input type="search" name="q" value="{{ query }}"
                        class="form-control border-start-0 ps-0"
@@ -58,13 +59,13 @@
                         <a href="{{ r.path }}" class="sg-search-result d-block text-decoration-none mb-3 p-3 rounded-3 border">
                             <div class="d-flex align-items-start gap-3">
                                 <span class="sg-search-result-icon flex-shrink-0 mt-1">
-                                    <i class="fa-solid {{ r.icon }} text-success"></i>
+                                    {{ icon('info') }}
                                 </span>
                                 <div class="flex-grow-1">
                                     <div class="fw-bold text-dark mb-1">{{ r.title }}</div>
                                     <div class="text-muted small mb-1">{{ r.description }}</div>
                                     <div class="sg-search-result-path text-success small">
-                                        <i class="fa-solid fa-link me-1" aria-hidden="true"></i>{{ r.path }}
+                                        {{ r.path }}
                                     </div>
                                 </div>
                             </div>
@@ -80,16 +81,16 @@
                 <p class="text-muted mb-4">{{ _('Try different keywords, or use the links below to find what you need.') }}</p>
                 <div class="d-flex flex-wrap justify-content-center gap-2">
                     <a href="/schedule" class="btn btn-outline-success btn-sm rounded-pill">
-                        <i class="fa-solid fa-calendar-days me-1"></i>{{ _('Check Schedule') }}
+                        {{ icon('calendar') }} {{ _('Check Schedule') }}
                     </a>
                     <a href="/report" class="btn btn-outline-success btn-sm rounded-pill">
-                        <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report a Problem') }}
+                        {{ icon('warning') }} {{ _('Report a Problem') }}
                     </a>
                     <a href="/transparency" class="btn btn-outline-success btn-sm rounded-pill">
-                        <i class="fa-solid fa-location-dot me-1"></i>{{ _('View Wards') }}
+                        {{ icon('location') }} {{ _('View Wards') }}
                     </a>
                     <a href="/contact" class="btn btn-outline-success btn-sm rounded-pill">
-                        <i class="fa-solid fa-headset me-1"></i>{{ _('Contact Us') }}
+                        {{ icon('headset') }} {{ _('Contact Us') }}
                     </a>
                 </div>
             </div>

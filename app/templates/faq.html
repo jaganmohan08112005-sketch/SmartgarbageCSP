@@ -3,6 +3,7 @@
 {% block meta_description %}Answers to common questions about waste collection schedules, missed pickup reporting, Green Points, and ward services in Chintalavalasa.{% endblock %}
 
 {% block content %}
+{% from '_icons.html' import icon %}
 {% include "_breadcrumbs.html" with context %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
@@ -116,8 +117,8 @@
 
         <div class="mt-4 p-3 bg-light rounded-3 text-center">
             <p class="small text-muted mb-2">Still have questions?</p>
-            <a href="/contact" class="btn btn-outline-success btn-sm rounded-pill px-3"><i class="fa-solid fa-headset me-1"></i>Contact us</a>
-            <a href="tel:+9118001199111" class="btn btn-outline-success btn-sm rounded-pill px-3"><i class="fa-solid fa-phone me-1"></i>Call 1800-119-9111</a>
+            <a href="/contact" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ icon('headset') }} Contact us</a>
+            <a href="tel:+9118001199111" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ icon('phone') }} Call 1800-119-9111</a>
         </div>
     </div>
 </div>

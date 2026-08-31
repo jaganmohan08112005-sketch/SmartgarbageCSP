@@ -143,11 +143,11 @@
                         <div class="card border-0 shadow-sm p-3 h-100 bg-white text-danger border-start border-danger border-3">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <span class="text-danger small fw-bold">{{ _('Critical') }} (<i class="fa-solid fa-trash-can"></i>) {{ _('Bins') }}</span>
+                                    <span class="text-danger small fw-bold">{{ _('Critical') }} (🗑️) {{ _('Bins') }}</span>
                                     <h3 class="fw-extrabold mt-1 mb-0 text-danger">{{ kpis.critical_bins }}</h3>
                                 </div>
                                 <span class="sg-icon bg-danger bg-opacity-10 p-2 rounded-circle animate__animated animate__pulse animate__infinite">
-                                    <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                                    ⚠️
                                 </span>
                             </div>
                             <div class="mt-2 small text-muted">
@@ -453,7 +453,7 @@
                 <ul class="list-group list-group-flush small">
                     {% for wh in webhooks %}
                     <li class="list-group-item d-flex align-items-center gap-2 px-0">
-                        <i class="fa-solid fa-link text-success"></i>
+                        🔗
                         <span class="text-break">{{ wh }}</span>
                     </li>
                     {% endfor %}

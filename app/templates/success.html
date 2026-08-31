@@ -19,7 +19,7 @@
                     <input type="text" class="form-control" readonly value="{{ track_url }}" id="trackUrlInput"
                            aria-label="{{ _('Tracking link') }}">
                     <button class="btn btn-success rounded-end" type="button" onclick="copyTrackUrl()">
-                        <i class="fa-solid fa-copy me-1"></i>{{ _('Copy') }}
+                        {% from '_icons.html' import icon %}{{ icon('copy') }} {{ _('Copy') }}
                     </button>
                 </div>
                 <div class="d-grid gap-2 mt-3">

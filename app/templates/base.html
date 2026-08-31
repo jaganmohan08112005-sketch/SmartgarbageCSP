@@ -50,7 +50,6 @@
     <link rel="preload" as="style" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" as="style" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'>
     <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script type="application/ld+json">
     {
@@ -212,11 +211,11 @@
     <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>console.log('PWA Service Worker Active!',r)).catch(e=>console.log('PWA Registration Failed!',e))})}</script>
 </head>
 <body>
+    {% from '_icons.html' import icon %}
     <noscript>
         <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     </noscript>
     {% set enc_path = request.path.replace(' ', '%20') %}
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
@@ -243,22 +242,22 @@
             <div class="collapse navbar-collapse" id="mainNavbarLayout">
                 <ul class="navbar-nav me-auto align-items-center gap-1">
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/"><i class="fa-solid fa-house me-1"></i>{{ _('Home') }}</a>
+                        <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/">{{ icon('home') }} {{ _('Home') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule"><i class="fa-solid fa-calendar-days me-1"></i>{{ _('Schedules') }}</a>
+                        <a class="nav-link px-3 {% if '/schedule' in request.path %}active{% endif %}" href="/schedule">{{ icon('calendar') }} {{ _('Schedules') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report"><i class="fa-solid fa-triangle-exclamation me-1"></i>{{ _('Report') }}</a>
+                        <a class="nav-link px-3 {% if '/report' in request.path %}active{% endif %}" href="/report">{{ icon('warning') }} {{ _('Report') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency"><i class="fa-solid fa-location-dot me-1"></i>{{ _('Wards') }}</a>
+                        <a class="nav-link px-3 {% if '/transparency' in request.path %}active{% endif %}" href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker"><i class="fa-solid fa-recycle me-1"></i>{{ _('Picker') }}</a>
+                        <a class="nav-link px-3 {% if '/register/picker' in request.path %}active{% endif %}" href="/register/picker">{{ icon('recycle') }} {{ _('Picker') }}</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about"><i class="fa-solid fa-circle-info me-1"></i>{{ _('About') }}</a>
+                        <a class="nav-link px-3 {% if '/about' in request.path %}active{% endif %}" href="/about">{{ icon('info') }} {{ _('About') }}</a>
                     </li>
                 </ul>
                 {# ── Site search (GOV.UK pattern with autocomplete) ── #}
@@ -272,7 +271,7 @@
                                    aria-autocomplete="list" aria-controls="sgSearchDropdown"
                                    role="searchbox">
                             <button class="btn btn-outline-light" type="submit" aria-label="{{ _('Search') }}">
-                                <i class="fa-solid fa-magnifying-glass"></i>
+                                {{ icon('search') }}
                             </button>
                         </div>
                         <ul id="sgSearchDropdown" class="list-unstyled sg-search-dropdown d-none" role="listbox"></ul>
@@ -282,7 +281,7 @@
                 <li class="nav-item d-lg-none mt-2 position-relative">
                     <form action="/search" method="get" role="search" aria-label="{{ _('Site search') }}">
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-transparent border-secondary text-white-50"><i class="fa-solid fa-magnifying-glass"></i></span>
+                            <span class="input-group-text bg-transparent border-secondary text-white-50">{{ icon('search') }}</span>
                             <input type="search" name="q" class="form-control bg-dark text-white border-secondary sg-search-input"
                                    id="sgMobileSearchInput"
                                    placeholder="{{ _('Search schedules, reports, FAQs…') }}"
@@ -298,28 +297,28 @@
                     <div class="sg-account-dropdown dropdown">
                         <button id="accountMenuBtn" class="btn btn-outline-light btn-sm px-3 rounded-pill dropdown-toggle" type="button"
                                 data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fa-solid fa-user me-1" aria-hidden="true"></i>{{ _('Account') }}
+                            {{ icon('user') }} {{ _('Account') }}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow rounded-3" aria-labelledby="accountMenuBtn">
                             {% if current_user.is_authenticated %}
                                 {% if current_user.role in ['citizen', 'worker'] %}
-                                <li><a class="dropdown-item" href="/dashboard"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Dashboard') }}</a></li>
+                                <li><a class="dropdown-item" href="/dashboard">{{ icon('gauge') }} {{ _('Dashboard') }}</a></li>
                                 {% endif %}
                                 {% if current_user.role == 'admin' or current_user.is_superadmin %}
-                                <li><a class="dropdown-item" href="/admin"><i class="fa-solid fa-gauge-high me-2"></i>{{ _('Admin Control Center') }}</a></li>
+                                <li><a class="dropdown-item" href="/admin">{{ icon('gauge') }} {{ _('Admin Control Center') }}</a></li>
                                 {% endif %}
                                 {% if current_user.role == 'admin' %}
-                                <li><a class="dropdown-item" href="/analytics"><i class="fa-solid fa-chart-line me-2"></i>{{ _('Analytics') }}</a></li>
+                                <li><a class="dropdown-item" href="/analytics">{{ icon('chart') }} {{ _('Analytics') }}</a></li>
                                 {% endif %}
                             {% else %}
-                                <li><a class="dropdown-item" href="/login"><i class="fa-solid fa-right-to-bracket me-2"></i>{{ _('Login') }}</a></li>
-                                <li><a class="dropdown-item" href="/register"><i class="fa-solid fa-user-plus me-2"></i>{{ _('Sign Up') }}</a></li>
+                                <li><a class="dropdown-item" href="/login">{{ icon('login') }} {{ _('Login') }}</a></li>
+                                <li><a class="dropdown-item" href="/register">{{ icon('userplus') }} {{ _('Sign Up') }}</a></li>
                             {% endif %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="tel:+9118001199111"><i class="fa-solid fa-headset me-2" aria-hidden="true"></i>{{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
+                            <li><a class="dropdown-item" href="tel:+9118001199111">{{ icon('headset') }} {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="/logout"><i class="fa-solid fa-right-from-bracket me-2"></i>{{ _('Logout') }}</a></li>
+                            <li><a class="dropdown-item text-danger" href="/logout">{{ icon('logout') }} {{ _('Logout') }}</a></li>
                             {% endif %}
                         </ul>
                     </div>
@@ -404,11 +403,11 @@
     </footer>
     {# ── Mobile quick-action bar (visible on phones) ── #}
     <nav class="sg-mobile-actions" aria-label="{{ _('Quick actions') }}">
-        <a href="/"><i class="fa-solid fa-house"></i>{{ _('Home') }}</a>
-        <a href="/schedule"><i class="fa-solid fa-calendar-days"></i>{{ _('Schedule') }}</a>
-        <a href="/report"><i class="fa-solid fa-triangle-exclamation"></i>{{ _('Report') }}</a>
-        <a href="/transparency"><i class="fa-solid fa-location-dot"></i>{{ _('Wards') }}</a>
-        <a href="tel:+9118001199111"><i class="fa-solid fa-headset"></i>{{ _('Help') }}</a>
+        <a href="/">{{ icon('home') }} {{ _('Home') }}</a>
+        <a href="/schedule">{{ icon('calendar') }} {{ _('Schedule') }}</a>
+        <a href="/report">{{ icon('warning') }} {{ _('Report') }}</a>
+        <a href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a>
+        <a href="tel:+9118001199111">{{ icon('headset') }} {{ _('Help') }}</a>
     </nav>
     {% if not config.get('ANALYTICS_ID') %}
     <div id="sgPrivacyNotice" class="sg-consent-banner cookie-consent" role="region" aria-label="{{ _('Cookie consent') }}">
@@ -422,22 +421,22 @@
     // ── Search autocomplete (GOV.UK pattern with keyboard nav) ──
     (function() {
         const SEARCH_DATA = [
-            {t:'Collection Schedules',p:'/schedule',i:'fa-calendar-days'},
-            {t:'Report a Missed Pickup',p:'/report',i:'fa-triangle-exclamation'},
-            {t:'Ward Transparency Dashboard',p:'/transparency',i:'fa-location-dot'},
-            {t:'Resident Registration',p:'/register',i:'fa-user-plus'},
-            {t:'Waste Picker Registration',p:'/register/picker',i:'fa-recycle'},
-            {t:'About SmartGarbage',p:'/about',i:'fa-circle-info'},
-            {t:'Contact Us',p:'/contact',i:'fa-envelope'},
-            {t:'Privacy Policy',p:'/privacy',i:'fa-shield-halved'},
-            {t:'Terms of Service',p:'/terms',i:'fa-file-contract'},
-            {t:'Accessibility Statement',p:'/accessibility',i:'fa-universal-access'},
-            {t:'How do I check my schedule?',p:'/schedule',i:'fa-circle-question'},
-            {t:'How do I report a missed service?',p:'/report',i:'fa-circle-question'},
-            {t:'Waste segregation guide',p:'/',i:'fa-recycle'},
-            {t:'Green Points program',p:'/register',i:'fa-leaf'},
-            {t:'PAYT billing',p:'/terms',i:'fa-receipt'},
-            {t:'Grievance Hotline 1800-119-9111',p:'tel:+9118001199111',i:'fa-headset'},
+            {t:'Collection Schedules',p:'/schedule',e:'📅'},
+            {t:'Report a Missed Pickup',p:'/report',e:'⚠️'},
+            {t:'Ward Transparency Dashboard',p:'/transparency',e:'📍'},
+            {t:'Resident Registration',p:'/register',e:'👤'},
+            {t:'Waste Picker Registration',p:'/register/picker',e:'♻️'},
+            {t:'About SmartGarbage',p:'/about',e:'ℹ️'},
+            {t:'Contact Us',p:'/contact',e:'📞'},
+            {t:'Privacy Policy',p:'/privacy',e:'🔒'},
+            {t:'Terms of Service',p:'/terms',e:'📋'},
+            {t:'Accessibility Statement',p:'/accessibility',e:'♿'},
+            {t:'How do I check my schedule?',p:'/faq#faq1',e:'❓'},
+            {t:'How do I report a missed service?',p:'/faq#faq2',e:'❓'},
+            {t:'Waste segregation guide',p:'/faq#faq3',e:'♻️'},
+            {t:'Green Points program',p:'/faq#faq5',e:'🍃'},
+            {t:'PAYT billing',p:'/faq#faq7',e:'💰'},
+            {t:'Grievance Hotline 1800-119-9111',p:'tel:+9118001199111',e:'🎧'},
         ];
         function filterData(q) {
             if (!q || q.length < 2) return [];
@@ -453,7 +452,7 @@
                 if (!items.length) { dropdown.classList.add('d-none'); return; }
                 dropdown.innerHTML = items.map((d,i) =>
                     `<li class="sg-search-item" role="option" data-path="${d.p}" data-idx="${i}">`+
-                    `<i class="fa-solid ${d.i} sg-search-item-icon" aria-hidden="true"></i>`+
+                    `<span class="sg-search-item-icon" aria-hidden="true">${d.e}</span>`+
                     `<span class="sg-search-item-title">${d.t}</span></li>`
                 ).join('');
                 dropdown.classList.remove('d-none');

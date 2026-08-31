@@ -2,11 +2,12 @@
 {% block title %}Login to SmartGarbage — Citizen & Staff Access Portal{% endblock %}
 {% block meta_description %}Sign in to SmartGarbage Chintalavalasa to access your citizen dashboard, track complaints, manage waste declarations and view ward reports{% endblock %}
 {% block content %}
+{% from '_icons.html' import icon %}
 <div class="row justify-content-center animate-fade-in" style="margin-top: 5vh;">
     <div class="col-md-6 col-lg-5">
         <div class="card p-4 shadow border-0">
             <div class="text-center mb-4">
-                <span class="sg-feature-icon mb-3"><i class="fa-solid fa-recycle"></i></span>
+                <span class="sg-feature-icon mb-3">{{ icon('recycle') }}</span>
                 <h1 class="fw-bold mt-2 text-success">{{ _('SmartGarbage Gateway') }}</h1>
                 <h2 class="h6 fw-bold text-dark mb-0">{{ _('Sign in to manage waste collection services in Chintalavalasa') }}</h2>
                 <p class="text-muted small">{{ _('Central entry point for Citizens, Workers, and Administration') }}</p>
@@ -14,12 +15,12 @@
             <ul class="nav nav-pills nav-justified mb-4" id="authTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" id="password-tab" data-bs-toggle="pill" data-bs-target="#password-login" type="button" role="tab" aria-controls="password-login" aria-selected="true">
-                        <i class="fa-solid fa-key me-1"></i> {{ _('Credentials') }}
+                        {{ icon('key') }} {{ _('Credentials') }}
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="phone-tab" data-bs-toggle="pill" data-bs-target="#phone-login" type="button" role="tab" aria-controls="phone-login" aria-selected="false">
-                        <i class="fa-solid fa-mobile-screen me-1"></i> {{ _('Phone OTP') }}
+                        {{ icon('mobile') }} {{ _('Phone OTP') }}
                     </button>
                 </li>
             </ul>
@@ -30,19 +31,19 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold text-secondary" for="lg_username">{{ _('Username') }}</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-user"></i></span>
+                                <span class="input-group-text bg-light text-muted">{{ icon('user') }}</span>
                                 <input name="username" id="lg_username" class="form-control" placeholder="{{ _('Enter username') }}" required autofocus>
                             </div>
                         </div>
                         <div class="mb-4">
                             <label class="form-label fw-bold text-secondary" for="lg_password">{{ _('Password') }}</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
+                                <span class="input-group-text bg-light text-muted">{{ icon('lock') }}</span>
                                 <input name="password" id="lg_password" type="password" class="form-control" placeholder="{{ _('Enter password') }}" required>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
-                            <i class="fa-solid fa-right-to-bracket me-1"></i> {{ _('Sign In') }}
+                            {{ icon('login') }} {{ _('Sign In') }}
                         </button>
                         <div class="text-center">
                             <a href="{{ url_for('main.reset_password_request') }}" class="text-muted small text-decoration-none">{{ _('Forgot password?') }}</a>
@@ -57,7 +58,7 @@
                         <div class="mb-4">
                             <label class="form-label fw-bold text-secondary" for="otp_phone">{{ _('Phone Number') }}</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-phone"></i></span>
+                                <span class="input-group-text bg-light text-muted">{{ icon('phone') }}</span>
                                 <input name="phone_number" id="otp_phone" type="tel" class="form-control"
                                        placeholder="{{ _('e.g. +91 98765 43210') }}"
                                        pattern="^(\+91|91)?[6-9]\d{9}$"
@@ -65,10 +66,10 @@
                                        required>
                             </div>
                             <small class="text-muted mt-1 d-block">{{ _('Indian mobile only (10 digits starting 6-9). A 6-digit OTP will be simulated.') }}</small>
-                            <div id="phoneError" class="text-danger small mt-1 d-none"><i class="fa-solid fa-circle-exclamation me-1"></i> {{ _('Enter a valid Indian mobile (e.g. 9876543210). Fake numbers are rejected.') }}</div>
+                            <div id="phoneError" class="text-danger small mt-1 d-none">{{ icon('exclamation') }} {{ _('Enter a valid Indian mobile (e.g. 9876543210). Fake numbers are rejected.') }}</div>
                         </div>
                         <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">
-                            <i class="fa-solid fa-comment-sms me-1"></i> {{ _('Send Login OTP') }}
+                            {{ icon('sms') }} {{ _('Send Login OTP') }}
                         </button>
                     </form>
                     <script>
