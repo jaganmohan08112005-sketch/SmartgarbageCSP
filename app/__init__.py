@@ -153,26 +153,23 @@ def create_app(test_config=None):
     # only point where Flask has already added the header. Other Vary values
     # (e.g. Accept-Encoding) are left untouched.
     class _StaticNoVarySessionInterface(SecureCookieSessionInterface):
-        # Always signal that the session was modified so save_session() fires
-        # on every request — even anonymous page views where Flask-Login only
-        # reads the session without writing.  Without this, Flask skips
-        # save_session() and Vary: Cookie is never stripped.
-        def is_session_modified(self, app, session):
-            return True
-
         def save_session(self, app, session, response):
-            super().save_session(app, session, response)
             path = request.path
-            # Strip Vary: Cookie from static assets (immutable, same for all visitors)
-            if path.startswith('/static/') and not path.startswith('/static/uploads/'):
-                response.vary.discard('Cookie')
-            # Strip Vary: Cookie from public HTML pages for logged-out users
-            # so Cloudflare can cache them at the edge (TTFB: 0.94s → <100ms).
-            # Public pages are identical for all anonymous visitors, so Vary: Cookie
-            # is a lie that prevents edge caching. Logged-in users keep Vary: Cookie
-            # because their content may differ (dashboard, admin).
-            elif ((response.mimetype or '').startswith('text/html')
-                  and not session.get('user_id')):
+            is_public_html = (
+                (response.mimetype or '').startswith('text/html')
+                and not session.get('user_id')
+            )
+            is_static = path.startswith('/static/') and not path.startswith('/static/uploads/')
+            strip_vary = is_public_html or is_static
+
+            if strip_vary:
+                # Force save_session() to run by marking session as modified,
+                # then strip Vary: Cookie BEFORE super().save_session() adds it.
+                session.modified = True
+
+            super().save_session(app, session, response)
+
+            if strip_vary:
                 response.vary.discard('Cookie')
 
     app.session_interface = _StaticNoVarySessionInterface()
