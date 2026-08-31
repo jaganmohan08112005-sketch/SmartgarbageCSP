@@ -410,6 +410,8 @@ def create_app(test_config=None):
     def add_security_headers(resp):
         resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
         resp.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+        # Keep connections alive for faster subsequent requests
+        resp.headers['Connection'] = 'keep-alive'
         # Ensure CDN caches different encodings (Brotli vs Gzip)
         if 'Vary' not in resp.headers:
             resp.headers['Vary'] = 'Accept-Encoding'
@@ -434,6 +436,13 @@ def create_app(test_config=None):
             resp.last_modified = app.config['DEPLOY_TIMESTAMP']
             # Short-lived cache for HTML pages (improves TTFB for repeat visitors)
             resp.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60'
+            # Server-side Link headers for resource hints (browser starts downloading earlier)
+            deploy_v = app.config['DEPLOY_TIMESTAMP'].strftime('%Y%m%d%H%M%S') if app.config.get('DEPLOY_TIMESTAMP') else '20260831'
+            resp.headers['Link'] = (
+                f'</static/css/critical.css?v={deploy_v}>; rel=preload; as=style, '
+                f'</static/fonts/outfit-v15.woff2?v={deploy_v}>; rel=preload; as=font; type=font/woff2; crossorigin, '
+                f'</static/vendor/bootstrap.min.css?v={deploy_v}>; rel=preload; as=style; media=print'
+            )
         return resp
 
     # Long-lived caching for static assets (render-blocking CSS is the LCP
