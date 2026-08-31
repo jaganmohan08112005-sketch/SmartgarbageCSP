@@ -108,7 +108,15 @@
         "name": "SmartGarbage Chintalavalasa",
         "url": "{{ request.url_root.rstrip('/') }}",
         "description": "Official municipal portal for Chintalavalasa — check waste collection schedules, report missed pickups and overflowing bins, track tickets and earn Green Points.",
-        "inLanguage": ["en", "te"]
+        "inLanguage": ["en", "te"],
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "{{ request.url_root.rstrip('/') }}/schedule?ward={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        }
     }
     </script>
     <script type="application/ld+json">
@@ -119,7 +127,7 @@
         "alternateName": "Directorate of Waste Management & Sanitation, Chintalavalasa",
         "url": "{{ request.url_root.rstrip('/') }}",
         "logo": "{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S'), _external=True) }}",
-        "description": "Official municipal waste-management service operated by the Chintalavalasa Gram Panchayat: collection schedules, missed-pickup and overflow reporting, ward dashboards and Pay-As-You-Throw billing.",
+        "description": "Official municipal waste-management service operated by the Chintalavalasa Gram Panchayat.",
         "areaServed": "Chintalavalasa, Vizianagaram District, Andhra Pradesh, India",
         "address": {
             "@type": "PostalAddress",
@@ -136,7 +144,6 @@
             "availableLanguage": ["English", "Telugu"]
         },
         "sameAs": [
-            "{{ request.url_root.rstrip('/') }}",
             "https://www.ap.gov.in/",
             "https://www.facebook.com/SmartGarbageIN",
             "https://twitter.com/SmartGarbageIN",
@@ -147,83 +154,10 @@
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "SmartGarbage Chintalavalasa",
-        "url": "{{ request.url_root.rstrip('/') }}",
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": {
-                "@type": "EntryPoint",
-                "urlTemplate": "{{ request.url_root.rstrip('/') }}/schedule?ward={search_term_string}"
-            },
-            "query-input": "required name=search_term_string"
-        }
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "GovernmentOffice",
-        "name": "Chintalavalasa Gram Panchayat — Waste Management Office",
-        "description": "Official waste management office of Chintalavalasa Gram Panchayat, providing solid waste collection, grievance redressal, and sanitation services under the Swachh Bharat Mission.",
-        "url": "{{ request.url_root.rstrip('/') }}",
-        "telephone": "+91-1800-119-9111",
-        "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Chintalavalasa Gram Panchayat Office",
-            "addressLocality": "Denkada Mandal",
-            "addressRegion": "Vizianagaram District, Andhra Pradesh",
-            "postalCode": "535005",
-            "addressCountry": "IN"
-        },
-        "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": 18.1173,
-            "longitude": 83.4114
-        },
-        "openingHoursSpecification": {
-            "@type": "OpeningHoursSpecification",
-            "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
-            "opens": "08:00",
-            "closes": "17:00"
-        },
-        "areaServed": {
-            "@type": "AdministrativeArea",
-            "name": "Chintalavalasa Gram Panchayat"
-        }
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
         "@type": "WebPage",
-        "name": "Waste Collection Schedules & Pickup Reports | Chintalavalasa",
+        "name": "{{ self.title() }}",
         "url": "{{ request.url }}",
-        "speakable": {
-            "@type": "SpeakableSpecification",
-            "cssSelector": [".sg-hero-value-prop", ".sg-hero-tagline"]
-        }
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Directorate of Waste Management & Sanitation",
-        "jobTitle": "Municipal Waste Management Authority",
-        "affiliation": {
-            "@type": "GovernmentOrganization",
-            "name": "Chintalavalasa Gram Panchayat"
-        },
-        "worksFor": {
-            "@type": "GovernmentOrganization",
-            "name": "Government of Andhra Pradesh",
-            "url": "https://www.ap.gov.in/"
-        },
-        "areaServed": {
-            "@type": "AdministrativeArea",
-            "name": "Chintalavalasa, Vizianagaram District, Andhra Pradesh"
-        }
+        "dateModified": "{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-31' }}"
     }
     </script>
     {% if config.get('ANALYTICS_ID') %}

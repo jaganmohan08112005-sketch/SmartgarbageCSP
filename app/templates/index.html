@@ -2,7 +2,6 @@
 {% block title %}Waste Collection Schedules & Pickup Reports | Chintalavalasa{% endblock %}
 {% block meta_description %}Check collection schedules for all 5 wards in Chintalavalasa, report missed pickups with GPS and photos, and track complaint resolution in real time{% endblock %}
 {% block content %}
-{% from '_icons.html' import icon %}
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -46,11 +45,6 @@
    ═══════════════════════════════════════════════════════════════ #}
 
 {# ── 1. HERO ── #}
-<nav class="sg-breadcrumb mb-3" aria-label="{{ _('Breadcrumb') }}">
-    <ol class="breadcrumb mb-0">
-        <li class="breadcrumb-item active" aria-current="page">{{ _('Home') }}</li>
-    </ol>
-</nav>
 <div class="p-5 mb-4 rounded-3 text-center border-bottom shadow-sm bg-white animate-fade-in sg-hero" fetchpriority="high">
     <div class="container-fluid py-4">
         <div class="sg-hero-illustration mb-3" aria-hidden="true">
@@ -76,10 +70,7 @@
         <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
             <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Collection Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
         </div>
-        <div class="mt-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
-            <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill px-3">⚠️ {{ _('Report Missed Collection') }}</a>
-            <span class="small text-muted">✅ {{ _('No login needed') }}</span>
-        </div>
+
         
         <div class="sg-hero-trust-strip mt-4">
             <div class="sg-trust-row d-flex flex-wrap justify-content-center align-items-center gap-2 small">
@@ -92,12 +83,7 @@
     </div>
 </div>
 
-<div class="d-flex flex-wrap gap-2 mb-4 small animate-fade-in sg-delay-1">
-    <a href="/schedule" class="btn btn-success btn-sm rounded-pill">📅 {{ _('Schedule') }}</a>
-    <a href="/report" class="btn btn-outline-danger btn-sm rounded-pill">⚠️ {{ _('Report') }}</a>
-    <a href="/transparency" class="btn btn-outline-success btn-sm rounded-pill">📍 {{ _('Wards') }}</a>
-    <a href="/login" class="btn btn-outline-success btn-sm rounded-pill" data-staff-login>🔐 {{ _('Staff') }}</a>
-</div>
+
 
 {# ── 2. SERVICES (how it works + wards + notices) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-2">
@@ -209,29 +195,9 @@
         </div>
     </div>
 
-    {# ── Weather widget (merged from original section 9) ── #}
-    <div class="card border-start border-primary border-4 p-3 bg-white shadow-sm mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-                <h3 class="text-primary fw-bold mb-0" style="font-size:1rem;">🌤️ {{ _('Weather') }}</h3>
-                <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 rounded-pill" onclick="getPresentLocationWeather()">📍 {{ _('GPS') }}</button>
-            </div>
-            <select id="homeWardSelector" class="form-select form-select-sm mb-1" onchange="loadWardWeatherChange()">
-                <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
-            </select>
-            <div id="weatherLoading" class="text-muted small py-1 d-none">
-                <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>{{ _('Loading…') }}
-            </div>
-            <div id="weatherDisplay" class="sg-weather-stable">
-                <span id="weatherCity" class="fw-bold text-dark">{{ _('Detecting...') }}</span>
-                <span id="weatherTemp" class="fw-bold text-primary">--°C</span>
-                <span class="small text-muted">💧 <strong id="weatherHumidity">--%</strong> 💨 <strong id="weatherWind">-- km/h</strong></span>
-            </div>
-        </div>
-    </div>
+
 </div>
-<script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
-<script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
+
 
 {# ── 5. POPULAR LINKS (GOV.UK pattern, lazy-loaded) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8 sg-lazy-section" data-lazy="popular">
