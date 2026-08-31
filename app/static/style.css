@@ -521,7 +521,7 @@ h3.sg-card-h { font-size: 1.25rem; }
     top: 100%;
     left: 0;
     right: 0;
-    z-index: 1060;
+    z-index: 1070;
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 0 0 .5rem .5rem;
@@ -530,11 +530,18 @@ h3.sg-card-h { font-size: 1.25rem; }
     overflow-y: auto;
 }
 .sg-search-dropdown .sg-search-item {
-    padding: .5rem .75rem;
+    padding: .65rem .75rem;
+    min-height: 44px;
     font-size: .85rem;
     cursor: pointer;
     display: flex;
     align-items: center;
+}
+.sg-search-dropdown .sg-search-item:focus-visible {
+    outline: 3px solid var(--sg-green-500);
+    outline-offset: -3px;
+    background: rgba(16,185,129,.08);
+}
     gap: .5rem;
     border-bottom: 1px solid #f0f0f0;
 }
@@ -549,6 +556,7 @@ h3.sg-card-h { font-size: 1.25rem; }
 [data-theme="dark"] .sg-search-dropdown .sg-search-item { border-color: var(--sg-line); color: #e2e8f0; }
 [data-theme="dark"] .sg-search-dropdown .sg-search-item:hover,
 [data-theme="dark"] .sg-search-dropdown .sg-search-item.sg-search-active { background: rgba(16,185,129,.12); }
+[data-theme="dark"] .sg-search-dropdown .sg-search-item:focus-visible { outline-color: #fbbf24; background: rgba(16,185,129,.15); }
 [data-theme="dark"] .sg-search-dropdown .sg-search-item-title { color: #e2e8f0; }
 
 /* ---------- Stats Dashboard (SBM Urban pattern) ---------- */
