@@ -156,7 +156,16 @@ def create_app(test_config=None):
         def save_session(self, app, session, response):
             super().save_session(app, session, response)
             path = request.path
+            # Strip Vary: Cookie from static assets (immutable, same for all visitors)
             if path.startswith('/static/') and not path.startswith('/static/uploads/'):
+                response.vary.discard('Cookie')
+            # Strip Vary: Cookie from public HTML pages for logged-out users
+            # so Cloudflare can cache them at the edge (TTFB: 0.94s → <100ms).
+            # Public pages are identical for all anonymous visitors, so Vary: Cookie
+            # is a lie that prevents edge caching. Logged-in users keep Vary: Cookie
+            # because their content may differ (dashboard, admin).
+            elif ((response.mimetype or '').startswith('text/html')
+                  and not session.get('user_id')):
                 response.vary.discard('Cookie')
 
     app.session_interface = _StaticNoVarySessionInterface()
@@ -434,8 +443,11 @@ def create_app(test_config=None):
                 and (resp.mimetype or '').startswith('text/html')
                 and not session.get('user_id')):
             resp.last_modified = app.config['DEPLOY_TIMESTAMP']
-            # Short-lived cache for HTML pages (improves TTFB for repeat visitors)
-            resp.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60'
+            # Edge cache: s-maxage tells Cloudflare to cache HTML for 5 minutes
+            # at the edge. max-age is for browser cache. stale-while-revalidate
+            # serves stale content while fetching fresh copy in background.
+            # This drops TTFB from ~0.94s (origin) to <100ms (edge hit).
+            resp.headers['Cache-Control'] = 'public, max-age=60, s-maxage=300, stale-while-revalidate=60'
             # Server-side Link headers for resource hints (browser starts downloading earlier)
             deploy_v = app.config['DEPLOY_TIMESTAMP'].strftime('%Y%m%d%H%M%S') if app.config.get('DEPLOY_TIMESTAMP') else '20260831'
             resp.headers['Link'] = (
