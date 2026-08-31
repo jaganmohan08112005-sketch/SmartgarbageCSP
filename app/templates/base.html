@@ -271,10 +271,10 @@
                         <a class="nav-link px-3 {% if request.path == '/' %}active{% endif %}" href="/">{{ icon('home') }} {{ _('Home') }}</a>
                     </li>
                     <li class="nav-item sg-mega-parent">
-                        <button class="nav-link px-3 sg-mega-trigger {% if '/schedule' in request.path or '/report' in request.path or '/transparency' in request.path or '/register/picker' in request.path %}active{% endif %}" type="button" aria-expanded="false" aria-haspopup="true">
+                        <button id="sgMegaServicesBtn" class="nav-link px-3 sg-mega-trigger {% if '/schedule' in request.path or '/report' in request.path or '/transparency' in request.path or '/register/picker' in request.path %}active{% endif %}" type="button" aria-expanded="false" aria-haspopup="true">
                             {{ icon('services') }} {{ _('Services') }} <span class="caret" aria-hidden="true"></span>
                         </button>
-                        <div class="sg-mega-menu" role="menu">
+                        <div class="sg-mega-menu" role="menu" aria-labelledby="sgMegaServicesBtn">
                             <div class="container">
                                 <div class="row">
                                     <div class="col-lg-4">
@@ -590,15 +590,22 @@ const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="
     })();
     </script>
     <script>
-    /* Mega menu with hover delay (GOV.UK pattern) */
+    /* Mega menu with WCAG 2.1 AA compliance */
     (function(){
-        const DELAY=200; // ms before open/close
+        const DELAY=200;
         const timers=new Map();
-        function openMega(btn){
+        function getItems(menu){
+            return Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        }
+        function openMega(btn,menu,focusFirst){
             clearTimeout(timers.get(btn));
             timers.set(btn,setTimeout(()=>{
                 document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
                 btn.setAttribute('aria-expanded','true');
+                if(focusFirst&&menu){
+                    const items=getItems(menu);
+                    if(items.length)items[0].focus();
+                }
             },DELAY));
         }
         function closeMega(btn){
@@ -607,37 +614,81 @@ const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="
                 btn.setAttribute('aria-expanded','false');
             },DELAY));
         }
-        function closeAll(){
+        function closeAll(returnFocus){
             document.querySelectorAll('.sg-mega-trigger').forEach(b=>{
                 clearTimeout(timers.get(b));
+                const wasOpen=b.getAttribute('aria-expanded')==='true';
                 b.setAttribute('aria-expanded','false');
+                if(returnFocus&&wasOpen)b.focus();
             });
+        }
+        function openAndFocus(btn,menu){
+            clearTimeout(timers.get(btn));
+            document.querySelectorAll('.sg-mega-trigger').forEach(b=>b.setAttribute('aria-expanded','false'));
+            btn.setAttribute('aria-expanded','true');
+            const items=getItems(menu);
+            if(items.length)items[0].focus();
         }
         document.querySelectorAll('.sg-mega-parent').forEach(parent=>{
             const btn=parent.querySelector('.sg-mega-trigger');
             const menu=parent.querySelector('.sg-mega-menu');
             if(!btn||!menu)return;
             // Hover: open with delay
-            btn.addEventListener('mouseenter',()=>openMega(btn));
+            btn.addEventListener('mouseenter',()=>openMega(btn,menu,false));
             btn.addEventListener('mouseleave',()=>closeMega(btn));
-            menu.addEventListener('mouseenter',()=>openMega(btn));
+            menu.addEventListener('mouseenter',()=>openMega(btn,menu,false));
             menu.addEventListener('mouseleave',()=>closeMega(btn));
-            // Click: toggle immediately (touch/mouse)
+            // Click: toggle immediately
             btn.addEventListener('click',e=>{
                 e.stopPropagation();
                 clearTimeout(timers.get(btn));
                 const expanded=btn.getAttribute('aria-expanded')==='true';
-                closeAll();
-                if(!expanded)btn.setAttribute('aria-expanded','true');
+                closeAll(false);
+                if(!expanded)openAndFocus(btn,menu);
+            });
+            // Keyboard: arrow navigation within menu
+            menu.addEventListener('keydown',e=>{
+                const items=getItems(menu);
+                const idx=items.indexOf(document.activeElement);
+                if(e.key==='ArrowDown'){
+                    e.preventDefault();
+                    items[(idx+1)%items.length].focus();
+                }else if(e.key==='ArrowUp'){
+                    e.preventDefault();
+                    items[(idx-1+items.length)%items.length].focus();
+                }else if(e.key==='Home'){
+                    e.preventDefault();
+                    items[0].focus();
+                }else if(e.key==='End'){
+                    e.preventDefault();
+                    items[items.length-1].focus();
+                }else if(e.key==='Tab'){
+                    closeAll(false);
+                }else if(e.key==='Escape'){
+                    e.preventDefault();
+                    closeAll(true);
+                }
+            });
+            // Trigger keyboard: Space/Enter opens, arrows navigate
+            btn.addEventListener('keydown',e=>{
+                if(e.key==='ArrowDown'||e.key==='Enter'||e.key===' '){
+                    e.preventDefault();
+                    openAndFocus(btn,menu);
+                }else if(e.key==='ArrowUp'){
+                    e.preventDefault();
+                    openAndFocus(btn,menu);
+                    const items=getItems(menu);
+                    if(items.length)items[items.length-1].focus();
+                }
             });
         });
         // Close on outside click
         document.addEventListener('click',e=>{
-            if(!e.target.closest('.sg-mega-parent'))closeAll();
+            if(!e.target.closest('.sg-mega-parent'))closeAll(false);
         });
-        // Close on Escape
+        // Close on Escape from anywhere
         document.addEventListener('keydown',e=>{
-            if(e.key==='Escape')closeAll();
+            if(e.key==='Escape')closeAll(true);
         });
     })();
     </script>
