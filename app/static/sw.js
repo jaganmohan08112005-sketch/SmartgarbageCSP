@@ -1,4 +1,4 @@
-const CACHE_NAME = 'smartgarbage-pwa-v9';
+const CACHE_NAME = 'smartgarbage-pwa-v10';
 const OFFLINE_DB_NAME = 'smartgarbage-offline';
 const OFFLINE_STORE = 'pending-forms';
 
@@ -11,12 +11,14 @@ const PRECACHE = [
     '/schedule',
     '/report',
     '/transparency',
+    '/faq',
     '/offline',
+    '/static/css/critical.css',
     '/static/style.css',
+    '/static/fonts/outfit-v15.woff2',
     '/static/chintalavalasa_locations.js',
     '/static/js/offline.js',
     '/static/manifest.json',
-    'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap',
     '/static/vendor/bootstrap.min.css',
     '/static/vendor/bootstrap.bundle.min.js',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',

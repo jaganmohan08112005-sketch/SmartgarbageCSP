@@ -37,19 +37,17 @@
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
     <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
     <link rel="alternate" type="application/rss+xml" title="SmartGarbage Notices" href="/feed.xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="preconnect" href="https://www.googletagmanager.com">
     <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
     <link rel="preload" as="font" type="font/woff2" crossorigin
-          href="https://fonts.gstatic.com/s/outfit/v15/QGYvz_MVcBeNP4NJtEtq.woff2"
+          href="{{ url_for('static', filename='fonts/outfit-v15.woff2', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"
           fetchpriority="high">
     <link rel="preload" as="style" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></noscript>
     <link rel="preload" as="style" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" as="style" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
     <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script type="application/ld+json">
     {
@@ -215,7 +213,7 @@
     <noscript>
         <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+
     </noscript>
     {% set enc_path = request.path.replace(' ', '%20') %}
     <a href="#main-content" class="skip-to-content">{{ _('Skip to main content') }}</a>
