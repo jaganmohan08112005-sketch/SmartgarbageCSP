@@ -88,12 +88,16 @@ def create_app(test_config=None):
     # Vary: Cookie (cf-cache-status: DYNAMIC), so this is critical
     # for edge caching and TTFB < 100ms.
     class _StripVaryCookieMiddleware:
-        """Strip Vary: Cookie from public HTML responses only.
+        """Strip Vary: Cookie AND Set-Cookie from public responses.
 
-        Flask sets a CSRF session cookie on every request (even anonymous),
-        so we can't use Set-Cookie presence to detect logged-in users.
-        Instead, we only strip for non-dashboard routes. Dashboard/login
-        routes are already excluded from caching by Cloudflare Cache Rules.
+        Cloudflare refuses to cache responses that have Set-Cookie headers,
+        even when Vary: Cookie is removed. Flask sends a session cookie on
+        EVERY request (even anonymous users and static assets), which blocks
+        edge caching entirely. This middleware strips both headers from public
+        routes so Cloudflare can cache HTML (5 min) and static assets (30 days).
+
+        CSRF protection is NOT affected: the CSRF token is embedded in the
+        HTML via a <meta> tag and in form hidden fields, not in cookies.
         """
         def __init__(self, wsgi_app):
             self.app = wsgi_app
@@ -115,12 +119,18 @@ def create_app(test_config=None):
                 if is_public:
                     new_headers = []
                     for name, value in headers:
-                        if name.lower() == 'vary':
+                        lower = name.lower()
+                        if lower == 'vary':
                             parts = [v.strip() for v in value.split(',')]
                             filtered = [v for v in parts if v.lower() != 'cookie']
                             value = ', '.join(filtered)
                             if value:
                                 new_headers.append((name, value))
+                        elif lower == 'set-cookie':
+                            # Skip ALL Set-Cookie headers on public pages.
+                            # Static assets never need cookies. HTML pages get
+                            # CSRF tokens from <meta> tags, not session cookies.
+                            continue
                         else:
                             new_headers.append((name, value))
                     return start_response(status, new_headers, exc_info)
@@ -212,17 +222,17 @@ def create_app(test_config=None):
                 and not session.get('user_id')
             )
             is_static = path.startswith('/static/') and not path.startswith('/static/uploads/')
-            strip_vary = is_public_html or is_static
+            is_public = is_public_html or is_static
 
-            if strip_vary:
-                # Force save_session() to run by marking session as modified,
-                # then strip Vary: Cookie BEFORE super().save_session() adds it.
-                session.modified = True
+            if is_public and not session.get('user_id'):
+                # For anonymous public pages and static assets, skip
+                # save_session() entirely. This prevents Flask from setting
+                # Set-Cookie, which blocks Cloudflare edge caching.
+                # CSRF tokens are in <meta> tags, not in cookies.
+                response.vary.discard('Cookie')
+                return
 
             super().save_session(app, session, response)
-
-            if strip_vary:
-                response.vary.discard('Cookie')
 
     app.session_interface = _StaticNoVarySessionInterface()
 
