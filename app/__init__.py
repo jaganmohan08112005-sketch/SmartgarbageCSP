@@ -90,9 +90,10 @@ def create_app(test_config=None):
     class _StripVaryCookieMiddleware:
         """Strip Vary: Cookie from public HTML responses only.
 
-        Logged-in users (Set-Cookie with session) keep Vary: Cookie
-        so Cloudflare never serves a cached authenticated page to
-        an anonymous visitor.
+        Flask sets a CSRF session cookie on every request (even anonymous),
+        so we can't use Set-Cookie presence to detect logged-in users.
+        Instead, we only strip for non-dashboard routes. Dashboard/login
+        routes are already excluded from caching by Cloudflare Cache Rules.
         """
         def __init__(self, wsgi_app):
             self.app = wsgi_app
@@ -111,21 +112,17 @@ def create_app(test_config=None):
 
             def custom_start_response(status, headers, exc_info=None):
                 if is_public_html:
-                    has_set_cookie = any(
-                        n.lower() == 'set-cookie' for n, _ in headers
-                    )
-                    if not has_set_cookie:
-                        new_headers = []
-                        for name, value in headers:
-                            if name.lower() == 'vary':
-                                parts = [v.strip() for v in value.split(',')]
-                                filtered = [v for v in parts if v.lower() != 'cookie']
-                                value = ', '.join(filtered)
-                                if value:
-                                    new_headers.append((name, value))
-                            else:
+                    new_headers = []
+                    for name, value in headers:
+                        if name.lower() == 'vary':
+                            parts = [v.strip() for v in value.split(',')]
+                            filtered = [v for v in parts if v.lower() != 'cookie']
+                            value = ', '.join(filtered)
+                            if value:
                                 new_headers.append((name, value))
-                        return start_response(status, new_headers, exc_info)
+                        else:
+                            new_headers.append((name, value))
+                    return start_response(status, new_headers, exc_info)
                 return start_response(status, headers, exc_info)
 
             return self.app(environ, custom_start_response)
