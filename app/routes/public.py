@@ -664,3 +664,171 @@ def health_check():
     if not healthy:
         return jsonify(payload), 503
     return jsonify(payload), 200
+
+
+# ═══════════════════════════════════════════════════════════════════
+# LIVE IMPACT DASHBOARD — Real-world metrics for citizens
+# ═══════════════════════════════════════════════════════════════════
+_impact_dashboard_cache = {'at': 0.0, 'value': None}
+
+
+def _build_impact_dashboard():
+    """Build comprehensive impact data from the database.
+
+    Cached for 10 minutes like homepage stats. Includes:
+    - Complaint resolution metrics
+    - Environmental impact (waste diverted, estimated CO2 saved)
+    - Ward-by-ward performance rankings
+    - Green Points economy stats
+    """
+    cached = _impact_dashboard_cache
+    if time.monotonic() - cached['at'] < 600 and cached['value'] is not None:
+        return cached['value']
+
+    from sqlalchemy import func
+    from ..models import (WorkerProfile, User, PAYTInvoice,
+                          WasteDeclaration, SmartBin)
+
+    data = {
+        'complaints': {
+            'total': 0, 'resolved': 0, 'pending': 0,
+            'avg_hours': 0, 'today_filed': 0, 'today_resolved': 0,
+        },
+        'environment': {
+            'total_waste_kg': 0, 'recycled_kg': 0, 'composted_kg': 0,
+            'landfill_kg': 0, 'recycling_rate': 0,
+            'co2_saved_kg': 0,  # estimated: 1kg recycled ≈ 0.5kg CO2 saved
+            'trees_equivalent': 0,  # 1 tree ≈ 21kg CO2/year
+        },
+        'wards': [],
+        'green_points': {
+            'total_earned': 0, 'total_redeemed': 0, 'active_residents': 0,
+        },
+        'community': {
+            'registered_residents': 0, 'active_this_month': 0,
+            'waste_declarations': 0, 'segregation_rate': 0,
+        },
+    }
+
+    try:
+        # --- Complaint metrics ---
+        data['complaints']['total'] = Complaint.query.count()
+        data['complaints']['resolved'] = Complaint.query.filter_by(
+            status='Resolved').count()
+        data['complaints']['pending'] = Complaint.query.filter(
+            Complaint.status.in_(['Submitted', 'Under Review', 'Assigned',
+                                  'In Progress'])).count()
+        avg_result = db.session.query(
+            func.avg(
+                func.extract('epoch', Complaint.resolved_at)
+                - func.extract('epoch', Complaint.created_at)
+            ) / 3600.0
+        ).filter(
+            Complaint.status == 'Resolved',
+            Complaint.resolved_at.isnot(None),
+            Complaint.created_at.isnot(None),
+        ).scalar()
+        if avg_result is not None:
+            data['complaints']['avg_hours'] = round(float(avg_result), 1)
+
+        # Today's counts
+        from datetime import date as _date
+        today = _date.today()
+        data['complaints']['today_filed'] = Complaint.query.filter(
+            func.date(Complaint.created_at) == today).count()
+        data['complaints']['today_resolved'] = Complaint.query.filter(
+            func.date(Complaint.resolved_at) == today).count()
+
+        # --- Environmental impact ---
+        # wet_kg = organic/compostable, dry_kg = recyclable (plastics/paper/metal),
+        # sanitary_kg = residual/landfill, hazardous_kg = e-waste/batteries
+        waste_stats = db.session.query(
+            func.coalesce(func.sum(WasteDeclaration.wet_kg + WasteDeclaration.dry_kg
+                                    + WasteDeclaration.sanitary_kg + WasteDeclaration.hazardous_kg), 0),
+            func.coalesce(func.sum(WasteDeclaration.dry_kg), 0),
+            func.coalesce(func.sum(WasteDeclaration.wet_kg), 0),
+            func.coalesce(func.sum(WasteDeclaration.sanitary_kg), 0),
+        ).one()
+        data['environment']['total_waste_kg'] = round(float(waste_stats[0]), 1)
+        data['environment']['recycled_kg'] = round(float(waste_stats[1]), 1)
+        data['environment']['composted_kg'] = round(float(waste_stats[2]), 1)
+        data['environment']['landfill_kg'] = round(float(waste_stats[3]), 1)
+        if data['environment']['total_waste_kg'] > 0:
+            diverted = (data['environment']['recycled_kg']
+                        + data['environment']['composted_kg'])
+            data['environment']['recycling_rate'] = round(
+                (diverted / data['environment']['total_waste_kg']) * 100, 1)
+        # CO2 savings estimate (EPA: 1kg recycled ≈ 0.5-3kg CO2 saved;
+        # conservative 0.5kg for mixed municipal waste)
+        co2_kg = (data['environment']['recycled_kg'] * 0.5
+                   + data['environment']['composted_kg'] * 0.3)
+        data['environment']['co2_saved_kg'] = round(co2_kg, 1)
+        data['environment']['trees_equivalent'] = round(co2_kg / 21, 1)
+
+        # --- Ward performance ---
+        ward_data = []
+        for ward_name in WARD_COORDINATES:
+            w_total = Complaint.query.filter_by(ward=ward_name).count()
+            w_resolved = Complaint.query.filter_by(
+                ward=ward_name, status='Resolved').count()
+            w_rate = round((w_resolved / w_total * 100), 1) if w_total else 0
+            w_avg = db.session.query(
+                func.avg(
+                    func.extract('epoch', Complaint.resolved_at)
+                    - func.extract('epoch', Complaint.created_at)
+                ) / 3600.0
+            ).filter(
+                Complaint.ward == ward_name,
+                Complaint.status == 'Resolved',
+                Complaint.resolved_at.isnot(None),
+            ).scalar()
+            ward_data.append({
+                'name': ward_name,
+                'total': w_total,
+                'resolved': w_resolved,
+                'rate': w_rate,
+                'avg_hours': round(float(w_avg), 1) if w_avg else 0,
+            })
+        data['wards'] = sorted(ward_data, key=lambda x: x['rate'],
+                               reverse=True)
+
+        # --- Green Points economy ---
+        gp_result = db.session.query(
+            func.coalesce(func.sum(User.green_points), 0),
+        ).scalar()
+        data['green_points']['total_earned'] = int(gp_result)
+        data['green_points']['active_residents'] = User.query.filter(
+            User.green_points > 0).count()
+
+        # --- Community engagement ---
+        data['community']['registered_residents'] = User.query.filter_by(
+            role='citizen').count()
+        data['community']['waste_declarations'] = WasteDeclaration.query.count()
+        # Segregation rate: declarations with >0 recyclable or organic
+        if data['community']['waste_declarations'] > 0:
+            segregated = WasteDeclaration.query.filter(
+                (WasteDeclaration.recyclable_kg > 0)
+                | (WasteDeclaration.organic_kg > 0)
+            ).count()
+            data['community']['segregation_rate'] = round(
+                (segregated / data['community']['waste_declarations']) * 100, 1)
+
+        cached['at'] = time.monotonic()
+        cached['value'] = data
+    except Exception as e:
+        logger.warning("impact_dashboard_error", error=str(e))
+
+    return data
+
+
+@main.route('/impact')
+def impact_dashboard():
+    """Live Impact Dashboard — public civic transparency page.
+
+    Shows real-world metrics: complaints resolved, environmental impact,
+    ward rankings, Green Points economy, and community engagement.
+    Modeled after GOV.UK's performance dashboards and SBM Urban's
+    data-driven approach.
+    """
+    data = _build_impact_dashboard()
+    return render_template('impact.html', impact=data)

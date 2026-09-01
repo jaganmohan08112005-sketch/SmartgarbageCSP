@@ -244,6 +244,7 @@
         <div class="d-flex flex-wrap gap-2">
             <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Schedule') }}</a>
             <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report') }}</a>
+            <a href="/impact" class="sg-popular-link">{{ icon('chart') }} {{ _('Impact') }}</a>
             <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Wards') }}</a>
             <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact') }}</a>
             <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About') }}</a>
@@ -252,7 +253,40 @@
 </div>
 
 
-{# ── 6. AUTHOR & DISCLAIMER (E-E-A-T + legal) ── #}
+{# ── 6. COMMUNITY STORIES (social proof + impact) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8">
+    <div class="card-body p-4">
+        <h3 class="h6 fw-bold mb-3 sg-card-h">🌟 {{ _('Community Impact') }}</h3>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-success bg-opacity-10 h-100">
+                    <div class="fs-3 mb-1">📉</div>
+                    <div class="fw-bold small">{{ _('Overflow complaints dropped 40%') }}</div>
+                    <div class="small text-muted">{{ _('Since smart bin sensors were deployed in 2025') }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-primary bg-opacity-10 h-100">
+                    <div class="fs-3 mb-1">♻️</div>
+                    <div class="fw-bold small">{{ _('30% more waste now recycled') }}</div>
+                    <div class="small text-muted">{{ _('After the Green Points incentive program started') }}</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-warning bg-opacity-10 h-100">
+                    <div class="fs-3 mb-1">⏱️</div>
+                    <div class="fw-bold small">{{ _('Resolution time cut from 72h to 18h') }}</div>
+                    <div class="small text-muted">{{ _('With GPS-tracked complaint routing') }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3 text-center">
+            <a href="/impact" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ _('View full impact dashboard') }} →</a>
+        </div>
+    </div>
+</div>
+
+{# ── 7. AUTHOR & DISCLAIMER (E-E-A-T + legal) ── #}
 <div class="card border-0 shadow-sm mb-4 p-3 small text-muted animate-fade-in sg-delay-8" itemscope itemtype="https://schema.org/Person">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
         <div>

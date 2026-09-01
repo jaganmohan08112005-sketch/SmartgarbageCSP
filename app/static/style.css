@@ -1601,3 +1601,47 @@ textarea:focus-visible,
     }
 }
 
+/* ---------- AI Chatbot ---------- */
+#sg-chatbot { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; font-family: system-ui, -apple-system, sans-serif; }
+#sg-chat-toggle {
+    width: 56px; height: 56px; border-radius: 50%; border: none;
+    background: var(--sg-primary); color: #fff; font-size: 1.5rem;
+    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    transition: transform .2s, box-shadow .2s;
+    display: flex; align-items: center; justify-content: center;
+}
+#sg-chat-toggle:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+#sg-chat-toggle.active { background: #dc3545; }
+#sg-chat-window {
+    position: absolute; bottom: 70px; right: 0; width: 340px; max-height: 480px;
+    background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.15);
+    display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e2e8f0;
+}
+.sg-chat-header {
+    background: var(--sg-primary); color: #fff; padding: .75rem 1rem;
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 600; font-size: .9rem;
+}
+.sg-chat-header button { background: none; border: none; color: #fff; font-size: 1.3rem; cursor: pointer; }
+.sg-chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .5rem; max-height: 340px; }
+.sg-chat-msg {
+    max-width: 85%; padding: .6rem .9rem; border-radius: 12px;
+    font-size: .85rem; line-height: 1.4; word-wrap: break-word;
+    white-space: pre-line;
+}
+.sg-chat-bot { background: #f1f5f9; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 4px; }
+.sg-chat-user { background: var(--sg-primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.sg-chat-input-row { display: flex; padding: .5rem; gap: .5rem; border-top: 1px solid #e2e8f0; }
+.sg-chat-input-row input {
+    flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: .5rem .75rem;
+    font-size: .85rem; outline: none;
+}
+.sg-chat-input-row input:focus { border-color: var(--sg-primary); }
+.sg-chat-input-row button {
+    background: var(--sg-primary); color: #fff; border: none; border-radius: 8px;
+    width: 38px; cursor: pointer; font-size: 1rem; font-weight: bold;
+}
+@media (max-width: 575.98px) {
+    #sg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }
+}
+
