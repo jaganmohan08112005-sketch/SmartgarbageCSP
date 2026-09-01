@@ -15,6 +15,7 @@ from flask_talisman import Talisman
 from flask_compress import Compress
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.wrappers import Request as WSGIRequest
 from sqlalchemy.exc import OperationalError
 
 db = SQLAlchemy()
@@ -77,6 +78,59 @@ def create_app(test_config=None):
     # edge and rewrite remote_addr). Without this, request.remote_addr is the
     # proxy IP — silently breaking per-IP rate limiting and audit-IP forensics.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    # ── WSGI middleware: strip Vary: Cookie from public HTML ──
+    # This is the ABSOLUTE LAST step before the response hits the wire.
+    # Flask's save_session() runs AFTER after_request hooks (Flask 3.x),
+    # so even our session-interface override + after_request hook can't
+    # guarantee Cookie is stripped. This middleware catches anything that
+    # sneaks through. Cloudflare refuses to cache responses with
+    # Vary: Cookie (cf-cache-status: DYNAMIC), so this is critical
+    # for edge caching and TTFB < 100ms.
+    class _StripVaryCookieMiddleware:
+        """Strip Vary: Cookie from public HTML responses only.
+
+        Logged-in users (Set-Cookie with session) keep Vary: Cookie
+        so Cloudflare never serves a cached authenticated page to
+        an anonymous visitor.
+        """
+        def __init__(self, wsgi_app):
+            self.app = wsgi_app
+
+        def __call__(self, environ, start_response):
+            req = WSGIRequest(environ)
+            path = req.path
+            is_public_html = (
+                not path.startswith('/static/')
+                and not path.startswith('/admin/')
+                and not path.startswith('/dashboard/')
+                and not path.startswith('/login')
+                and not path.startswith('/register')
+                and not path.startswith('/logout')
+            )
+
+            def custom_start_response(status, headers, exc_info=None):
+                if is_public_html:
+                    has_set_cookie = any(
+                        n.lower() == 'set-cookie' for n, _ in headers
+                    )
+                    if not has_set_cookie:
+                        new_headers = []
+                        for name, value in headers:
+                            if name.lower() == 'vary':
+                                parts = [v.strip() for v in value.split(',')]
+                                filtered = [v for v in parts if v.lower() != 'cookie']
+                                value = ', '.join(filtered)
+                                if value:
+                                    new_headers.append((name, value))
+                            else:
+                                new_headers.append((name, value))
+                        return start_response(status, new_headers, exc_info)
+                return start_response(status, headers, exc_info)
+
+            return self.app(environ, custom_start_response)
+
+    app.wsgi_app = _StripVaryCookieMiddleware(app.wsgi_app)
 
     # ── Sentry error tracking (if DSN present) ──
     sentry_dsn = os.getenv('SENTRY_DSN')
