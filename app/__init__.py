@@ -101,9 +101,10 @@ def create_app(test_config=None):
         def __call__(self, environ, start_response):
             req = WSGIRequest(environ)
             path = req.path
-            is_public_html = (
-                not path.startswith('/static/')
-                and not path.startswith('/admin/')
+            is_static = path.startswith('/static/') and not path.startswith('/static/uploads/')
+            is_public = (
+                is_static
+                or not path.startswith('/admin/')
                 and not path.startswith('/dashboard/')
                 and not path.startswith('/login')
                 and not path.startswith('/register')
@@ -111,7 +112,7 @@ def create_app(test_config=None):
             )
 
             def custom_start_response(status, headers, exc_info=None):
-                if is_public_html:
+                if is_public:
                     new_headers = []
                     for name, value in headers:
                         if name.lower() == 'vary':
