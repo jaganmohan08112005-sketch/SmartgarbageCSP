@@ -493,7 +493,14 @@ def create_app(test_config=None):
         resp.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
         # COEP with credentialless allows cross-origin subresources (fonts,
         # CDN scripts) without breaking them, while still enforcing isolation.
-        if not request.path.startswith('/static/'):
+        # Only set for non-public pages — COEP prevents Cloudflare from
+        # caching the response (cf-cache-status: DYNAMIC).
+        is_public_html = (
+            (resp.mimetype or '').startswith('text/html')
+            and not session.get('user_id')
+        )
+        is_static = request.path.startswith('/static/')
+        if not is_public_html and not is_static:
             resp.headers['Cross-Origin-Embedder-Policy'] = 'credentialless'
         return resp
 
