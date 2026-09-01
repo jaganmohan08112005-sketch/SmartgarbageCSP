@@ -37,11 +37,10 @@
 {# ═══════════════════════════════════════════════════════════════
    CONDENSED LAYOUT (optimized for GOV.UK ultra-minimal style):
    1. Hero (side-by-side: text left, SVG illustration right)
-   2. Services (condensed strip: how it works + wards)
-   3. FAQ (4 most important links)
-   4. Stats + Weather (4 stat cards + weather widget)
-   5. Popular links (5 most used)
-   6. Author & Disclaimer (E-E-A-T + legal)
+   2. Quick steps + Wards (merged strip)
+   3. Stats + Weather + Impact (single combined card)
+   4. FAQ + Popular (merged card)
+   5. Author & Disclaimer (E-E-A-T + legal)
    ═══════════════════════════════════════════════════════════════ #}
 
 {# ── 1. HERO (GOV.UK side-by-side: text left, illustration right) ── #}
@@ -137,38 +136,21 @@
 
 
 
-{# ── 2. SERVICES (condensed — merged into compact strip) ── #}
+{# ── 2. QUICK STEPS + WARDS (merged compact strip) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-2">
     <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <span class="small fw-bold text-success">🚀 {{ _('How it works') }}:</span>
-        <span class="small text-muted">1️⃣ {{ _('Check schedule') }} → 2️⃣ {{ _('Report problem') }} → 3️⃣ {{ _('Track & earn Green Points') }}</span>
-        <span class="small text-muted">|</span>
-        <span class="small text-muted">🏘️ {{ _('5 wards') }}: MVGR · Junction · RTC · Ramalayam · Sai Nagar</span>
+        <span class="small fw-bold text-success">🚀 {{ _('How it works') }}: 1️⃣ {{ _('Check schedule') }} → 2️⃣ {{ _('Report') }} → 3️⃣ {{ _('Track & earn') }}</span>
+        <span class="small text-muted">🏘️ MVGR · Junction · RTC · Ramalayam · Sai Nagar</span>
     </div>
 </div>
 
-{# ── 3. FAQ (4 most important — full page has all 8) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-5">
-    <div class="card-body p-3">
-        <h2 class="h6 fw-bold text-dark mb-2 sg-card-h">❓ {{ _('Frequently Asked Questions') }}</h2>
-        <div class="d-flex flex-column gap-1 small">
-            <a href="/faq#faq1" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Check my collection schedule?') }} <span class="text-muted">→</span></a>
-            <a href="/faq#faq2" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Report a missed service?') }} <span class="text-muted">→</span></a>
-            <a href="/faq#faq4" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Track my complaint?') }} <span class="text-muted">→</span></a>
-            <a href="/faq#faq5" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Green Points?') }} <span class="text-muted">→</span></a>
-        </div>
-        <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill px-3 mt-2">{{ _('View all FAQs') }} →</a>
-    </div>
-</div>
-
-{# ── 4. STATS + PRIVACY + WEATHER (social proof + trust + local) ── #}
-<div class="mb-4 animate-fade-in sg-delay-7 sg-lazy-section" data-lazy="stats">
-    {# ── Service Statistics Dashboard (SBM Urban pattern) ── #}
-    <div class="card border-0 shadow-sm mb-4">
+{# ── 3. STATS + WEATHER + IMPACT (single combined card) ── #}
+<div class="mb-4 animate-fade-in sg-delay-5 sg-lazy-section" data-lazy="stats">
+    <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
             <div class="d-flex align-items-center justify-content-between mb-3">
-                <h3 class="text-success fw-bold mb-0 sg-card-h">📊 {{ _('Service statistics') }}</h3>
-                <a href="/transparency" class="btn btn-sm btn-outline-success rounded-pill px-3">{{ _('View live dashboards') }} →</a>
+                <h2 class="h6 fw-bold text-success mb-0">📊 {{ _('Service Statistics') }}</h2>
+                <a href="/impact" class="btn btn-sm btn-outline-success rounded-pill px-3">{{ _('View Impact Dashboard') }} →</a>
             </div>
             <div class="row g-3">
                 <div class="col-6 col-md-3">
@@ -204,20 +186,25 @@
                 </div>
                 {% endif %}
             </div>
-            <div class="small text-muted mt-2">
-                📊 {{ _('Live data') }} · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-underline text-success">SBM</a>
+        </div>
+    </div>
+    {# ── Community Impact (compact strip) ── #}
+    <div class="card border-0 shadow-sm mt-3 animate-fade-in">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap gap-3 small">
+                <span>📉 {{ _('Complaints dropped 40%') }}</span>
+                <span>♻️ {{ _('30% more recycled') }}</span>
+                <span>⏱️ {{ _('Resolution: 72h → 18h') }}</span>
             </div>
         </div>
     </div>
-
     {# ── Local Weather Monitor (lazy-loaded) ── #}
     <div class="card border-0 shadow-sm mt-3 sg-lazy-section" data-lazy="weather">
         <div class="card-body p-3 d-flex align-items-center gap-3">
             <div class="weather-emoji" aria-hidden="true">🌤️</div>
             <div>
-                <div class="fw-bold small">{{ _('Local Weather Monitor') }}</div>
-                <div class="small text-muted">📍 {{ _('GPS Locator') }}</div>
-                <select id="weatherWard" class="form-select form-select-sm mt-1" aria-label="{{ _('Select ward for weather') }}" style="max-width:220px">
+                <div class="fw-bold small">{{ _('Local Weather') }}</div>
+                <select id="weatherWard" class="form-select form-select-sm mt-1" aria-label="{{ _('Select ward for weather') }}" style="max-width:200px">
                     <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
                 </select>
                 <div id="weatherLoading" class="text-muted small py-1 d-none">
@@ -233,65 +220,44 @@
     </div>
     <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
     <script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
-
 </div>
 
-
-{# ── 5. POPULAR LINKS (6 most used) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8 sg-lazy-section" data-lazy="popular">
+{# ── 4. FAQ + POPULAR LINKS (merged card) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-7">
     <div class="card-body p-3">
-        <h3 class="h6 fw-bold mb-2 sg-card-h">🔥 {{ _('Popular on SmartGarbage') }}</h3>
-        <div class="d-flex flex-wrap gap-2">
-            <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Schedule') }}</a>
-            <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report') }}</a>
-            <a href="/impact" class="sg-popular-link">{{ icon('chart') }} {{ _('Impact') }}</a>
-            <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Wards') }}</a>
-            <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact') }}</a>
-            <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About') }}</a>
+        <div class="row">
+            <div class="col-md-6 mb-3 mb-md-0">
+                <h2 class="h6 fw-bold text-dark mb-2">❓ {{ _('FAQs') }}</h2>
+                <div class="d-flex flex-column gap-1 small">
+                    <a href="/faq#faq1" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Check my collection schedule?') }} →</a>
+                    <a href="/faq#faq2" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Report a missed service?') }} →</a>
+                    <a href="/faq#faq4" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Track my complaint?') }} →</a>
+                    <a href="/faq#faq5" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Green Points?') }} →</a>
+                </div>
+                <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill px-3 mt-2">{{ _('View all') }} →</a>
+            </div>
+            <div class="col-md-6">
+                <h2 class="h6 fw-bold text-dark mb-2">🔥 {{ _('Popular') }}</h2>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Schedule') }}</a>
+                    <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report') }}</a>
+                    <a href="/impact" class="sg-popular-link">{{ icon('chart') }} {{ _('Impact') }}</a>
+                    <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Wards') }}</a>
+                    <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact') }}</a>
+                    <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About') }}</a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-
-{# ── 6. COMMUNITY STORIES (social proof + impact) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-8">
-    <div class="card-body p-4">
-        <h3 class="h6 fw-bold mb-3 sg-card-h">🌟 {{ _('Community Impact') }}</h3>
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="p-3 rounded-3 bg-success bg-opacity-10 h-100">
-                    <div class="fs-3 mb-1">📉</div>
-                    <div class="fw-bold small">{{ _('Overflow complaints dropped 40%') }}</div>
-                    <div class="small text-muted">{{ _('Since smart bin sensors were deployed in 2025') }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="p-3 rounded-3 bg-primary bg-opacity-10 h-100">
-                    <div class="fs-3 mb-1">♻️</div>
-                    <div class="fw-bold small">{{ _('30% more waste now recycled') }}</div>
-                    <div class="small text-muted">{{ _('After the Green Points incentive program started') }}</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="p-3 rounded-3 bg-warning bg-opacity-10 h-100">
-                    <div class="fs-3 mb-1">⏱️</div>
-                    <div class="fw-bold small">{{ _('Resolution time cut from 72h to 18h') }}</div>
-                    <div class="small text-muted">{{ _('With GPS-tracked complaint routing') }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="mt-3 text-center">
-            <a href="/impact" class="btn btn-outline-success btn-sm rounded-pill px-3">{{ _('View full impact dashboard') }} →</a>
-        </div>
-    </div>
-</div>
-
-{# ── 7. AUTHOR & DISCLAIMER (E-E-A-T + legal) ── #}
+{# ── 5. AUTHOR & DISCLAIMER (E-E-A-T + legal) ── #}
 <div class="card border-0 shadow-sm mb-4 p-3 small text-muted animate-fade-in sg-delay-8" itemscope itemtype="https://schema.org/Person">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
         <div>
             <strong itemprop="name">👤 {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</strong>
-            <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>                <span class="d-block text-muted small">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }} · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong> · <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer">GoAP</a> · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">SBM</a></span>
+            <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>
+            <span class="d-block text-muted small">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }} · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong> · <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer">GoAP</a> · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">SBM</a></span>
         </div>
     </div>
 </div>
