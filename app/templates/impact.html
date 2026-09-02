@@ -2,15 +2,7 @@
 {% block title %}Live Impact Dashboard — SmartGarbage Chintalavalasa{% endblock %}
 {% block meta_description %}Real-time impact metrics: complaints resolved, waste recycled, CO2 saved, ward rankings, and community engagement for Chintalavalasa Gram Panchayat{% endblock %}
 {% block content %}
-{% from '_icons.html' import icon %}
-
-{# ── Breadcrumb ── #}
-<nav aria-label="Breadcrumb" class="mb-3">
-    <ol class="breadcrumb small">
-        <li class="breadcrumb-item"><a href="/" class="text-decoration-none">{{ icon('home') }} Home</a></li>
-        <li class="breadcrumb-item active" aria-current="page">Impact Dashboard</li>
-    </ol>
-</nav>
+{% include "_breadcrumbs.html" with context %}
 
 {# ── Hero ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-hero" fetchpriority="high">

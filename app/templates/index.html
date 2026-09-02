@@ -65,6 +65,9 @@
                         <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 <strong>1800-119-9111</strong></a>
                         <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link">🇮🇳 SBM</a>
                         <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link">🏛️ GoAP</a>
+                        <button type="button" class="sg-hero-trust-link sg-hero-dark-toggle" id="heroDarkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+                            <span id="heroDarkIcon">🌙</span> {{ _('Dark mode') }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -261,4 +264,26 @@
         </div>
     </div>
 </div>
+
+{# ── Hero dark mode toggle sync ── #}
+<script>
+(function(){
+    var heroBtn = document.getElementById('heroDarkToggle');
+    var heroIcon = document.getElementById('heroDarkIcon');
+    var navToggle = document.getElementById('darkModeToggle');
+    var navIcon = document.getElementById('darkModeIcon');
+    if (!heroBtn) return;
+    function syncHeroIcon() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (heroIcon) heroIcon.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    }
+    heroBtn.addEventListener('click', function() {
+        if (navToggle) navToggle.click();
+        syncHeroIcon();
+    });
+    syncHeroIcon();
+    var observer = new MutationObserver(syncHeroIcon);
+    observer.observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+})();
+</script>
 {% endblock %}
