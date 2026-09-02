@@ -4973,9 +4973,10 @@ def test_google_site_verification_meta_is_config_gated(client):
     body2 = ver_app.test_client().get('/').get_data(as_text=True)
     assert 'name="google-site-verification" content="ABCDEF1234567890"' in body2
     with ver_app.app_context():
-        db.drop_all()
-    except PermissionError:
-        pass
+        try:
+            db.drop_all()
+        except PermissionError:
+            pass
 
 
 def test_homepage_privacy_at_a_glance(client):
