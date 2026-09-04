@@ -185,7 +185,7 @@ def _p(text, size=12, bold=False, italic=False, align=WD_ALIGN_PARAGRAPH.JUSTIFY
     return p
 
 def _h1(text):
-    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     pf = p.paragraph_format; pf.space_before = Pt(24); pf.space_after = Pt(12); pf.line_spacing = 1.0
     run = p.add_run(text.upper()); _sf(run, 16, True); return p
 
@@ -268,6 +268,11 @@ _p("October, 2025", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
 # CERTIFICATE
 _pb(); _h1("CERTIFICATE"); doc.add_paragraph()
+# MVGR Logo on Certificate
+if os.path.exists(logo_path):
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(); run.add_picture(logo_path, width=Inches(2.0))
+    p.paragraph_format.space_before = Pt(12); p.paragraph_format.space_after = Pt(12)
 _body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph()
 _p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Engineering", 12, sa=24)
