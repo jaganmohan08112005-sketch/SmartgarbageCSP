@@ -158,6 +158,9 @@ DIAGS['arch'] = diag_architecture()
 DIAGS['complaint'] = diag_complaint()
 DIAGS['ml'] = diag_ml()
 DIAGS['pwa'] = diag_pwa()
+DIAGS['security'] = os.path.join(DIAG_DIR, 'security_architecture.png')
+DIAGS['dataflow'] = os.path.join(DIAG_DIR, 'data_flow_diagram.png')
+DIAGS['er'] = os.path.join(DIAG_DIR, 'database_er_diagram.png')
 print(f"Created {len(DIAGS)} diagrams")
 
 # ── Document setup ──────────────────────────────────────────────────
@@ -299,7 +302,6 @@ _body("The system uses IoT-enabled smart bins to monitor fill levels and predict
 _body("For low-connectivity areas, Progressive Web App capabilities allow offline complaint filing with automatic sync. Bilingual support in English and Telugu ensures wide accessibility.")
 _body("The prototype is deployed and tested for Chintalavalasa. While synthetic data is used for machine learning training and IoT telemetry is simulated, the architecture is ready for real sensor integration and community-scale deployment.")
 
-_p("Keywords: Smart Waste Management, Community Governance, IoT, Machine Learning, Digital India", 12, italic=True, sa=12)
 
 # ABBREVIATIONS
 _pb(); _h1("LIST OF ABBREVIATIONS"); doc.add_paragraph()
@@ -401,6 +403,10 @@ _tbl(["Entity","Key Attributes"],[
     ("PushSubscription","id, user_id, endpoint, p256dh, auth"),
     ("NotificationPreference","id, user_id, complaint_submitted, complaint_assigned, etc.")], [1.8,4.7])
 
+if os.path.exists(DIAGS["er"]):
+    _cap("Figure 3.1: Database Entity-Relationship Diagram")
+    _img(DIAGS["er"])
+
 # ════════════════════════════════════════════════════════════════════
 # CHAPTER 4 — METHODOLOGY
 # ════════════════════════════════════════════════════════════════════
@@ -457,6 +463,9 @@ _img(DIAGS['complaint'])
 
 _h2("4.6 Data Flow Diagram")
 _body("Primary data flows include: (1) Citizen → Complaint API → Database → Admin Dashboard → Worker Dispatch → Evidence Upload → Resolution; (2) IoT Sensors → Telemetry API → SmartBin Table → Admin Monitor → ML Prediction → Priority Queue; (3) Schedule Request → ML Prediction → Response to Citizen.")
+if os.path.exists(DIAGS["dataflow"]):
+    _cap("Figure 4.5: Data Flow Diagram")
+    _img(DIAGS["dataflow"])
 
 _h2("4.7 Machine Learning Methodology")
 _body("The ML module implements a RandomForest regressor trained on a synthetic 600-row dataset. Features: day_of_week, season_idx, recent_complaint_count, ward_id. The model predicts hours_until_90pct_fill for dispatch prioritization. A transparent heuristic fallback ensures the route never errors when the model artifact is unavailable.")
@@ -466,6 +475,9 @@ _img(DIAGS['ml'])
 
 _h2("4.8 Security Architecture")
 _body("\u2022  Authentication: Flask-Login with bcrypt + OTP/MFA.\n\u2022  Authorization: RBAC with citizen/worker/admin roles.\n\u2022  Security Headers: All 9 OWASP-recommended headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Permissions-Policy, COOP, COEP).\n\u2022  Rate Limiting: Flask-Limiter with Redis storage.\n\u2022  Input Validation: Flask-WTF with CSRF protection.\n\u2022  SQL Injection Prevention: SQLAlchemy parameterized queries.")
+if os.path.exists(DIAGS['security']):
+    _cap("Figure 4.8: Security Architecture Diagram")
+    _img(DIAGS['security'])
 
 _h2("4.9 PWA and Offline Methodology")
 _body("\u2022  Service Worker: Versioned precache manifest for offline support.\n\u2022  IndexedDB Queue: Complaints stored offline, synced on reconnection.\n\u2022  Background Sync: Automatic submission when connectivity returns.\n\u2022  Web App Manifest: Installable with shortcuts, screenshots, standalone mode.\n\u2022  Splash Screen: Branded loading animation on PWA install.\n\u2022  Install Banner: Mobile prompt after second visit with iOS fallback.")
@@ -614,7 +626,8 @@ challenges = [
     ("Payment Integration","Testing without live merchant","Razorpay test keys + UPI primary method")]
 for challenge, problem, solution in challenges:
     _h3(challenge)
-    _body(f"Problem: {problem}\nSolution: {solution}")
+    _p(f"Problem: {problem}", 12, bold=False, sa=2)
+    _p(f"Solution: {solution}", 12, bold=False, sa=10)
 
 # ════════════════════════════════════════════════════════════════════
 # CHAPTER 9

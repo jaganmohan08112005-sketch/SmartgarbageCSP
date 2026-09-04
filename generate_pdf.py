@@ -245,10 +245,6 @@ pdf.body_text('SmartGarbage is a community-based smart waste management system b
 pdf.body_text('The system uses IoT-enabled smart bins to monitor fill levels and predict overflow risk, enabling proactive collection. A pay-as-you-throw billing mechanism charges residents for non-segregated waste, encouraging proper segregation. Green Points gamification rewards citizens for consistent segregation behaviour.')
 pdf.body_text('For low-connectivity areas, Progressive Web App capabilities allow offline complaint filing with automatic sync. Bilingual support in English and Telugu ensures wide accessibility.')
 pdf.body_text('The prototype is deployed and tested for Chintalavalasa. While synthetic data is used for machine learning training and IoT telemetry is simulated, the architecture is ready for real sensor integration and community-scale deployment.')
-pdf.set_font('TNR', 'I', 12)
-pdf.multi_cell(0, 6.5, 'Keywords: Smart Waste Management, Community Governance, IoT, Machine Learning, Digital India')
-pdf.ln(4)
-pdf.ln(4)
 
 # ── ABBREVIATIONS ──────────────────────────────────────────────────
 pdf.chapter_heading('LIST OF ABBREVIATIONS')
@@ -579,7 +575,10 @@ challenges = [
 ]
 for challenge, problem, solution in challenges:
     pdf.subsection_heading(challenge)
-    pdf.body_text(f'Problem: {problem}\nSolution: {solution}')
+    pdf.set_font('TNR', '', 12)
+pdf.cell(0, 6.5, f'Problem: {problem}', new_x='LMARGIN', new_y='NEXT')
+pdf.cell(0, 6.5, f'Solution: {solution}', new_x='LMARGIN', new_y='NEXT')
+pdf.ln(4)
 
 # ════════════════════════════════════════════════════════════════════
 # CHAPTER 9
