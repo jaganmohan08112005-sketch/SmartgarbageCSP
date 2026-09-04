@@ -649,7 +649,8 @@ def _notify_status_change(complaint):
         return
     user = User.query.get(complaint.user_id) if complaint.user_id else None
     phone = (user.phone if user else None) or complaint.phone
-    email = user.email if user else None    from ..jobs import enqueue, notify_status_change_job
+    email = user.email if user else None
+    from ..jobs import enqueue, notify_status_change_job
     enqueue(notify_status_change_job, complaint.id, phone, email,
             complaint.ward or 'your area', complaint.status)
 
