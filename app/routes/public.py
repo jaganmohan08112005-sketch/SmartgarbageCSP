@@ -360,8 +360,9 @@ def serve_sw():
 
 @main.route('/manifest.json')
 def serve_manifest():
-    return send_from_directory(os.path.join(current_app.root_path, 'static'),
-                               'manifest.json', mimetype='application/json')
+    from flask import send_file
+    return send_file(os.path.join(current_app.static_folder, 'manifest.json'),
+                     mimetype='application/json')
 
 
 @main.route('/offline')
