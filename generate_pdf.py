@@ -164,7 +164,12 @@ pdf.set_margins(20, 20, 20)
 pdf.add_page()
 
 # ── TITLE PAGE ──────────────────────────────────────────────────────
-for _ in range(6): pdf.ln(12)
+for _ in range(4): pdf.ln(12)
+# MVGR Logo
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
+if os.path.exists(logo_path):
+    pdf.add_image_centered(logo_path, 50)
+    pdf.ln(4)
 pdf.centered_text('COMMUNITY PROJECT REPORT', 16, True)
 pdf.ln(12)
 pdf.set_text_color(0, 100, 0)
@@ -235,13 +240,14 @@ for n in ['MOPADA JAGANMOHAN (2433144441)', 'LATCHUPATULA RESHMA (24331A4434)',
 
 # ── ABSTRACT ────────────────────────────────────────────────────────
 pdf.chapter_heading('ABSTRACT')
-pdf.body_text('Waste management in semi-urban Indian communities such as Chintalavalasa, Andhra Pradesh, faces significant challenges. Collection schedules are communicated informally, complaint tracking is paper-based, and citizens have no transparent mechanism to report issues or monitor resolution. Overflowing bins, delayed response times, and lack of accountability are common, with no data-driven approach to allocate resources or predict collection needs.')
-pdf.body_text('This project presents SmartGarbage, a community-based smart waste management system designed for the Chintalavalasa Gram Panchayat. The system provides a unified digital platform where citizens can check waste collection schedules, report missed pickups with photographic evidence and GPS location, and track complaint resolution in real time. Administrators can monitor operations through a live dashboard, assign workers, and view ward-level analytics. Sanitation workers receive dispatch notifications and can upload proof of completion directly from the field.')
-pdf.body_text('Beyond basic complaint management, the system introduces IoT-enabled smart bins that monitor fill levels, battery status, and environmental conditions, enabling proactive collection before overflow occurs. A machine learning module predicts bin overflow risk, allowing administrators to prioritize dispatch based on urgency. The platform also implements a pay-as-you-throw billing mechanism that charges residents based on the residual (non-segregated) waste they generate, incentivizing proper source segregation. A gamification feature called Green Points rewards citizens for consistent waste segregation behaviour.')
-pdf.body_text('The system is designed for low-connectivity environments through Progressive Web App capabilities that allow complaint filing and schedule access even without an internet connection, with automatic synchronization when connectivity is restored. Bilingual support in English and Telugu ensures accessibility across different literacy levels. Comprehensive security measures protect user data and system integrity.')
-pdf.body_text('The prototype has been deployed and tested for the Chintalavalasa community. While the current implementation uses synthetic data for machine learning training and simulated IoT telemetry \u2014 as real-world sensor hardware and historical data are not yet available at community scale \u2014 the architecture is designed for seamless integration with physical sensors and real usage data. The project demonstrates how low-cost, open-source digital infrastructure can bring transparency, accountability, and data-driven governance to waste management in semi-urban Indian panchayats.')
+pdf.body_text('Waste management in semi-urban Indian communities like Chintalavalasa, Andhra Pradesh, is plagued by informal collection schedules, paper-based complaint tracking, and overflowing bins with no accountability.')
+pdf.body_text('SmartGarbage is a community-based smart waste management system built for the Chintalavalasa Gram Panchayat. It lets citizens check collection schedules, report missed pickups with photos and GPS, and track complaint resolution in real time. Administrators monitor operations through a live dashboard, assign workers, and view ward-level analytics.')
+pdf.body_text('The system uses IoT-enabled smart bins to monitor fill levels and predict overflow risk, enabling proactive collection. A pay-as-you-throw billing mechanism charges residents for non-segregated waste, encouraging proper segregation. Green Points gamification rewards citizens for consistent segregation behaviour.')
+pdf.body_text('For low-connectivity areas, Progressive Web App capabilities allow offline complaint filing with automatic sync. Bilingual support in English and Telugu ensures wide accessibility.')
+pdf.body_text('The prototype is deployed and tested for Chintalavalasa. While synthetic data is used for machine learning training and IoT telemetry is simulated, the architecture is ready for real sensor integration and community-scale deployment.')
 pdf.set_font('TNR', 'I', 12)
-pdf.multi_cell(0, 6.5, 'Keywords: Smart Waste Management, Community Governance, IoT, Machine Learning, Digital India, PWA, PAYT Billing')
+pdf.multi_cell(0, 6.5, 'Keywords: Smart Waste Management, Community Governance, IoT, Machine Learning, Digital India')
+pdf.ln(4)
 pdf.ln(4)
 
 # ── ABBREVIATIONS ──────────────────────────────────────────────────
