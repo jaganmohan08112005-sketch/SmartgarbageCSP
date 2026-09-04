@@ -354,8 +354,9 @@ def track_complaint(token):
 
 @main.route('/sw.js')
 def serve_sw():
-    return send_from_directory(os.path.join(current_app.root_path, 'static'),
-                               'sw.js', mimetype='application/javascript')
+    from flask import send_file
+    return send_file(os.path.join(current_app.static_folder, 'sw.js'),
+                     mimetype='application/javascript')
 
 
 @main.route('/manifest.json')
