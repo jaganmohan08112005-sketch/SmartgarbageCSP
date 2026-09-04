@@ -979,6 +979,52 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     100% { transform: translateX(-100%); }
 }
 
+/* ---------- Push Notification Prompt (bottom-fixed) ---------- */
+.sg-push-prompt {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 70px;
+    z-index: 1086;
+    padding: .85rem 1rem;
+    background: linear-gradient(135deg, #1a3a2a, #0f5132);
+    color: #fff;
+    border-top: 2px solid #fbbf24;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, .3);
+    transform: translateY(100%);
+    animation: sgSlideUp .4s .5s ease forwards;
+}
+@keyframes sgSlideUp {
+    to { transform: translateY(0); }
+}
+.sg-push-prompt-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    animation: sgBellRing 1s ease-in-out infinite;
+}
+@keyframes sgBellRing {
+    0%, 100% { transform: rotate(0); }
+    15% { transform: rotate(14deg); }
+    30% { transform: rotate(-12deg); }
+    45% { transform: rotate(8deg); }
+    60% { transform: rotate(-6deg); }
+}
+@media (min-width: 992px) {
+    .sg-push-prompt {
+        left: 1rem;
+        right: auto;
+        bottom: 1rem;
+        max-width: 440px;
+        border-radius: var(--r-md);
+        border-top: none;
+        border: 1px solid rgba(251, 191, 36, .5);
+    }
+}
+[data-contrast="true"] .sg-push-prompt {
+    background: #000 !important;
+    border-color: #ffd700 !important;
+}
+
 /* ---------- PWA Install Banner (mobile, bottom-fixed) ---------- */
 .sg-install-banner {
     position: fixed;

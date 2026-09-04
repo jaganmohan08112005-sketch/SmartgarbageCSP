@@ -3,7 +3,7 @@
    Three-tier caching: Static assets, HTML pages, CDN resources
    ================================================================ */
 
-const SW_VERSION = 'v13';
+const SW_VERSION = 'v14';
 const CACHE_PREFIX = 'smartgarbage';
 
 // ── Cache tiers ──────────────────────────────────────────────────
@@ -402,4 +402,71 @@ self.addEventListener('message', evt => {
             evt.source.postMessage({ type: 'CACHE_STATS', stats });
         })();
     }
+});
+
+/* ================================================================
+   PUSH NOTIFICATION EVENTS
+   ================================================================ */
+
+// Handle incoming push notification
+self.addEventListener('push', evt => {
+    if (!evt.data) return;
+
+    let data = {};
+    try {
+        data = evt.data.json();
+    } catch (e) {
+        data = { title: 'SmartGarbage', body: evt.data.text() };
+    }
+
+    const title = data.title || 'SmartGarbage';
+    const options = {
+        body: data.body || '',
+        icon: data.icon || '/static/icon-192.png',
+        badge: data.badge || '/static/icon-192.png',
+        tag: data.tag || 'sg-notification',
+        data: data.data || {},
+        actions: [
+            { action: 'open', title: 'Open' },
+            { action: 'dismiss', title: 'Dismiss' }
+        ],
+        requireInteraction: data.tag && data.tag.includes('complaint'),
+        vibrate: [100, 50, 100],
+    };
+
+    evt.waitUntil(
+        self.registration.showNotification(title, options)
+    );
+});
+
+// Handle notification click — open/focus the relevant page
+self.addEventListener('notificationclick', evt => {
+    evt.notification.close();
+
+    if (evt.action === 'dismiss') return;
+
+    const url = (evt.notification.data && evt.notification.data.url) || '/dashboard';
+
+    evt.waitUntil(
+        (async () => {
+            // Try to focus existing window first
+            const clients = await self.clients.matchAll({ type: 'window' });
+            for (const client of clients) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    client.focus();
+                    if (url !== client.url.replace(self.location.origin, '')) {
+                        client.navigate(url);
+                    }
+                    return;
+                }
+            }
+            // No existing window — open new one
+            self.clients.openWindow(url);
+        })()
+    );
+});
+
+// Handle notification close (for analytics, optional)
+self.addEventListener('notificationclose', evt => {
+    // No-op for now; could track dismissed notifications
 });

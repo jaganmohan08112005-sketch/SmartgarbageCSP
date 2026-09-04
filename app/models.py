@@ -464,6 +464,26 @@ class Notification(db.Model):
 
 
 # ──────────────────────────────────────────────
+# PUSH NOTIFICATION SUBSCRIPTIONS (Web Push API)
+# Stores browser push subscriptions so the server can send notifications
+# when complaint status changes. One user may have multiple devices.
+# ──────────────────────────────────────────────
+class PushSubscription(db.Model):
+    __table_args__ = (
+        db.Index('ix_push_sub_user', 'user_id'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    endpoint = db.Column(db.Text, nullable=False)
+    p256dh = db.Column(db.Text, nullable=False)
+    auth = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True))
+
+
+# ──────────────────────────────────────────────
 # v2: PROACTIVE DISPATCH ASSIGNMENT
 # Auto-queued by the telemetry ingest when a bin's ML overflow forecast
 # crosses FORECAST_ALERT_HOURS (6h); workers see the ranked queue, accept a

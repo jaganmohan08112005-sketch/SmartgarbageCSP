@@ -253,6 +253,138 @@
     })();
     </script>
 
+    {# ── Web Push Notification Manager ── #}
+    <script>
+    /* Push Notification Manager: requests permission, subscribes to push,
+       and provides toggle UI. Only runs on HTTPS or localhost. */
+    (function() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+
+        var PUSH_KEY = 'sgPushEnabled';
+
+        function isPushEnabled() {
+            try { return localStorage.getItem(PUSH_KEY) === 'true'; } catch(e) { return false; }
+        }
+
+        function setPushEnabled(v) {
+            try { localStorage.setItem(PUSH_KEY, v ? 'true' : 'false'); } catch(e) {}
+        }
+
+        /* Convert URL-safe base64 to Uint8Array (for PushManager.subscribe) */
+        function urlBase64ToUint8Array(base64String) {
+            var padding = '='.repeat((4 - base64String.length % 4) % 4);
+            var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            var rawData = atob(base64);
+            var outputArray = new Uint8Array(rawData.length);
+            for (var i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        /* Subscribe to push notifications */
+        async function subscribeToPush() {
+            try {
+                var reg = await navigator.serviceWorker.ready;
+                var permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    setPushEnabled(false);
+                    return false;
+                }
+                /* Check existing subscription */
+                var existing = await reg.pushManager.getSubscription();
+                if (existing) {
+                    await sendSubscriptionToServer(existing);
+                    setPushEnabled(true);
+                    return true;
+                }
+                /* Get VAPID key from server */
+                var resp = await fetch('/api/push/vapid-key');
+                var data = await resp.json();
+                if (!data.publicKey) return false;
+
+                var sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(data.publicKey)
+                });
+                await sendSubscriptionToServer(sub);
+                setPushEnabled(true);
+                return true;
+            } catch (e) {
+                console.warn('Push subscribe failed:', e);
+                return false;
+            }
+        }
+
+        /* Send subscription to server */
+        async function sendSubscriptionToServer(sub) {
+            var json = sub.toJSON();
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var csrf = csrfMeta ? csrfMeta.content : '';
+            await fetch('/api/push/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({
+                    endpoint: json.endpoint,
+                    keys: { p256dh: json.keys.p256dh, auth: json.keys.auth }
+                })
+            });
+        }
+
+        /* Unsubscribe from push */
+        async function unsubscribeFromPush() {
+            try {
+                var reg = await navigator.serviceWorker.ready;
+                var sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    await sub.unsubscribe();
+                    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    var csrf = csrfMeta ? csrfMeta.content : '';
+                    await fetch('/api/push/unsubscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                        body: JSON.stringify({ endpoint: sub.endpoint })
+                    });
+                }
+                setPushEnabled(false);
+            } catch (e) {
+                console.warn('Push unsubscribe failed:', e);
+            }
+        }
+
+        /* Auto-subscribe on first visit if permission already granted */
+        async function autoSubscribe() {
+            if (!isPushEnabled()) return;
+            if (Notification.permission !== 'granted') return;
+            try {
+                var reg = await navigator.serviceWorker.ready;
+                var sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    await sendSubscriptionToServer(sub);
+                } else {
+                    await subscribeToPush();
+                }
+            } catch (e) {}
+        }
+
+        /* Expose global API for UI buttons */
+        window.SGPush = {
+            subscribe: subscribeToPush,
+            unsubscribe: unsubscribeFromPush,
+            isEnabled: isPushEnabled,
+            autoSubscribe: autoSubscribe
+        };
+
+        /* Auto-subscribe after service worker is ready */
+        if (document.readyState === 'complete') {
+            autoSubscribe();
+        } else {
+            window.addEventListener('load', autoSubscribe);
+        }
+    })();
+    </script>
+
     {% from '_icons.html' import icon %}
     <noscript>
         <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
@@ -392,6 +524,10 @@
                             <li><a class="dropdown-item" href="tel:+9118001199111">{{ icon('headset') }} {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
+                            <li><button type="button" class="dropdown-item" id="pushToggle" onclick="window.SGPush && (window.SGPush.isEnabled() ? window.SGPush.unsubscribe().then(()=>{this.textContent='🔔 Enable notifications'}) : window.SGPush.subscribe().then(()=>{this.textContent='🔕 Disable notifications'}))">
+                                <span id="pushToggleIcon">🔔</span> {{ _('Notifications') }}
+                            </button></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="/logout">{{ icon('logout') }} {{ _('Logout') }}</a></li>
                             {% endif %}
                         </ul>
@@ -528,6 +664,45 @@
         <a href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a>
         <a href="tel:+9118001199111">{{ icon('headset') }} {{ _('Help') }}</a>
     </nav>
+    {# ── Push Notification Prompt (shows once for logged-in users) ── #}
+    <div id="sgPushPrompt" class="sg-push-prompt d-none" role="region" aria-label="{{ _('Enable notifications') }}" aria-live="polite">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="sg-push-prompt-icon" aria-hidden="true">🔔</span>
+            <div class="flex-grow-1">
+                <strong>{{ _('Enable notifications?') }}</strong>
+                <small class="d-block text-white-50">{{ _('Get alerted when your complaint status changes') }}</small>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="window.SGPush && window.SGPush.subscribe().then(()=>document.getElementById('sgPushPrompt').classList.add('d-none'))">
+                    {{ _('Enable') }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="localStorage.setItem('sgPushPromptDismissed','1');document.getElementById('sgPushPrompt').classList.add('d-none')">
+                    {{ _('No thanks') }}
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+    /* Show push prompt once for logged-in users with no subscription */
+    (function() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (Notification && Notification.permission === 'denied') return;
+        if (localStorage.getItem('sgPushPromptDismissed')) return;
+        if (document.cookie.indexOf('session=') === -1 && !document.cookie.includes('remember')) return;
+        fetch('/api/push/status', {credentials: 'same-origin'})
+            .then(r => r.json())
+            .then(data => {
+                if (!data.subscribed && Notification.permission !== 'granted') {
+                    setTimeout(() => {
+                        var el = document.getElementById('sgPushPrompt');
+                        if (el) el.classList.remove('d-none');
+                    }, 3000);
+                }
+            })
+            .catch(() => {});
+    })();
+    </script>
+
     {# ── PWA Install Banner (mobile only, appears after 2 visits) ── #}
     <div id="sgInstallBanner" class="sg-install-banner d-none" role="region" aria-label="{{ _('Install app') }}" aria-live="polite">
         <div class="d-flex align-items-center gap-3 flex-wrap">

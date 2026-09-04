@@ -649,10 +649,17 @@ def _notify_status_change(complaint):
         return
     user = User.query.get(complaint.user_id) if complaint.user_id else None
     phone = (user.phone if user else None) or complaint.phone
-    email = user.email if user else None
-    from ..jobs import enqueue, notify_status_change_job
+    email = user.email if user else None    from ..jobs import enqueue, notify_status_change_job
     enqueue(notify_status_change_job, complaint.id, phone, email,
             complaint.ward or 'your area', complaint.status)
+
+    # ── Web Push notification (best-effort, non-blocking) ──
+    try:
+        from ..push import send_complaint_status_push
+        send_complaint_status_push(complaint)
+    except Exception as e:
+        logger.warning("push_notification_failed", error=str(e)[:200])
+
 
 
 # ──────────────────────────────────────────────

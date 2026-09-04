@@ -360,6 +360,73 @@ def notifications_mark_read():
     return jsonify({"ok": True})
 
 
+# ── Web Push Notification Endpoints ──────────────────────────────
+
+import hashlib, base64, json as _json
+from ..models import PushSubscription
+
+
+@main.route('/api/push/vapid-key')
+def push_vapid_key():
+    """Return the VAPID public key for the frontend to use in subscribe()."""
+    from ..push import get_vapid_public_key
+    return jsonify({"publicKey": get_vapid_public_key()})
+
+
+@main.route('/api/push/subscribe', methods=['POST'])
+@login_required
+def push_subscribe():
+    """Store a browser push subscription for the current user."""
+    data = request.get_json(force=True)
+    endpoint = data.get('endpoint')
+    p256dh = data.get('keys', {}).get('p256dh')
+    auth = data.get('keys', {}).get('auth')
+    if not endpoint or not p256dh or not auth:
+        return jsonify({"error": "Missing subscription keys"}), 400
+
+    # Deduplicate: if this exact endpoint already exists, update last_used_at
+    existing = PushSubscription.query.filter_by(endpoint=endpoint).first()
+    if existing:
+        existing.last_used_at = utcnow()
+        if existing.user_id != session['user_id']:
+            existing.user_id = session['user_id']
+        db.session.commit()
+        return jsonify({"ok": True, "action": "updated"})
+
+    sub = PushSubscription(
+        user_id=session['user_id'],
+        endpoint=endpoint,
+        p256dh=p256dh,
+        auth=auth,
+    )
+    db.session.add(sub)
+    db.session.commit()
+    return jsonify({"ok": True, "action": "created"})
+
+
+@main.route('/api/push/unsubscribe', methods=['POST'])
+@login_required
+def push_unsubscribe():
+    """Remove a push subscription (or all for the current user)."""
+    data = request.get_json(force=True) if request.data else {}
+    endpoint = data.get('endpoint')
+    if endpoint:
+        PushSubscription.query.filter_by(
+            user_id=session['user_id'], endpoint=endpoint).delete()
+    else:
+        PushSubscription.query.filter_by(user_id=session['user_id']).delete()
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@main.route('/api/push/status')
+@login_required
+def push_status():
+    """Return how many push subscriptions the user has."""
+    count = PushSubscription.query.filter_by(user_id=session['user_id']).count()
+    return jsonify({"subscribed": count > 0, "deviceCount": count})
+
+
 @main.route('/api/redeem', methods=['POST'])
 @login_required
 def redeem_rewards():
