@@ -199,6 +199,60 @@
     </script>
 </head>
 <body>
+    {# ── PWA Splash Screen (shows on first load / PWA install, hides when ready) ── #}
+    <div id="sgSplash" class="sg-splash" aria-hidden="true" role="presentation">
+        <div class="sg-splash-inner">
+            <div class="sg-splash-icon">
+                <svg width="80" height="80" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="18" cy="18" r="17" fill="#0f5132"/>
+                    <path d="M9 8h18M13.5 8.5l.8-2h7.4l.8 2" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12.6 11h10.8l-1 15.2a2.4 2.4 0 0 1-2.4 2.3h-4a2.4 2.4 0 0 1-2.4-2.3L12.6 11Z" fill="#ffffff"/>
+                    <rect x="16.1" y="14.5" width="3.8" height="8" rx="1.2" fill="#0f5132"/>
+                </svg>
+            </div>
+            <div class="sg-splash-name">SmartGarbage</div>
+            <div class="sg-splash-sub">Chintalavalasa Gram Panchayat</div>
+            <div class="sg-splash-loader">
+                <div class="sg-splash-bar"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+    /* PWA Splash Screen: hides once page + critical resources are loaded.
+       On PWA install, shows for 1.5s minimum for branding effect. */
+    (function() {
+        var splash = document.getElementById('sgSplash');
+        if (!splash) return;
+        var isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true ||
+                    new URLSearchParams(window.location.search).has('source');
+        var minDelay = isPWA ? 1200 : 400;
+        var startTime = Date.now();
+        function hideSplash() {
+            var elapsed = Date.now() - startTime;
+            var remaining = Math.max(0, minDelay - elapsed);
+            setTimeout(function() {
+                splash.style.opacity = '0';
+                splash.style.pointerEvents = 'none';
+                setTimeout(function() { splash.remove(); }, 400);
+            }, remaining);
+        }
+        if (document.readyState === 'complete') {
+            hideSplash();
+        } else {
+            window.addEventListener('load', hideSplash);
+        }
+        /* Safety: force-hide after 4s no matter what */
+        setTimeout(function() {
+            if (splash && splash.parentNode) {
+                splash.style.opacity = '0';
+                splash.style.pointerEvents = 'none';
+                setTimeout(function() { if (splash.parentNode) splash.remove(); }, 400);
+            }
+        }, 4000);
+    })();
+    </script>
+
     {% from '_icons.html' import icon %}
     <noscript>
         <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
