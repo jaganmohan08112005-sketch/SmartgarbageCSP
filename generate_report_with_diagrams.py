@@ -232,12 +232,6 @@ def _tbl(headers, rows, cw=None):
 # TITLE PAGE
 # ════════════════════════════════════════════════════════════════════
 for _ in range(3): doc.add_paragraph()
-# SmartGarbage Icon
-logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app', 'static', 'icon-512.png')
-if os.path.exists(logo_path):
-    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(); run.add_picture(logo_path, width=Inches(1.5))
-    p.paragraph_format.space_after = Pt(8)
 _p("COMMUNITY PROJECT REPORT", 16, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("SMARTGARBAGE CHINTALAVALASA", 18, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6, color=(0,100,0))
 _p("Community-Based Smart Waste Management\nand Digital Governance System", 14, align=WD_ALIGN_PARAGRAPH.CENTER, sa=36)
@@ -259,7 +253,13 @@ _p("(Data Science)", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("Under the esteemed Guidance of", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("Mrs. S. Nikhila", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("Assistant Professor", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
-doc.add_paragraph()
+# MVGR College Logo (in the middle)
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
+if os.path.exists(logo_path):
+    p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run(); run.add_picture(logo_path, width=Inches(2.5))
+    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_after = Pt(6)
 _p("DEPARTMENT OF DATA ENGINEERING", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram), Listed u/s 2(f) & 12(B) of UGC Act 1956.", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)

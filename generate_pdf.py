@@ -165,11 +165,6 @@ pdf.add_page()
 
 # ── TITLE PAGE ──────────────────────────────────────────────────────
 for _ in range(4): pdf.ln(12)
-# SmartGarbage Icon
-logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app', 'static', 'icon-512.png')
-if os.path.exists(logo_path):
-    pdf.add_image_centered(logo_path, 40)
-    pdf.ln(2)
 pdf.centered_text('COMMUNITY PROJECT REPORT', 16, True)
 pdf.ln(12)
 pdf.set_text_color(0, 100, 0)
@@ -200,7 +195,12 @@ pdf.centered_text('Under the esteemed Guidance of', 12)
 pdf.ln(2)
 pdf.centered_text('Mrs. S. Nikhila', 14, True)
 pdf.centered_text('Assistant Professor', 12)
-pdf.ln(12)
+pdf.ln(8)
+# MVGR College Logo (in the middle)
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
+if os.path.exists(logo_path):
+    pdf.add_image_centered(logo_path, 60)
+    pdf.ln(4)
 pdf.centered_text('DEPARTMENT OF DATA ENGINEERING', 12, True)
 pdf.centered_text('MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)', 11, True)
 pdf.centered_text('(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram)', 9)
