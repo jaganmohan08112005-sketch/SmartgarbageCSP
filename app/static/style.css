@@ -868,6 +868,37 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     transition: color .15s var(--ease);
 }
 .sg-footer-link:hover { color: #ffc107; }
+.sg-footer-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: .75rem;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+.sg-footer-list {
+    padding: 0;
+    margin: 0;
+}
+.sg-footer-list li {
+    margin-bottom: .4rem;
+    line-height: 1.5;
+}
+.sg-footer-list .sg-footer-link {
+    font-size: .9rem;
+    text-decoration: none;
+}
+.sg-footer-list .sg-footer-link:hover {
+    text-decoration: underline;
+    color: #ffc107;
+}
+.sg-footer-identity {
+    border-top: 1px solid rgba(255, 255, 255, .15);
+}
+.sg-footer-crest {
+    font-size: 1.8rem;
+    line-height: 1;
+}
 
 /* ---------- Cookie-consent banner (analytics, consent-gated) ---------- */
 .sg-consent-banner {

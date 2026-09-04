@@ -38,9 +38,13 @@
     <link rel="alternate" hreflang="x-default" href="{{ request.base_url }}">
     <link rel="alternate" type="application/rss+xml" title="SmartGarbage Notices" href="/feed.xml">
 
-    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <link rel="preconnect" href="https://www.googletagmanager.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://api.openweathermap.org">
+    <link rel="dns-prefetch" href="https://api.open-meteo.com">
+    <link rel="dns-prefetch" href="https://wttr.in">
     <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="{{ url_for('static', filename='fonts/outfit-v15.woff2', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"
@@ -394,27 +398,71 @@
     <script src="{{ url_for('static', filename='js/global.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script src="{{ url_for('static', filename='js/chatbot.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     {% block scripts %}{% endblock %}
-    <footer class="sg-footer">
+    <footer class="sg-footer" role="contentinfo">
         <div class="container">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 small text-white-75">
-                <div>🏛️ {{ _('Directorate of Waste Management & Sanitation') }} · {{ _('Chintalavalasa Gram Panchayat Office, Denkada Mandal, Vizianagaram District, Andhra Pradesh – 535005') }}</div>
-                <div class="d-flex align-items-center gap-3">
-                    <a href="tel:+9118001199111" class="sg-footer-link">📞 {{ _('Grievance Hotline') }}: <strong class="text-warning">1800-119-9111</strong></a>
-                    <a href="/contact" class="sg-footer-link">✉️ {{ _('Contact') }}</a>
-                    <a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a>
-                    <a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a>
-                    <a href="/about" class="sg-footer-link">{{ _('About') }}</a>
-                    <a href="/accessibility" class="sg-footer-link">{{ _('Accessibility') }}</a>
-                    <a href="/feed.xml" class="sg-footer-link" type="application/rss+xml">{{ _('RSS') }}</a>
+            {# ── GOV.UK-style multi-column footer ── #}
+            <div class="row g-4 mb-4">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <h2 class="sg-footer-heading">{{ _('Services') }}</h2>
+                    <ul class="list-unstyled sg-footer-list">
+                        <li><a href="/schedule" class="sg-footer-link">{{ _('Collection schedules') }}</a></li>
+                        <li><a href="/report" class="sg-footer-link">{{ _('Report a missed pickup') }}</a></li>
+                        <li><a href="/transparency" class="sg-footer-link">{{ _('Ward dashboards') }}</a></li>
+                        <li><a href="/register/picker" class="sg-footer-link">{{ _('Register as waste picker') }}</a></li>
+                        <li><a href="/register" class="sg-footer-link">{{ _('Resident registration') }}</a></li>
+                    </ul>
                 </div>
-                <div>© 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }} · {{ _('Author') }}: Directorate of Waste Management & Sanitation</div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <h2 class="sg-footer-heading">{{ _('About') }}</h2>
+                    <ul class="list-unstyled sg-footer-list">
+                        <li><a href="/about" class="sg-footer-link">{{ _('About this service') }}</a></li>
+                        <li><a href="/about#editorial" class="sg-footer-link">{{ _('Editorial policy') }}</a></li>
+                        <li><a href="/faq" class="sg-footer-link">{{ _('Frequently asked questions') }}</a></li>
+                        <li><a href="/contact" class="sg-footer-link">{{ _('Contact us') }}</a></li>
+                        <li><a href="/impact" class="sg-footer-link">{{ _('Impact dashboard') }}</a></li>
+                    </ul>
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <h2 class="sg-footer-heading">{{ _('Legal') }}</h2>
+                    <ul class="list-unstyled sg-footer-list">
+                        <li><a href="/privacy" class="sg-footer-link">{{ _('Privacy Policy') }}</a></li>
+                        <li><a href="/terms" class="sg-footer-link">{{ _('Terms of Service') }}</a></li>
+                        <li><a href="/accessibility" class="sg-footer-link">{{ _('Accessibility statement') }}</a></li>
+                        <li><a href="/feed.xml" class="sg-footer-link" type="application/rss+xml">{{ _('RSS feed') }}</a></li>
+                        <li><a href="/llms.txt" class="sg-footer-link">{{ _('llms.txt') }}</a></li>
+                    </ul>
+                </div>
+                <div class="col-12 col-lg-3">
+                    <h2 class="sg-footer-heading">{{ _('Contact') }}</h2>
+                    <ul class="list-unstyled sg-footer-list">
+                        <li>📞 <a href="tel:+9118001199111" class="sg-footer-link"><strong class="text-warning">1800-119-9111</strong></a></li>
+                        <li>✉️ <a href="mailto:chintalavalasa.gp@ap.gov.in" class="sg-footer-link">chintalavalasa.gp@ap.gov.in</a></li>
+                        <li class="small text-white-50 mt-2">{{ _('Chintalavalasa Gram Panchayat Office') }}<br>{{ _('Denkada Mandal, Vizianagaram District') }}<br>{{ _('Andhra Pradesh – 535005') }}</li>
+                        <li class="small text-white-50 mt-2">{{ _('Office hours: Mon–Sat, 10 AM – 5 PM') }}</li>
+                    </ul>
+                </div>
             </div>
-            <div class="small text-white-75 mt-2 d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
-                <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
-                <span aria-hidden="true">·</span>
-                <span>✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
-                <span aria-hidden="true">·</span>
-                <span>{{ _('Content reviewed by the Directorate of Waste Management & Sanitation. Last verified') }}: {{ deploy_ts.strftime('%B %Y') if deploy_ts else 'August 2026' }}.</span>
+            {# ── Government identity bar ── #}
+            <div class="sg-footer-identity border-top border-secondary pt-3">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="sg-footer-crest" aria-hidden="true">🏛️</span>
+                        <div class="small text-white-75">
+                            <strong>{{ _('Directorate of Waste Management & Sanitation') }}</strong><br>
+                            {{ _('Chintalavalasa Gram Panchayat, Vizianagaram District, Andhra Pradesh') }}
+                        </div>
+                    </div>
+                    <div class="small text-white-75 text-md-end">
+                        © 2026 · {{ _('Last updated') }}: {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else '2026-08-28' }}
+                    </div>
+                </div>
+                <div class="small text-white-50 mt-3 d-flex flex-wrap justify-content-center justify-content-md-start gap-2">
+                    <span>✅ {{ _('Compliant with the Solid Waste Management Rules, 2026') }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>✅ {{ _('Swachh Bharat Mission (Grameen) Phase II') }}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{{ _('Content reviewed by municipal officials. Last verified') }}: {{ deploy_ts.strftime('%B %Y') if deploy_ts else 'August 2026' }}.</span>
+                </div>
             </div>
         </div>
     </footer>

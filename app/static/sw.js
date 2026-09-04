@@ -3,7 +3,7 @@
    Three-tier caching: Static assets, HTML pages, CDN resources
    ================================================================ */
 
-const SW_VERSION = 'v12';
+const SW_VERSION = 'v13';
 const CACHE_PREFIX = 'smartgarbage';
 
 // ── Cache tiers ──────────────────────────────────────────────────
