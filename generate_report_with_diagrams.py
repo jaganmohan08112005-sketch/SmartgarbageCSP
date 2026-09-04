@@ -232,12 +232,12 @@ def _tbl(headers, rows, cw=None):
 # TITLE PAGE
 # ════════════════════════════════════════════════════════════════════
 for _ in range(3): doc.add_paragraph()
-# MVGR Logo
-logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
+# SmartGarbage Icon
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app', 'static', 'icon-512.png')
 if os.path.exists(logo_path):
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run(); run.add_picture(logo_path, width=Inches(2.0))
-    p.paragraph_format.space_after = Pt(12)
+    run = p.add_run(); run.add_picture(logo_path, width=Inches(1.5))
+    p.paragraph_format.space_after = Pt(8)
 _p("COMMUNITY PROJECT REPORT", 16, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("SMARTGARBAGE CHINTALAVALASA", 18, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6, color=(0,100,0))
 _p("Community-Based Smart Waste Management\nand Digital Governance System", 14, align=WD_ALIGN_PARAGRAPH.CENTER, sa=36)

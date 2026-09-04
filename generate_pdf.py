@@ -165,11 +165,11 @@ pdf.add_page()
 
 # ── TITLE PAGE ──────────────────────────────────────────────────────
 for _ in range(4): pdf.ln(12)
-# MVGR Logo
-logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
+# SmartGarbage Icon
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app', 'static', 'icon-512.png')
 if os.path.exists(logo_path):
-    pdf.add_image_centered(logo_path, 50)
-    pdf.ln(4)
+    pdf.add_image_centered(logo_path, 40)
+    pdf.ln(2)
 pdf.centered_text('COMMUNITY PROJECT REPORT', 16, True)
 pdf.ln(12)
 pdf.set_text_color(0, 100, 0)
