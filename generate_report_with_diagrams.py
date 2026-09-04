@@ -254,7 +254,7 @@ _p("Under the esteemed Guidance of", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("Mrs. S. Nikhila", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("Assistant Professor", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 doc.add_paragraph()
-_p("DEPARTMENT OF DATA SCIENCE", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
+_p("DEPARTMENT OF DATA ENGINEERING", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram), Listed u/s 2(f) & 12(B) of UGC Act 1956.", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("Vijayaram Nagar Campus, Chintalavalasa, Vizianagaram-535005, Andhra Pradesh", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
@@ -264,8 +264,8 @@ _p("October, 2025", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER)
 _pb(); _h1("CERTIFICATE"); doc.add_paragraph()
 _body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph()
-_p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Science", 12, sa=24)
-_p("Signature of Head of the Department", 12, True, sa=3); _p("Dr. Jyothi\nHead of the Department\nDepartment: Data Science", 12)
+_p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Engineering", 12, sa=24)
+_p("Signature of Head of the Department", 12, True, sa=3); _p("Dr. Jyothi\nHead of the Department\nDepartment: Data Engineering", 12)
 
 # DECLARATION
 _pb(); _h1("DECLARATION"); doc.add_paragraph()
@@ -278,7 +278,7 @@ for n in ["MOPADA JAGANMOHAN (2433144441)","LATCHUPATULA RESHMA (24331A4434)","P
 _pb(); _h1("ACKNOWLEDGEMENT"); doc.add_paragraph()
 _body("We express our sincere gratitude to our project guide for their invaluable guidance and support as our mentor throughout the project. Their unwavering commitment to excellence and constructive feedback motivated us to achieve our project goals. We are greatly indebted to them for their exceptional guidance.")
 _body("Additionally, we extend our thanks to Prof. P.S. Sitharama Raju (Director), Dr. Y.M.C. Shekar (Principal), and Dr. Jyothi (Head of the Department) for their unwavering support and assistance, which were instrumental in the successful completion of the project.")
-_body("We also acknowledge the dedicated assistance provided by all the staff members in the Department of Data Science. Finally, we appreciate the contributions of all those who directly or indirectly contributed to the successful execution of this endeavor.")
+_body("We also acknowledge the dedicated assistance provided by all the staff members in the Department of Data Engineering. Finally, we appreciate the contributions of all those who directly or indirectly contributed to the successful execution of this endeavor.")
 
 # ABSTRACT
 _pb(); _h1("ABSTRACT"); doc.add_paragraph()
