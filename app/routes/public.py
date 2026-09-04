@@ -491,10 +491,9 @@ def sitemap_xml():
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
             + urls + '</urlset>\n')
-    # no-store: same reasoning as robots.txt — a stale cached sitemap must
-    # never persist across deploys (URL list changes with new pages).
+    # Cache sitemap for 1 hour at edge (changes only on deploy)
     return Response(body, mimetype='application/xml',
-                    headers={'Cache-Control': 'no-store, max-age=0'})
+                    headers={'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=600'})
 
 
 @main.route('/feed.xml')
@@ -533,7 +532,7 @@ def rss_feed():
         f'  <atom:link href="{base}/feed.xml" rel="self" type="application/rss+xml" />\r\n'
         + xml_items + '</channel>\r\n</rss>\r\n')
     return Response(body, mimetype='application/rss+xml',
-                    headers={'Cache-Control': 'no-store, max-age=0'})
+                    headers={'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=600'})
 
 
 @main.route('/api/data')
