@@ -507,6 +507,43 @@ class PushNotificationLog(db.Model):
 
 
 # ──────────────────────────────────────────────
+# NOTIFICATION PREFERENCES
+# Per-user toggle for which events trigger push notifications.
+# One row per user; all defaults True (opt-out model).
+# ──────────────────────────────────────────────
+class NotificationPreference(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+    # Complaint lifecycle
+    complaint_submitted = db.Column(db.Boolean, default=True, nullable=False)
+    complaint_assigned = db.Column(db.Boolean, default=True, nullable=False)
+    complaint_in_progress = db.Column(db.Boolean, default=True, nullable=False)
+    complaint_resolved = db.Column(db.Boolean, default=True, nullable=False)
+    complaint_escalated = db.Column(db.Boolean, default=True, nullable=False)
+    # System
+    schedule_reminder = db.Column(db.Boolean, default=True, nullable=False)
+    green_points_earned = db.Column(db.Boolean, default=True, nullable=False)
+    weekly_summary = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
+
+    user = db.relationship('User', backref=db.backref('notification_prefs', uselist=False, lazy=True))
+
+    @classmethod
+    def get_or_create(cls, user_id):
+        prefs = cls.query.filter_by(user_id=user_id).first()
+        if not prefs:
+            prefs = cls(user_id=user_id)
+            db.session.add(prefs)
+            db.session.commit()
+        return prefs
+
+    def is_enabled(self, event_type):
+        """Check if a specific event type is enabled for push notifications."""
+        return getattr(self, event_type, True)
+
+
+# ──────────────────────────────────────────────
 # v2: PROACTIVE DISPATCH ASSIGNMENT
 # Auto-queued by the telemetry ingest when a bin's ML overflow forecast
 # crosses FORECAST_ALERT_HOURS (6h); workers see the ranked queue, accept a

@@ -524,6 +524,7 @@
                             <li><a class="dropdown-item" href="tel:+9118001199111">{{ icon('headset') }} {{ _('Grievance Hotline') }}: <strong>1800-119-9111</strong></a></li>
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/notifications/preferences">🔔 {{ _('Notification Preferences') }}</a></li>
                             <li><button type="button" class="dropdown-item" id="pushToggle" onclick="window.SGPush && (window.SGPush.isEnabled() ? window.SGPush.unsubscribe().then(()=>{this.textContent='🔔 Enable notifications'}) : window.SGPush.subscribe().then(()=>{this.textContent='🔕 Disable notifications'}))">
                                 <span id="pushToggleIcon">🔔</span> {{ _('Notifications') }}
                             </button></li>

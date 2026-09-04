@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Notification Preferences — SmartGarbage') }}{% endblock %}
+{% block meta_description %}{{ _('Manage which events trigger push notifications from SmartGarbage Chintalavalasa') }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb small">
+                <li class="breadcrumb-item"><a href="/dashboard">{{ _('Dashboard') }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ _('Notification Preferences') }}</li>
+            </ol>
+        </nav>
+
+        <h1 class="fw-bold text-success mb-2">🔔 {{ _('Notification Preferences') }}</h1>
+        <p class="text-muted mb-4">{{ _('Choose which events trigger browser push notifications. You can change these anytime.') }}</p>
+
+        <form method="POST" action="/notifications/preferences">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            {# ── Complaint Updates ── #}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 pt-3">
+                    <h5 class="fw-bold mb-0">📋 {{ _('Complaint Updates') }}</h5>
+                    <small class="text-muted">{{ _('Get notified when your complaint status changes') }}</small>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="complaint_submitted"
+                               name="complaint_submitted" value="1"
+                               {% if prefs.complaint_submitted %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="complaint_submitted">
+                            📝 {{ _('Complaint Submitted') }}
+                            <br><small class="text-muted">{{ _('Confirmation when your report is received') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="complaint_assigned"
+                               name="complaint_assigned" value="1"
+                               {% if prefs.complaint_assigned %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="complaint_assigned">
+                            👷 {{ _('Worker Assigned') }}
+                            <br><small class="text-muted">{{ _('When a sanitation worker is assigned to your complaint') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="complaint_in_progress"
+                               name="complaint_in_progress" value="1"
+                               {% if prefs.complaint_in_progress %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="complaint_in_progress">
+                            🚚 {{ _('Worker On The Way') }}
+                            <br><small class="text-muted">{{ _('When a worker is dispatched to your location') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="complaint_resolved"
+                               name="complaint_resolved" value="1"
+                               {% if prefs.complaint_resolved %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="complaint_resolved">
+                            ✅ {{ _('Complaint Resolved') }}
+                            <br><small class="text-muted">{{ _('When your complaint is marked as resolved') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="complaint_escalated"
+                               name="complaint_escalated" value="1"
+                               {% if prefs.complaint_escalated %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="complaint_escalated">
+                            🚨 {{ _('Complaint Escalated') }}
+                            <br><small class="text-muted">{{ _('When your complaint is escalated for urgent attention') }}</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            {# ── System Notifications ── #}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 pt-3">
+                    <h5 class="fw-bold mb-0">⚙️ {{ _('System Notifications') }}</h5>
+                    <small class="text-muted">{{ _('General updates about your account and the service') }}</small>
+                </div>
+                <div class="card-body pt-0">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="schedule_reminder"
+                               name="schedule_reminder" value="1"
+                               {% if prefs.schedule_reminder %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="schedule_reminder">
+                            📅 {{ _('Collection Reminders') }}
+                            <br><small class="text-muted">{{ _('Reminders about upcoming waste collection schedules') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="green_points_earned"
+                               name="green_points_earned" value="1"
+                               {% if prefs.green_points_earned %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="green_points_earned">
+                            🍃 {{ _('Green Points Earned') }}
+                            <br><small class="text-muted">{{ _('When you earn Green Points for waste segregation') }}</small>
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="weekly_summary"
+                               name="weekly_summary" value="1"
+                               {% if prefs.weekly_summary %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="weekly_summary">
+                            📊 {{ _('Weekly Summary') }}
+                            <br><small class="text-muted">{{ _('Weekly digest of your complaints, points and community impact') }}</small>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Quick Actions ── #}
+            <div class="d-flex gap-2 mb-4">
+                <button type="submit" class="btn btn-success rounded-pill fw-bold px-4">
+                    ✅ {{ _('Save Preferences') }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="selectAll(true)">
+                    {{ _('Enable All') }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="selectAll(false)">
+                    {{ _('Disable All') }}
+                </button>
+            </div>
+        </form>
+
+        {# ── Push Subscription Status ── #}
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2">📱 {{ _('Push Subscription') }}</h6>
+                <div id="pushSubStatus" class="small text-muted mb-2">{{ _('Checking...') }}</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="pushEnableBtn" onclick="window.SGPush && window.SGPush.subscribe().then(updatePushStatus)">
+                        🔔 {{ _('Enable Push Notifications') }}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" id="pushDisableBtn" onclick="window.SGPush && window.SGPush.unsubscribe().then(updatePushStatus)">
+                        🔕 {{ _('Disable Push Notifications') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <a href="/dashboard" class="text-decoration-none">← {{ _('Back to Dashboard') }}</a>
+    </div>
+</div>
+
+<script>
+function selectAll(enabled) {
+    document.querySelectorAll('input[type="checkbox"][name]').forEach(cb => {
+        if (cb.name !== 'csrf_token') cb.checked = enabled;
+    });
+}
+function updatePushStatus() {
+    fetch('/api/push/status', {credentials: 'same-origin'})
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('pushSubStatus');
+            if (data.subscribed) {
+                el.innerHTML = '✅ ' + {{ _('Enabled on') }}.replace('{n}', data.deviceCount) + ' <strong>' + data.deviceCount + '</strong> ' + (data.deviceCount === 1 ? 'device' : 'devices');
+                el.className = 'small text-success mb-2';
+            } else {
+                el.innerHTML = '❌ ' + {{ _('Not enabled on any device') }};
+                el.className = 'small text-danger mb-2';
+            }
+        })
+        .catch(() => {});
+}
+document.addEventListener('DOMContentLoaded', updatePushStatus);
+</script>
+{% endblock %}

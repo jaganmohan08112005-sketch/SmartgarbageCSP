@@ -4,7 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 from flask import (Response, abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for)
 
-from ..models import (BWGDeclaration, Complaint, IllegalDumpReport, Notification, PAYTInvoice, SmartBin, User, WasteDeclaration, utcnow)
+from ..models import (BWGDeclaration, Complaint, IllegalDumpReport, Notification,
+                      NotificationPreference, PAYTInvoice, SmartBin, User,
+                      WasteDeclaration, utcnow)
 
 from ..auth import login_required
 
@@ -425,6 +427,52 @@ def push_status():
     """Return how many push subscriptions the user has."""
     count = PushSubscription.query.filter_by(user_id=session['user_id']).count()
     return jsonify({"subscribed": count > 0, "deviceCount": count})
+
+
+# ── Notification Preferences ──────────────────────────────────────
+
+@main.route('/notifications/preferences')
+@login_required
+def notification_preferences():
+    """Notification preferences page."""
+    prefs = NotificationPreference.get_or_create(session['user_id'])
+    return render_template('notification_preferences.html', prefs=prefs)
+
+
+@main.route('/notifications/preferences', methods=['POST'])
+@login_required
+def update_notification_preferences():
+    """Update notification preferences."""
+    prefs = NotificationPreference.get_or_create(session['user_id'])
+    # Toggle fields from checkboxes
+    toggle_fields = [
+        'complaint_submitted', 'complaint_assigned', 'complaint_in_progress',
+        'complaint_resolved', 'complaint_escalated',
+        'schedule_reminder', 'green_points_earned', 'weekly_summary',
+    ]
+    for field in toggle_fields:
+        setattr(prefs, field, field in request.form)
+    prefs.updated_at = utcnow()
+    db.session.commit()
+    flash('Notification preferences updated.', 'success')
+    return redirect(url_for('main.notification_preferences'))
+
+
+@main.route('/api/notifications/preferences')
+@login_required
+def api_notification_preferences():
+    """Return preferences as JSON (for JS checks)."""
+    prefs = NotificationPreference.get_or_create(session['user_id'])
+    return jsonify({
+        'complaint_submitted': prefs.complaint_submitted,
+        'complaint_assigned': prefs.complaint_assigned,
+        'complaint_in_progress': prefs.complaint_in_progress,
+        'complaint_resolved': prefs.complaint_resolved,
+        'complaint_escalated': prefs.complaint_escalated,
+        'schedule_reminder': prefs.schedule_reminder,
+        'green_points_earned': prefs.green_points_earned,
+        'weekly_summary': prefs.weekly_summary,
+    })
 
 
 @main.route('/api/redeem', methods=['POST'])

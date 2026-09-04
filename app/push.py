@@ -185,11 +185,30 @@ def send_complaint_status_push(complaint):
     """Send push notification when a complaint status changes.
 
     Called from _notify_status_change() after in-app notification is created.
+    Respects user's NotificationPreference settings.
     """
     from flask import url_for
+    from .models import NotificationPreference
 
     if not complaint.user_id:
         return
+
+    # Check user preferences — skip if this event type is disabled
+    status_pref_map = {
+        'Submitted': 'complaint_submitted',
+        'Under Review': 'complaint_submitted',
+        'Assigned': 'complaint_assigned',
+        'In Progress': 'complaint_in_progress',
+        'Escalated': 'complaint_escalated',
+        'Resolved': 'complaint_resolved',
+        'Closed': 'complaint_resolved',
+    }
+    pref_key = status_pref_map.get(complaint.status)
+    if pref_key:
+        prefs = NotificationPreference.query.filter_by(user_id=complaint.user_id).first()
+        if prefs and not prefs.is_enabled(pref_key):
+            logger.info("push_skipped_by_preference", user_id=complaint.user_id, event=pref_key)
+            return
 
     status_messages = {
         'Submitted': 'Your complaint has been received.',
@@ -208,7 +227,6 @@ def send_complaint_status_push(complaint):
 
     try:
         track_url = url_for('main.track_complaint', token='', _external=True).rstrip('/')
-        # Use the tracking page if available, otherwise dashboard
         url = f"/dashboard"
     except Exception:
         url = "/dashboard"
