@@ -249,7 +249,7 @@ _p("In partial fulfillment for the award of the degree of", 12, align=WD_ALIGN_P
 _p("BACHELOR OF TECHNOLOGY", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("IN", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("COMPUTER SCIENCE & ENGINEERING", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
-_p("(Artificial Intelligence & Machine Learning)", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
+_p("(Data Science)", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("Under the esteemed Guidance of", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("Mrs. S. Nikhila", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("Assistant Professor", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
@@ -262,14 +262,14 @@ _p("October, 2025", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
 # CERTIFICATE
 _pb(); _h1("CERTIFICATE"); doc.add_paragraph()
-_body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-AIML, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
+_body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph()
 _p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Science", 12, sa=24)
 _p("Signature of Head of the Department", 12, True, sa=3); _p("Name\nDesignation\nDepartment: Data Science", 12)
 
 # DECLARATION
 _pb(); _h1("DECLARATION"); doc.add_paragraph()
-_body('We hereby declare that the work done on the dissertation entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" has been carried out by us and submitted in partial fulfilment for the award of credits in Bachelor of Technology in Computer Science and Engineering (Artificial Intelligence & Machine Learning) of M.V.G.R College of Engineering (Autonomous) and affiliated to JNTUGV, Vizianagaram. The various contents incorporated in the dissertation have not been submitted for the award of any degree of any other institution or university.')
+_body('We hereby declare that the work done on the dissertation entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" has been carried out by us and submitted in partial fulfilment for the award of credits in Bachelor of Technology in Computer Science and Engineering (Data Science) of M.V.G.R College of Engineering (Autonomous) and affiliated to JNTUGV, Vizianagaram. The various contents incorporated in the dissertation have not been submitted for the award of any degree of any other institution or university.')
 doc.add_paragraph()
 for n in ["MOPADA JAGANMOHAN (2433144441)","LATCHUPATULA RESHMA (24331A4434)","PATI NARASIMHA MURTHY (2433144446)","KADA AUGUSTTN PAUL KUMAR (24331A4426)"]:
     _p(n, 12, sa=12)
