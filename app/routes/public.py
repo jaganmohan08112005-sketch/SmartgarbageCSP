@@ -354,16 +354,26 @@ def track_complaint(token):
 
 @main.route('/sw.js')
 def serve_sw():
-    from flask import send_file
-    return send_file(os.path.join(current_app.static_folder, 'sw.js'),
-                     mimetype='application/javascript')
+    import pathlib
+    from flask import Response
+    sw_path = pathlib.Path(current_app.static_folder) / 'sw.js'
+    if sw_path.is_file():
+        return Response(sw_path.read_text(encoding='utf-8'),
+                        mimetype='application/javascript',
+                        headers={'Cache-Control': 'no-store'})
+    abort(404)
 
 
 @main.route('/manifest.json')
 def serve_manifest():
-    from flask import send_file
-    return send_file(os.path.join(current_app.static_folder, 'manifest.json'),
-                     mimetype='application/json')
+    import pathlib
+    from flask import Response
+    mf_path = pathlib.Path(current_app.static_folder) / 'manifest.json'
+    if mf_path.is_file():
+        return Response(mf_path.read_text(encoding='utf-8'),
+                        mimetype='application/json',
+                        headers={'Cache-Control': 'public, max-age=3600'})
+    abort(404)
 
 
 @main.route('/offline')
