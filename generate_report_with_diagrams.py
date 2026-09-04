@@ -236,7 +236,13 @@ _p("COMMUNITY PROJECT REPORT", 16, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("SMARTGARBAGE CHINTALAVALASA", 18, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6, color=(0,100,0))
 _p("Community-Based Smart Waste Management\nand Digital Governance System", 14, align=WD_ALIGN_PARAGRAPH.CENTER, sa=36)
 _p("Submitted by", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=12)
-for name,reg in [("Name 1","Reg No. 1"),("Name 2","Reg No. 2"),("Name 3","Reg No. 3"),("Name 4","Reg No. 4")]:
+students = [
+    ("MOPADA JAGANMOHAN", "2433144441"),
+    ("LATCHUPATULA RESHMA", "24331A4434"),
+    ("PATI NARASIMHA MURTHY", "2433144446"),
+    ("KADA AUGUSTTN PAUL KUMAR", "24331A4426"),
+]
+for name,reg in students:
     _p(f"{name}  ({reg})", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=4)
 doc.add_paragraph()
 _p("In partial fulfillment for the award of the degree of", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=12)
@@ -245,34 +251,34 @@ _p("IN", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("COMPUTER SCIENCE & ENGINEERING", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
 _p("(Artificial Intelligence & Machine Learning)", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 _p("Under the esteemed Guidance of", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
-_p("GUIDE NAME", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
-_p("DESIGNATION", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
+_p("Mrs. S. Nikhila", 14, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
+_p("Assistant Professor", 12, align=WD_ALIGN_PARAGRAPH.CENTER, sa=24)
 doc.add_paragraph()
-_p("DEPARTMENT OF DATA ENGINEERING", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
+_p("DEPARTMENT OF DATA SCIENCE", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER, sa=3)
-_p("(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram)", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
+_p("(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram), Listed u/s 2(f) & 12(B) of UGC Act 1956.", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("Vijayaram Nagar Campus, Chintalavalasa, Vizianagaram-535005, Andhra Pradesh", 10, align=WD_ALIGN_PARAGRAPH.CENTER, sa=6)
 _p("October, 2025", 12, True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
 # CERTIFICATE
 _pb(); _h1("CERTIFICATE"); doc.add_paragraph()
-_body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Name 1 (Reg No. 1), Name 2 (Reg No. 2), Name 3 (Reg No. 3), and Name 4 (Reg No. 4), of B.Tech V Sem CSE-AIML, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
+_body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-AIML, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph()
-_p("Signature of Project Guide", 12, True, sa=3); _p("Name\nDesignation\nDepartment: Data Engineering", 12, sa=24)
-_p("Signature of Head of the Department", 12, True, sa=3); _p("Name\nDesignation\nDepartment: Data Engineering", 12)
+_p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Science", 12, sa=24)
+_p("Signature of Head of the Department", 12, True, sa=3); _p("Name\nDesignation\nDepartment: Data Science", 12)
 
 # DECLARATION
 _pb(); _h1("DECLARATION"); doc.add_paragraph()
 _body('We hereby declare that the work done on the dissertation entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" has been carried out by us and submitted in partial fulfilment for the award of credits in Bachelor of Technology in Computer Science and Engineering (Artificial Intelligence & Machine Learning) of M.V.G.R College of Engineering (Autonomous) and affiliated to JNTUGV, Vizianagaram. The various contents incorporated in the dissertation have not been submitted for the award of any degree of any other institution or university.')
 doc.add_paragraph()
-for n in ["Name 1 (Reg No. 1)","Name 2 (Reg No. 2)","Name 3 (Reg No. 3)","Name 4 (Reg No. 4)"]:
+for n in ["MOPADA JAGANMOHAN (2433144441)","LATCHUPATULA RESHMA (24331A4434)","PATI NARASIMHA MURTHY (2433144446)","KADA AUGUSTTN PAUL KUMAR (24331A4426)"]:
     _p(n, 12, sa=12)
 
 # ACKNOWLEDGEMENT
 _pb(); _h1("ACKNOWLEDGEMENT"); doc.add_paragraph()
 _body("We express our sincere gratitude to our project guide for their invaluable guidance and support as our mentor throughout the project. Their unwavering commitment to excellence and constructive feedback motivated us to achieve our project goals. We are greatly indebted to them for their exceptional guidance.")
 _body("Additionally, we extend our thanks to Prof. P.S. Sitharama Raju (Director), Dr. Y.M.C. Shekar (Principal), and Dr. Jyothi (Head of the Department) for their unwavering support and assistance, which were instrumental in the successful completion of the project.")
-_body("We also acknowledge the dedicated assistance provided by all the staff members in the Department of Data Engineering. Finally, we appreciate the contributions of all those who directly or indirectly contributed to the successful execution of this endeavor.")
+_body("We also acknowledge the dedicated assistance provided by all the staff members in the Department of Data Science. Finally, we appreciate the contributions of all those who directly or indirectly contributed to the successful execution of this endeavor.")
 
 # ABSTRACT
 _pb(); _h1("ABSTRACT"); doc.add_paragraph()
