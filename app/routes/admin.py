@@ -14,7 +14,8 @@ from werkzeug.security import generate_password_hash
 from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
                       DispatchAssignment, FirmwareRelease, IllegalDumpReport,
                       IncidentLog, MaintenanceWorkOrder, Notification,
-                      OfflineDelivery, PAYTInvoice, SensorHealth, SmartBin,
+                      OfflineDelivery, PAYTInvoice, PushNotificationLog,
+                      PushSubscription, SensorHealth, SmartBin,
                       User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
@@ -390,6 +391,74 @@ def configure_webhooks():
             write_audit("WEBHOOK_ADD", target=url, detail="Webhook URL registered.")
             flash(f"Webhook registered: {url}", "success")
     return redirect(url_for('main.admin'))
+
+
+@main.route('/api/push/analytics')
+@admin_required
+def push_analytics():
+    """Push notification delivery analytics for admin dashboard."""
+    from sqlalchemy import func
+
+    # Overall stats
+    total_sent = PushNotificationLog.query.filter_by(status='sent').count()
+    total_failed = PushNotificationLog.query.filter_by(status='failed').count()
+    total_dead = PushNotificationLog.query.filter_by(status='dead').count()
+    total_subscriptions = PushSubscription.query.count()
+
+    # Last 24 hours
+    from datetime import timedelta
+    cutoff_24h = utcnow() - timedelta(hours=24)
+    sent_24h = PushNotificationLog.query.filter(
+        PushNotificationLog.status == 'sent',
+        PushNotificationLog.created_at >= cutoff_24h).count()
+    failed_24h = PushNotificationLog.query.filter(
+        PushNotificationLog.status == 'failed',
+        PushNotificationLog.created_at >= cutoff_24h).count()
+
+    # Last 7 days (daily breakdown)
+    cutoff_7d = utcnow() - timedelta(days=7)
+    daily_stats = []
+    for i in range(7):
+        day_start = cutoff_7d + timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        day_sent = PushNotificationLog.query.filter(
+            PushNotificationLog.status == 'sent',
+            PushNotificationLog.created_at >= day_start,
+            PushNotificationLog.created_at < day_end).count()
+        day_failed = PushNotificationLog.query.filter(
+            PushNotificationLog.status.in_(['failed', 'dead']),
+            PushNotificationLog.created_at >= day_start,
+            PushNotificationLog.created_at < day_end).count()
+        daily_stats.append({
+            'date': day_start.strftime('%b %d'),
+            'sent': day_sent,
+            'failed': day_failed,
+        })
+
+    # Recent logs (last 50)
+    recent = PushNotificationLog.query.order_by(
+        PushNotificationLog.created_at.desc()).limit(50).all()
+    recent_data = [{
+        'id': l.id,
+        'user_id': l.user_id,
+        'title': l.title,
+        'body': l.body[:100] if l.body else '',
+        'status': l.status,
+        'error': l.error[:100] if l.error else None,
+        'created_at': l.created_at.strftime('%Y-%m-%d %H:%M') if l.created_at else None,
+    } for l in recent]
+
+    return jsonify({
+        'total_sent': total_sent,
+        'total_failed': total_failed,
+        'total_dead': total_dead,
+        'total_subscriptions': total_subscriptions,
+        'sent_24h': sent_24h,
+        'failed_24h': failed_24h,
+        'delivery_rate': round(total_sent / max(total_sent + total_failed + total_dead, 1) * 100, 1),
+        'daily_stats': daily_stats,
+        'recent': recent_data,
+    })
 
 
 @main.route('/api/bins.geojson')

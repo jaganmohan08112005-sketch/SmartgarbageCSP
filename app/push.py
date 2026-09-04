@@ -88,8 +88,9 @@ def send_push_notification(user_id, title, body, url="/dashboard"):
     """Send a web push notification to all of a user's subscribed devices.
 
     Best-effort: never raises. Logs failures and removes dead subscriptions.
+    Every attempt is recorded in PushNotificationLog for admin analytics.
     """
-    from .models import PushSubscription, db
+    from .models import PushSubscription, PushNotificationLog, db
 
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
     if not subs:
@@ -111,6 +112,9 @@ def send_push_notification(user_id, title, body, url="/dashboard"):
     })
 
     dead_endpoints = []
+    sent_count = 0
+    failed_count = 0
+
     for sub in subs:
         try:
             from pywebpush import webpush, WebPushException
@@ -125,6 +129,7 @@ def send_push_notification(user_id, title, body, url="/dashboard"):
                 ttl=86400,  # 24h
             )
             sub.last_used_at = utcnow()
+            sent_count += 1
             logger.info("push_sent", user_id=user_id, endpoint=sub.endpoint[:50])
         except Exception as e:
             error_str = str(e)
@@ -132,14 +137,48 @@ def send_push_notification(user_id, title, body, url="/dashboard"):
             if '404' in error_str or '410' in error_str or 'expired' in error_str.lower():
                 dead_endpoints.append(sub.endpoint)
                 logger.info("push_dead_subscription", endpoint=sub.endpoint[:50])
+                # Log dead subscription
+                try:
+                    db.session.add(PushNotificationLog(
+                        user_id=user_id, title=title, body=body, url=url,
+                        status='dead', error=error_str[:500],
+                        endpoint=sub.endpoint[:200],
+                    ))
+                except Exception:
+                    pass
             else:
+                failed_count += 1
                 logger.warning("push_send_failed", error=error_str[:200])
+                # Log failed attempt
+                try:
+                    db.session.add(PushNotificationLog(
+                        user_id=user_id, title=title, body=body, url=url,
+                        status='failed', error=error_str[:500],
+                        endpoint=sub.endpoint[:200],
+                    ))
+                except Exception:
+                    pass
+
+    # Log successful sends
+    if sent_count > 0:
+        try:
+            db.session.add(PushNotificationLog(
+                user_id=user_id, title=title, body=body, url=url,
+                status='sent', endpoint=f'{sent_count} device(s)',
+            ))
+        except Exception:
+            pass
 
     # Clean up dead subscriptions
     if dead_endpoints:
         for ep in dead_endpoints:
             PushSubscription.query.filter_by(endpoint=ep).delete()
         db.session.commit()
+    else:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 def send_complaint_status_push(complaint):

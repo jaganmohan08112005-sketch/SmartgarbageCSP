@@ -484,6 +484,29 @@ class PushSubscription(db.Model):
 
 
 # ──────────────────────────────────────────────
+# PUSH NOTIFICATION DELIVERY LOGS
+# Records every push send attempt for admin analytics: sent, delivered,
+# failed, dead subscription. Enables admins to monitor push health.
+# ──────────────────────────────────────────────
+class PushNotificationLog(db.Model):
+    __table_args__ = (
+        db.Index('ix_push_log_user_created', 'user_id', 'created_at'),
+        db.Index('ix_push_log_status_created', 'status', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(200), nullable=True)
+    status = db.Column(db.String(20), nullable=False, index=True)  # sent, delivered, failed, dead
+    error = db.Column(db.Text, nullable=True)
+    endpoint = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    user = db.relationship('User', backref=db.backref('push_logs', lazy=True))
+
+
+# ──────────────────────────────────────────────
 # v2: PROACTIVE DISPATCH ASSIGNMENT
 # Auto-queued by the telemetry ingest when a bin's ML overflow forecast
 # crosses FORECAST_ALERT_HOURS (6h); workers see the ranked queue, accept a
