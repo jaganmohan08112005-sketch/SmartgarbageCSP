@@ -468,10 +468,14 @@ def robots_txt():
 @main.route('/llms.txt')
 def llms_txt():
     """Serve the llms.txt file describing the portal for AI systems."""
-    return send_from_directory(
-        current_app.static_folder,
-        'llms.txt', mimetype='text/plain',
-        max_age=86400)
+    import pathlib
+    from flask import Response
+    txt_path = pathlib.Path(current_app.static_folder) / 'llms.txt'
+    if txt_path.is_file():
+        return Response(txt_path.read_text(encoding='utf-8'),
+                        mimetype='text/plain',
+                        headers={'Cache-Control': 'public, max-age=86400'})
+    abort(404)
 
 
 @main.route('/sitemap.xml')
