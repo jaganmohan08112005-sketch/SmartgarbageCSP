@@ -265,7 +265,7 @@ _pb(); _h1("CERTIFICATE"); doc.add_paragraph()
 _body('This is to certify that the project entitled "SmartGarbage Chintalavalasa — Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph()
 _p("Signature of Project Guide", 12, True, sa=3); _p("Mrs. S. Nikhila\nAssistant Professor\nDepartment: Data Science", 12, sa=24)
-_p("Signature of Head of the Department", 12, True, sa=3); _p("Name\nDesignation\nDepartment: Data Science", 12)
+_p("Signature of Head of the Department", 12, True, sa=3); _p("Dr. Jyothi\nHead of the Department\nDepartment: Data Science", 12)
 
 # DECLARATION
 _pb(); _h1("DECLARATION"); doc.add_paragraph()
