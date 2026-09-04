@@ -474,6 +474,109 @@
         <a href="/transparency">{{ icon('location') }} {{ _('Wards') }}</a>
         <a href="tel:+9118001199111">{{ icon('headset') }} {{ _('Help') }}</a>
     </nav>
+    {# ── PWA Install Banner (mobile only, appears after 2 visits) ── #}
+    <div id="sgInstallBanner" class="sg-install-banner d-none" role="region" aria-label="{{ _('Install app') }}" aria-live="polite">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="sg-install-icon" aria-hidden="true">📱</span>
+            <div class="sg-install-text flex-grow-1">
+                <strong>{{ _('Install SmartGarbage') }}</strong>
+                <small class="d-block text-white-50">{{ _('Add to home screen for offline access and instant schedules') }}</small>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                <button type="button" class="btn btn-sm btn-success rounded-pill px-3" id="sgInstallBtn">
+                    {{ _('Install') }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" id="sgInstallDismiss">
+                    {{ _('Not now') }}
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+    /* PWA Install Banner — shows on mobile after 2nd visit, respects dismissal */
+    (function() {
+        const DISMISS_KEY = 'sgInstallDismissed';
+        const VISIT_KEY = 'sgInstallVisits';
+        const DISMISS_DAYS = 7;
+        const banner = document.getElementById('sgInstallBanner');
+        const installBtn = document.getElementById('sgInstallBtn');
+        const dismissBtn = document.getElementById('sgInstallDismiss');
+        if (!banner || !installBtn || !dismissBtn) return;
+
+        /* Check if already dismissed within last 7 days */
+        function isDismissed() {
+            try {
+                const ts = localStorage.getItem(DISMISS_KEY);
+                if (!ts) return false;
+                const elapsed = Date.now() - parseInt(ts, 10);
+                return elapsed < DISMISS_DAYS * 86400000;
+            } catch (e) { return false; }
+        }
+
+        /* Increment visit counter */
+        function getVisits() {
+            try { return parseInt(localStorage.getItem(VISIT_KEY) || '0', 10); }
+            catch (e) { return 0; }
+        }
+        function setVisits(n) {
+            try { localStorage.setItem(VISIT_KEY, String(n)); } catch (e) {}
+        }
+
+        /* Capture the browser's install prompt */
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showBannerIfEligible();
+        });
+
+        /* Also handle iOS (no beforeinstallprompt — show manual instructions) */
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        }
+        function isStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        }
+
+        function showBannerIfEligible() {
+            if (isStandalone()) return;  /* Already installed */
+            if (isDismissed()) return;   /* Dismissed recently */
+            const visits = getVisits();
+            setVisits(visits + 1);
+            if (visits < 1) return;      /* Show after 2nd visit */
+            if (!deferredPrompt && !isIOS()) return;  /* No install capability */
+            banner.classList.remove('d-none');
+            banner.classList.add('sg-install-visible');
+        }
+
+        /* Install button click */
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('PWA install:', outcome);
+                deferredPrompt = null;
+                banner.classList.add('d-none');
+            } else if (isIOS()) {
+                /* Show iOS-specific instructions */
+                banner.querySelector('.sg-install-text').innerHTML =
+                    '<strong>📱 {{ _("Tap Share then Add to Home Screen") }}</strong>' +
+                    '<small class="d-block text-white-50">{{ _("Safari Menu → Add to Home Screen") }}</small>';
+                installBtn.classList.add('d-none');
+            }
+        });
+
+        /* Dismiss button */
+        dismissBtn.addEventListener('click', () => {
+            try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (e) {}
+            banner.classList.add('d-none');
+        });
+
+        /* Check on page load */
+        showBannerIfEligible();
+    })();
+    </script>
+
     {% if not config.get('ANALYTICS_ID') %}
     <div id="sgPrivacyNotice" class="sg-consent-banner cookie-consent" role="region" aria-label="{{ _('Cookie consent') }}">
         <div class="sg-consent-text">

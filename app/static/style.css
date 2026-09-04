@@ -900,6 +900,57 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     line-height: 1;
 }
 
+/* ---------- PWA Install Banner (mobile, bottom-fixed) ---------- */
+.sg-install-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 70px; /* above mobile quick-action bar */
+    z-index: 1085;
+    padding: .85rem 1rem;
+    background: linear-gradient(135deg, var(--sg-navy-800), #1a3a2a);
+    color: #fff;
+    border-top: 2px solid var(--sg-green-500);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, .3);
+    transform: translateY(100%);
+    transition: transform .35s cubic-bezier(.22, .61, .36, 1);
+}
+.sg-install-banner.sg-install-visible {
+    transform: translateY(0);
+}
+.sg-install-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.sg-install-text strong {
+    font-size: .95rem;
+    color: #fff;
+}
+.sg-install-text small {
+    font-size: .78rem;
+}
+/* Desktop: position like cookie consent (bottom-left, not full-width) */
+@media (min-width: 992px) {
+    .sg-install-banner {
+        left: 1rem;
+        right: auto;
+        bottom: 1rem;
+        max-width: 440px;
+        border-radius: var(--r-md);
+        border-top: none;
+        border: 1px solid rgba(46, 204, 113, .4);
+    }
+}
+/* High-contrast mode */
+[data-contrast="true"] .sg-install-banner {
+    background: #000 !important;
+    border-top-color: #ffd700 !important;
+}
+[data-contrast="true"] .sg-install-banner .sg-install-text strong {
+    color: #ffd700 !important;
+}
+
 /* ---------- Cookie-consent banner (analytics, consent-gated) ---------- */
 .sg-consent-banner {
     position: fixed;
