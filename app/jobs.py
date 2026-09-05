@@ -659,10 +659,10 @@ def dunning_job(grace_days=30):
             dup = Notification.query.filter(
                 Notification.user_id == inv.user_id,
                 Notification.link == f'/payt/pay/{inv.id}',
-                Notification.message.ilike('%overdue%')).first()  # ilike: case-insensitive on SQLite AND Postgres
+                Notification.message.ilike('%overdue%')).first()  # ilike: case-insensitive on Postgres
             if dup:
                 continue
-            # SQLite returns naive datetimes (Postgres aware) — normalize before
+            # Defensive: normalize naive datetimes before
             # subtraction so the age computation never raises.
             issued = inv.issued_at
             if issued is not None and issued.tzinfo is None:

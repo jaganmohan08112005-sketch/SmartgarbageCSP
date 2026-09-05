@@ -1,8 +1,13 @@
 import os
 import logging
+import time
+import hmac
+import base64
+import hashlib
 from datetime import datetime, timezone
 import structlog
-from flask import Flask, jsonify, render_template, session, redirect, url_for, request
+from flask import (Flask, Response, current_app, jsonify, render_template,
+                   session, redirect, url_for, request)
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -22,6 +27,67 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 talisman = Talisman()
+
+# ── Stateless CSRF for anonymous visitors ──
+# The CDN-caching design below strips session cookies from public pages:
+# anonymous visitors never carry a session, but Flask-WTF binds its CSRF
+# token to the session. Without a session the token can never validate, so
+# every anonymous POST — complaint filing (/report), analytics consent
+# (/api/consent), page feedback (/api/feedback) — would fail with a 400.
+# Fix: when the request carries no session-bound token, generate a
+# time-windowed HMAC token (no session storage) and validate it by
+# recomputation. It is unforgeable without SECRET_KEY and accepted only for
+# the current 30-minute bucket plus the previous one (a 60-minute replay
+# window, matching Flask-WTF's default WTF_CSRF_TIME_LIMIT), so CSRF
+# protection is preserved with zero cookies. Authenticated users keep the
+# original session-bound token, completely unchanged.
+from flask_wtf.csrf import generate_csrf as _orig_generate_csrf
+from flask_wtf.csrf import validate_csrf as _orig_validate_csrf
+from flask_wtf.csrf import CSRFError as _SG_CSRFError
+import flask_wtf.csrf as _csrf_mod  # noqa: E402  (CSRFProtect resolves these
+# module globals at call time — patching the package namespace is a no-op)
+
+_CSRF_WINDOW_SECONDS = 1800  # 30-minute buckets; current + previous accepted
+
+
+def _sg_csrf_secret():
+    return current_app.config.get('SECRET_KEY') or 'sg-csrf-fallback'
+
+
+def _sg_csrf_bucket_token(bucket):
+    digest = hmac.new(
+        _sg_csrf_secret().encode('utf-8'),
+        ('sg-csrf|%d' % bucket).encode('utf-8'),
+        hashlib.sha256,
+    ).digest()
+    return base64.urlsafe_b64encode(digest).decode('ascii').rstrip('=')
+
+
+def _sg_generate_csrf(*args, **kwargs):
+    field = current_app.config.get('WTF_CSRF_FIELD_NAME', 'csrf_token')
+    if session.get(field):
+        return _orig_generate_csrf(*args, **kwargs)
+    return _sg_csrf_bucket_token(int(time.time() // _CSRF_WINDOW_SECONDS))
+
+
+def _sg_validate_csrf(data, *args, **kwargs):
+    field = current_app.config.get('WTF_CSRF_FIELD_NAME', 'csrf_token')
+    if session.get(field):
+        return _orig_validate_csrf(data, *args, **kwargs)
+    if not data:
+        raise _SG_CSRFError('The CSRF token is missing.')
+    now = int(time.time() // _CSRF_WINDOW_SECONDS)
+    for bucket in (now, now - 1):
+        if hmac.compare_digest(_sg_csrf_bucket_token(bucket), data):
+            return None
+    raise _SG_CSRFError('The CSRF token is invalid or has expired.')
+
+
+# Patch the module-level names CSRFProtect resolves at call time (its
+# before_request validator and the jinja `csrf_token()` global), so both
+# anonymous and authenticated requests go through the logic above.
+_csrf_mod.generate_csrf = _sg_generate_csrf
+_csrf_mod.validate_csrf = _sg_validate_csrf
 
 # ── Deploy timestamp: a single freshness anchor ──
 # Computed ONCE at module import so every gunicorn worker (forked from the
@@ -113,6 +179,12 @@ def create_app(test_config=None):
                 and not path.startswith('/login')
                 and not path.startswith('/register')
                 and not path.startswith('/logout')
+                # MFA step is part of the auth flow: its Set-Cookie (clearing
+                # mfa_pending after a successful OTP) MUST reach the client.
+                # Stripping it here would keep the browser stuck on
+                # mfa_pending=True and every admin_required page would bounce
+                # back to /mfa-verify in a loop.
+                and not path.startswith('/mfa-verify')
             )
 
             def custom_start_response(status, headers, exc_info=None):
@@ -567,6 +639,7 @@ def create_app(test_config=None):
     # (304 Not Modified) so the browser can skip re-downloading unchanged
     # HTML. Combined with Cache-Control, this reduces repeat-visit TTFB.
     import hashlib as _hashlib
+
     @app.after_request
     def add_etag(resp):
         if (request.method in ('GET', 'HEAD')

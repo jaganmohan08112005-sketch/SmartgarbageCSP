@@ -480,6 +480,17 @@ EN = {
     'Office hours': 'Office hours',
     'Monday to Saturday, 10:00 AM – 5:00 PM': 'Monday to Saturday, 10:00 AM – 5:00 PM',
     'Back to SmartGarbage': 'Back to SmartGarbage',
+
+    # ── Feedback widget (GOV.UK-style) ──
+    'Is this page useful?': 'Is this page useful?',
+    'Yes': 'Yes',
+    'No': 'No',
+    'Skip this survey': 'Skip this survey',
+    'How can we improve this page?': 'How can we improve this page?',
+    'Do not include personal or financial information, like your National ID or credit card details.': 'Do not include personal or financial information, like your National ID or credit card details.',
+    'Send feedback': 'Send feedback',
+    'Thank you for your feedback': 'Thank you for your feedback',
+    'Help us improve this page by telling us what you think.': 'Help us improve this page by telling us what you think.',
 }
 
 TE = {
@@ -984,6 +995,17 @@ TE = {
     'Office hours': 'కార్యాలయ సమయాలు',
     'Monday to Saturday, 10:00 AM – 5:00 PM': 'సోమవారం నుండి శనివారం వరకు, ఉదయం 10:00 – సాయంత్రం 5:00',
     'Back to SmartGarbage': 'స్మార్ట్ గార్బేజ్‌కు తిరిగి వెళ్లండి',
+
+    # ── Feedback widget (GOV.UK-style) ──
+    'Is this page useful?': 'ఈ పేజీ ఉపయోగకరంగా ఉందా?',
+    'Yes': 'అవును',
+    'No': 'కాదు',
+    'Skip this survey': 'ఈ సర్వే దాటవేయి',
+    'How can we improve this page?': 'ఈ పేజీని మేము ఎలా మెరుగుపరచగలం?',
+    'Do not include personal or financial information, like your National ID or credit card details.': 'మీ జాతీయ గుర్తింపు కార్డ్ లేదా క్రెడిట్ కార్డ్ వివరాలు వంటి వ్యక్తిగత లేదా ఆర్థిక సమాచారాన్ని చేర్చవద్దు.',
+    'Send feedback': 'ఫీడ్‌బ్యాక్ పంపండి',
+    'Thank you for your feedback': 'మీ ఫీడ్‌బ్యాక్‌కు ధన్యవాదాలు',
+    'Help us improve this page by telling us what you think.': 'మీ అభిప్రాయం చెప్పడం ద్వారా ఈ పేజీని మెరుగుపరచడంలో మాకు సహాయపడండి.',
 }
 
 

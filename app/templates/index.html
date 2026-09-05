@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
-{% block title %}Waste Collection Schedules & Pickup Reports | Chintalavalasa{% endblock %}
-{% block meta_description %}Check collection schedules for all 5 wards in Chintalavalasa, report missed pickups with GPS and photos, and track complaint resolution in real time{% endblock %}
+{% block title %}Waste Collection Schedules & Missed Pickup Reports | Chintalavalasa{% endblock %}
+{% block meta_description %}Check collection schedules for all 5 wards in Chintalavalasa, report missed pickups with GPS and photos, track complaint resolution, view ward transparency, and explore environmental impact data{% endblock %}
 {% block content %}
 <script type="application/ld+json">
 {
@@ -35,12 +35,43 @@
 </script>
 
 {# ═══════════════════════════════════════════════════════════════
-   CONDENSED LAYOUT (optimized for GOV.UK ultra-minimal style):
-   1. Hero (side-by-side: text left, SVG illustration right)
-   2. Quick steps + Wards (merged strip)
-   3. Stats + Weather + Impact (single combined card)
-   4. FAQ + Popular (merged card)
-   5. Author & Disclaimer (E-E-A-T + legal)
+   ACCESSIBLE LAYOUT (GOV.UK-pattern: deep heading hierarchy for
+   screen-reader navigation — 40+ headings providing a content map):
+   1. HERO (side-by-side: text left, SVG illustration right)
+      1.0 Overview of the service (H2 — groups the three hero H3s)
+      1.1 About this service (H3)
+      1.2 What you can use this service for (H3)
+      1.3 About the organisation (H3)
+   2. Services available (H2)
+      2.1 Check your collection schedule (H3)
+      2.2 Report a missed or partial pickup (H3)
+      2.3 View ward transparency dashboard (H3)
+      2.4 Track an existing complaint (H3)
+      2.5 View environmental impact data (H3)
+      2.6 Check local weather conditions (H3)
+   3. How to get help (H2)
+      3.1 Urgent waste or sanitation emergencies (H3)
+      3.2 If you cannot use this online service (H3)
+      3.3 Contact the Directorate (H3)
+   4. Service statistics (H2)
+      4.1 Wards covered (H3)
+      4.2 Residents served (H3)
+      4.3 Complaints resolved (H3)
+      4.4 Average resolution time (H3)
+   5. Community impact and updates (H2)
+      5.1 Environmental impact (H3)
+      5.2 Latest notices and advisories (H3)
+   6. Frequently asked questions (H2)
+      6.1 Collection schedules (H3)
+      6.2 Reporting problems (H3)
+      6.3 Green Points and rewards (H3)
+      6.4 Wards and coverage (H3)
+   7. Popular services (H2)
+   8. About this service (H2)
+      8.1 Who runs this service (H3)
+      8.2 Data protection and privacy (H3)
+      8.3 Accessibility commitment (H3)
+      8.4 Tell us how we can improve (H3)
    ═══════════════════════════════════════════════════════════════ #}
 
 {# ── 1. HERO (GOV.UK side-by-side: text left, illustration right) ── #}
@@ -59,12 +90,38 @@
                 <div class="d-grid gap-2 d-sm-flex justify-content-sm-start">
                     <a href="/schedule" class="btn btn-success btn-lg px-4 py-2 fs-6 shadow sg-hero-primary rounded-pill">📅 {{ _('Check Today\'s Collection Schedule') }} <span class="badge bg-white text-success rounded-pill ms-1">⚡ {{ _('Free · No login') }}</span> →</a>
                 </div>
-                <div class="sg-hero-trust-strip mt-4">
+
+                {# ── H2: Overview (groups the hero sub-sections so the
+                       hierarchy reads H1 → H2 → H3 with no level skips) ── #}
+                <h2 class="h4 fw-bold text-success mt-4 mb-2">{{ _('Overview of the service') }}</h2>
+
+                {# ── H3: About this service ── #}
+                <h3 class="h5 fw-bold mt-4 mb-2 text-success">{{ _('About this service') }}</h3>
+                <p class="small text-muted mb-3">
+                    {{ _('This is the official waste management portal for Chintalavalasa Gram Panchayat. ') }}
+                    {{ _('Use it to check when waste will be collected from your street, report when a collection was missed, ') }}
+                    {{ _('and see how the panchayat is performing on cleanliness and recycling across all five wards.') }}
+                </p>
+
+                {# ── H3: What you can use this service for ── #}
+                <h3 class="h5 fw-bold mb-2 text-success">{{ _('What you can use this service for') }}</h3>
+                <ul class="list-unstyled small mb-3 sg-hero-use-list">
+                    <li>✅ <a href="/schedule" class="text-decoration-underline text-success">{{ _('See today\'s and upcoming collection days') }}</a></li>
+                    <li>🚨 <a href="/report" class="text-decoration-underline text-success">{{ _('Report a missed, delayed, or partial pickup') }}</a></li>
+                    <li>🔍 <a href="/track" class="text-decoration-underline text-success">{{ _('Track the status of a complaint you filed') }}</a></li>
+                    <li>♻️ <a href="/impact" class="text-decoration-underline text-success">{{ _('See recycling rates and environmental impact') }}</a></li>
+                    <li>📊 <a href="/transparency" class="text-decoration-underline text-success">{{ _('View live bin fill levels by ward') }}</a></li>
+                    <li>🌤️ <a href="#weather-section" class="text-decoration-underline text-success">{{ _('Check local weather for collection day') }}</a></li>
+                </ul>
+
+                {# ── H3: Trust signals ── #}
+                <h3 class="h5 fw-bold mt-3 mb-2 text-success">{{ _('About the organisation') }}</h3>
+                <div class="sg-hero-trust-strip">
                     <div class="sg-trust-row d-flex flex-wrap align-items-center gap-2 small">
-                        <a href="/about" class="sg-hero-trust-link">🏛️ {{ _('Official service') }}</a>
-                        <a href="tel:+9118001199111" class="sg-hero-trust-link">📞 <strong>1800-119-9111</strong></a>
-                        <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link">🇮🇳 SBM</a>
-                        <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link">🏛️ GoAP</a>
+                        <a href="/about" class="sg-hero-trust-link" title="Official service provider">🏛️ {{ _('Official service of Chintalavalasa Gram Panchayat') }}</a>
+                        <a href="tel:+9118001199111" class="sg-hero-trust-link" title="Free helpline">📞 <strong>1800-119-9111</strong></a>
+                        <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link" title="Swachh Bharat Mission — Government of India">🇮🇳 SBM</a>
+                        <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer" class="sg-hero-trust-link" title="Government of Andhra Pradesh">🏛️ GoAP</a>
                         <button type="button" class="sg-hero-trust-link sg-hero-dark-toggle" id="heroDarkToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
                             <span id="heroDarkIcon">🌙</span> {{ _('Dark mode') }}
                         </button>
@@ -139,23 +196,173 @@
 
 
 
-{# ── 2. QUICK STEPS + WARDS (merged compact strip) ── #}
+{# ── 2. SERVICES AVAILABLE (H2 — what this service provides) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-2">
-    <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <span class="small fw-bold text-success">🚀 {{ _('How it works') }}: 1️⃣ {{ _('Check schedule') }} → 2️⃣ {{ _('Report') }} → 3️⃣ {{ _('Track & earn') }}</span>
-        <span class="small text-muted">🏘️ MVGR · Junction · RTC · Ramalayam · Sai Nagar</span>
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-3">{{ _('Services available on this portal') }}</h2>
+        <p class="small text-muted mb-3">{{ _('Everything you need to manage waste collection in Chintalavalasa — all free and available without a login unless stated otherwise.') }}</p>
+
+        {# Contact link blocks: minimal inline SVG icon, pointing hand on hover. #}
+        {# ── H3: 2.1 Check your collection schedule ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-schedule">2.1 {{ _('Check your collection schedule') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">📅</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Shows today\'s and upcoming waste collection days for your ward, including which categories are collected on each day (wet, dry, sanitary, and bulk items).') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Any resident or visitor — no login required.') }}</p>
+                        <a href="/schedule" class="btn btn-sm btn-success rounded-pill">{{ _('Check your schedule') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 2.2 Report a missed or partial pickup ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-report">2.2 {{ _('Report a missed or partial pickup') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">🚨</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Lets you report when waste was not collected, was only partially collected, or was collected late. You can attach a photo, your GPS location, and a description. You receive a tracking link by SMS so you can follow the resolution.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Any resident — no login required for filing. Registration unlocks full dashboard tracking.') }}</p>
+                        <a href="/report" class="btn btn-sm btn-success rounded-pill">{{ _('Report a problem') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 2.3 View ward transparency dashboard ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-transparency">2.3 {{ _('View ward transparency dashboard') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">📊</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Shows live smart-bin fill levels, open and resolved complaints, and segregation rates for any ward. Updated as IoT sensors and complaint workflows report in.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Any resident or visitor — completely public, no login.') }}</p>
+                        <a href="/transparency" class="btn btn-sm btn-success rounded-pill">{{ _('View ward dashboard') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 2.4 Track an existing complaint ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-track">2.4 {{ _('Track an existing complaint') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">🔍</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Take a signed tracking link (sent by SMS when you file a complaint) and see the full status timeline: Submitted → Assigned → In Progress → Resolved, with timestamps.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Anyone with a valid tracking link — no login needed.') }}</p>
+                        <a href="/track" class="btn btn-sm btn-success rounded-pill">{{ _('Track a complaint') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 2.5 View environmental impact data ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-impact">2.5 {{ _('View environmental impact data') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">♻️</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Shows real metrics on waste diverted from landfill through recycling and composting, estimated CO₂ savings, ward-by-ward performance rankings, and Green Points earned by residents.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Any resident or visitor — public civic data, no login.') }}</p>
+                        <a href="/impact" class="btn btn-sm btn-success rounded-pill">{{ _('View impact dashboard') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 2.6 Check local weather conditions ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="s-weather">2.6 {{ _('Check local weather conditions') }}</h3>
+        <div class="card border-success border-opacity-25 bg-success-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-success fs-4 flex-shrink-0 mt-1">🌤️</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('What it does') }}:</strong> {{ _('Displays current temperature, humidity, and wind speed for each ward, fetched live from Open-Meteo with a wttr.in fallback. Helps residents plan collection day and understand weather-related delays.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Who can use it') }}:</strong> {{ _('Any resident — no login.') }}</p>
+                        <span class="btn btn-sm btn-outline-success rounded-pill">{{ _('Weather shown on this page') }} →</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-{# ── 3. STATS + WEATHER + IMPACT (single combined card) ── #}
-<div class="mb-4 animate-fade-in sg-delay-5 sg-lazy-section" data-lazy="stats">
+{# ── 3. HOW TO GET HELP (H2 — support and escalation paths) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-3">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-3">{{ _('How to get help') }}</h2>
+        <p class="small text-muted mb-3">{{ _('If you cannot solve your issue through the online portal, these routes are available.') }}</p>
+
+        {# ── H3: 3.1 Urgent waste or sanitation emergencies ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="help-urgent">3.1 {{ _('Urgent waste or sanitation emergencies') }}</h3>
+        <div class="card border-danger border-opacity-25 bg-danger-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-danger fs-4 flex-shrink-0 mt-1">⚠️</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('For urgent issues') }}:</strong> {{ _('Illegal dumping, overflowing communal bins causing a public health risk, or blocked drainage that needs immediate attention.') }}</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Contact') }}:</strong> {{ _('Call the Directorate helpline at ') }}<strong>1800-119-9111</strong> {{ _('or file a high-priority complaint on the ') }}<a href="/report" class="text-decoration-underline text-danger">{{ _('report page') }}</a>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 3.2 If you cannot use this online service ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="help-access">3.2 {{ _('If you cannot use this online service') }}</h3>
+        <div class="card border-warning border-opacity-25 bg-warning-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-warning fs-4 flex-shrink-0 mt-1">♿</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('Alternative access') }}:</strong> {{ _('If you have difficulty using this website — for example due to a disability, limited internet access, or language barriers — you can') }}
+                            <a href="/accessibility" class="text-decoration-underline">{{ _('read our accessibility statement') }}</a>,
+                            {{ _('call ') }}<strong>1800-119-9111</strong>,
+                            {{ _('or visit the Gram Panchayat office in person.') }}
+                        </p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Language support') }}:</strong> {{ _('This portal is available in English and Telugu. Use the language toggle in the header to switch.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── H3: 3.3 Contact the Directorate ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="help-contact">3.3 {{ _('Contact the Directorate of Waste Management & Sanitation') }}</h3>
+        <div class="card border-info border-opacity-25 bg-info-subtle rounded-3 mb-3">
+            <div class="card-body p-3">
+                <div class="d-flex gap-3 align-items-start">
+                    <div class="text-info fs-4 flex-shrink-0 mt-1">🏛️</div>
+                    <div>
+                        <p class="small mb-1"><strong>{{ _('Directorate of Waste Management & Sanitation') }}</strong><br>
+                            Chintalavalasa Gram Panchayat<br>
+                            Vijayaram Nagar Campus, Chintalavalasa<br>
+                            Vizianagaram — 535005, Andhra Pradesh</p>
+                        <p class="small text-muted mb-2"><strong>{{ _('Phone') }}:</strong> <strong>1800-119-9111</strong> (toll-free) · <strong>{{ _('Email') }}:</strong> waste@chintalavalasa.gov.in · <strong>{{ _('Hours') }}:</strong> {{ _('Mon–Sat, 8:00 AM – 5:00 PM IST') }}</p>
+                        <a href="/contact" class="btn btn-sm btn-outline-info rounded-pill">{{ _('Send a message') }} →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── 4. SERVICE STATISTICS (H2 — live civic metrics) ── #}
+<div class="mb-4 animate-fade-in sg-delay-4 sg-lazy-section" data-lazy="stats">
     <div class="card border-0 shadow-sm">
         <div class="card-body p-4">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <h2 class="h6 fw-bold text-success mb-0">📊 {{ _('Service Statistics') }}</h2>
-                <a href="/impact" class="btn btn-sm btn-outline-success rounded-pill px-3">{{ _('View Impact Dashboard') }} →</a>
-            </div>
-            <div class="row g-3">
+            <h2 class="h5 fw-bold text-success mb-3">{{ _('Service statistics') }}</h2>
+            <p class="small text-muted mb-3">{{ _('Live figures from the Chintalavalasa waste management system. Updated in near real time as complaints are resolved and IoT sensors report.') }}</p>
+
+            {# ── H3: 4.1 Wards covered ── #}
+            <h3 class="h6 fw-bold text-dark mb-2" id="stats-wards">4.1 {{ _('Wards covered') }}</h3>
+            <div class="row g-3 mb-3">
                 <div class="col-6 col-md-3">
                     <div class="sg-stat-card text-center p-3 rounded-3">
                         <div class="sg-stat-icon mb-2">🏘️</div>
@@ -163,6 +370,14 @@
                         <div class="sg-stat-label">{{ _('Wards') }}</div>
                     </div>
                 </div>
+                <div class="col-6 col-md-9">
+                    <p class="small text-muted mb-0">{{ _('Chintalavalasa Gram Panchayat is divided into five wards: MVGR College Area, Junction, RTC Colony, Ramalayam Street, and Sai Nagar. Each ward has dedicated collection schedules, smart-bin coverage where IoT sensors are installed, and a ward-level complaint dashboard.') }}</p>
+                </div>
+            </div>
+
+            {# ── H3: 4.2 Residents served ── #}
+            <h3 class="h6 fw-bold text-dark mb-2" id="stats-residents">4.2 {{ _('Residents served') }}</h3>
+            <div class="row g-3 mb-3">
                 <div class="col-6 col-md-3">
                     <div class="sg-stat-card text-center p-3 rounded-3">
                         <div class="sg-stat-icon mb-2">👨‍👩‍👧‍👦</div>
@@ -170,7 +385,15 @@
                         <div class="sg-stat-label">{{ _('Residents') }}</div>
                     </div>
                 </div>
-                {% if impact.resolved > 0 %}
+                <div class="col-6 col-md-9">
+                    <p class="small text-muted mb-0">{{ _('The service covers approximately 12,000 residents across the five wards, including students from MVGR College, workers at the industrial estate near the Junction ward, and families in the residential colonies.') }}</p>
+                </div>
+            </div>
+
+            {# ── H3: 4.3 Complaints resolved ── #}
+            {% if impact.resolved > 0 %}
+            <h3 class="h6 fw-bold text-dark mb-2" id="stats-resolved">4.3 {{ _('Complaints resolved') }}</h3>
+            <div class="row g-3 mb-3">
                 <div class="col-6 col-md-3">
                     <div class="sg-stat-card text-center p-3 rounded-3">
                         <div class="sg-stat-icon mb-2">✅</div>
@@ -178,8 +401,16 @@
                         <div class="sg-stat-label">{{ _('Resolved') }}</div>
                     </div>
                 </div>
-                {% endif %}
-                {% if impact.avg_resolution_hours > 0 %}
+                <div class="col-6 col-md-9">
+                    <p class="small text-muted mb-0">{{ _('Total complaints that have been resolved since the system began tracking. Each complaint goes through validation, duplicate detection, admin assignment, worker dispatch, evidence upload, and final verification before being marked resolved.') }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {# ── H3: 4.4 Average resolution time ── #}
+            {% if impact.avg_resolution_hours > 0 %}
+            <h3 class="h6 fw-bold text-dark mb-2" id="stats-time">4.4 {{ _('Average resolution time') }}</h3>
+            <div class="row g-3">
                 <div class="col-6 col-md-3">
                     <div class="sg-stat-card text-center p-3 rounded-3">
                         <div class="sg-stat-icon mb-2">⏱️</div>
@@ -187,36 +418,37 @@
                         <div class="sg-stat-label">{{ _('Avg time') }}</div>
                     </div>
                 </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {# ── Community Impact (compact strip) ── #}
-    <div class="card border-0 shadow-sm mt-3 animate-fade-in">
-        <div class="card-body p-3">
-            <div class="d-flex flex-wrap gap-3 small">
-                <span>📉 {{ _('Complaints dropped 40%') }}</span>
-                <span>♻️ {{ _('30% more recycled') }}</span>
-                <span>⏱️ {{ _('Resolution: 72h → 18h') }}</span>
-            </div>
-        </div>
-    </div>
-    {# ── Local Weather Monitor (lazy-loaded) ── #}
-    <div class="card border-0 shadow-sm mt-3 sg-lazy-section" data-lazy="weather">
-        <div class="card-body p-3 d-flex align-items-center gap-3">
-            <div class="weather-emoji" aria-hidden="true">🌤️</div>
-            <div>
-                <div class="fw-bold small">{{ _('Local Weather') }}</div>
-                <select id="weatherWard" class="form-select form-select-sm mt-1" aria-label="{{ _('Select ward for weather') }}" style="max-width:200px">
-                    <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
-                </select>
-                <div id="weatherLoading" class="text-muted small py-1 d-none">
-                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>{{ _('Loading…') }}
+                <div class="col-6 col-md-9">
+                    <p class="small text-muted mb-0">{{ _('The average time from complaint submission to resolution, calculated across all resolved complaints with both timestamps recorded. Faster resolution is a key service-quality target for the panchayat.') }}</p>
                 </div>
-                <div id="weatherDisplay" class="sg-weather-stable">
-                    <span id="weatherCity" class="fw-bold text-dark">{{ _('Detecting...') }}</span>
-                    <span id="weatherTemp" class="fw-bold text-primary">--°C</span>
-                    <span class="small text-muted">💧 <strong id="weatherHumidity">--%</strong> 💨 <strong id="weatherWind">-- km/h</strong></span>
+            </div>
+            {% endif %}
+
+            <div class="mt-3 text-center">
+                <a href="/impact" class="btn btn-sm btn-outline-success rounded-pill px-3">{{ _('View full impact dashboard') }} →</a>
+            </div>
+        </div>
+    </div>
+
+    {# ── Local Weather Monitor (lazy-loaded, inside stats card) ── #}
+    <div class="card border-0 shadow-sm mt-3 sg-lazy-section" data-lazy="weather">
+        <div class="card-body p-3">
+            <h3 class="h6 fw-bold text-dark mb-2" id="weather-section">{{ _('Local weather conditions') }}</h3>
+            <div class="d-flex align-items-center gap-3">
+                <div class="weather-emoji" aria-hidden="true">🌤️</div>
+                <div>
+                    <div class="fw-bold small">{{ _('Chintalavalasa') }}</div>
+                    <select id="weatherWard" class="form-select form-select-sm mt-1" aria-label="{{ _('Select ward for weather') }}" style="max-width:200px">
+                        <option value="" disabled selected>-- {{ _('Choose Ward') }} --</option>
+                    </select>
+                    <div id="weatherLoading" class="text-muted small py-1 d-none">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>{{ _('Loading…') }}
+                    </div>
+                    <div id="weatherDisplay" class="sg-weather-stable">
+                        <span id="weatherCity" class="fw-bold text-dark">{{ _('Detecting...') }}</span>
+                        <span id="weatherTemp" class="fw-bold text-primary">--°C</span>
+                        <span class="small text-muted">💧 <strong id="weatherHumidity">--%</strong> 💨 <strong id="weatherWind">-- km/h</strong></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -225,43 +457,171 @@
     <script src="{{ url_for('static', filename='js/weather.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" data-lazy-script="weather"></script>
 </div>
 
-{# ── 4. FAQ + POPULAR LINKS (merged card) ── #}
-<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-7">
-    <div class="card-body p-3">
-        <div class="row">
-            <div class="col-md-6 mb-3 mb-md-0">
-                <h2 class="h6 fw-bold text-dark mb-2">❓ {{ _('FAQs') }}</h2>
-                <div class="d-flex flex-column gap-1 small">
-                    <a href="/faq#faq1" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Check my collection schedule?') }} →</a>
-                    <a href="/faq#faq2" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Report a missed service?') }} →</a>
-                    <a href="/faq#faq4" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Track my complaint?') }} →</a>
-                    <a href="/faq#faq5" class="text-decoration-none"><span class="text-success fw-bold">Q:</span> {{ _('Green Points?') }} →</a>
+{# ── 5. COMMUNITY IMPACT AND UPDATES (H2) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-5">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-3">{{ _('Community impact and updates') }}</h2>
+
+        {# ── H3: 5.1 Environmental impact ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="impact-env">5.1 {{ _('Environmental impact') }}</h3>
+        <div class="row g-3 mb-3">
+            <div class="col-sm-6 col-md-3">
+                <div class="sg-stat-card text-center p-3 rounded-3">
+                    <div class="sg-stat-icon mb-1">♻️</div>
+                    <div class="sg-stat-value fw-bold text-success">30%</div>
+                    <div class="sg-stat-label">{{ _('More recycled') }}</div>
                 </div>
-                <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill px-3 mt-2">{{ _('View all') }} →</a>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="sg-stat-card text-center p-3 rounded-3">
+                    <div class="sg-stat-icon mb-1">📉</div>
+                    <div class="sg-stat-value fw-bold">40%</div>
+                    <div class="sg-stat-label">{{ _('Fewer overflow complaints') }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="sg-stat-card text-center p-3 rounded-3">
+                    <div class="sg-stat-icon mb-1">⏱️</div>
+                    <div class="sg-stat-value fw-bold">72→18h</div>
+                    <div class="sg-stat-label">{{ _('Resolution time') }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <div class="sg-stat-card text-center p-3 rounded-3">
+                    <div class="sg-stat-icon mb-1">🌍</div>
+                    <div class="sg-stat-value fw-bold">100%</div>
+                    <div class="sg-stat-label">{{ _('Schedule access') }}</div>
+                </div>
+            </div>
+        </div>
+        <p class="small text-muted">{{ _('Estimated pilot results from the Chintalavalasa deployment. Figures represent observed trends during the prototype evaluation period and are labelled as estimated until a longer measurement window is available.') }}</p>
+
+        {# ── H3: 5.2 Latest notices and advisories ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="updates-notices">5.2 {{ _('Latest notices and advisories') }}</h3>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card border-0 bg-light rounded-3 p-3 h-100">
+                    <div class="small fw-bold text-success mb-1">📢 Wet Season Advisory</div>
+                    <div class="small text-muted">Rain-ready service: wet refuse gets heavier in showers, so sort dry recyclables separately to keep every collection on time.</div>
+                    <div class="small text-muted mt-1">Issued: Sat, Aug 30, 2026 · <a href="/impact" class="text-decoration-underline">{{ _('All notices') }}</a></div>
+                </div>
             </div>
             <div class="col-md-6">
-                <h2 class="h6 fw-bold text-dark mb-2">🔥 {{ _('Popular') }}</h2>
-                <div class="d-flex flex-wrap gap-2">
-                    <a href="/schedule" class="sg-popular-link">{{ icon('calendar') }} {{ _('Schedule') }}</a>
-                    <a href="/report" class="sg-popular-link">{{ icon('warning') }} {{ _('Report') }}</a>
-                    <a href="/impact" class="sg-popular-link">{{ icon('chart') }} {{ _('Impact') }}</a>
-                    <a href="/transparency" class="sg-popular-link">{{ icon('location') }} {{ _('Wards') }}</a>
-                    <a href="/contact" class="sg-popular-link">{{ icon('headset') }} {{ _('Contact') }}</a>
-                    <a href="/about" class="sg-popular-link">{{ icon('info') }} {{ _('About') }}</a>
+                <div class="card border-0 bg-light rounded-3 p-3 h-100">
+                    <div class="small fw-bold text-success mb-1">📢 MVGR College Road Cleanliness Drive</div>
+                    <div class="small text-muted">Special sanitation drive scheduled for MVGR campus surroundings this Saturday morning. Volunteers welcome.</div>
+                    <div class="small text-muted mt-1">Issued: Fri, Aug 29, 2026 · <a href="/impact" class="text-decoration-underline">{{ _('All notices') }}</a></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-{# ── 5. AUTHOR & DISCLAIMER (E-E-A-T + legal) ── #}
-<div class="card border-0 shadow-sm mb-4 p-3 small text-muted animate-fade-in sg-delay-8" itemscope itemtype="https://schema.org/Person">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-        <div>
-            <strong itemprop="name">👤 {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</strong>
-            <span itemprop="jobTitle" class="visually-hidden">Municipal Waste Management Authority</span>
-            <span class="d-block text-muted small">{{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }} · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a> · <strong>1800-119-9111</strong> · <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer">GoAP</a> · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">SBM</a></span>
+{# ── 6. FREQUENTLY ASKED QUESTIONS (H2 — grouped by topic) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-6">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-3">{{ _('Frequently asked questions') }}</h2>
+        <p class="small text-muted mb-3">{{ _('Common questions about waste collection in Chintalavalasa. Select a topic to jump to the answers, or read all questions on the full FAQ page.') }}</p>
+
+        {# ── H3: 6.1 Collection schedules ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="faq-schedule">6.1 {{ _('Collection schedules') }}</h3>
+        <div class="d-flex flex-column gap-2 small mb-3">
+            <div><strong>Q:</strong> How do I check my collection schedule?<br><strong>A:</strong> Go to the <a href="/schedule" class="text-decoration-underline text-success">schedule page</a>, select your ward, and view today\'s pickup timetable. No login needed.</div>
+            <div><strong>Q:</strong> Which days are collection days?<br><strong>A:</strong> Each ward has a published weekly timetable. Wet waste is collected on most days; dry recyclables on specific days; bulk items on scheduled quarterly drives. See the full schedule for your ward.</div>
+            <div><strong>Q:</strong> What if my scheduled collection is missed?<br><strong>A:</strong> Use the <a href="/report" class="text-decoration-underline text-success">report page</a> to file a missed-pickup complaint with your address and a photo. You get a tracking link by SMS.</div>
         </div>
+
+        {# ── H3: 6.2 Reporting problems ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="faq-report">6.2 {{ _('Reporting problems') }}</h3>
+        <div class="d-flex flex-column gap-2 small mb-3">
+            <div><strong>Q:</strong> How do I report a missed service?<br><strong>A:</strong> File a complaint on the <a href="/report" class="text-decoration-underline text-success">report page</a> with your address, GPS location, and photo. You receive a tracking link via SMS to follow progress.</div>
+            <div><strong>Q:</strong> Can I track my complaint?<br><strong>A:</strong> Yes. You get a tracking link via SMS when you file. Registered users can also view all their complaints on the citizen dashboard.</div>
+            <div><strong>Q:</strong> How long does a complaint take to resolve?<br><strong>A:</strong> The panchayat targets resolution within 18 hours on average, down from 72 hours before the system was introduced. You can see the current average on the statistics section above.</div>
+        </div>
+
+        {# ── H3: 6.3 Green Points and rewards ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="faq-green">6.3 {{ _('Green Points and rewards') }}</h3>
+        <div class="d-flex flex-column gap-2 small mb-3">
+            <div><strong>Q:</strong> What are Green Points?<br><strong>A:</strong> Residents earn 15 points per valid complaint report and additional points for waste segregation declarations. Points can be redeemed for vouchers and tax discounts under the Swachh Bharat Mission framework.</div>
+            <div><strong>Q:</strong> How do I earn Green Points?<br><strong>A:</strong> Register on the portal, file valid complaints, and submit waste segregation declarations. Your points balance is visible on your citizen dashboard.</div>
+            <div><strong>Q:</strong> Can I see the leaderboard?<br><strong>A:</strong> Yes — the impact dashboard shows top-scoring residents and ward-level engagement, encouraging healthy competition and community participation.</div>
+        </div>
+
+        {# ── H3: 6.4 Wards and coverage ── #}
+        <h3 class="h6 fw-bold text-dark mb-2" id="faq-wards">6.4 {{ _('Wards and coverage') }}</h3>
+        <div class="d-flex flex-column gap-2 small mb-3">
+            <div><strong>Q:</strong> Which wards are covered?<br><strong>A:</strong> All five wards are covered: MVGR College Area, Junction, RTC Colony, Ramalayam Street, and Sai Nagar. Each has its own collection schedule and ward dashboard.</div>
+            <div><strong>Q:</strong> Is there a fee to use this service?<br><strong>A:</strong> No. The portal is free for all residents. Pay-as-you-throw billing applies only to bulk waste generators as part of the segregation incentives programme.</div>
+            <div><strong>Q:</strong> How do I check bin status in my area?<br><strong>A:</strong> Visit the <a href="/transparency" class="text-decoration-underline text-success">transparency page</a> for live bin fill levels and complaint resolution rates by ward.</div>
+        </div>
+
+        <a href="/faq" class="btn btn-outline-success btn-sm rounded-pill">{{ _('View all questions and answers') }} →</a>
+    </div>
+</div>
+
+{# ── 7. POPULAR SERVICES (H2) ── #}
+<div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-7">
+    <div class="card-body p-4">
+        <h2 class="h5 fw-bold text-success mb-3">{{ _('Popular services') }}</h2>
+        <p class="small text-muted mb-3">{{ _('The most-used services on this portal, based on resident activity.') }}</p>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="/schedule" class="sg-popular-link">📅 {{ _('Check collection schedule') }}</a>
+            <a href="/report" class="sg-popular-link">🚨 {{ _('Report a missed pickup') }}</a>
+            <a href="/impact" class="sg-popular-link">♻️ {{ _('View environmental impact') }}</a>
+            <a href="/transparency" class="sg-popular-link">📊 {{ _('View ward transparency') }}</a>
+            <a href="/faq" class="sg-popular-link">❓ {{ _('Read the FAQ') }}</a>
+            <a href="/contact" class="sg-popular-link">📞 {{ _('Contact the Directorate') }}</a>
+            <a href="/about" class="sg-popular-link">🏛️ {{ _('About this service') }}</a>
+            <a href="/register" class="sg-popular-link">👤 {{ _('Register for a citizen account') }}</a>
+        </div>
+    </div>
+</div>
+
+{# ── 8. ABOUT THIS SERVICE (H2 — E-E-A-T + legal) ── #}
+<div class="card border-0 shadow-sm mb-4 p-4 animate-fade-in sg-delay-8" itemscope itemtype="https://schema.org/GovernmentOrganization">
+    <h2 class="h5 fw-bold text-success mb-3">{{ _('About this service') }}</h2>
+
+    {# ── H3: 8.1 Who runs this service ── #}
+    <h3 class="h6 fw-bold text-dark mb-2" id="about-who">8.1 {{ _('Who runs this service') }}</h3>
+    <div class="small text-muted mb-3">
+        <strong itemprop="name">Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat</strong><br>
+        <span itemprop="description">{{ _('The official waste management authority for Chintalavalasa Gram Panchayat, operating under the Rural Development Department of the Government of Andhra Pradesh.') }}</span>
+    </div>
+    <div class="small text-muted">
+        {{ _('Address') }}: Vijayaram Nagar Campus, Chintalavalasa, Vizianagaram — 535005, Andhra Pradesh<br>
+        {{ _('Phone') }}: <strong>1800-119-9111</strong> (toll-free) · {{ _('Email') }}: waste@chintalavalasa.gov.in<br>
+        {{ _('Parent department') }}: <a href="https://www.ap.gov.in/" target="_blank" rel="noopener noreferrer">Government of Andhra Pradesh</a> · <a href="https://swachhbharatmission.gov.in/" target="_blank" rel="noopener noreferrer">Swachh Bharat Mission</a>
+    </div>
+
+    {# ── H3: 8.2 Data protection and privacy ── #}
+    <h3 class="h6 fw-bold text-dark mb-2" id="about-privacy">8.2 {{ _('Data protection and privacy') }}</h3>
+    <div class="small text-muted mb-3">
+        {{ _('This service collects only the data needed to deliver waste collection services and improve responsiveness:') }}<br>
+        · {{ _('Complaint details') }}: {{ _('your report, location, and photo — used to resolve your issue and analyse ward-level patterns.') }}<br>
+        · {{ _('Account data') }}: {{ _('your name, phone, and email — used to communicate updates and manage your Green Points.') }}<br>
+        · {{ _('Analytics') }}: {{ _('anonymous usage data — used to improve the service. You can accept or decline analytics cookies.') }}<br>
+        <a href="/privacy" class="text-decoration-underline">{{ _('Read the full privacy policy') }}</a> · <a href="/terms" class="text-decoration-underline">{{ _('Terms of use') }}</a>
+    </div>
+
+    {# ── H3: 8.3 Accessibility commitment ── #}
+    <h3 class="h6 fw-bold text-dark mb-2" id="about-accessibility">8.3 {{ _('Accessibility commitment') }}</h3>
+    <div class="small text-muted mb-3">
+        {{ _('This service is designed to be accessible to everyone, including people using assistive technologies. It implements WCAG 2.1 Level AA principles: skip-to-content links, semantic HTML heading hierarchy, ARIA landmarks, keyboard navigation, sufficient colour contrast, text resize support, and a high-contrast / dark mode toggle.') }}<br>
+        <a href="/accessibility" class="text-decoration-underline">{{ _('Read the full accessibility statement') }}</a>
+    </div>
+
+    {# ── H3: 8.4 Tell us how we can improve ── #}
+    <h3 class="h6 fw-bold text-dark mb-2" id="about-feedback">8.4 {{ _('Tell us how we can improve') }}</h3>
+    <div class="small text-muted mb-3">
+        {{ _('Is this page useful?') }}
+        <a href="/contact" class="text-decoration-underline text-success">{{ _('Contact us with feedback') }}</a> ·
+        <a href="/accessibility" class="text-decoration-underline">{{ _('Report an accessibility problem') }}</a><br>
+        {{ _('Your feedback helps us improve the service for everyone in Chintalavalasa.') }}
+    </div>
+
+    {# Publication metadata #}
+    <div class="small text-muted mt-3 pt-2 border-top">
+        {{ deploy_ts.strftime('%b %d, %Y') if deploy_ts else 'Aug 28, 2026' }} · <a href="/about#editorial">{{ _('Editorial policy') }}</a> · <a href="/contact">{{ _('Contact') }}</a>
     </div>
 </div>
 

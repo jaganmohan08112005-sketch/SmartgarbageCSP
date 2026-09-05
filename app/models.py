@@ -8,7 +8,7 @@ def utcnow():
 
     Every DateTime column is `timestamp without time zone`, so a tz-aware
     value would either be rejected or silently shifted by the DB session's
-    timezone on Postgres (SQLite ignores tz entirely). The app therefore
+    timezone on Postgres. The app therefore
     stores UTC wall-clock time and only normalizes to aware UTC for
     arithmetic (see the read-side guards in ml_model / routes).
     """
@@ -557,10 +557,10 @@ class DispatchAssignment(db.Model):
         db.Index('ix_dispatch_bin_status', 'bin_id', 'status'),
         db.Index('ix_dispatch_worker_status', 'worker_id', 'status'),
         # Race guard: at most ONE active (Assigned) assignment per bin, so two
-        # trucks can never both claim the same bin. Partial unique index works
-        # on both SQLite and Postgres (status is a constant here, not a param).
+        # trucks can never both claim the same bin. PostgreSQL (Supabase) is
+        # the only supported backend, so the partial unique index declares its
+        # WHERE clause via postgresql_where only.
         db.Index('uq_dispatch_bin_assigned', 'bin_id', unique=True,
-                 sqlite_where=db.text("status = 'Assigned'"),
                  postgresql_where=db.text("status = 'Assigned'")),
     )
     id = db.Column(db.Integer, primary_key=True)
@@ -652,4 +652,25 @@ class ConsentRecord(db.Model):
     version = db.Column(db.String(20), nullable=False, default='v1')  # consent policy version shown
     source = db.Column(db.String(200), nullable=True)       # page path where the banner was shown
     fingerprint = db.Column(db.String(64), nullable=False)  # salted sha256(ip + user_agent) — never reversible to PII
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
+# ──────────────────────────────────────────────
+# v8: PAGE FEEDBACK (GOV.UK-style "Is this page useful?")
+# Anonymous per-page usefulness votes with optional improvement comment.
+# The only identifier stored is a salted SHA-256 fingerprint of
+# (IP + user-agent), matching ConsentRecord's privacy posture — the
+# panchayat can count votes and spot problem pages without being able to
+# identify any individual. Written by the widget on every public page.
+# ──────────────────────────────────────────────
+class PageFeedback(db.Model):
+    __table_args__ = (
+        # Hot paths: per-page breakdown + recency-sorted admin summary.
+        db.Index('ix_page_feedback_page_created', 'page', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    page = db.Column(db.String(200), nullable=False, index=True)   # path, e.g. '/schedule'
+    useful = db.Column(db.Boolean, nullable=False)                 # True = Yes, False = No
+    comment = db.Column(db.Text, nullable=True)                    # optional improvement note (<= 2000 chars)
+    fingerprint = db.Column(db.String(64), nullable=False)         # salted sha256(ip + user_agent)
     created_at = db.Column(db.DateTime, default=utcnow, index=True)

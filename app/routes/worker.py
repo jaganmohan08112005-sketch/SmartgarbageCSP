@@ -153,7 +153,7 @@ def _dispatch_queue_rows(profile=None):
         })
     # The SQL ORDER BY can't rank bins whose ETA was just computed in Python —
     # sort here (smallest hours-to-overflow first, then highest fill) so the
-    # ranking is identical for stored and lazy forecasts, on SQLite AND Postgres.
+    # ranking is identical for stored and lazy forecasts.
     rows.sort(key=lambda r: (r['overflow_eta_hours'], -r['level']))
     return rows
 
@@ -198,7 +198,7 @@ def dispatch_accept():
     # Optimistic-lock claim of the auto-queued Pending row. There is at most
     # one Pending row per bin (the telemetry auto-queue refuses to mint a
     # second one), so target its id with a status guard: `WHERE id=? AND
-    # status='Pending'` is a single atomic UPDATE on both SQLite and Postgres
+    # status='Pending'` is a single atomic UPDATE on Postgres
     # — of two workers racing to claim it, exactly one sees rowcount 1; the
     # loser sees 0 and falls through to the fresh-insert path, where the
     # partial unique index on (bin_id) WHERE status='Assigned' turns the

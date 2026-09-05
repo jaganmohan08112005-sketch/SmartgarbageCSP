@@ -91,7 +91,7 @@ LOCKOUT_MINUTES = 15
 def _locked_until_utc(user):
     """Return the lockout expiry as a timezone-aware UTC datetime.
 
-    SQLite returns naive datetimes (it has no tz support); Postgres returns
+    PostgreSQL returns timezone-aware datetimes (naive timestamps are
     aware ones. Normalize so arithmetic like `until - now` never raises.
     """
     until = user.locked_until if user else None
@@ -166,7 +166,7 @@ def save_compressed_photo(file_storage, prefix):
     privacy side-effect. Falls back to the raw file on any error.
     """
     # Cap the original filename stem so the composite path/URL stays under the
-    # VARCHAR(200) photo columns — Postgres enforces lengths SQLite ignores.
+    # VARCHAR(200) photo columns — Postgres enforces declared lengths.
     _stem = secure_filename(file_storage.filename or 'photo.jpg')[:80] or 'photo.jpg'
     filename = f"{prefix}_{random.randint(10000, 99999)}_{_stem}"
     try:
@@ -283,7 +283,7 @@ def point_in_polygon(lat, lon, polygon):
 def fit_length(value, max_len):
     """Truncate a string to a column's VARCHAR(n) limit (Postgres parity).
 
-    SQLite silently ignores declared string lengths; Postgres raises a
+    PostgreSQL raises a
     DataError past VARCHAR(n). Free-text form fields are truncated at the
     boundary so a long citizen input can never crash the write.
     """
@@ -662,7 +662,6 @@ def _notify_status_change(complaint):
         logger.warning("push_notification_failed", error=str(e)[:200])
 
 
-
 # ──────────────────────────────────────────────
 # CITIZEN COMPLAINT TRACKING (shareable /track/<token>)
 # A signed, expiring token (URLSafeTimedSerializer over the complaint id) is
@@ -721,7 +720,7 @@ def record_complaint_event(complaint, status, note=None, commit=True):
 def _ward_sla_hours():
     """Average resolution time (hours) per ward, from resolved complaints.
 
-    SQL aggregate (SQLite/Postgres parity) so the SLA estimate stays cheap as
+    SQL aggregate so the SLA estimate stays cheap as
     complaints grow; cached in Redis for 5 minutes. Wards with no resolved
     complaints simply don't appear — the track page falls back to the standard
     48h SLA. Uses resolved_at - created_at so the estimate reflects ACTUAL

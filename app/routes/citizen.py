@@ -47,7 +47,7 @@ def dashboard():
     declarations = WasteDeclaration.query.filter_by(user_id=session['user_id']).order_by(WasteDeclaration.timestamp.desc()).limit(per_page).offset((page - 1) * per_page).all()
     # Segregation streak counts DISTINCT calendar days with segregated > 0 kg —
     # the old loop counted consecutive ROWS, so two declarations in one day
-    # inflated the streak. SQL DISTINCT DATE() is portable across SQLite/Postgres.
+    # inflated the streak. SQL DISTINCT DATE() on PostgreSQL.
     _segregated_days = db.session.query(
         db.func.date(WasteDeclaration.timestamp)
     ).filter(

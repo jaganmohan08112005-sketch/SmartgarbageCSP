@@ -703,26 +703,47 @@ gap: .5rem;
 .sg-footer-link:hover{ color: #ffc107; }
 .sg-consent-banner{
     position: fixed;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1090;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    max-width: 860px;
-    margin: 0 auto;
-    padding: .9rem 1.1rem;
-    border-radius: var(--r-md);
-    background: var(--sg-navy-800);
-    color: #fff;
-    box-shadow: var(--sh-lg);
-    border: 1px solid rgba(255, 255, 255, .12);
-    font-size: .85rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: #f4f8fb;
+    color: #0b0c0c;
+    box-shadow: 0 -1px 3px rgba(11, 12, 12, .12);
+    font-size: 1rem;
+    line-height: 1.45;
 }
-.sg-consent-text{ flex: 1 1 280px; }
+.sg-govuk-consent-inner{ max-width: 960px; margin: 0 auto; padding: 18px 15px 10px; }
+.sg-govuk-consent-message p.sg-govuk-consent-p{ margin: 0 0 8px; font-size: 1rem; line-height: 1.45; }
+.sg-govuk-consent-actions{ display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 14px; }
+.sg-govuk-btn{
+    display: inline-block;
+    min-width: 160px;
+    padding: 8px 10px 7px;
+    border: 2px solid transparent;
+    border-radius: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1;
+    color: #fff;
+    background-color: #0f7a52;
+    box-shadow: 0 2px 0 #083d29;
+    text-align: center;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+.sg-govuk-btn:hover{ background-color: #0b5c3e; }
+.sg-govuk-btn:active{ transform: translateY(2px); box-shadow: none; }
+.sg-govuk-btn:focus-visible{ outline: 3px solid #ffdd00; outline-offset: 0; }
+.sg-govuk-btn--secondary{ background-color: #f3f3f3; color: #0b0c0c; box-shadow: 0 2px 0 #858686; }
+.sg-govuk-btn--secondary:hover{ background-color: #dbdad9; }
+.sg-govuk-consent-link{ color: #1d70b8; text-decoration: underline; }
+.sg-govuk-consent-link:hover{ color: #0c2d48; }
+.sg-govuk-consent-link:focus-visible{ box-decoration-break: clone; outline: 3px solid #ffdd00; outline-offset: 0; }
+.sg-govuk-consent-confirmation{ display: block; margin-top: 4px; }
 [data-contrast="true"] .sg-navbar{ background: #000 !important; border-bottom-color: #fff !important; }
 [data-contrast="true"] .card,
 [data-contrast="true"] .table,

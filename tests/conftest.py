@@ -144,7 +144,6 @@ def app():
         db.drop_all()
     with app.app_context():
         db.engine.dispose()
-        os.remove(path)
 
 
 # ---------------------------------------------------------------------------

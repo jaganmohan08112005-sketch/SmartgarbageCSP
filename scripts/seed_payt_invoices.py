@@ -105,7 +105,7 @@ def seed_payt_invoices(app=None, months=5, force=False):
                 if extra and uname != "24331A4441CITIZEN":
                     # Drop user-scoped rows that reference the account BEFORE
                     # the user — dunning creates Notifications for invoice
-                    # owners, and Postgres enforces the FK (SQLite ignores it).
+                    # owners, and Postgres enforces the FK.
                     Notification.query.filter_by(user_id=extra.id).delete()
                     db.session.delete(extra)
             db.session.commit()

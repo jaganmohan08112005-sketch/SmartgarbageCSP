@@ -7,31 +7,13 @@ on:
     branches: [main]
 
 jobs:
+  # Single Postgres test job: Supabase PostgreSQL is the only supported
+  # database backend, so tests run against a real PostgreSQL service
+  # container (conftest.py requires
+  # TEST_DATABASE_URL, which is only meaningful with Postgres). Test
+  # fixtures honor TEST_DATABASE_URL (see tests/conftest.py) and
+  # drop/recreate the schema per test for isolation.
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          python -m playwright install --with-deps chromium
-      - name: Run tests
-        run: |
-          # pytest.ini defaults to parallel (-n auto) + 180s per-test timeout
-          python -m pytest tests/ -v
-
-  # Postgres-parity job: runs the full suite against a real PostgreSQL
-  # service container instead of SQLite, so tz/type/constraint differences
-  # (case-sensitive LIKE, enforced FKs, timestamp precision, JSON columns)
-  # surface in CI before they reach production. Test fixtures honor the
-  # TEST_DATABASE_URL env var (see tests/conftest.py) and drop/recreate the
-  # schema per test for isolation.
-  test-postgres:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -65,6 +47,19 @@ jobs:
           # Shared single database: MUST run sequentially (-n 0); the per-test
           # timeout still applies so a hang fails fast instead of blocking.
           python -m pytest tests/ -n 0 --timeout=180 -v
+      - name: Verify stateless CSRF path (anonymous consent + feedback)
+        run: |
+          # Named coverage for the stateless, time-windowed HMAC CSRF path that
+          # the CDN-caching design depends on (anonymous visitors get no session
+          # cookie, so Flask-WTF's session-bound validation would reject every
+          # anonymous POST — /api/consent, /api/feedback, /report). The full
+          # suite above already runs these; this explicit step makes a
+          # regression to that production-critical path fail loudly BY NAME:
+          #   test_consent_endpoint_works_with_csrf_enabled
+          #   test_feedback_endpoint_works_with_csrf_enabled
+          # (missing header → 400, tampered token → 400, valid token without
+          #  any cookie → 200 + row in Postgres)
+          python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "csrf_enabled"
 
   lint:
     runs-on: ubuntu-latest
@@ -93,7 +88,7 @@ jobs:
   # against a real deploy before going live. Trigger: push to `staging` branch.
   deploy-staging:
     if: github.ref == 'refs/heads/staging'
-    needs: [test, test-postgres, lint]
+    needs: [test, lint]
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render staging deploy

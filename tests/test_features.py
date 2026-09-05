@@ -3431,9 +3431,9 @@ def test_no_json_columns_and_text_sector_polygon(app):
     from app.models import WorkerProfile
     col = WorkerProfile.__table__.c.sector_polygon
     assert str(col.type).upper() == 'TEXT'
-    # Case-sensitive matching contract: the app never relies on SQLite's
+    # Case-sensitive matching contract: the app never relies on
     # ASCII case-insensitive LIKE — the one fuzzy lookup uses ilike (works on
-    # both SQLite via lower() and Postgres natively).
+    # lower() (portable SQL) or Postgres native ILIKE).
     from app.jobs import JOB_RETRY_POLICIES  # sanity: jobs still import fine
     assert 'dunning_job' in JOB_RETRY_POLICIES
 
@@ -5015,3 +5015,130 @@ def test_privacy_policy_dpdp_audit_sections(client):
     # Designated officer + response commitment.
     assert 'Grievance &amp; Data Protection Officer' in body or 'Grievance & Data Protection Officer' in body
     assert 'within 15 days' in body
+
+
+# ── Page Feedback widget (GOV.UK-style "Is this page useful?") ──────
+
+def test_feedback_vote_logged_anonymized(client, app):
+    """Yes/No votes are logged anonymously with an optional comment."""
+    from app.models import PageFeedback
+    with app.app_context():
+        PageFeedback.query.delete()
+        db.session.commit()
+
+    r = client.post('/api/feedback', json={'useful': True, 'page': '/schedule'},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    r2 = client.post('/api/feedback', json={'useful': False, 'page': '/schedule',
+                                            'comment': 'Could not find my ward'},
+                     follow_redirects=False)
+    assert r2.status_code == 200
+
+    with app.app_context():
+        rows = PageFeedback.query.order_by(PageFeedback.id).all()
+        assert len(rows) == 2
+        assert rows[0].useful is True
+        assert rows[1].useful is False
+        assert rows[1].comment == 'Could not find my ward'
+        assert rows[0].page == '/schedule'
+        # Anonymized: only a salted fingerprint — no raw IP / UA / identity.
+        assert len(rows[0].fingerprint) == 64
+        for x in rows:
+            assert x.fingerprint and '127.0.0.1' not in x.fingerprint
+
+    # Invalid payloads are rejected.
+    r3 = client.post('/api/feedback', json={'useful': 'maybe'}, follow_redirects=False)
+    assert r3.status_code == 400
+    r4 = client.post('/api/feedback', json={}, follow_redirects=False)
+    assert r4.status_code == 400
+
+
+def test_feedback_widget_renders_on_public_pages(client):
+    """The widget markup ships on public pages (and is skipped on /admin)."""
+    r = client.get('/schedule')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Is this page useful?' in body
+    assert 'sgFeedbackRoot' in body
+    assert 'api/feedback' in body
+
+
+def test_feedback_stats_admin_only(client, app):
+    """The admin summary endpoint requires an admin login."""
+    # Anonymous → redirect to login.
+    r = client.get('/api/feedback/stats')
+    assert r.status_code in (302, 401)
+
+    from app.models import PageFeedback, User
+    with app.app_context():
+        PageFeedback.query.delete()
+        db.session.commit()
+    client.post('/api/feedback', json={'useful': True, 'page': '/'}, follow_redirects=False)
+    client.post('/api/feedback', json={'useful': True, 'page': '/'}, follow_redirects=False)
+    client.post('/api/feedback', json={'useful': False, 'page': '/schedule'},
+                follow_redirects=False)
+
+    _make_user(app, 'fb_admin', role='admin')
+    with app.app_context():
+        u = User.query.filter_by(username='fb_admin').first()
+        u.is_approved = True
+        db.session.commit()
+    _login_admin(client, app, 'fb_admin')
+    r = client.get('/api/feedback/stats')
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data['total'] == 3
+    assert data['useful_yes'] == 2
+    assert data['useful_no'] == 1
+    assert data['satisfaction_rate'] == 66.7
+    # Per-page breakdown covers both pages.
+    pages = {p['page']: p for p in data['per_page']}
+    assert pages['/']['total'] == 2
+    assert pages['/schedule']['total'] == 1
+    assert len(data['recent']) == 3
+
+
+def test_feedback_endpoint_works_with_csrf_enabled(tmp_path):
+    """The anonymous /api/feedback flow works with CSRF protection on (as in
+    production). The CDN-caching design never sends a session cookie to
+    anonymous visitors, so the widget relies on the stateless, time-windowed
+    HMAC CSRF token rendered in the meta tag — no cookie required."""
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if not test_db_url:
+        raise RuntimeError('TEST_DATABASE_URL required for CSRF test')
+    csrf_app = create_app(test_config={
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': True,
+        'SQLALCHEMY_DATABASE_URI': test_db_url,
+        'SERVER_NAME': 'localhost:5001',
+    })
+    with csrf_app.app_context():
+        db.drop_all()
+        db.create_all()
+    c = csrf_app.test_client()
+    r = c.get('/schedule')
+    assert r.status_code == 200
+    import re
+    m = re.search(r'<meta name="csrf-token" content="([^"]+)">', r.get_data(as_text=True))
+    assert m, 'csrf meta token must render for the anonymous session'
+    token = m.group(1)
+    # Missing header → CSRF rejects.
+    bad = c.post('/api/feedback', json={'useful': True, 'page': '/schedule'},
+                 follow_redirects=False)
+    assert bad.status_code == 400
+    # Tampered token → CSRF rejects.
+    forged = c.post('/api/feedback', json={'useful': True, 'page': '/schedule'},
+                    headers={'X-CSRFToken': token + 'x'}, follow_redirects=False)
+    assert forged.status_code == 400
+    # Header + no cookie (stateless token) → accepted and logged.
+    ok = c.post('/api/feedback', json={'useful': False, 'page': '/schedule',
+                                       'comment': 'csrf enabled'},
+                headers={'X-CSRFToken': token}, follow_redirects=False)
+    assert ok.status_code == 200
+    with csrf_app.app_context():
+        from app.models import PageFeedback
+        row = PageFeedback.query.first()
+        assert row is not None and row.useful is False
+        assert row.comment == 'csrf enabled' and row.page == '/schedule'
+    with csrf_app.app_context():
+        db.drop_all()

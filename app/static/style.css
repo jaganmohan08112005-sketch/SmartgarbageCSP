@@ -1074,30 +1074,49 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 }
 [data-contrast="true"] .sg-install-banner .sg-install-text strong {
     color: #ffd700 !important;
-}
-
-/* ---------- Cookie-consent banner (analytics, consent-gated) ---------- */
+}/* ---------- Cookie-consent banner (GOV.UK-pattern bottom bar) ---------- */
 .sg-consent-banner {
     position: fixed;
-    left: 1rem;
-    right: 1rem;
-    bottom: 1rem;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 1090;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    max-width: 860px;
-    margin: 0 auto;
-    padding: .9rem 1.1rem;
-    border-radius: var(--r-md);
-    background: var(--sg-navy-800);
-    color: #fff;
-    box-shadow: var(--sh-lg);
-    border: 1px solid rgba(255, 255, 255, .12);
-    font-size: .85rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: #f4f8fb;
+    color: #0b0c0c;
+    box-shadow: 0 -1px 3px rgba(11, 12, 12, .12);
+    font-size: 1rem;
+    line-height: 1.45;
 }
+.sg-govuk-consent-inner { max-width: 960px; margin: 0 auto; padding: 18px 15px 10px; }
+.sg-govuk-consent-message p.sg-govuk-consent-p { margin: 0 0 8px; font-size: 1rem; line-height: 1.45; }
+.sg-govuk-consent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 14px; }
+.sg-govuk-btn {
+    display: inline-block;
+    min-width: 160px;
+    padding: 8px 10px 7px;
+    border: 2px solid transparent;
+    border-radius: 0;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1;
+    color: #fff;
+    background-color: #0f7a52;
+    box-shadow: 0 2px 0 #083d29;
+    text-align: center;
+    cursor: pointer;
+}
+.sg-govuk-btn:hover { background-color: #0b5c3e; }
+.sg-govuk-btn:active { transform: translateY(2px); box-shadow: none; }
+.sg-govuk-btn:focus-visible { outline: 3px solid #ffdd00; outline-offset: 0; }
+.sg-govuk-btn--secondary { background-color: #f3f3f3; color: #0b0c0c; box-shadow: 0 2px 0 #858686; }
+.sg-govuk-btn--secondary:hover { background-color: #dbdad9; }
+.sg-govuk-consent-link { color: #1d70b8; text-decoration: underline; }
+.sg-govuk-consent-link:hover { color: #0c2d48; }
+.sg-govuk-consent-link:focus-visible { box-decoration-break: clone; outline: 3px solid #ffdd00; outline-offset: 0; }
+.sg-govuk-consent-confirmation { display: block; margin-top: 4px; }
 .sg-consent-text { flex: 1 1 280px; }
 
 /* High-contrast (WCAG AA) — overrides both light and dark palettes */
@@ -1866,3 +1885,50 @@ textarea:focus-visible,
     #sg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }
 }
 
+
+/* ── GOV.UK-style "Is this page useful?" feedback widget ── */
+.sg-feedback-widget {
+    background: #f8f9fa;
+    border-left: 4px solid var(--sg-green-600, #0f5132) !important;
+}
+.sg-feedback-widget .sg-feedback-question {
+    color: #212529;
+}
+.sg-feedback-widget [data-useful].active {
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25);
+}
+.sg-feedback-widget .sg-feedback-skip-link a {
+    text-decoration: underline;
+}
+.sg-feedback-widget .sg-feedback-skip-link a:hover {
+    color: #0f5132 !important;
+}
+.sg-feedback-widget .sg-feedback-thanks {
+    background: #e8f5e9;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+[data-theme="dark"] .sg-feedback-widget {
+    background: #1f2937;
+    border-left-color: #34d399 !important;
+}
+[data-theme="dark"] .sg-feedback-widget .sg-feedback-question,
+[data-theme="dark"] .sg-feedback-widget .form-label,
+[data-theme="dark"] .sg-feedback-widget .text-muted {
+    color: #e5e7eb !important;
+}
+[data-theme="dark"] .sg-feedback-widget .sg-feedback-thanks {
+    background: #14532d;
+}
+[data-contrast="true"] .sg-feedback-widget {
+    border: 2px solid #000 !important;
+}
+
+/* Homepage hero "What you can use this service for" list (GOV.UK heading-depth restructure) */
+.sg-hero-use-list li {
+    margin-bottom: .35rem;
+    padding-left: 1.4rem;
+    text-indent: -1.4rem;
+}
+.sg-hero-use-list a { text-underline-offset: 2px; }
+[data-theme="dark"] .sg-hero-use-list a { color: #4ade80; }

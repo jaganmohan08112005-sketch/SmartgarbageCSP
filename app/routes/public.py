@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from flask import (abort, current_app, jsonify, render_template, request,
                    send_from_directory, redirect, url_for)
 
-from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, Schedule,
+from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, PageFeedback, Schedule,
                       SmartBin, WasteDeclaration, utcnow)
 
 from ..ml_model import predict_miss
@@ -228,6 +228,40 @@ def home():
 # crawlers and anonymous residents can read them (the homepage hero links here
 # for anonymous visitors too). Nothing user-specific is rendered. The POST runs
 # the ML prediction, so it is throttled like /report to stop anonymous hammering.
+@main.route('/api/feedback', methods=['POST'])
+@limiter.limit("10/minute")
+def page_feedback():
+    """GOV.UK-style anonymous 'Is this page useful?' vote.
+
+    Accepts JSON {useful: true|false, page: '/path', comment?: '...'} from the
+    widget rendered on every public page. Stored fully anonymized — the only
+    identifier is a salted SHA-256 of (IP + user-agent), exactly like the
+    consent register, so the panchayat can measure satisfaction and find
+    problem pages without retaining anything that could identify a resident.
+    Fire-and-forget from the client; a failure to log must never block the
+    citizen's vote from being acknowledged.
+    """
+    data = request.get_json(silent=True) or {}
+    useful = data.get('useful')
+    if not isinstance(useful, bool):
+        return jsonify({'success': False, 'message': 'Invalid feedback value.'}), 400
+    page = str(data.get('page') or request.referrer or '/')[:200]
+    # Normalise to a path: strip scheme/host so the page column stays clean.
+    if '://' in page:
+        page = '/' + page.split('://', 1)[1].split('/', 1)[-1]
+    if not page.startswith('/'):
+        page = '/' + page
+    comment = str(data.get('comment') or '').strip()[:2000]
+    raw = (request.headers.get('User-Agent', '') or '') + '|' + (request.remote_addr or '')
+    salt = current_app.config.get('SECRET_KEY') or 'sg-feedback'
+    fingerprint = hashlib.sha256((salt + '|' + raw).encode('utf-8')).hexdigest()
+    db.session.add(PageFeedback(page=page, useful=useful,
+                                comment=comment or None,
+                                fingerprint=fingerprint))
+    db.session.commit()
+    return jsonify({'success': True})
+
+
 @main.route('/api/consent', methods=['POST'])
 @limiter.limit("10/minute")
 def consent_record():

@@ -62,7 +62,7 @@ def sensor_fault_analytics():
     the stuck-sensor classifier, SENSOR_FAULT_FLAGGED from the stale-sensor
     sweep) with resolution events (SENSOR_SELF_HEALED / BIN_FAULT_CLEARED /
     MAINTENANCE_COMPLETED). All aggregation happens in Python over one
-    filtered query, keeping the SQL portable (SQLite + Postgres).
+    filtered query with portable PostgreSQL SQL.
 
     Pairing semantics: each detection opens a pending slot that the NEXT
     resolution closes — consecutive detections for one outage (e.g. stale +
@@ -210,18 +210,15 @@ def trend_segregation():
 
     Previously pulled EVERY WasteDeclaration row into Python (a full-table
     scan that would OOM the 1 GB Fly VM once declarations grow). Now the
-    database does the bucketing: group by (month, ward) with per-group sums,
-    using the month expression that matches each dialect (strftime on SQLite,
-    to_char on Postgres — same parity discipline as the dunning ilike guard).
+    database does the bucketing: group by (month, ward) with per-group sums.
+    PostgreSQL (Supabase) is the only supported backend, so the month
+    expression is to_char directly.
     The new ix_waste_declaration_ward_timestamp index serves the filter+group.
     """
     from sqlalchemy import func
     from collections import defaultdict
 
-    if db.engine.dialect.name == 'postgresql':
-        month_expr = func.to_char(WasteDeclaration.timestamp, 'YYYY-MM')
-    else:
-        month_expr = func.strftime('%Y-%m', WasteDeclaration.timestamp)
+    month_expr = func.to_char(WasteDeclaration.timestamp, 'YYYY-MM')
 
     rows = (db.session.query(
         month_expr.label('month'),

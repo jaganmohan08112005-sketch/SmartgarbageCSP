@@ -14,8 +14,8 @@ from werkzeug.security import generate_password_hash
 from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
                       DispatchAssignment, FirmwareRelease, IllegalDumpReport,
                       IncidentLog, MaintenanceWorkOrder, Notification,
-                      OfflineDelivery, PAYTInvoice, PushNotificationLog,
-                      PushSubscription, SensorHealth, SmartBin,
+                      OfflineDelivery, PageFeedback, PAYTInvoice,
+                      PushNotificationLog, PushSubscription, SensorHealth, SmartBin,
                       User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
@@ -391,6 +391,133 @@ def configure_webhooks():
             write_audit("WEBHOOK_ADD", target=url, detail="Webhook URL registered.")
             flash(f"Webhook registered: {url}", "success")
     return redirect(url_for('main.admin'))
+
+
+@main.route('/api/feedback/stats')
+@admin_required
+def feedback_stats():
+    """Admin summary of the anonymous 'Is this page useful?' widget.
+
+    Returns totals, yes/no split, satisfaction rate, per-page breakdown and
+    the most recent comments so the panchayat can find problem pages. All
+    data is anonymized at write time — no identities are available here.
+    """
+    from sqlalchemy import case, func
+    from datetime import timedelta
+
+    total = PageFeedback.query.count()
+    useful_yes = PageFeedback.query.filter_by(useful=True).count()
+    useful_no = PageFeedback.query.filter_by(useful=False).count()
+    with_comments = PageFeedback.query.filter(PageFeedback.comment.isnot(None)).count()
+    rate = round(useful_yes / max(total, 1) * 100, 1)
+
+    cutoff_24h = utcnow() - timedelta(hours=24)
+    last_24h = PageFeedback.query.filter(PageFeedback.created_at >= cutoff_24h).count()
+
+    # Per-page breakdown, most-voted first.
+    page_rows = (db.session.query(PageFeedback.page,
+                                  func.count(PageFeedback.id),
+                                  func.sum(case((PageFeedback.useful.is_(True), 1), else_=0)))
+                 .group_by(PageFeedback.page)
+                 .order_by(func.count(PageFeedback.id).desc())
+                 .limit(15).all())
+    per_page = [{
+        'page': p, 'total': int(t), 'useful': int(u or 0),
+        'rate': round(int(u or 0) / max(int(t), 1) * 100, 1),
+    } for p, t, u in page_rows]
+
+    recent = (PageFeedback.query.order_by(PageFeedback.created_at.desc())
+              .limit(20).all())
+    recent_data = [{
+        'id': f.id, 'page': f.page, 'useful': f.useful,
+        'comment': (f.comment or '')[:200],
+        'created_at': f.created_at.strftime('%Y-%m-%d %H:%M') if f.created_at else None,
+    } for f in recent]
+
+    return jsonify({
+        'total': total,
+        'useful_yes': useful_yes,
+        'useful_no': useful_no,
+        'satisfaction_rate': rate,
+        'with_comments': with_comments,
+        'last_24h': last_24h,
+        'per_page': per_page,
+        'recent': recent_data,
+    })
+
+
+@main.route('/api/feedback/trend')
+@admin_required
+def feedback_trend():
+    """Weekly satisfaction trend for the admin dashboard chart.
+
+    Returns 8 weeks of per-week vote counts and satisfaction rates so the
+    panchayat can see whether the portal is getting better or worse over time.
+    Weeks with no votes are included as zero so the chart line stays continuous.
+    """
+    from sqlalchemy import case, func
+    from datetime import timedelta
+
+    # Anchor to the most recent Sunday so the chart starts on a clean week
+    # boundary rather than today's arbitrary weekday.
+    today = utcnow().date()
+    days_since_sunday = (today.weekday() + 1) % 7  # Sunday == 0
+    end_sunday = today - timedelta(days=days_since_sunday)
+    start_sunday = end_sunday - timedelta(weeks=7)
+
+    # Build the 8 week buckets first so empty weeks are explicit.
+    weeks = []
+    cursor = start_sunday
+    for _ in range(8):
+        next_sunday = cursor + timedelta(days=7)
+        weeks.append({
+            'start': cursor.strftime('%Y-%m-%d'),
+            'end': (next_sunday - timedelta(days=1)).strftime('%Y-%m-%d'),
+            'week_start': cursor.isoformat(),
+            'label': cursor.strftime('%b %d'),
+            'total': 0,
+            'useful_yes': 0,
+            'useful_no': 0,
+            'rate': 0.0,
+        })
+        cursor = next_sunday
+
+    # Single query: count per week bucket (useful yes / useful no) by
+    # comparing created_at against each week's start/end boundaries.
+    # func.date() is portable across Postgres (Supabase) backends —
+    # date(timestamp) is a native Postgres cast.
+    rows = (db.session.query(
+        func.date(PageFeedback.created_at),
+        func.sum(case((PageFeedback.useful.is_(True), 1), else_=0)),
+        func.sum(case((PageFeedback.useful.is_(False), 1), else_=0)),
+        func.count(PageFeedback.id),
+    ).filter(
+        PageFeedback.created_at >= start_sunday,
+        PageFeedback.created_at < next_sunday,
+    ).group_by(func.date(PageFeedback.created_at))
+       .all())
+
+    if rows:
+        for day_str, yes, no, cnt in rows:
+            day_date = datetime.strptime(day_str, '%Y-%m-%d').date()
+            # Find the week whose range contains this day.
+            for w in weeks:
+                w_start = datetime.strptime(w['start'], '%Y-%m-%d').date()
+                w_end = datetime.strptime(w['end'], '%Y-%m-%d').date()
+                if w_start <= day_date <= w_end:
+                    w['total'] += int(cnt or 0)
+                    w['useful_yes'] += int(yes or 0)
+                    w['useful_no'] += int(no or 0)
+                    break
+
+    for w in weeks:
+        if w['total'] > 0:
+            w['rate'] = round(w['useful_yes'] / w['total'] * 100, 1)
+        w.pop('start', None)
+        w.pop('end', None)
+        w.pop('week_start', None)
+
+    return jsonify({'weeks': weeks})
 
 
 @main.route('/api/push/analytics')

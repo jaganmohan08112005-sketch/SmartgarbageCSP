@@ -8,6 +8,15 @@ import os
 import json
 import structlog
 
+from datetime import datetime, timezone
+
+
+def utcnow():
+    """Naive-UTC wall clock, matching app.models.utcnow for DB parity
+    (every DateTime column is `timestamp without time zone`)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 logger = structlog.get_logger(__name__)
 
 # ── VAPID Key Management ────────────────────────────────────────

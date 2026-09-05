@@ -38,6 +38,9 @@
                     <a href="#push-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="push-section">
                         <span>🔔</span> {{ _('Push Notifications') }}
                     </a>
+                    <a href="#feedback-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="feedback-section">
+                        <span>💬</span> {{ _('Page Feedback') }}
+                    </a>
                     <a href="#bwg-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bwg-section">
                         <span>🏢</span> {{ _('BWG Pickup Requests') }}
                         {% if kpis.pending_pickups > 0 %}<span class="badge bg-warning text-dark ms-auto">{{ kpis.pending_pickups }}</span>{% endif %}
@@ -85,6 +88,7 @@
                         <option value="sensor-fault-section">🔧 {{ _('Sensor Health') }}</option>
                         <option value="bot-simulator-section">🤖 {{ _('Bot Simulator') }}</option>
                         <option value="webhook-section">🔗 {{ _('Webhook Configuration') }}</option>
+                        <option value="feedback-section">💬 {{ _('Page Feedback') }}</option>
                         <option value="bwg-section">🏢 {{ _('BWG Pickup Requests') }}</option>
                         <option value="payt-section">💳 {{ _('PAYT Invoice Ledger') }}</option>
                         <option value="queue-health-section">⏱️ {{ _('Job Queue Health') }}</option>
@@ -508,6 +512,75 @@
                 </table>
             </div>
         </div>
+        <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="feedback-section">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <h4 class="fw-bold mb-0">💬 {{ _('Page Feedback') }}</h4>
+                <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="loadFeedbackStats()">🔄 {{ _('Refresh') }}</button>
+            </div>
+            <p class="text-muted small mb-3">{{ _('Anonymous “Is this page useful?” votes from the widget on every public page. No identities are stored.') }}</p>
+            <div class="row g-3 mb-4" id="feedbackStats">
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-primary" id="fbTotal">-</div>
+                        <div class="small text-muted">{{ _('Total Votes') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-success" id="fbSatisfaction">-</div>
+                        <div class="small text-muted">{{ _('Satisfaction Rate') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-info" id="fbComments">-</div>
+                        <div class="small text-muted">{{ _('With Comments') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-warning" id="fb24h">-</div>
+                        <div class="small text-muted">{{ _('Votes (24h)') }}</div>
+                    </div>
+                </div>
+            </div>
+            {# ── Weekly Satisfaction Trend Chart ── #}
+            <div class="mb-4">
+                <h6 class="fw-bold small text-muted mb-2">{{ _('Weekly Satisfaction Trend (last 8 weeks)') }}</h6>
+                <div class="card border-0 bg-light rounded-3 p-3">
+                    <canvas id="feedbackTrendChart" height="180" style="max-height:220px"></canvas>
+                    <p class="text-muted small mt-2 text-center">{{ _('Each point shows the satisfaction rate for that week (useful votes ÷ total votes × 100). Weeks with no votes are shown as gaps.') }}</p>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <h6 class="fw-bold small text-muted mb-2">{{ _('Per-Page Breakdown') }}</h6>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-hover small mb-0">
+                            <thead class="sticky-top bg-light">
+                                <tr><th>{{ _('Page') }}</th><th>{{ _('Votes') }}</th><th>{{ _('Useful') }}</th><th>{{ _('Rate') }}</th></tr>
+                            </thead>
+                            <tbody id="feedbackPageTable">
+                                <tr><td colspan="4" class="text-center text-muted py-3">{{ _('Click Refresh to load analytics') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <h6 class="fw-bold small text-muted mb-2">{{ _('Recent Feedback') }}</h6>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-hover small mb-0">
+                            <thead class="sticky-top bg-light">
+                                <tr><th>{{ _('Time') }}</th><th>{{ _('Page') }}</th><th>{{ _('Vote') }}</th><th>{{ _('Comment') }}</th></tr>
+                            </thead>
+                            <tbody id="feedbackRecentTable">
+                                <tr><td colspan="4" class="text-center text-muted py-3">{{ _('Click Refresh to load analytics') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="bot-simulator-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🤖 WhatsApp / Telegram Bot Simulator</h4>
@@ -725,7 +798,84 @@
         }
         /* Auto-load on section click */
         document.querySelector('[data-section="push-section"]')?.addEventListener('click', loadPushAnalytics);
+
+        /* Page Feedback Analytics */
+        async function loadFeedbackStats() {
+            try {
+                const resp = await fetch('/api/feedback/stats');
+                const data = await resp.json();
+                document.getElementById('fbTotal').textContent = data.total || 0;
+                document.getElementById('fbSatisfaction').textContent = (data.satisfaction_rate || 0) + '%';
+                document.getElementById('fbComments').textContent = data.with_comments || 0;
+                document.getElementById('fb24h').textContent = data.last_24h || 0;
+                const pageTbody = document.getElementById('feedbackPageTable');
+                if (data.per_page && data.per_page.length > 0) {
+                    pageTbody.innerHTML = data.per_page.map(p => `
+                        <tr>
+                            <td class="text-nowrap">${p.page}</td>
+                            <td>${p.total}</td>
+                            <td>${p.useful}</td>
+                            <td><span class="badge ${p.rate >= 70 ? 'bg-success' : p.rate >= 40 ? 'bg-warning text-dark' : 'bg-danger'}">${p.rate}%</span></td>
+                        </tr>`).join('');
+                } else {
+                    pageTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No feedback yet</td></tr>';
+                }
+                const recTbody = document.getElementById('feedbackRecentTable');
+                if (data.recent && data.recent.length > 0) {
+                    recTbody.innerHTML = data.recent.map(r => `
+                        <tr>
+                            <td class="text-nowrap">${r.created_at || ''}</td>
+                            <td class="text-nowrap">${r.page}</td>
+                            <td>${r.useful ? '<span class="badge bg-success">Useful</span>' : '<span class="badge bg-danger">Not useful</span>'}</td>
+                            <td class="text-truncate" style="max-width: 220px;" title="${(r.comment || '').replace(/"/g, '&quot;')}">${r.comment || '<span class="text-muted">—</span>'}</td>
+                        </tr>`).join('');
+                } else {
+                    recTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No feedback yet</td></tr>';
+                }
+            } catch (e) {
+                console.error('Feedback stats load failed:', e);
+            }
+            // Weekly satisfaction trend chart (best-effort: CDN failure must
+            // not block the stats tables above, which already rendered).
+            try {
+                const tResp = await fetch('/api/feedback/trend');
+                if (tResp.ok) {
+                    const trend = (await tResp.json()).weeks || [];
+                    const ctx = document.getElementById('feedbackTrendChart');
+                    if (ctx && window.Chart) {
+                        if (window.__fbTrendChart) window.__fbTrendChart.destroy();
+                        window.__fbTrendChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: trend.map(w => w.label),
+                                datasets: [{
+                                    label: 'Satisfaction %',
+                                    data: trend.map(w => w.rate),
+                                    borderColor: '#0f7a52',
+                                    backgroundColor: 'rgba(15, 122, 82, .1)',
+                                    fill: true,
+                                    tension: 0.3,
+                                    spanGaps: false
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    y: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Feedback trend chart skipped:', e);
+            }
+        }
+        document.querySelector('[data-section="feedback-section"]')?.addEventListener('click', loadFeedbackStats);
         </script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
         <script src="{{ url_for('static', filename='js/admin.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></script>
     </div>
 </div>

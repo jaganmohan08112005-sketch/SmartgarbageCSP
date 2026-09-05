@@ -35,10 +35,9 @@ def upgrade():
     op.create_index('ix_dispatch_bin_status', 'dispatch_assignment', ['bin_id', 'status'])
     op.create_index('ix_dispatch_worker_status', 'dispatch_assignment', ['worker_id', 'status'])
     # Race guard: at most one Assigned assignment per bin (partial unique
-    # index — supported on both SQLite and Postgres).
+    # index). PostgreSQL (Supabase) is the only supported backend.
     op.create_index('uq_dispatch_bin_assigned', 'dispatch_assignment', ['bin_id'],
                     unique=True,
-                    sqlite_where=sa.text("status = 'Assigned'"),
                     postgresql_where=sa.text("status = 'Assigned'"))
 
 

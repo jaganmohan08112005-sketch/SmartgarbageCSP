@@ -91,7 +91,7 @@ def _history_fill_rate_hour_pct(bin_id, now, lookback_hours=48.0,
     cutoff = now - timedelta(hours=lookback_hours)
     # Stored timestamps are naive UTC (utcnow defaults). The SQL filter must
     # compare naive-vs-naive — an aware literal against naive columns is a
-    # Postgres-parity landmine (sqlite ignores tz, Postgres can reject it).
+    # Postgres-parity landmine (naive timestamps are rejected by Postgres).
     if cutoff.tzinfo is not None:
         cutoff = cutoff.replace(tzinfo=None)
     rows = (BinTelemetryLog.query
@@ -101,7 +101,7 @@ def _history_fill_rate_hour_pct(bin_id, now, lookback_hours=48.0,
             .all())
     if len(rows) < min_points:
         return None
-    # Build (hours, level) pairs; timestamps may be naive (SQLite) or aware.
+    # Build (hours, level) pairs; timestamps are timezone-aware in Postgres.
     points = []
     t0 = None
     for r in rows:
@@ -232,7 +232,7 @@ def _estimate_fill_rate_hour_pct(smart_bin, now):
     hours_since_reset = None
     if anchors:
         latest = max(anchors)
-        if latest.tzinfo is None:  # SQLite returns naive datetimes
+        if latest.tzinfo is None:  # defensive: naive timestamp guard
             latest = latest.replace(tzinfo=timezone.utc)
         hours_since_reset = max(0.0, (now - latest).total_seconds() / 3600.0)
 

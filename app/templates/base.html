@@ -584,6 +584,109 @@
             {% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
+        {# ── GOV.UK-style "Is this page useful?" feedback widget ── #}
+        {% if not request.path.startswith('/admin') %}
+        <section class="sg-feedback-widget card border-0 shadow-sm mt-5" aria-label="{{ _('Is this page useful?') }}">
+            <div class="card-body p-4" id="sgFeedbackRoot" data-page="{{ request.path }}">
+                <form id="sgFeedbackForm" class="sg-feedback-form">
+                    <fieldset>
+                        <legend class="sg-feedback-question h6 fw-bold mb-3">{{ _('Is this page useful?') }}</legend>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-outline-success rounded-pill px-4" data-useful="true">
+                                {{ _('Yes') }} <span aria-hidden="true">👍</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger rounded-pill px-4" data-useful="false">
+                                {{ _('No') }} <span aria-hidden="true">👎</span>
+                            </button>
+                            <span class="sg-feedback-skip-link align-self-center">
+                                <a href="#" class="small text-muted" id="sgFeedbackSkip">{{ _('Skip this survey') }}</a>
+                            </span>
+                        </div>
+                    </fieldset>
+                    <div class="sg-feedback-comment d-none mt-3" id="sgFeedbackCommentBox">
+                        <label for="sgFeedbackComment" class="form-label small fw-bold">{{ _('How can we improve this page?') }}</label>
+                        <textarea class="form-control" id="sgFeedbackComment" rows="3" maxlength="2000"
+                                  placeholder="{{ _('Do not include personal or financial information, like your National ID or credit card details.') }}"></textarea>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4" id="sgFeedbackSend">{{ _('Send feedback') }}</button>
+                        </div>
+                    </div>
+                </form>
+                <div class="sg-feedback-thanks d-none" id="sgFeedbackThanks" role="status">
+                    <p class="fw-bold mb-1">✅ {{ _('Thank you for your feedback') }}</p>
+                    <p class="text-muted small mb-0">{{ _('Help us improve this page by telling us what you think.') }}</p>
+                </div>
+            </div>
+        </section>
+        <script>
+        /* GOV.UK-style anonymous feedback widget */
+        (function() {
+            const root = document.getElementById('sgFeedbackRoot');
+            if (!root) return;
+            /* Skip if already answered on this page in this session */
+            try {
+                if (sessionStorage.getItem('sgFeedback:' + location.pathname)) {
+                    root.closest('.sg-feedback-widget')?.classList.add('d-none');
+                    return;
+                }
+            } catch (e) {}
+            const form = document.getElementById('sgFeedbackForm');
+            const commentBox = document.getElementById('sgFeedbackCommentBox');
+            const thanks = document.getElementById('sgFeedbackThanks');
+            const sendBtn = document.getElementById('sgFeedbackSend');
+            const skip = document.getElementById('sgFeedbackSkip');
+            let chosen = null;
+
+            form.querySelectorAll('[data-useful]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    chosen = btn.dataset.useful === 'true';
+                    form.querySelectorAll('[data-useful]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    btn.classList.add('btn-success');
+                    btn.classList.remove('btn-outline-success');
+                    if (chosen) {
+                        /* Yes → submit immediately (GOV.UK pattern) */
+                        submitFeedback(true, '');
+                    } else {
+                        commentBox.classList.remove('d-none');
+                        document.getElementById('sgFeedbackComment').focus();
+                    }
+                });
+            });
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const comment = document.getElementById('sgFeedbackComment').value.trim();
+                submitFeedback(chosen === false ? false : true, comment);
+            });
+
+            function submitFeedback(useful, comment) {
+                /* Fire-and-forget: never block the citizen on network hiccups */
+                const payload = { useful: useful, page: root.dataset.page, comment: comment };
+                const meta = document.querySelector('meta[name="csrf-token"]');
+                try {
+                    fetch('/api/feedback', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': meta ? meta.content : '',
+                        },
+                        body: JSON.stringify(payload),
+                    }).catch(() => {});
+                } catch (e) {}
+                try { sessionStorage.setItem('sgFeedback:' + location.pathname, '1'); } catch (e) {}
+                form.classList.add('d-none');
+                thanks.classList.remove('d-none');
+            }
+
+            skip.addEventListener('click', (e) => {
+                e.preventDefault();
+                try { sessionStorage.setItem('sgFeedback:' + location.pathname, '1'); } catch (e) {}
+                root.closest('.sg-feedback-widget')?.classList.add('d-none');
+            });
+        })();
+        </script>
+        {% endif %}
     </main>
     <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script src="{{ url_for('static', filename='js/global.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
@@ -808,12 +911,17 @@
     </script>
 
     {% if not config.get('ANALYTICS_ID') %}
-    <div id="sgPrivacyNotice" class="sg-consent-banner cookie-consent" role="region" aria-label="{{ _('Cookie consent') }}">
-        <div class="sg-consent-text">
-            🍪 {{ _('Cookie consent: this portal uses only essential cookies to keep you signed in — we never sell or share your data.') }}
-            <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
+    {# Essential-cookies-only notice, same GOV.UK bottom-bar pattern. #}
+    <div id="sgPrivacyNotice" class="sg-consent-banner sg-govuk-consent" role="region" aria-label="{{ _('Cookie consent') }}">
+        <div class="sg-govuk-consent-inner">
+            <div class="sg-govuk-consent-message">
+                <p class="sg-govuk-consent-p">{{ _('We use only essential cookies to keep you signed in — we never sell or share your data, and no analytics cookies are set on this deployment.') }}</p>
+            </div>
+            <div class="sg-govuk-consent-actions">
+                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" onclick="sgDismissPrivacyNotice()">{{ _('Hide') }}</button>
+                <a class="sg-govuk-consent-link" href="/privacy">{{ _('View cookies') }}</a>
+            </div>
         </div>
-        <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgDismissPrivacyNotice()">{{ _('Got it') }}</button>
     </div>
     <script>
     // ── Search autocomplete (GOV.UK pattern with keyboard nav) ──
@@ -889,18 +997,25 @@
     </script>
     {% endif %}
     {% if config.get('ANALYTICS_ID') %}
-    <div id="sgConsentBanner" class="sg-consent-banner" role="region" aria-label="{{ _('Privacy settings') }}">
-        <div class="sg-consent-text">
-            🍪 {{ _('We use anonymous analytics to improve this public service. No personal data is collected without your consent.') }}
-            <a href="/privacy" class="text-decoration-underline text-white">{{ _('Privacy Policy') }}</a>
-        </div>
-        <div class="d-flex gap-2 flex-shrink-0">
-            <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="sgSetConsent(true)">{{ _('Accept') }}</button>
-            <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="sgSetConsent(false)">{{ _('Decline') }}</button>
+    {# GOV.UK-pattern cookie banner: fixed full-width bottom bar, square corners,
+       three-line message, 'Accept/Reject analytics cookies' buttons and a
+       'View cookies' link. Styled via .sg-govuk-consent (style.css + critical.css). #}
+    <div id="sgConsentBanner" class="sg-consent-banner sg-govuk-consent" role="region" aria-label="{{ _('Cookies on SmartGarbage') }}">
+        <div class="sg-govuk-consent-inner">
+            <div class="sg-govuk-consent-message">
+                <p class="sg-govuk-consent-p">{{ _('We use some essential cookies to make this website work.') }}</p>
+                <p class="sg-govuk-consent-p">{{ _('We’d like to set additional cookies to understand how you use SmartGarbage, remember your settings and improve government services.') }}</p>
+                <p class="sg-govuk-consent-p">{{ _('We also use cookies set by other sites to help us deliver content from their services.') }}</p>
+            </div>
+            <div class="sg-govuk-consent-actions">
+                <button type="button" class="sg-govuk-btn" onclick="sgSetConsent(true)">{{ _('Accept analytics cookies') }}</button>
+                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" onclick="sgSetConsent(false)">{{ _('Reject analytics cookies') }}</button>
+                <a class="sg-govuk-consent-link" href="/privacy">{{ _('View cookies') }}</a>
+            </div>
         </div>
     </div>
     <script>
-const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="/report"]',hotline_click:'a[href^="tel:"]',language_switch:'a[data-lang]',staff_login_click:'a[data-staff-login]',login_start:'a[href="/login"]',signup_start:'a[href="/register"]'};function sgTrack(n){if(localStorage.getItem('sgAnalyticsConsent')!=='accepted')return;if(typeof gtag==='function')gtag('event',n)}document.addEventListener('click',e=>{for(const[n,s]of Object.entries(SG_SVC_EVENTS)){if(e.target.closest(s)){sgTrack(n);break}}});document.addEventListener('submit',e=>{const f=e.target.closest('form');if(!f)return;if(f.getAttribute('action')==='/report')sgTrack('report_submit');if(f.getAttribute('action')==='/schedule')sgTrack('schedule_lookup')});let _lrve=0;document.addEventListener('invalid',e=>{const f=e.target.closest('form');if(f&&f.getAttribute('action')==='/report'){const n=Date.now();if(n-_lrve>500){_lrve=n;sgTrack('report_validation_error')}}},true);const SG_CONSENT_VERSION={{ config.get('CONSENT_VERSION', 'v1')|tojson }};function sgRecordConsent(c){try{fetch('/api/consent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({choice:c,version:SG_CONSENT_VERSION,source:location.pathname})})}catch(e){}}function sgSetConsent(a){localStorage.setItem('sgAnalyticsConsent',a?'accepted':'declined');document.getElementById('sgConsentBanner')?.classList.add('d-none');sgRecordConsent(a?'accept':'decline');gtag('consent','update',{analytics_storage:a?'granted':'denied'});if(a&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}}document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem('sgAnalyticsConsent')){document.getElementById('sgConsentBanner')?.classList.add('d-none')}else if(sgConsent==='accepted'&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}});
+const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="/report"]',hotline_click:'a[href^="tel:"]',language_switch:'a[data-lang]',staff_login_click:'a[data-staff-login]',login_start:'a[href="/login"]',signup_start:'a[href="/register"]'};function sgTrack(n){if(localStorage.getItem('sgAnalyticsConsent')!=='accepted')return;if(typeof gtag==='function')gtag('event',n)}document.addEventListener('click',e=>{for(const[n,s]of Object.entries(SG_SVC_EVENTS)){if(e.target.closest(s)){sgTrack(n);break}}});document.addEventListener('submit',e=>{const f=e.target.closest('form');if(!f)return;if(f.getAttribute('action')==='/report')sgTrack('report_submit');if(f.getAttribute('action')==='/schedule')sgTrack('schedule_lookup')});let _lrve=0;document.addEventListener('invalid',e=>{const f=e.target.closest('form');if(f&&f.getAttribute('action')==='/report'){const n=Date.now();if(n-_lrve>500){_lrve=n;sgTrack('report_validation_error')}}},true);const SG_CONSENT_VERSION={{ config.get('CONSENT_VERSION', 'v1')|tojson }};function sgRecordConsent(c){try{fetch('/api/consent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({choice:c,version:SG_CONSENT_VERSION,source:location.pathname})})}catch(e){}}function sgSetConsent(a){localStorage.setItem('sgAnalyticsConsent',a?'accepted':'declined');sgRecordConsent(a?'accept':'decline');gtag('consent','update',{analytics_storage:a?'granted':'denied'});if(a&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}const b=document.getElementById('sgConsentBanner');if(!b)return;const m=b.querySelector('.sg-govuk-consent-message'),ac=b.querySelector('.sg-govuk-consent-actions');if(!m||!ac)return;m.innerHTML='<p class="sg-govuk-consent-p">'+(a?'{{ _('You have accepted additional cookies. ') }}':'{{ _('You have rejected additional cookies. ') }}')+'<span class="sg-govuk-consent-confirmation">{{ _('You can ') }}<a class="sg-govuk-consent-link" href="/privacy">{{ _('change your cookie settings') }}</a>{{ _(' at any time.') }}</span></p>';ac.hidden=true;const h=document.createElement('button');h.type='button';h.className='sg-govuk-btn';h.textContent='{{ _('Hide') }}';h.addEventListener('click',()=>b.classList.add('d-none'));b.appendChild(h);h.focus()}document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem('sgAnalyticsConsent')){document.getElementById('sgConsentBanner')?.classList.add('d-none')}else if(sgConsent==='accepted'&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}});
     </script>
     {% endif %}
     <script>
