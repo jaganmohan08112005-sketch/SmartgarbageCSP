@@ -4989,6 +4989,13 @@ def test_google_site_verification_meta_is_config_gated(client):
     test_db_url = os.environ.get('TEST_DATABASE_URL')
     if not test_db_url:
         raise RuntimeError('TEST_DATABASE_URL required for verification test')
+    # Release the fixture app's pooled connection BEFORE creating a second
+    # app on the same database: the fixture engine holds a connection that
+    # may sit idle-in-transaction, and ver_app's db.drop_all() below would
+    # block forever on that lock (observed as the Postgres hang in this
+    # test). dispose() returns pooled connections so the DDL can proceed.
+    db.session.remove()
+    db.engine.dispose()
     ver_app = create_app(test_config={
         'TESTING': True,
         'SQLALCHEMY_DATABASE_URI': test_db_url,
@@ -5000,10 +5007,8 @@ def test_google_site_verification_meta_is_config_gated(client):
     body2 = ver_app.test_client().get('/').get_data(as_text=True)
     assert 'name="google-site-verification" content="ABCDEF1234567890"' in body2
     with ver_app.app_context():
-        try:
-            db.drop_all()
-        except PermissionError:
-            pass
+        db.drop_all()
+        db.engine.dispose()
 
 
 def test_homepage_privacy_at_a_glance(client):
