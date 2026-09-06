@@ -644,11 +644,17 @@ def create_app(test_config=None):
     def add_etag(resp):
         if (request.method in ('GET', 'HEAD')
                 and resp.status_code == 200
-                and resp.data
+                # /static/ and /api/ excluded BEFORE any body access: static
+                # responses are streamed (direct_passthrough) — reading
+                # resp.data on them raises RuntimeError and 500s the asset.
+                # (Ordering bug previously broke every CSS/JS/font/image
+                # request in production; the ETag is path+deploy based and
+                # never read the body anyway.)
                 and not request.path.startswith('/static/')
                 and not request.path.startswith('/api/')
                 and (resp.mimetype or '').startswith('text/html')
-                and not session.get('user_id')):
+                and not session.get('user_id')
+                and resp.is_streamed is False):
             # Generate ETag from deploy timestamp + path (not body — too expensive)
             deploy_v = app.config['DEPLOY_TIMESTAMP'].strftime('%Y%m%d%H%M%S') if app.config.get('DEPLOY_TIMESTAMP') else '20260831'
             etag_input = f"{deploy_v}:{request.path}"
@@ -755,7 +761,10 @@ def create_app(test_config=None):
         # DB dropped/stopped/full (Supabase idle-kill, storage cap). Roll back
         # the broken transaction so the pooled connection is reusable, then
         # degrade gracefully — stale cached data beats a raw 500.
-        app.logger.error("db_operational_error", error=str(e))
+        # NOTE: stdlib logging rejects kwargs like error=... — this line
+        # previously crashed the error handler itself, turning every DB
+        # outage into a 500 instead of the graceful 503 below.
+        app.logger.error("db_operational_error: %s", str(e))
         db.session.rollback()
         if request.path.startswith('/api/'):
             try:
