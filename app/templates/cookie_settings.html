@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}{{ _('Cookies on SmartGarbage') }}{% endblock %}
+{% block meta_description %}{{ _('See which cookies SmartGarbage uses and change your analytics cookie choice at any time.') }}{% endblock %}
+{% block content %}
+{% include "_breadcrumbs.html" with context %}
+<div class="container mt-4 mb-5">
+    <div class="card border-0 shadow-sm p-4 p-md-5 animate-fade-in" style="max-width: 960px; margin: 0 auto; border-radius: 18px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1 class="fw-bold mb-0">{{ _('Cookies on SmartGarbage') }}</h1>
+            <a href="/" class="btn btn-outline-secondary btn-sm rounded-pill">{{ _('Back') }}</a>
+        </div>
+        <p class="small text-muted">{{ _('Last updated:') }} {{ deploy_ts.strftime('%B %Y') if deploy_ts else '2026-09' }} · {{ _('Author:') }} {{ _('Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat') }}</p>
+
+        <p>{{ _('Cookies are small files saved on your device when you visit a website. SmartGarbage uses a small number of cookies to make the portal work, keep you signed in, protect forms from abuse, and — only if you agree — to understand how residents use the service so we can improve it.') }}</p>
+        <p>{{ _('You can change your analytics cookie choice at any time on this page, even after you have dismissed the cookie banner.') }}</p>
+
+        <h2 class="mt-4">{{ _('Essential cookies') }}</h2>
+        <p>{{ _('Essential cookies keep you signed in, protect forms against abuse (CSRF protection) and support the offline-report queue. These cookies are always active and do not require your consent.') }}</p>
+
+        <h2 class="mt-4">{{ _('Analytics cookies') }}</h2>
+        {% if config.get('ANALYTICS_ID') %}
+        <p>{{ _('We use anonymous, aggregate analytics (Google Analytics) to count visitors and see how the portal is used, so we can improve government services. No advertising or cross-site tracking is used, and no personally identifiable information is collected.') }}</p>
+        <div id="sgCookiePrefs">
+            <p class="fw-bold mb-2">{{ _('Your current choice:') }}</p>
+            <div class="d-flex flex-column flex-sm-row gap-2 mb-3" role="group" aria-label="{{ _('Analytics cookies choice') }}">
+                <button type="button" class="sg-govuk-btn" data-cookie-choice="accept">{{ _('Accept analytics cookies') }}</button>
+                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" data-cookie-choice="decline">{{ _('Reject analytics cookies') }}</button>
+            </div>
+            <div id="sgCookieChoiceStatus" class="alert alert-success border-start border-4 rounded-3 d-none" role="status" aria-live="polite">
+                <p class="mb-0" id="sgCookieChoiceText"></p>
+            </div>
+        </div>
+        {% else %}
+        <p>{{ _('This deployment sets no analytics cookies. Only essential cookies are used.') }}</p>
+        {% endif %}
+
+        <h2 class="mt-4">{{ _('Where to find out more') }}</h2>
+        <p>{{ _('Read the') }} <a href="/privacy" class="sg-govuk-consent-link">{{ _('privacy and data protection policy') }}</a> {{ _('for full details of what data we collect and how it is protected.') }}</p>
+    </div>
+</div>
+
+<script>
+(function() {
+    /* Cookie settings page: lets residents change their analytics cookie
+       choice at any time — reuses the banner's consent flow
+       (sgSetConsent: localStorage choice + anonymized /api/consent record +
+       gtag consent-mode update), so the change is identical to choosing on
+       the banner. Falls back to localStorage-only if the banner JS is not
+       present (e.g. ANALYTICS_ID unset). */
+    /* GOV.UK pattern: the cookie page has its own controls, so the fixed
+       bottom banner is suppressed here (analytics banner and the
+       essential-cookies notice, whichever this deployment renders). */
+    var BANNER = document.getElementById('sgConsentBanner');
+    if (BANNER) { BANNER.classList.add('d-none'); }
+    var NOTICE = document.getElementById('sgPrivacyNotice');
+    if (NOTICE) { NOTICE.classList.add('d-none'); }
+
+    var STATUS = document.getElementById('sgCookieChoiceStatus');
+    var TEXT = document.getElementById('sgCookieChoiceText');
+
+    function currentChoice() {
+        try { return localStorage.getItem('sgAnalyticsConsent') || ''; } catch (e) { return ''; }
+    }
+
+    function showStatus(msg) {
+        if (STATUS && TEXT) {
+            TEXT.textContent = msg;
+            STATUS.classList.remove('d-none');
+            STATUS.focus && STATUS.focus();
+        }
+    }
+
+    /* Reflect the saved choice on load (accepted / declined / none yet). */
+    var c = currentChoice();
+    if (c === 'accepted') {
+        showStatus('{{ _('You have accepted analytics cookies. They are currently enabled.') }}');
+    } else if (c === 'declined') {
+        showStatus('{{ _('You have rejected analytics cookies. They are currently disabled.') }}');
+    }
+
+    document.querySelectorAll('[data-cookie-choice]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var accept = btn.getAttribute('data-cookie-choice') === 'accept';
+            if (typeof window.sgSetConsent === 'function') {
+                /* Banner flow: sets localStorage, records /api/consent,
+                   updates gtag consent-mode, and shows the banner
+                   confirmation (banner is hidden here, so the page status
+                   below is the visible confirmation). */
+                window.sgSetConsent(accept);
+            } else {
+                try { localStorage.setItem('sgAnalyticsConsent', accept ? 'accepted' : 'declined'); } catch (e) {}
+            }
+            showStatus(accept
+                ? '{{ _('You have accepted analytics cookies. They are now enabled.') }}'
+                : '{{ _('You have rejected analytics cookies. They are now disabled.') }}');
+        });
+    });
+})();
+</script>
+{% endblock %}

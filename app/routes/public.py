@@ -420,6 +420,21 @@ def privacy_policy():
     return render_template('privacy_policy.html', now=datetime.now(timezone.utc))
 
 
+@main.route('/cookie-settings')
+def cookie_settings():
+    """Cookie preferences page — lets residents change their analytics
+    cookie choice at any time after dismissing the banner.
+
+    The page reuses the banner's sgSetConsent() flow (localStorage choice +
+    anonymized /api/consent record + gtag consent-mode update), so a change
+    made here is indistinguishable from one made on the banner. Renders
+    correctly in both deployments: with ANALYTICS_ID it shows Accept/Reject
+    controls; without it, it states that no analytics cookies are set.
+    """
+    return render_template('cookie_settings.html',
+                           now=datetime.now(timezone.utc))
+
+
 # About — public civic information (who operates the portal, service area,
 # contact): no login wall so crawlers and residents can read it, and it gives
 # the trust audits their "About Page" signal.
