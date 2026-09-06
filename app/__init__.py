@@ -188,7 +188,17 @@ def create_app(test_config=None):
             )
 
             def custom_start_response(status, headers, exc_info=None):
-                if is_public:
+                if not is_public:
+                    return start_response(status, headers, exc_info)
+                # A response that genuinely carries a session cookie is
+                # per-visitor state (flash, language preference, MFA/dev-OTP
+                # or a fresh login): keep the cookie AND Vary: Cookie so the
+                # edge never share-caches it. Only responses WITHOUT a session
+                # cookie (anonymous pages where nothing was saved) are stripped
+                # so the byte-identical-for-everyone HTML stays edge-cacheable.
+                has_set_cookie = any(
+                    name.lower() == 'set-cookie' for name, _ in headers)
+                if is_static or not has_set_cookie:
                     new_headers = []
                     for name, value in headers:
                         lower = name.lower()
@@ -199,9 +209,10 @@ def create_app(test_config=None):
                             if value:
                                 new_headers.append((name, value))
                         elif lower == 'set-cookie':
-                            # Skip ALL Set-Cookie headers on public pages.
-                            # Static assets never need cookies. HTML pages get
-                            # CSRF tokens from <meta> tags, not session cookies.
+                            # Static assets never need cookies. HTML pages only
+                            # reach this branch when they carry NO session
+                            # cookie (handled above); CSRF tokens are served
+                            # from <meta> tags, not cookies.
                             continue
                         else:
                             new_headers.append((name, value))
@@ -289,21 +300,34 @@ def create_app(test_config=None):
     class _StaticNoVarySessionInterface(SecureCookieSessionInterface):
         def save_session(self, app, session, response):
             path = request.path
+            is_static = path.startswith('/static/') and not path.startswith('/static/uploads/')
             is_public_html = (
                 (response.mimetype or '').startswith('text/html')
                 and not session.get('user_id')
             )
-            is_static = path.startswith('/static/') and not path.startswith('/static/uploads/')
-            is_public = is_public_html or is_static
 
-            if is_public and not session.get('user_id'):
-                # For anonymous public pages and static assets, skip
-                # save_session() entirely. This prevents Flask from setting
-                # Set-Cookie, which blocks Cloudflare edge caching.
-                # CSRF tokens are in <meta> tags, not in cookies.
+            if is_static and not session.get('user_id'):
+                # Static assets never need session cookies.
                 response.vary.discard('Cookie')
                 return
 
+            if (is_public_html
+                    and not session          # nothing stored (no flash, lang,
+                    and not session.modified):  # MFA/dev-OTP state written)
+                # Anonymous visitor on a cacheable page with an empty,
+                # untouched session: Flask would only attach Vary: Cookie
+                # here (it never sets a cookie for an empty session), so
+                # discard it and keep the page edge-cacheable.
+                response.vary.discard('Cookie')
+                return
+
+            # Anything else — a session that actually carries data (flashes,
+            # language preference, MFA/dev-OTP, a fresh login) or an
+            # authenticated session — MUST be persisted normally. Skipping
+            # save_session() for every anonymous response silently dropped
+            # every flash and preference for anonymous users: the cookie
+            # never reached the client, so form-validation messages, lockout
+            # notices and the language choice all vanished on the redirect.
             super().save_session(app, session, response)
 
     app.session_interface = _StaticNoVarySessionInterface()
@@ -404,7 +428,6 @@ def create_app(test_config=None):
     # security policy — no bare init here).
     db.init_app(app)
     migrate.init_app(app, db)
-    csrf.init_app(app)
     limiter.init_app(app)
     mail.init_app(app)
 
@@ -484,6 +507,16 @@ def create_app(test_config=None):
                       # breaking plain-http local/LAN runs.
                       session_cookie_secure=_is_deployed(),
                       content_security_policy=_csp)
+    # CSRFProtect is initialized AFTER Talisman deliberately: both register
+    # before_request hooks, and Flask aborts the rest of the chain the moment
+    # one raises. When CSRF validation rejects a request (400 CSRFError),
+    # every later-registered before_request is skipped — including Talisman's
+    # _update_local_options — so its after_request then crashes on unset
+    # local_options (AttributeError: frame_options) and turns a clean 400
+    # into a 500. Talisman must register its hooks FIRST (before CSRF's
+    # validator) so its per-request options are always populated even when
+    # CSRF raises mid-chain.
+    csrf.init_app(app)
 
     # Text compression (gzip + brotli) for HTML/CSS/JS responses.
     # Cuts Transfer-Encoding by 60-80% on the 144KB homepage — the #1
@@ -606,7 +639,7 @@ def create_app(test_config=None):
             deploy_v = app.config['DEPLOY_TIMESTAMP'].strftime('%Y%m%d%H%M%S') if app.config.get('DEPLOY_TIMESTAMP') else '20260831'
             resp.headers['Link'] = (
                 f'</static/css/critical.css?v={deploy_v}>; rel=preload; as=style, '
-                f'</static/fonts/outfit-v15.woff2?v={deploy_v}>; rel=preload; as=font; type=font/woff2; crossorigin, '
+                f'</static/fonts/outfit-v15.woff2>; rel=preload; as=font; type=font/woff2; crossorigin, '
                 f'</static/vendor/bootstrap.min.css?v={deploy_v}>; rel=preload; as=style; media=print'
             )
             # 103 Early Hints: tell the browser to start loading critical resources
@@ -682,7 +715,7 @@ def create_app(test_config=None):
             existing_link = resp.headers.get('Link', '')
             early_hints = (
                 f'</static/css/critical.css?v={deploy_v}>; rel=preload; as=style, '
-                f'</static/fonts/outfit-v15.woff2?v={deploy_v}>; rel=preload; as=font; type=font/woff2; crossorigin, '
+                f'</static/fonts/outfit-v15.woff2>; rel=preload; as=font; type=font/woff2; crossorigin, '
                 f'</static/vendor/bootstrap.min.css?v={deploy_v}>; rel=preload; as=style; media=print, '
                 f'</static/js/offline.js?v={deploy_v}>; rel=preload; as=script'
             )

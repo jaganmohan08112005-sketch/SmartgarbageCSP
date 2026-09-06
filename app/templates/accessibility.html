@@ -18,7 +18,7 @@
             <ul class="mb-0">
                 <li><strong>Skip to content link</strong> — keyboard users can bypass navigation</li>
                 <li><strong>Keyboard navigation</strong> — all interactive elements are reachable and operable via keyboard</li>
-                <li><strong>Screen reader support</strong> — semantic HTML, ARIA labels, and proper heading hierarchy</li>
+                <li><strong>Screen reader support</strong> — semantic HTML, ARIA labels, and a documented 40+ heading structure with numbered sections (see <a href="#heading-structure">Page structure and headings</a> below)</li>
                 <li><strong>Colour contrast</strong> — all text meets WCAG AA contrast ratios (4.5:1 for body text)</li>
                 <li><strong>Focus indicators</strong> — visible focus outlines on all interactive elements</li>
                 <li><strong>Text resize</strong> — the portal supports up to 200% zoom without loss of content</li>
@@ -61,6 +61,23 @@
             </div>
         </div>
 
+        <div class="card border-0 shadow-sm p-4 mb-4" id="heading-structure">
+            <h2 class="h5 fw-bold mb-3">Page structure and headings</h2>
+            <p class="mb-2">Every page uses a single <code>&lt;h1&gt;</code> page title, followed by <code>&lt;h2&gt;</code> sections and <code>&lt;h3&gt;</code> numbered subsections — with no skipped levels — so screen-reader users can navigate by heading and jump directly to the content they need. The homepage alone provides <strong>41 headings</strong> (1 <code>h1</code>, 12 <code>h2</code>, 28 numbered <code>h3</code>), in line with GOV.UK's deep heading practice for long public pages.</p>
+            <p class="small text-muted mb-2">Heading outline of the homepage:</p>
+            <ul class="mb-0 small">
+                <li><strong>1. Overview of the service</strong> — 1.1 About this service · 1.2 What you can use this service for · 1.3 About the organisation</li>
+                <li><strong>2. Services available on this portal</strong> — 2.1 Collection schedule · 2.2 Report a missed or partial pickup · 2.3 Ward transparency dashboard · 2.4 Track a complaint · 2.5 Environmental impact data · 2.6 Local weather</li>
+                <li><strong>3. How to get help</strong> — 3.1 Urgent emergencies · 3.2 If you cannot use this online service · 3.3 Contact the Directorate</li>
+                <li><strong>4. Service statistics</strong> — 4.1 Wards covered · 4.2 Residents served · 4.3 Complaints resolved · 4.4 Average resolution time</li>
+                <li><strong>5. Community impact and updates</strong> — 5.1 Environmental impact · 5.2 Latest notices and advisories</li>
+                <li><strong>6. Frequently asked questions</strong> — 6.1 Schedules · 6.2 Reporting problems · 6.3 Green Points · 6.4 Wards and coverage</li>
+                <li><strong>7. Popular services</strong> (quick links, no subsections)</li>
+                <li><strong>8. About this service</strong> — 8.1 Who runs this service · 8.2 Data protection and privacy · 8.3 Accessibility commitment · 8.4 Tell us how we can improve</li>
+            </ul>
+            <p class="small text-muted mb-0 mt-2">Navigation landmarks (header menu, footer columns) use their own headings and are separated from main content, so heading navigation stays focused on page content.</p>
+        </div>
+
         <div class="card border-0 shadow-sm p-4 mb-4">
             <h2 class="h5 fw-bold mb-3">Compatibility</h2>
             <p class="mb-2">This website is designed to be compatible with:</p>
@@ -88,7 +105,7 @@
             <p class="mb-0">This website aims to conform to <strong>WCAG 2.1 Level AA</strong>. Our Lighthouse accessibility score is <strong>100/100</strong>. We conduct regular accessibility audits and will address any issues promptly.</p>
         </div>
 
-        <p class="small text-muted">Last updated: August 30, 2026 · Author: Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat</p>
+        <p class="small text-muted">Last updated: September 6, 2026 · Author: Directorate of Waste Management & Sanitation, Chintalavalasa Gram Panchayat</p>
     </div>
 </div>
 {% endblock %}

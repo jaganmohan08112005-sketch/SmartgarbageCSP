@@ -1446,6 +1446,15 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 
 /* Dark mode styles unified under [data-theme="dark"]. */
 [data-theme="dark"] {
+    /* Bootstrap compatibility vars: unthemed elements (p.small, .card-body
+       defaults, form text) inherit --bs-body-color, which stays #212529 and
+       renders near-invisible on dark surfaces. Remap the core Bootstrap
+       color variables so every element flips with the theme. */
+    --bs-body-color: #e2e8f0;
+    --bs-body-bg: #0f172a;
+    --bs-emphasis-color: #f1f5f9;
+    --bs-secondary-color: #94a3b8;
+    --bs-tertiary-bg: #16212b;
     --sg-green-50: #1a3a2a;
     --sg-green-border: #2ecc71;
     --sg-green-100: #1a3a2a;

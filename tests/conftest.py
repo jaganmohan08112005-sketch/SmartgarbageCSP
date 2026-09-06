@@ -47,6 +47,7 @@ def _seed(app):
             role="citizen",
             phone="+919876543210",
             is_approved=True,
+            email_verified=True,
             green_points=10,
         )
         admin = User(

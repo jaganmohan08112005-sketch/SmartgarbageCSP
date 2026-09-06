@@ -173,8 +173,12 @@ def test_state_portal_export(client, app):
 def test_transparency_view_public(client):
     r = client.get('/transparency')
     assert r.status_code == 200
+    # Legacy /ward/<name> URLs 301-redirect to the canonical /transparency
+    # (SEO: no duplicate content); following it must land on a 200 page.
     r = client.get('/ward/Ward%201%20-%20MVGR%20College%20Area')
-    assert r.status_code == 200
+    assert r.status_code == 301
+    r2 = client.get(r.headers['Location'])
+    assert r2.status_code == 200
 
 
 def test_full_resolution_notification(client, app):

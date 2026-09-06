@@ -1002,8 +1002,12 @@ def test_sitemap_lists_all_public_pages(client):
     for path in ('/', '/about', '/schedule', '/report', '/transparency',
                  '/register', '/register/picker', '/privacy'):
         assert path in body, f'sitemap missing {path}'
-    assert 'no-store' in (r.headers.get('Cache-Control') or ''), \
-        'sitemap.xml must be no-store so stale versions cannot be cached'
+    # sitemap content changes only on deploy (lastmod = deploy timestamp), so
+    # the route deliberately caches it for 1 hour at the edge to absorb
+    # crawler-heavy traffic (see /sitemap.xml) — it must never be no-store.
+    cc = r.headers.get('Cache-Control') or ''
+    assert 'max-age=3600' in cc and 'public' in cc, \
+        f'sitemap.xml must be edge-cacheable for 1h, got: {cc}'
 
 
 # ── Live-weather status is cached (wttr.in hit once per 10-min window) ──
@@ -1168,32 +1172,53 @@ def test_home_impact_stats_cached_within_ttl(client, app, monkeypatch):
     calls = {'n': 0}
 
     class _FakeQuery:
+        """Chainable fake standing in for the model query API used by
+        _homepage_impact(): count()/filter()/filter_by() (each COUNT
+        increments the tally) plus a scalar() result for the resolution-
+        time average (None → skipped, no COUNT)."""
         def count(self):
             calls['n'] += 1
             return 17
 
+        def filter(self, *args, **kwargs):
+            return self
+
         def filter_by(self, **kwargs):
             return self
 
-    monkeypatch.setattr(public.SmartBin, 'query', _FakeQuery())
-    monkeypatch.setattr(public.Complaint, 'query', _FakeQuery())
+        def scalar(self):
+            return None
+
+    from types import SimpleNamespace as _NS
+    from app import models as _models  # _homepage_impact() imports these inside the call
+    fake_q = _FakeQuery()
+    monkeypatch.setattr(public.SmartBin, 'query', fake_q)
+    monkeypatch.setattr(public.Complaint, 'query', fake_q)
+    monkeypatch.setattr(_models.WorkerProfile, 'query', fake_q)
+    # The resolution-time average goes through db.session.query(...).scalar();
+    # stub the whole db only for this request (the homepage touches no other
+    # DB surface).
+    monkeypatch.setattr(public, 'db', _NS(session=_NS(query=lambda *a, **k: _FakeQuery())))
     monkeypatch.setattr(public, 'cache_get', lambda key: None)
     monkeypatch.setattr(public, 'cache_set', lambda *a, **k: None)
     public._impact_stats_cache = {'at': 0.0, 'value': None}
 
+    # Cold cache → one full refresh: 5 COUNTs (bins, active bins, complaints,
+    # resolved complaints, crew). Warm cache → zero re-queries. Expired cache
+    # → exactly one more refresh (5 more COUNTs).
     r1 = client.get('/')
     assert r1.status_code == 200
-    assert calls['n'] == 2, f"cold cache → 2 COUNTs, got {calls['n']}"
+    assert calls['n'] == 5, f"cold cache → 5 COUNTs, got {calls['n']}"
     assert b'17' in r1.data  # resolved count renders on the hero card
 
     r2 = client.get('/')
     assert r2.status_code == 200
-    assert calls['n'] == 2, f"warm cache → no re-query, got {calls['n']}"
+    assert calls['n'] == 5, f"warm cache → no re-query, got {calls['n']}"
 
-    # Age the cache past the TTL → next render must re-query once.
+    # Age the cache past the TTL → next render must re-query exactly once.
     public._impact_stats_cache['at'] = _time.monotonic() - 601
     client.get('/')
-    assert calls['n'] == 4, f"expired cache → 2 more COUNTs, got {calls['n']}"
+    assert calls['n'] == 10, f"expired cache → 5 more COUNTs, got {calls['n']}"
 
 
 # ── Complaint resolution pushes a notification to citizen ──
@@ -1999,9 +2024,11 @@ def test_illegal_report_compresses_photo(client, app):
         from app.models import IllegalDumpReport
         rep = IllegalDumpReport.query.order_by(IllegalDumpReport.id.desc()).first()
         assert rep and rep.scrubbed_photo
-    # The saved file must be a small JPEG, not a multi-MB raw PNG.
+    # The saved file must be a small JPEG, not a multi-MB raw PNG. (Use the
+    # fixture app's config — booting a second app here would require its own
+    # DATABASE_URL and never sees the upload the test client just wrote.)
     saved = rep.scrubbed_photo.split('/', 1)[-1]
-    path = os.path.join(create_app().config['UPLOAD_FOLDER'], saved)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], saved)
     assert os.path.exists(path), path
     im = Image.open(path)
     assert im.format == 'JPEG'
@@ -4656,8 +4683,8 @@ def test_audit_ledger_shows_per_order_timeline(client, app):
     assert 'TL-BIN-1' in body
     # Both lifecycle events present in the timeline SECTION (scoped slice —
     # the flat table below renders newest-first, which would invert the order)
-    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
-    section = section[:section.index('<!-- Audit Log Table -->')]
+    section = body[body.index('Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('id="audit_table"')]
     assert 'Created' in section and 'Started' in section
     assert section.index('Maintenance order #') < section.index('started maintenance work order')
     # The reschedule control appears on the open order
@@ -4696,8 +4723,8 @@ def test_audit_ledger_timeline_shows_due_date_change(client, app):
     r = client.get('/admin/audit')
     assert r.status_code == 200
     body = r.data.decode('utf-8')
-    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
-    section = section[:section.index('<!-- Audit Log Table -->')]
+    section = body[body.index('Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('id="audit_table"')]
     assert 'Due date changed' in section
     assert '2026-09-20' in section
     # Ordering: created → due-date change → (no started/completed yet). The
@@ -4845,8 +4872,8 @@ def test_audit_ledger_timeline_shows_worker_change(client, app):
     r = client.get('/admin/audit')
     assert r.status_code == 200
     body = r.data.decode('utf-8')
-    section = body[body.index('<!-- Maintenance Work-Order Lifecycles'):]
-    section = section[:section.index('<!-- Audit Log Table -->')]
+    section = body[body.index('Maintenance Work-Order Lifecycles'):]
+    section = section[:section.index('id="audit_table"')]
     assert 'Worker changed' in section
     assert 'reassigned maintenance work' in section
 
@@ -4980,16 +5007,16 @@ def test_google_site_verification_meta_is_config_gated(client):
 
 
 def test_homepage_privacy_at_a_glance(client):
-    """The homepage surfaces a privacy-at-a-glance card above the fold with the
-    three collection bullets and a link to the full notice."""
+    """The homepage surfaces a data-protection/privacy-at-a-glance block (in
+    the 'About this service' section) that lists what is collected and links
+    to the full notice."""
     r = client.get('/')
     assert r.status_code == 200
     body = r.get_data(as_text=True)
-    assert 'Your privacy at a glance' in body
+    assert 'Data protection and privacy' in body
     assert 'href="/privacy"' in body
-    for bullet in ('Forms: only what you enter',
-                   'photos: captured only when you file a report',  # '&' renders as &amp;
-                   'Payments via Razorpay'):
+    assert 'href="/terms"' in body
+    for bullet in ('Complaint details', 'Account data', 'Analytics'):
         assert bullet in body
 
 
