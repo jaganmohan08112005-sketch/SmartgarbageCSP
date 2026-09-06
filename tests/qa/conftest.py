@@ -184,7 +184,12 @@ def live_server_url():
     app = create_app(test_config={
         "TESTING": False,
         "WTF_CSRF_ENABLED": False,
-        "SQLALCHEMY_DATABASE_URI": test_db_url
+        "SQLALCHEMY_DATABASE_URI": test_db_url,
+        # QA live-server flows also exercise email paths (OTP login, status
+        # alerts): locmem captures them in `mail.outbox` so no SMTP connection
+        # is attempted and sends are verifiable. Explicit here because
+        # TESTING=False would otherwise default to the smtp backend.
+        "MAIL_BACKEND": "locmem",
     })
     with app.app_context():
         db.create_all()

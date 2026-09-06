@@ -121,7 +121,15 @@ def _make_app(db_uri):
         "TESTING": True,
         "WTF_CSRF_ENABLED": False,
         "SQLALCHEMY_DATABASE_URI": db_uri,
-        "SERVER_NAME": "localhost:5001"
+        "SERVER_NAME": "localhost:5001",
+        # Exercise the email paths in every test run: the locmem backend
+        # stores messages in `mail.outbox` instead of opening an SMTP
+        # connection, so OTP/registration/status mails are actually sent
+        # (and assertable) in CI rather than erroring on connect or being
+        # silently skipped. flask-mailman already defaults to locmem when
+        # TESTING=True, but pinning it here makes the contract explicit and
+        # independent of the library's default.
+        "MAIL_BACKEND": "locmem",
     })
 
 
