@@ -549,11 +549,15 @@ def send_reset_email(user_email, user_id):
     if send_email_via_smtp(user_email, subject, body):
         return True
     try:
-        from flask_mailman import Message
-        msg = Message(subject, recipients=[user_email], body=body)
+        # flask_mailman 1.1.1 dropped the old `Message` alias AND `Mail.send()`;
+        # the Django-style Mail.send_mail(subject, message, from_email,
+        # recipient_list=...) is the current API. A stale import + `.send()`
+        # call here silently fell back to False, so reset emails were never
+        # actually sent via mailman.
         # mail is the app-wide flask-mailman instance from app/__init__.py
         from .. import mail
-        mail.send(msg)
+        mail.send_mail(subject, body,
+                       from_email=None, recipient_list=[user_email])
         return True
     except Exception as e:
         logger.error("mail_send_error", error=str(e))
@@ -580,10 +584,11 @@ def send_verification_email(user_email, user_id):
     sent = send_email_via_smtp(user_email, subject, body)
     if not sent:
         try:
-            from flask_mailman import Message
-            msg = Message(subject, recipients=[user_email], body=body)
+            # flask_mailman 1.1.1 API (Message + Mail.send dropped); see
+            # send_reset_email for the rationale.
             from .. import mail
-            mail.send(msg)
+            mail.send_mail(subject, body,
+                           from_email=None, recipient_list=[user_email])
             sent = True
         except Exception as e:
             logger.error("verification_email_error", error=str(e))
