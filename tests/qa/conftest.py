@@ -69,9 +69,6 @@ def app():
         db.drop_all()
     with app.app_context():
         db.engine.dispose()
-        with app.app_context():
-            db.engine.dispose()
-        os.remove(path)
 
 
 def _seed(app):
