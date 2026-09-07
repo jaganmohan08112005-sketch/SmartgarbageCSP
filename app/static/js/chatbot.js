@@ -75,6 +75,45 @@
     `;
     document.body.appendChild(container);
 
+    // Keep the FAB clear of the fixed GOV.UK cookie-consent banner: measure
+    // the visible banner (#sgConsentBanner or the no-analytics #sgPrivacyNotice
+    // variant — only one exists per deployment) and lift the FAB above it.
+    function syncFabWithConsent() {
+      var banners = ['sgConsentBanner', 'sgPrivacyNotice']
+        .map(function (id) { return document.getElementById(id); })
+        .filter(function (el) {
+          return el && !el.classList.contains('d-none') && el.offsetHeight > 0;
+        });
+      var h = banners.length ? banners[0].offsetHeight : 0;
+      container.classList.toggle('sg-consent-shown', h > 0);
+      container.style.setProperty('--sg-consent-h', h + 'px');
+    }
+    syncFabWithConsent();
+    // Trailing debounce: the confirmation swap replaces the banner's innerHTML
+    // (height 186px -> 121px) and Hide appends a button — several mutations
+    // per transition — so measure once after the burst, not mid-replace.
+    var syncTimer = null;
+    function syncDebounced() {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(syncFabWithConsent, 60);
+    }
+    ['sgConsentBanner', 'sgPrivacyNotice'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && typeof MutationObserver !== 'undefined') {
+        // Watches class changes (show/hide) AND child/subtree changes (the
+        // Accept/Reject confirmation replaces the message and appends Hide,
+        // which resizes the banner without touching its class).
+        new MutationObserver(syncDebounced).observe(el, {
+          attributes: true,
+          attributeFilter: ['class'],
+          childList: true,
+          subtree: true
+        });
+      }
+    });
+    // Banner height changes with viewport width (text re-wraps) — re-measure.
+    window.addEventListener('resize', syncDebounced);
+
     // Event listeners
     const toggle = document.getElementById('sg-chat-toggle');
     const win = document.getElementById('sg-chat-window');

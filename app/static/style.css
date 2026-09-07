@@ -1893,6 +1893,11 @@ textarea:focus-visible,
 @media (max-width: 575.98px) {
     #sg-chat-window { width: calc(100vw - 2rem); right: -0.5rem; }
 }
+/* Lift the chat FAB above the fixed GOV.UK cookie-consent banner while it is
+   visible. chatbot.js measures the banner, sets --sg-consent-h (its height)
+   and toggles .sg-consent-shown; without JS the FAB stays put (no regression). */
+#sg-chatbot { transition: bottom .25s ease; }
+#sg-chatbot.sg-consent-shown { bottom: calc(var(--sg-consent-h, 160px) + 12px); }
 
 
 /* ── GOV.UK-style "Is this page useful?" feedback widget ── */
