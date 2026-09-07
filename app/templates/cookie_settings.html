@@ -70,15 +70,30 @@
         }
     }
 
+    var BTNS = document.querySelectorAll('[data-cookie-choice]');
+
+    /* Current-choice indicator: mark the button that matches the saved
+       choice (visual ring + checkmark via .sg-choice-active, plus
+       aria-pressed for screen readers). */
+    function setActive(choice) {
+        BTNS.forEach(function(b) {
+            var active = b.getAttribute('data-cookie-choice') === choice;
+            b.classList.toggle('sg-choice-active', active);
+            b.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
     /* Reflect the saved choice on load (accepted / declined / none yet). */
     var c = currentChoice();
     if (c === 'accepted') {
         showStatus('{{ _('You have accepted analytics cookies. They are currently enabled.') }}');
+        setActive('accept');
     } else if (c === 'declined') {
         showStatus('{{ _('You have rejected analytics cookies. They are currently disabled.') }}');
+        setActive('decline');
     }
 
-    document.querySelectorAll('[data-cookie-choice]').forEach(function(btn) {
+    BTNS.forEach(function(btn) {
         btn.addEventListener('click', function() {
             var accept = btn.getAttribute('data-cookie-choice') === 'accept';
             if (typeof window.sgSetConsent === 'function') {
@@ -90,6 +105,8 @@
             } else {
                 try { localStorage.setItem('sgAnalyticsConsent', accept ? 'accepted' : 'declined'); } catch (e) {}
             }
+            /* Move the highlight to the button just chosen. */
+            setActive(btn.getAttribute('data-cookie-choice'));
             showStatus(accept
                 ? '{{ _('You have accepted analytics cookies. They are now enabled.') }}'
                 : '{{ _('You have rejected analytics cookies. They are now disabled.') }}');

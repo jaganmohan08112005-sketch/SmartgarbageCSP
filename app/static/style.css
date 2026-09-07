@@ -1119,6 +1119,15 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 .sg-govuk-consent-confirmation { display: block; margin-top: 4px; }
 .sg-consent-text { flex: 1 1 280px; }
 
+/* Cookie-settings page: current-choice indicator — a GOV.UK-yellow ring plus
+   a checkmark marks whichever Accept/Reject button matches the saved choice.
+   Toggled by the page script on load and on every choice change. */
+.sg-choice-active {
+    outline: 3px solid #ffdd00;
+    outline-offset: 2px;
+}
+.sg-choice-active::before { content: "\2713\00a0"; font-weight: 700; }
+
 /* High-contrast (WCAG AA) — overrides both light and dark palettes */
 [data-contrast="true"] body {
     background: #000 !important;
