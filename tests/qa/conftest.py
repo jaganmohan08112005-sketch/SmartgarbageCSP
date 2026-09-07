@@ -12,7 +12,7 @@ import pytest
 # Ensure project root on path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import create_app, db
+from app import create_app, db, socketio
 from app.models import User, SmartBin, Schedule, Complaint, WorkerProfile
 from werkzeug.security import generate_password_hash
 
@@ -196,7 +196,11 @@ def live_server_url():
         _seed(app)
 
     def _run():
-        app.run(host="127.0.0.1", port=port, use_reloader=False, threaded=True)
+        # Serve via gevent (socketio.run) like run.py and the production
+        # gevent workers: plain Werkzeug threaded app.run stalls concurrent
+        # deferred-script fetches under Chromium's connection pattern, which
+        # blocks DOMContentLoaded/load in Playwright.
+        socketio.run(app, host="127.0.0.1", port=port, debug=False)
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
