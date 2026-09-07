@@ -75,34 +75,48 @@
     `;
     document.body.appendChild(container);
 
-    // Keep the FAB clear of the fixed GOV.UK cookie-consent banner: measure
-    // the visible banner (#sgConsentBanner or the no-analytics #sgPrivacyNotice
-    // variant — only one exists per deployment) and lift the FAB above it.
-    function syncFabWithConsent() {
-      var banners = ['sgConsentBanner', 'sgPrivacyNotice']
+    // Keep the FAB clear of every fixed bottom bar (mobile quick-action bar,
+    // PWA install banner, GOV.UK cookie-consent banner): measure each visible
+    // bar's top edge from the viewport bottom and lift the FAB above the
+    // tallest one. Runs on load, on bar show/hide/resize mutations and on
+    // window resize (bars appear only below the tablet breakpoint).
+    function syncFabWithBottomBars() {
+      var clear = 0;
+      function visible(el) {
+        return el && !el.classList.contains('d-none') && el.offsetHeight > 0;
+      }
+      // Cookie-consent banner (bottom: 0) — #sgConsentBanner on analytics
+      // deployments, #sgPrivacyNotice otherwise; only one exists.
+      var banner = ['sgConsentBanner', 'sgPrivacyNotice']
         .map(function (id) { return document.getElementById(id); })
-        .filter(function (el) {
-          return el && !el.classList.contains('d-none') && el.offsetHeight > 0;
-        });
-      var h = banners.length ? banners[0].offsetHeight : 0;
-      container.classList.toggle('sg-consent-shown', h > 0);
-      container.style.setProperty('--sg-consent-h', h + 'px');
+        .filter(visible)[0];
+      if (banner) clear = Math.max(clear, banner.offsetHeight);
+      // PWA install banner (bottom: 70px — above the quick-action bar).
+      var install = document.getElementById('sgInstallBanner');
+      if (visible(install)) clear = Math.max(clear, 70 + install.offsetHeight);
+      // Mobile quick-action bar (bottom: 0, phones/tablets only).
+      var qbar = document.querySelector('.sg-mobile-actions');
+      if (qbar && getComputedStyle(qbar).display !== 'none') {
+        clear = Math.max(clear, qbar.offsetHeight);
+      }
+      container.classList.toggle('sg-fab-raised', clear > 0);
+      container.style.setProperty('--sg-fab-clear', clear + 'px');
     }
-    syncFabWithConsent();
-    // Trailing debounce: the confirmation swap replaces the banner's innerHTML
-    // (height 186px -> 121px) and Hide appends a button — several mutations
-    // per transition — so measure once after the burst, not mid-replace.
+    syncFabWithBottomBars();
+    // Trailing debounce: the consent confirmation swaps the banner's innerHTML
+    // and Hide/Install append buttons — several mutations per transition — so
+    // measure once after the burst, not mid-replace.
     var syncTimer = null;
     function syncDebounced() {
       clearTimeout(syncTimer);
-      syncTimer = setTimeout(syncFabWithConsent, 60);
+      syncTimer = setTimeout(syncFabWithBottomBars, 60);
     }
-    ['sgConsentBanner', 'sgPrivacyNotice'].forEach(function (id) {
+    ['sgConsentBanner', 'sgPrivacyNotice', 'sgInstallBanner'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el && typeof MutationObserver !== 'undefined') {
         // Watches class changes (show/hide) AND child/subtree changes (the
-        // Accept/Reject confirmation replaces the message and appends Hide,
-        // which resizes the banner without touching its class).
+        // consent confirmation and iOS install instructions replace content,
+        // which resizes the bar without touching its class).
         new MutationObserver(syncDebounced).observe(el, {
           attributes: true,
           attributeFilter: ['class'],
@@ -111,7 +125,8 @@
         });
       }
     });
-    // Banner height changes with viewport width (text re-wraps) — re-measure.
+    // Bar heights change with viewport width (text re-wraps, quick bar
+    // appears below the tablet breakpoint) — re-measure.
     window.addEventListener('resize', syncDebounced);
 
     // Event listeners
