@@ -12,6 +12,12 @@ button down; only a layout engine can.
 The measurement waits for document.fonts.ready first: the H1 above the CTA
 wraps according to font metrics, so the button's vertical position must be
 read at the final web-font layout, not the fallback-font pass.
+
+Navigation waits for DOMContentLoaded (not load): the hero contains no
+images or late-loaded content, so the CTA's geometry is fully determined
+once the document is parsed and web fonts are ready — and this avoids
+load-blocking external resources (e.g. font CDNs, weather APIs) delaying
+or flaking the test.
 """
 import pytest
 from playwright.sync_api import expect
@@ -47,7 +53,7 @@ def _cta_box(page):
 
 
 def test_primary_cta_fully_above_the_fold_at_375px(mobile_page):
-    mobile_page.goto("/")
+    mobile_page.goto("/", wait_until="domcontentloaded")
 
     box, vh = _cta_box(mobile_page)
     bottom = box["y"] + box["height"]
@@ -68,7 +74,7 @@ def test_primary_cta_bottom_margin_from_fold(mobile_page):
     """Regression guard with a little headroom: the CTA should sit at least
     ~24px above the fold, not be right at the edge (a few px of font-metric
     drift between environments must not flip the fold test)."""
-    mobile_page.goto("/")
+    mobile_page.goto("/", wait_until="domcontentloaded")
 
     box, vh = _cta_box(mobile_page)
     gap = vh - (box["y"] + box["height"])
