@@ -131,65 +131,20 @@
             </div>
             {# ── Illustration column (right) ── #}
             <div class="col-lg-5 text-center d-none d-lg-block">
-                <div class="sg-hero-illustration" aria-hidden="true">
-                    <svg width="320" height="240" viewBox="0 0 320 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="">
-                        <!-- Background: gentle green circle -->
-                        <circle cx="160" cy="130" r="110" fill="#10b981" opacity=".07"/>
-                        <!-- Road / ground line -->
-                        <rect x="20" y="195" width="280" height="3" rx="1.5" fill="#cbd5e1" opacity=".5"/>
-
-                        <!-- Smart Bin (left) -->
-                        <rect x="35" y="110" width="55" height="80" rx="8" fill="#fff" stroke="#10b981" stroke-width="2.5"/>
-                        <rect x="35" y="102" width="55" height="14" rx="6" fill="#10b981"/>
-                        <circle cx="62" cy="109" r="3" fill="#fff"/>
-                        <!-- Fill level indicator (green = 40%) -->
-                        <rect x="42" y="155" width="41" height="30" rx="4" fill="#10b981" opacity=".2"/>
-                        <rect x="42" y="155" width="41" height="30" rx="4" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4 2"/>
-                        <rect x="42" y="170" width="41" height="15" rx="4" fill="#10b981" opacity=".45"/>
-                        <!-- Bin label -->
-                        <rect x="46" y="120" width="32" height="4" rx="2" fill="#10b981" opacity=".35"/>
-                        <rect x="50" y="128" width="24" height="3" rx="1.5" fill="#10b981" opacity=".25"/>
-
-                        <!-- Collection Truck (center-right) -->
-                        <rect x="130" y="140" width="95" height="55" rx="6" fill="#059669"/>
-                        <rect x="130" y="132" width="95" height="12" rx="4" fill="#10b981"/>
-                        <!-- Truck cab -->
-                        <rect x="225" y="155" width="35" height="40" rx="4" fill="#065f46"/>
-                        <rect x="232" y="160" width="22" height="15" rx="2" fill="#a7f3d0" opacity=".8"/>
-                        <!-- Truck wheels -->
-                        <circle cx="155" cy="198" r="8" fill="#334155"/>
-                        <circle cx="155" cy="198" r="3" fill="#94a3b8"/>
-                        <circle cx="245" cy="198" r="8" fill="#334155"/>
-                        <circle cx="245" cy="198" r="3" fill="#94a3b8"/>
-                        <!-- Truck label -->
-                        <rect x="145" y="150" width="40" height="4" rx="2" fill="#fff" opacity=".4"/>
-                        <rect x="145" y="158" width="55" height="3" rx="1.5" fill="#fff" opacity=".25"/>
-
-                        <!-- Trees (right side) -->
-                        <rect x="275" y="155" width="5" height="40" rx="2" fill="#92400e" opacity=".6"/>
-                        <circle cx="277" cy="145" r="16" fill="#10b981" opacity=".3"/>
-                        <circle cx="270" cy="140" r="12" fill="#10b981" opacity=".25"/>
-                        <circle cx="285" cy="142" r="10" fill="#10b981" opacity=".2"/>
-
-                        <rect x="18" y="165" width="4" height="30" rx="2" fill="#92400e" opacity=".5"/>
-                        <circle cx="20" cy="158" r="12" fill="#10b981" opacity=".25"/>
-                        <circle cx="14" cy="155" r="9" fill="#10b981" opacity=".2"/>
-
-                        <!-- Checkmark badge (service delivered) -->
-                        <circle cx="280" cy="85" r="22" fill="#10b981"/>
-                        <path d="M269 85l7 7 14-14" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-
-                        <!-- Sun -->
-                        <circle cx="40" cy="40" r="16" fill="#fbbf24" opacity=".2"/>
-                        <circle cx="40" cy="40" r="10" fill="#fbbf24" opacity=".35"/>
-
-                        <!-- Small ward dots (community) -->
-                        <circle cx="100" cy="210" r="4" fill="#10b981" opacity=".3"/>
-                        <circle cx="120" cy="215" r="3" fill="#10b981" opacity=".25"/>
-                        <circle cx="145" cy="212" r="4" fill="#10b981" opacity=".3"/>
-                        <circle cx="170" cy="216" r="3" fill="#10b981" opacity=".2"/>
-                    </svg>
-                </div>
+                {# Real photograph (self-hosted, Pexels free stock licence) — a
+                   photo carries meaning, so it is NOT aria-hidden and gets a
+                   descriptive alt text + credit caption. Width/height attrs
+                   prevent layout shift; eager + high priority as it is the
+                   desktop LCP candidate. #}
+                <figure class="sg-hero-photo mb-0">
+                    <img src="{{ url_for('static', filename='img/hero-recycle.jpg', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"
+                         alt="{{ _('Hands sorting household recyclables into separate clear containers during waste segregation') }}"
+                         class="img-fluid rounded-3 shadow-sm border"
+                         width="1600" height="900" fetchpriority="high" decoding="async">
+                    <figcaption class="small text-muted mt-2">
+                        {{ _('Photo: Pexels (free stock licence) — illustrative of household waste segregation.') }}
+                    </figcaption>
+                </figure>
             </div>
         </div>
     </div>

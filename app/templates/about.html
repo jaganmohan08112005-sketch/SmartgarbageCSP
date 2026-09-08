@@ -14,22 +14,50 @@
     <h2 class="h5 fw-bold text-success mb-3">🏛️ {{ _('About this service') }}</h2>
 
     <div class="card border-0 shadow-sm bg-white p-4 mb-4">
-        <h3 class="h6 fw-bold text-dark mb-2">1.1 {{ _('Our mission') }}</h3>
-        <p class="text-muted mb-1">
-            {{ _('The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.') }}
-        </p>
-        <p class="text-muted mb-0">
-            {{ _('Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.') }}
-        </p>
+        <div class="row align-items-center g-4">
+            <div class="col-md-7">
+                <h3 class="h6 fw-bold text-dark mb-2">1.1 {{ _('Our mission') }}</h3>
+                <p class="text-muted mb-1">
+                    {{ _('The Chintalavalasa Gram Panchayat runs this portal to make waste collection transparent, reliable and easy for every household — from checking pickup schedules and reporting missed collections to tracking complaints and paying by the weight of waste thrown.') }}
+                </p>
+                <p class="text-muted mb-0">
+                    {{ _('Collection crews follow ward timetables that are published here, so every household knows when to put out waste. A missed pickup is routed to the ward crew with your address and photo, and the complaint status is tracked until it is resolved — visible from your dashboard or the tracking link you receive.') }}
+                </p>
+            </div>
+            <div class="col-md-5">
+                <figure class="mb-0">
+                    <img src="{{ url_for('static', filename='img/about-workers.jpg', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"
+                         alt="{{ _('Sanitation workers sorting collected plastic waste at a waste-processing yard') }}"
+                         class="img-fluid rounded-3 shadow-sm border" width="1000" height="667" loading="lazy" decoding="async">
+                    <figcaption class="small text-muted mt-2">
+                        {{ _('Photo: Pexels (free stock licence) — illustrative of waste-processing operations.') }}
+                    </figcaption>
+                </figure>
+            </div>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm bg-white p-4 mb-4">
-        <h3 class="h6 fw-bold text-dark mb-2">1.2 {{ _('What residents can do here') }}</h3>
-        <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
-            <li>📅 <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('check pickup schedules') }}</a></li>
-            <li>⚠️ <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a></li>
-            <li>🗺️ <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('view the ward dashboard') }}</a></li>
-        </ul>
+        <div class="row align-items-center g-4">
+            <div class="col-md-6">
+                <h3 class="h6 fw-bold text-dark mb-2">1.2 {{ _('What residents can do here') }}</h3>
+                <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+                    <li>📅 <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('check pickup schedules') }}</a></li>
+                    <li>⚠️ <a href="/report" class="text-decoration-underline text-success fw-semibold">{{ _('report a missed pickup') }}</a></li>
+                    <li>🗺️ <a href="/transparency" class="text-decoration-underline text-success fw-semibold">{{ _('view the ward dashboard') }}</a></li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <figure class="mb-0">
+                    <img src="{{ url_for('static', filename='img/about-sorting.jpg', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"
+                         alt="{{ _('A resident sorting recyclable bottles and containers for segregation at home') }}"
+                         class="img-fluid rounded-3 shadow-sm border" width="1200" height="800" loading="lazy" decoding="async">
+                    <figcaption class="small text-muted mt-2">
+                        {{ _('Photo: Pexels (free stock licence) — illustrative of at-home segregation.') }}
+                    </figcaption>
+                </figure>
+            </div>
+        </div>
     </div>
 
     {# ── H2: Service area ── #}

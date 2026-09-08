@@ -29,6 +29,9 @@ const IMMUTABLE_ASSETS = [
     '/static/manifest.json',
     '/static/icon-192.png',
     '/static/icon-512.png',
+    '/static/img/hero-recycle.jpg',
+    '/static/img/about-workers.jpg',
+    '/static/img/about-sorting.jpg',
 ];
 
 // ── Pages to prefetch after first load (background) ──────────────

@@ -16,6 +16,15 @@ import json
 import os
 from datetime import datetime
 
+# Force UTF-8 console output so the box-drawing/emoji banner and status lines
+# don't crash with 'charmap' can't encode under piped/redirected stdout (the
+# ANSI code page, e.g. cp1252, can't represent these characters).
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 DOMAIN = "smartgarbage.eu.org"
 DNS_SERVERS = ["8.8.8.8", "1.1.1.1"]
 LOG_FILE = "euorg_monitor.log"
@@ -40,49 +49,57 @@ def log(msg, level="INFO"):
         f.write(line + "\n")
 
 
+def _resolve_a(server):
+    """Resolve the domain's A records against a public resolver.
+
+    Returns (resolved: bool, detail: str). Uses dnspython (a hard dependency
+    of this repo) so the outcome is deterministic — unlike shelling out to
+    nslookup, whose timeout lines ("timeout was 2 seconds.") used to be
+    misparsed as an IP address and reported a false APPROVED.
+    """
+    import dns.resolver
+    res = dns.resolver.Resolver(configure=False)
+    res.nameservers = [server]
+    res.timeout = 5
+    res.lifetime = 5
+    try:
+        answers = res.resolve(DOMAIN, "A")
+        ips = [r.to_text() for r in answers]
+        return True, ",".join(ips) if ips else "delegated (no A record)"
+    except dns.resolver.NXDOMAIN:
+        # Registry has no delegation at all — eu.org has not approved yet.
+        return False, "NXDOMAIN (not yet approved by eu.org)"
+    except dns.resolver.NoAnswer:
+        # Delegated, zone exists, but no A record published.
+        return True, "delegated (no A record)"
+    except Exception as e:
+        # Timeout, network failure, etc. — NOT evidence of approval.
+        return False, f"{type(e).__name__}: {e}"
+
+
 def check_dns():
-    """Check if the domain resolves on any DNS server."""
+    """Check if the domain resolves on any public DNS server."""
     for server in DNS_SERVERS:
-        try:
-            result = subprocess.run(
-                ["nslookup", DOMAIN, server],
-                capture_output=True, text=True, timeout=10
-            )
-            # Check BOTH stdout and stderr for failure indicators
-            combined = result.stdout + result.stderr
-            # Domain does NOT resolve if these failure messages appear
-            if any(msg in combined for msg in [
-                "Non-existent domain",
-                "NXDOMAIN",
-                "can't find",
-                "server can't find",
-            ]):
-                continue
-            # Domain resolves — extract IP or confirm delegation
-            for line in result.stdout.split("\n"):
-                line = line.strip()
-                if line and not line.startswith("Server:") and not line.startswith("Address:") and "Name:" not in line:
-                    if any(c.isdigit() for c in line) and "." in line:
-                        return True, server, line
-            # No IP found but no error — domain is delegated but has no A record
-            return True, server, "delegated (no A record)"
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            continue
+        resolved, detail = _resolve_a(server)
+        if resolved:
+            return True, server, detail
     return False, None, None
 
 
 def check_ns_delegation():
-    """Check if eu.org has delegated NS records to Hurricane Electric."""
+    """Check if the domain's NS records point to Hurricane Electric."""
+    import dns.resolver
     for server in DNS_SERVERS:
+        res = dns.resolver.Resolver(configure=False)
+        res.nameservers = [server]
+        res.timeout = 5
+        res.lifetime = 5
         try:
-            result = subprocess.run(
-                ["nslookup", "-type=NS", DOMAIN, server],
-                capture_output=True, text=True, timeout=10
-            )
-            output = result.stdout
-            if "he.net" in output.lower() or "ns1.he.net" in output.lower():
+            answers = res.resolve(DOMAIN, "NS")
+            names = [r.to_text().lower() for r in answers]
+            if any(n.endswith("he.net.") for n in names):
                 return True, server
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except Exception:
             continue
     return False, None
 
@@ -115,7 +132,7 @@ def play_notification_sound():
 def show_desktop_notification(title, message):
     """Show a desktop notification."""
     try:
-        # Windows
+        # Windows (plyer when available)
         from plyer import notification
         notification.notify(
             title=title,
@@ -125,6 +142,28 @@ def show_desktop_notification(title, message):
         )
         return
     except ImportError:
+        pass
+    # Windows fallback without plyer: WinForms NotifyIcon balloon. The
+    # Start-Sleep keeps the process alive long enough for the balloon to
+    # render (the classic workaround — a short-lived process drops it).
+    try:
+        ps = (
+            "Add-Type -AssemblyName System.Windows.Forms;"
+            "$n = New-Object System.Windows.Forms.NotifyIcon;"
+            "$n.Icon = [System.Drawing.SystemIcons]::Information;"
+            "$n.Visible = $true;"
+            "$n.BalloonTipTitle = '%s';"
+            "$n.BalloonTipText = '%s';"
+            "$n.ShowBalloonTip(30000);"
+            "Start-Sleep -Seconds 15;"
+            "$n.Dispose()"
+        ) % (title.replace("'", "''"), message.replace("'", "''"))
+        subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps],
+            timeout=25
+        )
+        return
+    except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     try:
         # macOS
