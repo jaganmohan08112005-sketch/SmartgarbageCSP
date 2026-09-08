@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash
 from app import db, create_app, socketio
 import json as _json
 import os
+import threading
 
 
 def test_language_switch_renders_telugu_labels(client):
@@ -1079,12 +1080,16 @@ def test_weather_failure_falls_back_to_season_without_caching_error(monkeypatch)
     assert ml._WEATHER_CACHE['val'] == val  # fallback cached too
 
 
-# ── Landing-page weather widget is Redis-cached (open-meteo once) ──
+# ── Landing-page weather widget never blocks on the upstream API ──
 def test_home_weather_served_from_cache(client, app, monkeypatch):
-    """The landing page weather widget reads the per-location cache first and
-    only hits open-meteo on a miss — a warm cache means zero network I/O on
-    the homepage request path."""
+    """The landing-page weather widget never blocks on the upstream: a cold
+    cache miss answers instantly with the seasonal default and refreshes
+    open-meteo in the background; a warm cache serves the stored payload with
+    zero network I/O on the request path. (Previously a cold miss fetched
+    synchronously — up to 8s of pending response that stalled every other
+    request under the gevent dev server.)"""
     import app.routes.public as public
+    import time as _time
     fetch_calls = {'n': 0}
 
     class _FakeResp:
@@ -1108,24 +1113,43 @@ def test_home_weather_served_from_cache(client, app, monkeypatch):
     monkeypatch.setattr(public, 'cache_get', lambda key: cache_store.get(key))
     monkeypatch.setattr(public, 'cache_set', lambda key, value, ttl_seconds=60: cache_store.update({key: value}))
 
+    # Cold miss: instant 200 with the seasonal default — the response body is
+    # the default, NOT the fetch result (humidity 78%/wind 11 are the default;
+    # the fake fetch returns 70%/12), proving the request path made no
+    # synchronous upstream call.
     r1 = client.get('/?fetch_weather=true&lat=18.06&lon=83.41')
     assert r1.status_code == 200
-    assert fetch_calls['n'] == 1  # cold cache → one open-meteo call
     body1 = _json.loads(r1.data)
     assert body1['temp'] == '30°C'
+    assert body1['humidity'] == '78%'
+    assert body1['wind'] == '11 km/h'
 
+    # Background refresh populates the cache with the real payload.
+    cache_key = 'weather:My Location:18.06:83.41'
+    deadline = _time.monotonic() + 5.0
+    while _time.monotonic() < deadline and not cache_store.get(cache_key):
+        _time.sleep(0.05)
+    assert cache_store.get(cache_key) is not None, \
+        'background refresh never populated the cache'
+    assert fetch_calls['n'] == 1  # exactly one background open-meteo call
+
+    # Warm cache: second request serves the stored real payload, no new fetch.
     r2 = client.get('/?fetch_weather=true&lat=18.06&lon=83.41')
     assert r2.status_code == 200
     assert fetch_calls['n'] == 1  # warm cache → no second network call
-    assert _json.loads(r2.data) == body1
+    body2 = _json.loads(r2.data)
+    assert body2['humidity'] == '70%'
+    assert body2['wind'] == '12 km/h'
 
 
 # ── Weather widget falls back to wttr.in when Open-Meteo rejects ──
 def test_weather_fallback_to_wttr_when_openmeteo_fails(client, app, monkeypatch):
     """When Open-Meteo returns a non-200 (e.g. 403 from Render egress block),
-    the widget must transparently fall back to wttr.in and still return live
-    weather conditions instead of a 500 error."""
+    the background refresh must transparently fall back to wttr.in and store
+    live conditions for the next request — the route itself never 500s and
+    never blocks on the upstream."""
     import app.routes.public as public
+    import time as _time
 
     class _OpenMeteo403:
         status_code = 403
@@ -1151,13 +1175,27 @@ def test_weather_fallback_to_wttr_when_openmeteo_fails(client, app, monkeypatch)
     stored = {}
     monkeypatch.setattr(public, 'cache_set', lambda key, value, ttl_seconds=60: stored.update({key: value}))
 
+    # Cold miss: instant 200 seasonal default — never a 500, never a wait.
     r = client.get('/?fetch_weather=true&lat=18.06&lon=83.41')
     assert r.status_code == 200
-    body = _json.loads(r.data)
-    assert body['temp'] == '32°C'
-    assert body['humidity'] == '78%'
-    assert body['wind'] == '14 km/h'
-    assert body['condition'] == 'Partly cloudy'
+    assert _json.loads(r.data)['condition'] == 'Normal Seasonal Conditions'
+
+    # Background refresh: open-meteo 403 → wttr.in fallback populates the cache.
+    cache_key = 'weather:My Location:18.06:83.41'
+    deadline = _time.monotonic() + 5.0
+    while _time.monotonic() < deadline and not stored.get(cache_key):
+        _time.sleep(0.05)
+    payload = stored.get(cache_key)
+    assert payload is not None, 'wttr fallback never populated the cache'
+    assert payload['temp'] == '32°C'
+    assert payload['humidity'] == '78%'
+    assert payload['wind'] == '14 km/h'
+    assert payload['condition'] == 'Partly cloudy'
+
+    # Warm cache: next request serves the fallback weather via the SWR layer.
+    r2 = client.get('/?fetch_weather=true&lat=18.06&lon=83.41')
+    assert r2.status_code == 200
+    assert _json.loads(r2.data)['temp'] == '32°C'
 
 
 # ── Homepage impact stats are cached (COUNT queries once per window) ──
@@ -2803,6 +2841,87 @@ def test_send_email_with_pdf_attachment(app, monkeypatch):
     # MIMEApplication quotes the filename in the Content-Disposition header.
     assert 'filename="receipt.pdf"' in captured['msg']
     assert 'Here is your receipt.' in captured['msg']
+
+
+# ── Email outbox assertions (flask-mailman locmem backend) ──
+def _outbox(app):
+    """The locmem mail outbox: messages sent through the flask-mailman backend
+    during a test land on the app's mailman state (app.extensions['mailman']),
+    each exposing .subject, .to and .body."""
+    return app.extensions['mailman'].outbox
+
+
+def test_registration_sends_verification_email(client, app):
+    """Registering a citizen mails the email-verification link into the locmem
+    outbox — the message carries the signed token so the account can be
+    verified, proving the registration email path actually runs in CI."""
+    r = client.post('/register', data={
+        'username': 'mailcitizen',
+        'password': 'testpass123',
+        'phone': '+919876543221',
+        'email': 'mailcitizen@example.com',
+    }, follow_redirects=True)
+    assert b'Registration successful' in r.data
+    outbox = _outbox(app)
+    assert len(outbox) == 1, f'expected 1 verification mail, got {len(outbox)}'
+    msg = outbox[0]
+    assert msg.to == ['mailcitizen@example.com']
+    assert 'Verify Your Email Address' in msg.subject
+    assert '/verify-email/' in msg.body
+    assert '24 hours' in msg.body
+
+
+def test_admin_login_sends_otp_email(client, app, monkeypatch):
+    """Admin/worker login generates an MFA OTP and, when the request is not
+    local, delivers it by email — the locmem backend captures it in the outbox
+    with the 6-digit OTP in the body, proving the OTP email path runs."""
+    import re
+    import app.routes as routes_mod
+    # Non-local so the OTP actually goes out (localhost dev skips the send).
+    monkeypatch.setattr(routes_mod, '_is_local_request', lambda: False)
+    _make_user(app, 'otpadmin', role='admin', phone='+919876543222')
+    client.post('/login',
+                data={'username': 'otpadmin', 'password': 'testpass123'},
+                follow_redirects=False)
+    outbox = _outbox(app)
+    assert len(outbox) == 1, f'expected 1 OTP mail, got {len(outbox)}'
+    msg = outbox[0]
+    assert msg.subject == 'SmartGarbage OTP'
+    assert re.search(r'\b\d{6}\b', msg.body), \
+        f'6-digit OTP missing from body: {msg.body!r}'
+
+
+def test_complaint_status_change_sends_update_email(client, app, monkeypatch):
+    """Resolving a complaint mails the reporter a status update (email fallback
+    when SMS/Twilio is unconfigured) — the outbox message carries the complaint
+    id and the new status, proving the status-alert email path runs."""
+    import app.routes as routes_mod
+    cid = _make_user(app, 'statuscitizen', phone='+919876543223')
+    with app.app_context():
+        u = User.query.get(cid)
+        u.email = 'statuscitizen@example.com'
+        db.session.commit()
+        comp = Complaint(name='statuscitizen', phone='+919876543223',
+                         ward='Ward 1 - MVGR College Area', address='Gate',
+                         description='Overflow', status='Pending', user_id=cid)
+        db.session.add(comp)
+        db.session.commit()
+        comp_id = comp.id
+    _make_user(app, 'resolveadmin', role='admin')
+    _login_admin(client, app, 'resolveadmin')
+    # Resolve in non-local mode so the out-of-band status alert actually sends.
+    monkeypatch.setattr(routes_mod, '_is_local_request', lambda: False)
+    r = client.get(f'/resolve/{comp_id}', follow_redirects=False)
+    assert r.status_code == 302
+    outbox = _outbox(app)
+    status_mails = [m for m in outbox if 'Complaint Update' in m.subject]
+    assert len(status_mails) == 1, (
+        f'expected 1 status mail, got {len(status_mails)} '
+        f'from {len(outbox)} total')
+    msg = status_mails[0]
+    assert msg.to == ['statuscitizen@example.com']
+    assert f'#{comp_id}' in msg.body
+    assert 'Resolved' in msg.body
 
 
 def test_payt_pay_page_falls_back_to_upi_without_keys(client, app):
@@ -4974,8 +5093,85 @@ def test_consent_endpoint_works_with_csrf_enabled(tmp_path):
         row = ConsentRecord.query.first()
         assert row is not None and row.choice == 'accept' and row.version == 'v2'
         assert row.source is None or row.source == ''
+    # Dispose this app's engine before the test ends so its pooled connections
+    # (on the shared TEST_DATABASE_URL) are released rather than left checked
+    # out — otherwise a later fixture-based test's db.drop_all()/create_all()
+    # can block on the lingering idle-in-transaction connection (the same
+    # hang fixed in test_google_site_verification_meta_is_config_gated).
     with csrf_app.app_context():
         db.drop_all()
+        db.session.remove()
+        db.engine.dispose()
+
+
+def test_csrf_rejection_is_400_not_500_with_talisman_active():
+    """Regression: with CSRFProtect AND Flask-Talisman both active, a CSRF
+    rejection must surface as 400 — never 500.
+
+    Both extensions register before_request hooks and Flask aborts the rest of
+    the chain the moment one raises. If Talisman's hooks ran AFTER CSRF's
+    validator, its after_request would read unset per-request options
+    (AttributeError: frame_options) and turn a clean 400 into a 500. create_app
+    deliberately initializes Talisman BEFORE CSRFProtect; this test pins that
+    contract by asserting the rejection is 400 AND still carries Talisman's
+    security headers (i.e. its after_request ran without crashing).
+    """
+    test_db_url = os.environ.get('TEST_DATABASE_URL')
+    if not test_db_url:
+        raise RuntimeError('TEST_DATABASE_URL required for CSRF/Talisman test')
+    csrf_app = create_app(test_config={
+        'TESTING': True,
+        'WTF_CSRF_ENABLED': True,
+        'SQLALCHEMY_DATABASE_URI': test_db_url,
+        'SERVER_NAME': 'localhost:5001',
+    })
+    with csrf_app.app_context():
+        db.drop_all()
+        db.create_all()
+    # Run the rejection on a FRESH thread so Talisman's thread-local
+    # per-request options are unset. Talisman stores per-request options in a
+    # werkzeug Local (thread-local); if CSRF rejects before Talisman's
+    # _update_local_options ran (wrong hook order), its after_request reads an
+    # unset Local attribute and crashes the 400 into a 500. On a shared
+    # test-client thread the options linger from an earlier request and mask
+    # that bug — production requests arrive on fresh worker threads, so a
+    # fresh thread here is the faithful reproduction.
+    out = {}
+
+    def _do():
+        c = csrf_app.test_client()
+        try:
+            # No CSRF token -> CSRFProtect must reject. If ordering is wrong,
+            # this propagates an AttributeError or returns 500 instead of 400.
+            r = c.post('/api/consent', json={'choice': 'accept'},
+                       follow_redirects=False)
+            out['status'] = r.status_code
+            out['headers'] = dict(r.headers)
+        except Exception as e:  # propagated hook crash (TESTING propagates)
+            out['error'] = repr(e)
+
+    t = threading.Thread(target=_do)
+    t.start()
+    t.join()
+
+    assert 'error' not in out, (
+        f'CSRF rejection must not crash (got {out.get("error")}) — check '
+        f'Talisman/CSRFProtect before_request ordering in create_app')
+    assert out['status'] == 400, (
+        f'CSRF rejection must return 400, got {out["status"]} — check '
+        f'Talisman/CSRFProtect before_request ordering in create_app')
+    assert out['status'] != 500
+    # Talisman's after_request ran cleanly on the rejected request, so its
+    # security headers are present — proof the ordering is correct.
+    assert 'X-Frame-Options' in out['headers'], (
+        'Talisman after_request did not run on the CSRF 400 — '
+        'hook-ordering regression?')
+    assert 'Content-Security-Policy' in out['headers']
+
+    with csrf_app.app_context():
+        db.drop_all()
+        db.session.remove()
+        db.engine.dispose()
 
 
 def test_google_site_verification_meta_is_config_gated(client):
@@ -5174,3 +5370,5 @@ def test_feedback_endpoint_works_with_csrf_enabled(tmp_path):
         assert row.comment == 'csrf enabled' and row.page == '/schedule'
     with csrf_app.app_context():
         db.drop_all()
+        db.session.remove()
+        db.engine.dispose()

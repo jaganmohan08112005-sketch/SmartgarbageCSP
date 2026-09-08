@@ -26,6 +26,12 @@ def app():
         yield a
         db.session.remove()
         db.drop_all()
+        # Dispose this app's engine so its pooled connections (on the shared
+        # TEST_DATABASE_URL) are released rather than left checked out —
+        # otherwise a later fixture-based test's drop_all/create_all can block
+        # on the lingering idle-in-transaction connection (the same hang fixed
+        # in test_google_site_verification_meta_is_config_gated).
+        db.engine.dispose()
 
 
 @pytest.fixture

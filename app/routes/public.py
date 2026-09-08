@@ -95,6 +95,20 @@ def _weather_fetch(lat, lon, city_label):
     return None
 
 
+def _weather_default(city_label):
+    """Instant fallback payload served on a cold cache miss while the real
+    weather refreshes in the background. Mirrors the client-side fallback the
+    widget shows when the API is unreachable, so the user sees the same
+    sensible values either way — and the request never blocks on the upstream."""
+    return {
+        "city": city_label,
+        "temp": "30°C",
+        "humidity": "78%",
+        "wind": "11 km/h",
+        "condition": "Normal Seasonal Conditions",
+    }
+
+
 def _weather_store(cache_key, payload):
     """Store a fresh payload in both cache layers (Redis when present + SWR)."""
     cache_set(cache_key, payload, ttl_seconds=_WEATHER_TTL_S)
@@ -205,12 +219,21 @@ def home():
                                  args=(cache_key, target_lat, target_lon, city_label),
                                  daemon=True).start()
             return jsonify(payload)
-        # Cache miss (first request for this location): fetch synchronously.
-        payload = _weather_fetch(target_lat, target_lon, city_label)
-        if payload is None:
-            return jsonify({"error": "Weather API unavailable"}), 500
-        _weather_store(cache_key, payload)
-        return jsonify(payload)
+        # Cache miss (first request for this location): NEVER block the request
+        # on the upstream weather API. A synchronous _weather_fetch here can
+        # stall for up to ~8s (two 4s provider timeouts — and longer if DNS
+        # itself hangs), which violates the SWR contract above and keeps a
+        # browser connection pending that long; under the gevent dev server a
+        # blocking socket call even freezes the whole hub, stalling every other
+        # request (the Playwright fold tests' slow 30s+ runs). Answer instantly
+        # with the seasonal default and refresh open-meteo in the background,
+        # exactly like the stale-entry path.
+        if cache_key not in _weather_refreshing:
+            _weather_refreshing.add(cache_key)
+            threading.Thread(target=_weather_refresh,
+                             args=(cache_key, target_lat, target_lon, city_label),
+                             daemon=True).start()
+        return jsonify(_weather_default(city_label))
     # Community-impact figures for the homepage card: wards from the coverage
     # map (static), smart-bin and resolved-complaint counts from the DB.
     # Cached for 10 minutes like the weather block — Redis when configured,

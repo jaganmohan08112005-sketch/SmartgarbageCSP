@@ -60,6 +60,22 @@ jobs:
           # (missing header → 400, tampered token → 400, valid token without
           #  any cookie → 200 + row in Postgres)
           python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "csrf_enabled"
+      - name: Verify locmem mail outbox receives mail
+        run: |
+          # Named coverage for the flask-mailman locmem backend: with
+          # MAIL_BACKEND=locmem (pinned in tests/conftest.py), transactional
+          # mail — registration verification, admin/worker OTP, and complaint
+          # status alerts — must land in the outbox at
+          # app.extensions['mailman'].outbox instead of being silently dropped
+          # (SMTP is unconfigured in CI, and send_email_via_smtp falls back to
+          # flask-mailman for plain-text mail). The full suite runs these; this
+          # explicit step makes a regression to the email path fail loudly BY
+          # NAME:
+          #   test_registration_sends_verification_email
+          #   test_admin_login_sends_otp_email
+          #   test_complaint_status_change_sends_update_email
+          # (each asserts subject, recipient, and body content in the outbox)
+          python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "sends_verification_email or sends_otp_email or sends_update_email"
 
   lint:
     runs-on: ubuntu-latest

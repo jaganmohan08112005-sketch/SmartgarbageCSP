@@ -1561,13 +1561,33 @@ def send_sms_via_twilio(to_number, body):
         return False
 
 
+def _send_plain_via_mailman(to_email, subject, body):
+    """Route a plain-text mail through the flask-mailman backend (locmem outbox
+    under the test config, configured backend otherwise). Mirrors the fallback
+    that send_verification_email/send_reset_email already perform.
+
+    Returns True when the message was accepted by the backend. Never raises —
+    mail failures are logged and reported as False."""
+    try:
+        from .. import mail
+        mail.send_mail(subject, body, from_email=None, recipient_list=[to_email])
+        return True
+    except Exception as e:
+        logger.error("mailman_plain_send_error", error=str(e))
+        return False
+
+
 def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachment_filename=None):
     """Send an email via SMTP, optionally with a binary attachment (e.g. PDF).
 
     Mirrors the plain-text path when no attachment is given; when
     attachment_bytes is provided the message becomes multipart/mixed with the
     body as text and the attachment as application/octet-stream. Returns True
-    on success, False when SMTP is unconfigured or the send fails."""
+    on success. When SMTP is unconfigured or the send fails, a plain-text
+    message (no attachment) falls back to the flask-mailman backend so the
+    mail is still delivered (and assertable via the locmem outbox in tests);
+    a message with an attachment cannot be sent through mailman, so it returns
+    False."""
     host = os.environ.get('MAIL_SERVER')
     port = int(os.environ.get('MAIL_PORT', 25))
     use_tls = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
@@ -1586,6 +1606,11 @@ def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachme
             sender = None
     sender = sender or 'noreply@smartgarbage.local'
     if not host or not username or not password:
+        # No SMTP gateway configured. Plain text falls back to flask-mailman
+        # (locmem outbox under tests) so OTP/status/verification mails still
+        # deliver; an attachment (e.g. a PAYT receipt PDF) needs real SMTP.
+        if attachment_bytes is None:
+            return _send_plain_via_mailman(to_email, subject, body)
         return False
     try:
         import smtplib
@@ -1612,6 +1637,11 @@ def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachme
         return True
     except Exception as e:
         logger.error("smtp_email_error", error=str(e))
+        # SMTP configured but failed at send time: plain text falls back to
+        # flask-mailman (locmem outbox under tests). Attachments can't go
+        # through mailman, so they report False.
+        if attachment_bytes is None:
+            return _send_plain_via_mailman(to_email, subject, body)
         return False
 
 
