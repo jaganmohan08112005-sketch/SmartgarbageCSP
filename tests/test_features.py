@@ -5221,6 +5221,26 @@ def test_homepage_privacy_at_a_glance(client):
         assert bullet in body
 
 
+def test_homepage_heading_count_meets_documented_41(client):
+    """The accessibility statement (accessibility.html) documents 41 headings
+    on the homepage (1 h1, 12 h2, 28 numbered h3). A refactor that thins the
+    heading structure below 41 breaks that documented contract and
+    screen-reader heading navigation — fail loudly if the count drops."""
+    import re as _re
+    r = client.get('/')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    h1 = len(_re.findall(r'<h1[\s>]', body))
+    h2 = len(_re.findall(r'<h2[\s>]', body))
+    h3 = len(_re.findall(r'<h3[\s>]', body))
+    total = h1 + h2 + h3
+    assert total >= 41, (
+        f'homepage heading count dropped below the documented 41: '
+        f'h1={h1} h2={h2} h3={h3} total={total} '
+        f'(accessibility.html documents 1 h1 / 12 h2 / 28 h3)'
+    )
+
+
 def test_privacy_policy_dpdp_audit_sections(client):
     """The privacy notice carries the DPDP Act 2023 audit items: correct
     children age, processor register, security safeguards, breach response,

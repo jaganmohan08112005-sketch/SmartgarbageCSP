@@ -76,6 +76,16 @@ jobs:
           #   test_complaint_status_change_sends_update_email
           # (each asserts subject, recipient, and body content in the outbox)
           python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "sends_verification_email or sends_otp_email or sends_update_email"
+      - name: Verify homepage heading count stays at the documented 41
+        run: |
+          # The accessibility statement (accessibility.html) documents 41
+          # headings on the homepage (1 h1, 12 h2, 28 numbered h3). A refactor
+          # that thins the heading structure below 41 breaks that documented
+          # contract and screen-reader heading navigation, so fail loudly BY
+          # NAME when the count drops:
+          #   test_homepage_heading_count_meets_documented_41
+          # (asserts h1+h2+h3 >= 41 on the anonymous homepage render)
+          python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "heading_count"
 
   lint:
     runs-on: ubuntu-latest
