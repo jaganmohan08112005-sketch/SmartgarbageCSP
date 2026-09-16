@@ -50,7 +50,8 @@ def test_report_is_public(client):
         'name': 'test',
         'phone': '9876543210',
         'ward': 'Ward 1',
-        'address': 'Test address'
+        'address': 'Test address',
+        'description': 'Overflow'
     }, follow_redirects=True)
     assert b'GPS coordinates are required' in r2.data
 
