@@ -9,6 +9,7 @@ from ..models import (BWGDeclaration, Complaint, IllegalDumpReport, Notification
                       WasteDeclaration, utcnow)
 
 from ..auth import login_required
+from ..i18n import translate
 
 from .. import db, limiter
 
@@ -697,15 +698,24 @@ def report():
         phone = (request.form.get('phone') or '').strip()
         ward = request.form.get('ward')
         address = (request.form.get('address') or '').strip() or 'Chintalavalasa'
-        description = request.form.get('description')
+        description = (request.form.get('description') or '').strip()
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
         report_time = (request.form.get('report_time') or '').strip() or utcnow().strftime('%Y-%m-%dT%H:%M')
 
-        dup = find_duplicate_complaint(ward, latitude, longitude)
-        if dup:
-            flash(f'An open complaint already exists for this location (Ticket #{dup.id}, {dup.status}). Duplicate suppressed.', 'warning')
-            return redirect(url_for('main.report'))
+        errors = []
+        _lang = session.get('lang', 'en')
+
+        def _msg(text):
+            return translate(text, _lang)
+
+        if not address:
+            errors.append(( 'repAddress', _msg('Please enter a street or landmark address.') ))
+        if not description:
+            errors.append(('repDescription', _msg('Please describe what was missed (at least a short note).')))
+        if errors:
+            flash('Please complete the highlighted fields.', 'error')
+            return render_template('report.html', errors=errors)
 
         # ── Anti-spam: GPS is mandatory (no silent default-coords fallback).
         # The client blocks submissions without a live device fix; this is the
@@ -717,7 +727,11 @@ def report():
             _lat_f = _lon_f = None
         if _lat_f is None or _lon_f is None:
             flash('GPS coordinates are required to file a report. Enable location access and try again.', 'error')
-            return redirect(url_for('main.report'))
+            return render_template('report.html', errors=[('latitude', _msg('GPS coordinates are required to file a report. Enable location access and try again.'))])
+
+        if not ward:
+            flash('Please select a ward / sector.', 'error')
+            return render_template('report.html', errors=[('repWard', _msg('Please select a ward / sector.'))])
 
         photo_filename = None
         file = request.files.get('photo')

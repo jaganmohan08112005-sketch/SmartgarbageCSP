@@ -406,7 +406,7 @@ def track_complaint(token):
                              'at': complaint.resolved_at or complaint.closed_at or complaint.sla_deadline})
     sla_hours = _ward_sla_hours().get(complaint.ward)
     return render_template('track.html', complaint=complaint, timeline=timeline,
-                           sla_hours=sla_hours)
+                           sla_hours=sla_hours, errors=None)
 
 
 @main.route('/sw.js')
