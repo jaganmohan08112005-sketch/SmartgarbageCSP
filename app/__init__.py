@@ -396,18 +396,23 @@ def create_app(test_config=None):
     if not test_config or 'SQLALCHEMY_DATABASE_URI' not in test_config:
         db_url = os.environ.get('DATABASE_URL')
         if not db_url:
-            raise RuntimeError(
-                "DATABASE_URL is not set. Set it in your environment to point "
-                "at the Supabase/PostgreSQL connection string."
-            )
-        # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
-        # when it isn't already present (Supabase connection strings may
-        # carry their own options like ?sslmode=require or ?options=...).
-        if 'sslmode' not in db_url:
-            sep = '&' if '?' in db_url else '?'
-            db_url = f"{db_url}{sep}sslmode=require"
-        app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace('postgres://', 'postgresql://')
-        app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads')
+            # Local dev / preview fallback: use the project's local SQLite DB so
+            # the site can be previewed without a Supabase/Postgres connection.
+            # The SQLite file (instance/garbage.db) ships pre-seeded in this repo.
+            db_url = 'sqlite:///' + os.path.join(app.instance_path, 'garbage.db')
+            app.logger.warning(
+                "DATABASE_URL not set — using local SQLite at %s (set DATABASE_URL for Postgres)",
+                db_url)
+        else:
+            # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
+            # when it isn't already present (Supabase connection strings may
+            # carry their own options like ?sslmode=require or ?options=...).
+            if 'sslmode' not in db_url:
+                sep = '&' if '?' in db_url else '?'
+                db_url = f"{db_url}{sep}sslmode=require"
+            db_url = db_url.replace('postgres://', 'postgresql://')
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+        app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads') if db_url.startswith('postgresql') else os.path.join(app.root_path, 'static', 'uploads')
 
     # Connection pooling tuned for Render + Supabase: pool_pre_ping revalidates
     # connections Supabase idle-drops (the #1 cause of random 500s on Render),
