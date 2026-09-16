@@ -2855,6 +2855,50 @@ def _outbox(app):
     return app.extensions['mailman'].outbox
 
 
+def test_unverified_citizen_can_log_in_without_smtp(client, app, monkeypatch):
+    """Self-service contract: when NO mail gateway is configured (fresh Render
+    deploy before SMTP creds are added), the verification link can never be
+    delivered — so the citizen email-verification gate must not block login.
+    The registration flash must also not tell the user to check an inbox that
+    will stay empty."""
+    import app.routes as routes_mod
+    monkeypatch.setattr(routes_mod, '_mail_gateway_configured', lambda: False)
+    r = client.post('/register', data={
+        'username': 'nosmtpletter',
+        'password': 'testpass123',
+        'phone': '+919876543231',
+        'email': 'nosmtp@example.com',
+    }, follow_redirects=True)
+    assert b'Registration successful' in r.data
+    assert b'You can log in now' in r.data
+    assert b'verify your email and log in' not in r.data
+    # Login with the chosen password goes straight through — no verify-gate.
+    r2 = client.post('/login', data={'username': 'nosmtpletter', 'password': 'testpass123'},
+                     follow_redirects=False)
+    assert r2.status_code == 302
+    assert '/dashboard' in r2.headers['Location']
+
+
+def test_unverified_citizen_blocked_when_smtp_configured(client, app, monkeypatch):
+    """With a mail gateway configured, the pre-first-login verification gate
+    still applies: an unverified citizen is refused until they click the link
+    (guards the original anti-spam intent once verification mail can deliver)."""
+    import app.routes as routes_mod
+    monkeypatch.setattr(routes_mod, '_mail_gateway_configured', lambda: True)
+    with app.app_context():
+        u = User(username='verifygate', password_hash=generate_password_hash('testpass123'),
+                 role='citizen', phone='+919876543232', email='verifygate@example.com',
+                 email_verified=False)
+        db.session.add(u)
+        db.session.commit()
+    r = client.post('/login', data={'username': 'verifygate', 'password': 'testpass123'},
+                    follow_redirects=True)
+    assert b'verify your email address before logging in' in r.data
+    # and they are NOT logged in
+    dash = client.get('/dashboard', follow_redirects=False)
+    assert dash.status_code in (302, 303)  # bounced to login
+
+
 def test_registration_sends_verification_email(client, app):
     """Registering a citizen mails the email-verification link into the locmem
     outbox — the message carries the signed token so the account can be

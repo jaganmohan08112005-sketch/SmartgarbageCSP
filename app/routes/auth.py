@@ -90,7 +90,13 @@ def register():
             send_verification_email(email, new_user.id)
         except Exception as e:
             logger.warning("verification_email_send_error", error=str(e))
-        flash('Registration successful! Please verify your email and log in.', 'success')
+        if _routes._mail_gateway_configured():
+            flash('Registration successful! Please verify your email and log in.', 'success')
+        else:
+            # No mail gateway: the verification link cannot be delivered, so
+            # don't tell the user to check an inbox that will stay empty —
+            # they can log in right away (phone OTP stays available as MFA).
+            flash('Registration successful! You can log in now.', 'success')
         return redirect(url_for('main.login'))
     return render_template('register.html')
 
@@ -174,10 +180,14 @@ def login():
             flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
             return redirect(url_for('main.login'))
         # Email verification gate: citizens with an email must verify before
-        # first login. Accounts without an email (pre-verification, workers)
-        # are allowed through so legacy accounts are not locked out.
+        # first login — but only when a mail gateway is actually configured.
+        # Without SMTP credentials the verification link can never be
+        # delivered, so enforcing the gate would lock out every new citizen
+        # (the account exists but nobody can ever verify it). Accounts without
+        # an email (phone-OTP registrations) are always allowed through.
         if (user.role == 'citizen' and user.email
-                and not getattr(user, 'email_verified', False)):
+                and not getattr(user, 'email_verified', False)
+                and _routes._mail_gateway_configured()):
             flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'error')
             return redirect(url_for('main.login'))
         # Session-fixation defense: start each login with a fresh session

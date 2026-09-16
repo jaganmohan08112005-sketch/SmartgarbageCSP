@@ -601,6 +601,24 @@ def send_verification_email(user_email, user_id):
     return sent
 
 
+def _mail_gateway_configured():
+    """True when real SMTP credentials exist (MAIL_SERVER + MAIL_USERNAME +
+    MAIL_PASSWORD in the environment).
+
+    Gates the citizen email-verification requirement: when no gateway is
+    configured the verification mail can never be delivered, so demanding
+    verification before first login would permanently lock out every new
+    registrant on a deployment without mail credentials (e.g. a fresh Render
+    deploy). Phone-first OTP login (accounts created via /auth/phone-login
+    carry no email) is unaffected either way — it never required verification.
+    """
+    return bool(
+        os.environ.get('MAIL_SERVER')
+        and os.environ.get('MAIL_USERNAME')
+        and os.environ.get('MAIL_PASSWORD')
+    )
+
+
 def _is_local_request():
     """True only when the app is running in DEBUG/TEST mode or from loopback.
 
