@@ -1532,6 +1532,60 @@ def cache_set(key, value, ttl_seconds=60):
 # SMS / EMAIL GATEWAY INTEGRATION HELPERS
 # Keep current simulated fallback when real credentials are absent.
 # ═══════════════════════════════════════════════════════════════════
+def send_whatsapp_cloud(to_number, body):
+    """Send a WhatsApp text via Meta's WhatsApp Cloud API (no Twilio needed).
+
+    Production economics (Meta, effective Jul 2025): messages of type
+    "text" are FREE when sent inside an open 24h customer-service window
+    (opened whenever the citizen messages the business number first — e.g.
+    by sending 'Hi' to register). Only business-initiated TEMPLATE messages
+    are charged, so status updates and OTPs delivered as replies inside the
+    window cost nothing on any tier — no sandbox, no per-recipient
+    verification, no DLT registration (WhatsApp Cloud API is not SMS).
+
+    Returns True when Meta accepts the message (2xx). Never raises.
+    """
+    token = os.environ.get('WHATSAPP_CLOUD_TOKEN')
+    phone_number_id = os.environ.get('WHATSAPP_CLOUD_PHONE_NUMBER_ID')
+    if not token or not phone_number_id:
+        return False
+    try:
+        # Normalize to E.164 digits-only (Meta wants e.g. 919876543210).
+        to_e164 = re.sub(r'[^0-9]', '', to_number)
+        if not to_e164:
+            logger.warning("whatsapp_cloud_bad_number", to=to_number[:6])
+            return False
+        resp = requests.post(
+            f"https://graph.facebook.com/v21.0/{phone_number_id}/messages",
+            headers={
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'messaging_product': 'whatsapp',
+                'recipient_type': 'individual',
+                'to': to_e164,
+                'type': 'text',
+                'text': {'preview_url': False, 'body': body},
+            },
+            timeout=6,
+        )
+        if resp.status_code // 100 != 2:
+            # 131047 = re-engagement: no open 24h service window with this
+            # user. The caller's fallback chain (next channel / email) takes
+            # over — the citizen gets their OTP via email instead of
+            # WhatsApp rather than nothing at all.
+            err = (resp.json() or {}).get('error', {})
+            logger.warning("whatsapp_cloud_rejected", status=resp.status_code,
+                           code=err.get('code'),
+                           message=(err.get('message') or '')[:200])
+            return False
+        return True
+    except Exception as e:
+        logger.error("whatsapp_cloud_error", error=str(e))
+        return False
+
+
 def send_sms_via_twilio(to_number, body):
     """Send an SMS (or WhatsApp, if TWILIO_WHATSAPP_NUMBER is set) via Twilio.
 
@@ -1554,7 +1608,17 @@ def send_sms_via_twilio(to_number, body):
             'From': sender,
             'Body': body,
         }
-        requests.post(url, data=data, auth=(sid, auth), timeout=5)
+        # Check the response: Twilio returns 201 with a message SID on
+        # acceptance and 4xx (401 bad credentials, 400 unverified number on
+        # trial accounts, 429 rate limit) otherwise. Returning True on ANY
+        # response used to break the send_otp_job email fallback — the OTP
+        # was silently lost when Twilio rejected the send.
+        resp = requests.post(url, data=data, auth=(sid, auth), timeout=5)
+        if resp.status_code // 100 != 2:
+            logger.error("twilio_sms_rejected", status=resp.status_code,
+                         code=(resp.json() or {}).get('code'),
+                         message=(resp.json() or {}).get('message', '')[:200])
+            return False
         return True
     except Exception as e:
         logger.error("twilio_sms_error", error=str(e))

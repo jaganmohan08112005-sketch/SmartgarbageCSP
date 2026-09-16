@@ -418,7 +418,21 @@ def _app_ctx():
 # ──────────────────────────────────────────────
 @instrument
 def send_sms_job(to_number, body):
-    from .routes import send_sms_via_twilio
+    """Deliver a phone message through the free-first channel chain:
+
+    1. Meta WhatsApp Cloud API (free text replies inside the citizen's 24h
+       service window; zero per-message cost — no sandbox, no DLT, works to
+       any country) — used when WHATSAPP_CLOUD_* is configured.
+    2. Twilio (WhatsApp if TWILIO_WHATSAPP_NUMBER is set, else SMS) — paid
+       per message, kept as the business-initiated fallback.
+
+    Returns False when both channels are unconfigured or reject the send so
+    the caller (send_otp_job, notify_status_change_job, …) falls back to
+    email instead of silently dropping the message.
+    """
+    from .routes import send_whatsapp_cloud, send_sms_via_twilio
+    if send_whatsapp_cloud(to_number, body):
+        return True
     return send_sms_via_twilio(to_number, body)
 
 

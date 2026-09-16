@@ -32,6 +32,12 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      # ── Free WhatsApp (Meta Cloud API) — free text replies inside the
+      # citizen's 24h service window; no sandbox, no per-number verification.
+      - key: WHATSAPP_CLOUD_TOKEN
+        sync: false
+      - key: WHATSAPP_CLOUD_PHONE_NUMBER_ID
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
@@ -46,13 +52,13 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
-      # ── Free email notifications (Gmail SMTP) ──
+      # ── Email notifications (Gmail SMTP or Brevo free tier) ──
       - key: MAIL_SERVER
-        value: "smtp.gmail.com"
+        sync: false
       - key: MAIL_PORT
-        value: "587"
+        sync: false
       - key: MAIL_USE_TLS
-        value: "true"
+        sync: false
       - key: MAIL_USERNAME
         sync: false
       - key: MAIL_PASSWORD
@@ -93,6 +99,10 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: WHATSAPP_CLOUD_TOKEN
+        sync: false
+      - key: WHATSAPP_CLOUD_PHONE_NUMBER_ID
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
@@ -107,13 +117,13 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
-      # ── Free email notifications (Gmail SMTP) ──
+      # ── Email notifications (Gmail SMTP or Brevo free tier) ──
       - key: MAIL_SERVER
-        value: "smtp.gmail.com"
+        sync: false
       - key: MAIL_PORT
-        value: "587"
+        sync: false
       - key: MAIL_USE_TLS
-        value: "true"
+        sync: false
       - key: MAIL_USERNAME
         sync: false
       - key: MAIL_PASSWORD

@@ -194,7 +194,8 @@ def test_resolve_bin_rejects_gps_out_of_range(client, app):
 def test_report_requires_gps_server_side(client, app):
     """Anti-spam: /report rejects a submission with NO device coordinates even
     when the client tries to bypass the browser check (no default-coords
-    fallback server-side either)."""
+    fallback server-side either). GOV.UK pattern: the form re-renders with an
+    error-summary linking the offending field, no redirect, no complaint."""
     _make_user(app, 'nogpscit')
     client.post('/login', data={'username': 'nogpscit', 'password': 'testpass123'},
                 follow_redirects=False)
@@ -203,7 +204,10 @@ def test_report_requires_gps_server_side(client, app):
         'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
         'description': 'Overflow', 'report_time': '2026-07-18T10:00'
     }, follow_redirects=False)
-    assert r.status_code == 302  # bounced back to the form
+    assert r.status_code == 200  # form re-rendered with the error summary
+    body = r.get_data(as_text=True)
+    assert 'sg-error-summary' in body
+    assert 'GPS coordinates are required' in body
     with app.app_context():
         assert Complaint.query.filter_by(name='nogpscit').first() is None
 
@@ -3386,6 +3390,128 @@ def test_instrument_records_failure_outcome():
         pass
     assert _METRICS.get('_probe_boom:failed') == 1
     assert '_probe_boom:success' not in _METRICS
+
+
+def test_whatsapp_cloud_success_and_rejection(app, monkeypatch):
+    """Meta WhatsApp Cloud API sender: 2xx -> True; error 131047 (no open 24h
+    service window with the recipient) -> False so the chain falls through.
+    Unconfigured credentials -> False without any HTTP call."""
+    from app import routes as routes_mod
+
+    class _Resp:
+        def __init__(self, status, payload):
+            self.status_code = status
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    calls = []
+
+    def _fake_post(url, headers=None, json=None, timeout=None):
+        calls.append(json)
+        if 'FAIL' in (json or {}).get('text', {}).get('body', ''):
+            return _Resp(400, {'error': {'code': 131047,
+                                         'message': 'Re-engagement message'}})
+        return _Resp(200, {'messages': [{'id': 'wamid.1'}]})
+
+    monkeypatch.setattr(routes_mod.requests, 'post', _fake_post)
+    monkeypatch.setenv('WHATSAPP_CLOUD_TOKEN', 'eaag-test')
+    monkeypatch.setenv('WHATSAPP_CLOUD_PHONE_NUMBER_ID', '123456789')
+
+    # Free in-window text reply accepted
+    assert routes_mod.send_whatsapp_cloud('+91 98765 43210', 'OTP 123456') is True
+    assert calls[-1]['to'] == '919876543210'  # E.164 digits, spaces stripped
+    assert calls[-1]['type'] == 'text'
+
+    # Outside the window -> rejected -> False (chain falls through)
+    assert routes_mod.send_whatsapp_cloud('+919876543210', 'FAIL: OTP 123456') is False
+
+    # Unconfigured -> False, no HTTP call
+    monkeypatch.delenv('WHATSAPP_CLOUD_TOKEN', raising=False)
+    before = len(calls)
+    assert routes_mod.send_whatsapp_cloud('+919876543210', 'x') is False
+    assert len(calls) == before
+
+
+def test_send_sms_job_prefers_whatsapp_cloud_then_twilio(app, monkeypatch):
+    """The phone-send chain: Cloud API success short-circuits; Cloud failure
+    falls through to Twilio; both failing returns False so email takes over.
+    The senders are imported inside send_sms_job from app.routes, so the
+    patch target is the routes module."""
+    from app import routes as routes_mod
+
+    calls = []
+    monkeypatch.setattr(routes_mod, 'send_whatsapp_cloud',
+                        lambda to, body: calls.append(('cloud', to)) or False)
+    monkeypatch.setattr(routes_mod, 'send_sms_via_twilio',
+                        lambda to, body: calls.append(('twilio', to)) or True)
+    from app.jobs import send_sms_job
+    assert send_sms_job('+919876543210', 'hello') is True
+    assert calls == [('cloud', '+919876543210'), ('twilio', '+919876543210')]
+
+    calls.clear()
+    monkeypatch.setattr(routes_mod, 'send_whatsapp_cloud',
+                        lambda to, body: calls.append(('cloud', to)) or True)
+    assert send_sms_job('+919876543210', 'hello') is True
+    assert calls == [('cloud', '+919876543210')]  # Twilio never called
+
+
+def test_otp_job_email_fallback_when_all_phone_channels_fail(app, monkeypatch):
+    """End-to-end guard for the MFA path: when no phone channel is configured
+    (and Twilio/Cloud are absent), send_otp_job must still deliver the OTP
+    through the email fallback (send_email_job -> SMTP/mailman)."""
+    from app import routes as routes_mod
+    from app.jobs import send_otp_job
+
+    monkeypatch.delenv('WHATSAPP_CLOUD_TOKEN', raising=False)
+    monkeypatch.delenv('WHATSAPP_CLOUD_PHONE_NUMBER_ID', raising=False)
+    monkeypatch.delenv('TWILIO_ACCOUNT_SID', raising=False)
+
+    sent = []
+    monkeypatch.setattr(routes_mod, 'send_email_via_smtp',
+                        lambda to, subject, body, **kw:
+                        sent.append((to, subject, body)) or True)
+    send_otp_job('+919876543210', '654321')
+    assert len(sent) == 1
+    to, subject, body = sent[0]
+    assert to == '+919876543210'
+    assert '654321' in body
+
+
+def test_twilio_rejection_returns_false_so_email_fallback_fires(app, monkeypatch):
+    """send_sms_via_twilio must check Twilio's HTTP status: a 4xx (bad creds,
+    unverified trial number) returns False so send_otp_job's email fallback
+    runs. Before this guard the function returned True on ANY response and a
+    rejected OTP was silently lost. A 2xx acceptance returns True."""
+    from app import routes as routes_mod
+
+    class _Resp:
+        def __init__(self, status, payload):
+            self.status_code = status
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    sent_bodies = []
+
+    def _fake_post(url, data=None, auth=None, timeout=None):
+        sent_bodies.append(data)
+        return _Resp(400, {'code': 21608, 'message': 'unverified number'})
+
+    monkeypatch.setattr(routes_mod.requests, 'post', _fake_post)
+    monkeypatch.setenv('TWILIO_ACCOUNT_SID', 'ACtest')
+    monkeypatch.setenv('TWILIO_AUTH_TOKEN', 'tok')
+    monkeypatch.setenv('TWILIO_FROM_NUMBER', '+15550001111')
+    monkeypatch.delenv('TWILIO_WHATSAPP_NUMBER', raising=False)
+    assert routes_mod.send_sms_via_twilio('+919876543210', 'OTP 123456') is False
+
+    # Acceptance (201) still reports True.
+    monkeypatch.setattr(
+        routes_mod.requests, 'post',
+        lambda url, data=None, auth=None, timeout=None: _Resp(201, {'sid': 'SM1'}))
+    assert routes_mod.send_sms_via_twilio('+919876543210', 'OTP 123456') is True
 
 
 def test_instrument_counts_retry_only_for_policy_jobs():
