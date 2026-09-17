@@ -621,6 +621,8 @@ def sitemap_xml():
         ('/schedule',    '0.9', 'daily'),
         ('/report',      '0.9', 'daily'),
         ('/transparency','0.8', 'daily'),
+        ('/impact',      '0.7', 'daily'),
+        ('/reports/ward-satisfaction', '0.6', 'monthly'),
         ('/register',    '0.7', 'monthly'),
         ('/register/picker', '0.5', 'monthly'),
         ('/privacy',     '0.6', 'yearly'),
@@ -974,3 +976,98 @@ def impact_dashboard():
     """
     data = _build_impact_dashboard()
     return render_template('impact.html', impact=data)
+
+
+@main.route('/reports/ward-satisfaction')
+def ward_satisfaction_report():
+    """Monthly ward satisfaction report (public transparency page).
+
+    Ranks wards by the average post-resolution star rating collected through
+    the signed /track link (SurveyResponse, one per resolved ticket), and
+    states each ward's Green Points segregation-bonus implication for next
+    month — closing the loop between service quality and the PAYT-style
+    reward economy. Month is selectable (?month=YYYY-MM) and defaults to
+    the current month; adjacent months are navigable.
+    """
+    import calendar
+    from datetime import datetime as _dt, timedelta as _td
+    from sqlalchemy import func as _func, case as sa_case
+    from ..models import SurveyResponse
+
+    wards = list(WARD_COORDINATES.keys())
+    now = datetime.now(timezone.utc)
+    month_param = request.args.get('month')
+    year, month = now.year, now.month
+    if month_param:
+        try:
+            y, m = month_param.split('-')
+            y, m = int(y), int(m)
+            if 2024 <= y <= 2100 and 1 <= m <= 12:
+                year, month = y, m
+        except (ValueError, AttributeError):
+            pass
+
+    month_start = _dt(year, month, 1)
+    if month == 12:
+        next_month_start = _dt(year + 1, 1, 1)
+    else:
+        next_month_start = _dt(year, month + 1, 1)
+    prev_month_end = month_start - _td(seconds=1)
+    prev_month_start = _dt(prev_month_end.year, prev_month_end.month, 1)
+
+    base = (db.session.query(
+                SurveyResponse.ward,
+                _func.count(SurveyResponse.id).label('n'),
+                _func.avg(SurveyResponse.rating).label('avg_r'),
+                _func.sum(sa_case((SurveyResponse.rating >= 4, 1), else_=0)).label('sat'))
+            .filter(SurveyResponse.created_at >= month_start,
+                    SurveyResponse.created_at < next_month_start,
+                    SurveyResponse.ward.isnot(None))
+            .group_by(SurveyResponse.ward))
+    by_ward = {w: (n, a, s) for w, n, a, s in base.all()}
+
+    MIN_RATINGS = 3
+    BONUS_4_0, BONUS_4_5, BONUS_4_8 = 5, 10, 15
+    rows = []
+    for w in wards:
+        n, avg_r, sat = by_ward.get(w, (0, None, 0))
+        n = int(n or 0)
+        avg_f = float(avg_r) if avg_r is not None else 0.0
+        eligible = n >= MIN_RATINGS
+        if eligible and avg_f >= 4.8:
+            bonus = BONUS_4_8
+        elif eligible and avg_f >= 4.5:
+            bonus = BONUS_4_5
+        elif eligible and avg_f >= 4.0:
+            bonus = BONUS_4_0
+        else:
+            bonus = 0
+        rows.append({
+            'ward': w,
+            'count': n,
+            'avg': round(avg_f, 1) if n else 0.0,
+            'satisfied_pct': round((int(sat or 0) / n) * 100) if n else 0,
+            'bonus_points': bonus,
+            'disqualified': (not eligible) and n > 0,
+        })
+    # Ranked: average first, then rating count; zero-rating wards sink below.
+    rows.sort(key=lambda r: (r['avg'], r['count']), reverse=True)
+
+    recent = (SurveyResponse.query
+              .filter(SurveyResponse.created_at >= month_start,
+                      SurveyResponse.created_at < next_month_start)
+              .order_by(SurveyResponse.created_at.desc())
+              .limit(20).all())
+
+    month_label = f"{calendar.month_name[month]} {year}"
+    prev_month_label = f"{calendar.month_name[prev_month_end.month]} {prev_month_end.year}"
+    return render_template(
+        'ward_satisfaction.html',
+        rows=rows, recent=recent, min_ratings=MIN_RATINGS,
+        month_label=month_label,
+        prev_month_label=prev_month_label,
+        prev_month_param=prev_month_start.strftime('%Y-%m')
+                         if by_ward else None,
+        next_month_param=(next_month_start.strftime('%Y-%m')
+                          if _dt(next_month_start.year, next_month_start.month, 1) <=
+                          _dt(now.year, now.month, 1) else None))

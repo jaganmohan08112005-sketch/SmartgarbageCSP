@@ -5706,3 +5706,167 @@ def test_feedback_endpoint_works_with_csrf_enabled(tmp_path):
         db.drop_all()
         db.session.remove()
         db.engine.dispose()
+
+
+# ── Audit fixes: CSPRNG OTPs, GP daily cap, image-only uploads (v10) ──
+
+def test_otp_is_cryptographically_secure(app):
+    """random.randint is a predictable PRNG; OTP generation must use secrets."""
+    import inspect
+    import app.routes.auth as auth_mod
+    src = inspect.getsource(auth_mod)
+    assert 'secrets.randbelow' in src
+    assert 'random.randint(100000, 999999)' not in src
+
+
+def test_report_green_points_daily_cap(client, app):
+    """Audit fix: reports beyond the daily cap still file and resolve, but
+    stop awarding Green Points (the 15/h rate limit previously allowed
+    ~360 points/day of reward farming)."""
+    uid = _make_user(app, 'capuser')
+    client.post('/login', data={'username': 'capuser', 'password': 'testpass123'},
+                follow_redirects=False)
+    for i in range(6):
+        client.post('/report', data={
+            'name': 'Cap User', 'phone': '9876500001',
+            'ward': 'Ward 1 - MVGR College Area',
+            'address': f'Cap street {i}', 'description': 'Overflowing bin',
+            # Spread GPS >100m apart so duplicate-suppression never swallows
+            # a report (the cap under test is the POINTS cap, not dedup).
+            'latitude': f'17.690{i + 1}', 'longitude': f'83.221{i + 1}',
+        }, follow_redirects=True)
+    with app.app_context():
+        u = db.session.get(User, uid)
+        # 4 paid reports x 15 = 60 max despite 6 filed reports.
+        assert u.green_points == 60, f"expected 60, got {u.green_points}"
+        assert Complaint.query.filter_by(user_id=uid).count() == 6
+
+
+def test_save_compressed_photo_rejects_non_image(app):
+    """Audit fix (image-only uploads): a non-image upload with an image
+    extension must NOT be stored raw — the helper returns None."""
+    from io import BytesIO
+    from werkzeug.datastructures import FileStorage
+    from app.routes import save_compressed_photo
+    with app.app_context():
+        evil = FileStorage(stream=BytesIO(b'<html><script>alert(1)</script></html>'),
+                           filename='payload.jpg', content_type='image/jpeg')
+        assert save_compressed_photo(evil, 'complaint') is None
+
+
+# ── Worker complaint resolution with photo proof (v10) ──
+
+def _worker_session(client, app, username='proofworker'):
+    uid = _make_user(app, username, role='worker')
+    from app.models import WorkerProfile
+    with app.app_context():
+        db.session.add(WorkerProfile(user_id=uid, vehicle_id='CV-77', status='Active'))
+        db.session.commit()
+    client.post('/login', data={'username': username, 'password': 'testpass123'},
+                follow_redirects=False)
+    with client.session_transaction() as sess:
+        otp = sess.get('dev_otp')
+    client.post('/mfa-verify', data={'otp': otp}, follow_redirects=False)
+    return uid
+
+
+def _make_complaint(app, ward='Ward 1 - MVGR College Area', status='Submitted'):
+    with app.app_context():
+        c = Complaint(name='proof', phone='+919876543210', ward=ward,
+                      address='Proof street', description='Overflowing bin',
+                      status=status)
+        db.session.add(c)
+        db.session.commit()
+        return c.id
+
+
+def test_worker_resolve_complaint_requires_photo(client, app):
+    cid = _make_complaint(app)
+    _worker_session(client, app)
+    r = client.post(f'/resolve-complaint/{cid}',
+                    data={'lat': '18.05', 'lon': '83.40'},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 400
+    assert 'photo' in r.get_json()['message'].lower()
+    with app.app_context():
+        assert db.session.get(Complaint, cid).status != 'Resolved'
+
+
+def test_worker_resolve_complaint_with_proof(client, app):
+    from app.models import SmartBin
+    cid = _make_complaint(app)
+    with app.app_context():
+        # A ward bin near the worker's GPS keeps the Haversine check happy.
+        db.session.add(SmartBin(hardware_id='BIN-PROOF', latitude=18.05,
+                                longitude=83.40, level=80, status='Critical',
+                                ward='Ward 1 - MVGR College Area'))
+        db.session.commit()
+    _worker_session(client, app)
+    r = client.post(f'/resolve-complaint/{cid}',
+                    data={'resolution_photo': (_make_jpeg_bytes(), 'proof.jpg'),
+                          'lat': '18.05', 'lon': '83.40'},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code == 200, r.get_data(as_text=True)[:200]
+    body = r.get_json()
+    assert body['success'] is True
+    with app.app_context():
+        c = db.session.get(Complaint, cid)
+        assert c.status == 'Resolved'
+        assert c.resolution_photo and 'resolution' in c.resolution_photo
+
+
+# ── Monthly ward satisfaction report (v10) ──
+
+def test_ward_satisfaction_report_ranks_and_bonus(client, app):
+    """Wards rank by average stars; >=4.0 avg with enough ratings earns the
+    Green Points segregation bonus; sub-minimum wards are marked ineligible."""
+    from app.models import SurveyResponse
+    from datetime import timedelta
+    with app.app_context():
+        for ward, ratings in [
+            ('Ward 1 - MVGR College Area', [5, 5, 4]),       # avg 4.7 -> +10
+            ('Ward 2 - Chintalavalasa Junction', [4, 4, 4]),  # avg 4.0 -> +5
+            ('Ward 3 - RTC Colony', [2]),                     # below min
+        ]:
+            for stars in ratings:
+                comp = Complaint(name='r', phone='+919876543210', ward=ward,
+                                 address='x', description='y', status='Resolved',
+                                 resolved_at=utcnow())
+                db.session.add(comp)
+                db.session.commit()
+                db.session.add(SurveyResponse(
+                    complaint_id=comp.id, rating=stars, ward=ward,
+                    fingerprint='f' * 64))
+        db.session.commit()
+
+    body = client.get('/reports/ward-satisfaction').get_data(as_text=True)
+    assert 'Ward Satisfaction Report' in body
+    assert 'Green Points bonus' in body or 'Green Points' in body
+    # Ward 1 (4.7) ranks above Ward 2 (4.0).
+    w1 = body.index('Ward 1 - MVGR College Area')
+    w2 = body.index('Ward 2 - Chintalavalasa Junction')
+    assert w1 < w2
+    # Bonus markers present for eligible wards.
+    assert '+10' in body and '+5' in body
+    # Ineligible ward carries the disqualification badge.
+    assert 'Not eligible' in body or 'minimum' in body
+
+
+def test_ward_satisfaction_month_navigation(client, app):
+    from app.models import SurveyResponse
+    from datetime import datetime, timezone
+    with app.app_context():
+        comp = Complaint(name='r', phone='+919876543210',
+                         ward='Ward 5 - Sai Nagar', address='x', description='y',
+                         status='Resolved', resolved_at=utcnow())
+        db.session.add(comp)
+        db.session.commit()
+        db.session.add(SurveyResponse(
+            complaint_id=comp.id, rating=5, ward='Ward 5 - Sai Nagar',
+            fingerprint='e' * 64,
+            created_at=datetime(2026, 1, 15, tzinfo=None)))
+        db.session.commit()
+    body = client.get('/reports/ward-satisfaction?month=2026-01').get_data(as_text=True)
+    assert 'January 2026' in body
+    # Next-month navigation appears because 2026-02 < now.
+    assert 'Next month' in body

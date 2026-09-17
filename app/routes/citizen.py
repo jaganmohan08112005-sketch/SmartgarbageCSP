@@ -13,6 +13,11 @@ from ..i18n import translate
 
 from .. import db, limiter
 
+# Daily Green Points cap from filed reports (audit fix): 4 paid reports/day
+# × 15 points = 60 max. Real residents rarely file more than a couple in a
+# day; reward farmers hit the wall quickly.
+DAILY_REPORT_POINT_CAP = 4
+
 from . import (DUMP_YARDS, WARD_COORDINATES, GPS_VERIFY_RADIUS_M, _ai_verify_photo,
                _create_razorpay_order, _payt_receipt_pdf_bytes, _photo_gps_from_upload,
                _publish_user_event, _razorpay_enabled, _record_offline_delivery,
@@ -787,12 +792,28 @@ def report():
         db.session.add(new_complaint)
         # Green Points are a logged-in reward; anonymous reports (the form is
         # now public) still enter the full resolution flow without credit.
+        # Daily cap (audit fix): without it the 15/h rate limit still allowed
+        # ~360 points/day from spammy reports — a real voucher/tax-discount
+        # fraud surface. Reports beyond the cap still file and resolve; they
+        # just stop earning.
         if uid:
             user = User.query.get(uid)
             if user is None:
                 flash('Account not found. Please log in again.', 'error')
                 return redirect(url_for('main.logout'))
-            user.green_points += 15
+            from sqlalchemy import func as _sa_func
+            _day_start = datetime.now(timezone.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0)
+            _earned_today = db.session.query(_sa_func.count(Complaint.id)).filter(
+                Complaint.user_id == uid,
+                Complaint.created_at >= _day_start).scalar() or 0
+            # The query autoflushes the pending complaint itself, so subtract
+            # it: the cap must count PREVIOUS reports today.
+            if _earned_today - 1 < DAILY_REPORT_POINT_CAP:
+                user.green_points += 15
+            else:
+                flash('Daily Green Points cap reached — your report still counts '
+                      'and will be resolved, but no points were earned today.')
         db.session.commit()
         # Citizen-tracking timeline: the first event is the filing itself.
         record_complaint_event(new_complaint, 'Submitted',

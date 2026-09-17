@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Ward Satisfaction Report — {{ month_label }} | SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}Monthly ward satisfaction report: wards ranked by average post-resolution star rating, with next month's Green Points segregation bonus implications for Chintalavalasa Gram Panchayat{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+
+  <nav aria-label="Breadcrumb" class="sg-breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/">{{ _('Home') }}</a></li>
+      <li class="breadcrumb-item"><a href="/impact">{{ _('Impact Dashboard') }}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ _('Ward Satisfaction Report') }}</li>
+    </ol>
+  </nav>
+
+  <h1 class="display-6 fw-bold text-success mt-3 mb-1">{{ _('Ward Satisfaction Report') }}</h1>
+  <p class="text-muted mb-4">{{ month_label }} · {{ _('Chintalavalasa Gram Panchayat') }}
+    {%- if prev_month_label %} ·
+    {%- if prev_month_param %}<a href="/reports/ward-satisfaction?month={{ prev_month_param }}">{{ _('Previous month') }}</a>{% else %}{{ _('Previous month: no data') }}{% endif %}{% endif %}
+    {%- if next_month_param %} · <a href="/reports/ward-satisfaction?month={{ next_month_param }}">{{ _('Next month') }}</a>{% endif %}
+  </p>
+
+  {% if not rows %}
+    <div class="alert alert-info border-0 shadow-sm rounded-3">
+      {{ _('No resolved complaints were rated in this month yet. Ratings appear here after residents rate a resolution from their tracking link.') }}
+    </div>
+  {% else %}
+
+  {# ── Ranked table (desktop) ── #}
+  <div class="card border-0 shadow-sm rounded-3 p-3 p-md-4 mb-4">
+    <h2 class="h5 fw-bold text-dark mb-3">🏆 {{ _('Ward rankings — average stars from post-resolution ratings') }}</h2>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">{{ _('Ward') }}</th>
+            <th scope="col">{{ _('Avg stars') }}</th>
+            <th scope="col" class="text-nowrap">{{ _('Ratings') }}</th>
+            <th scope="col" class="text-nowrap">{{ _('Satisfied (4–5★)') }}</th>
+            <th scope="col" class="text-nowrap">{{ _('Green Points bonus') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="fw-bold">{{ loop.index }}</td>
+            <td>{{ r.ward }}</td>
+            <td>
+              <span class="fw-bold">{{ '%.1f'|format(r.avg) }}</span>
+              <span class="text-warning" aria-hidden="true">{% for _ in range(r.avg|round|int) %}★{% endfor %}</span>
+              <span class="visually-hidden">{{ _('out of 5') }}</span>
+            </td>
+            <td>{{ r.count }}</td>
+            <td>{{ r.satisfied_pct }}%</td>
+            <td>
+              {% if r.bonus_points %}
+                <span class="badge bg-success">+{{ r.bonus_points }} {{ _('pts/resident') }}</span>
+              {% elif r.disqualified %}
+                <span class="badge bg-secondary">{{ _('Not eligible (below minimum)') }}</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">{{ _('No bonus') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ── Green Points implications ── #}
+  <div class="card border-0 shadow-sm rounded-3 p-3 p-md-4 mb-4">
+    <h2 class="h5 fw-bold text-dark mb-2">🌿 {{ _('What this means for Green Points') }}</h2>
+    <p class="text-dark mb-2">
+      {{ _('Wards whose average satisfaction is 4.0★ or higher — from at least the minimum number of rated resolutions — earn every household in that ward a segregation bonus next month: extra Green Points on top of the usual per-declaration award.') }}
+    </p>
+    <ul class="text-dark mb-0">
+      <li>{{ _('Minimum ratings for eligibility') }}: <strong>{{ min_ratings }}</strong></li>
+      <li>{{ _('Best ward this month') }}: <strong>{{ rows[0].ward }}</strong> ({{ '%.1f'|format(rows[0].avg) }}★)</li>
+      <li>{{ _('Bonus size scales with the average') }}: 4.0★ → +5 pts · 4.5★ → +10 pts · 4.8★ and above → +15 pts</li>
+    </ul>
+  </div>
+
+  {# ── Recent ratings ── #}
+  <div class="card border-0 shadow-sm rounded-3 p-3 p-md-4 mb-4">
+    <h2 class="h5 fw-bold text-dark mb-3">🗓️ {{ _('Rated resolutions this month') }}</h2>
+    <ul class="list-group list-group-flush">
+      {% for s in recent %}
+      <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+        <span>{{ _('Ticket') }} #{{ s.complaint_id }} · {{ s.ward }}</span>
+        <span class="text-warning" aria-hidden="true">{% for _ in range(s.rating) %}★{% endfor %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% endif %}
+
+  <p class="text-muted small">
+    {{ _('Method: only post-resolution star ratings submitted by the original reporter through the signed tracking link are counted. One rating per resolved ticket.') }}
+    <a href="/privacy">{{ _('Privacy policy') }}</a>.
+  </p>
+</div>
+{% endblock %}

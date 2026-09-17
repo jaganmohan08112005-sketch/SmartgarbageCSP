@@ -65,6 +65,17 @@ services:
         sync: false
       - key: MAIL_DEFAULT_SENDER
         sync: false
+      # ── Concurrency / stall guard (ops) ──
+      # 2 gevent workers fit comfortably in Starter RAM and halve the
+      # single-event-loop stall risk: with 1 worker, one blocking call
+      # (slow DB roundtrip, DNS, PIL) queues every concurrent request
+      # behind it (observed: ~11% of probes stalled 60s on the old
+      # -w 1 default). GUNICORN_TIMEOUT kills a wedged request before
+      # it can hold a worker hostage.
+      - key: GUNICORN_WORKERS
+        value: "2"
+      - key: GUNICORN_TIMEOUT
+        value: "120"
 
   # Dedicated RQ queue worker. The Dockerfile's CMD runs `python worker.py`
   # when RENDER_WORKER=true, so background jobs (SMS/WhatsApp, webhook

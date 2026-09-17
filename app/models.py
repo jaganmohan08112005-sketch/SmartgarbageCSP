@@ -103,6 +103,10 @@ class Complaint(db.Model):
     escalated = db.Column(db.Boolean, default=False, nullable=False)
     resolved_at = db.Column(db.DateTime, nullable=True)
     closed_at = db.Column(db.DateTime, nullable=True)
+    # Close-the-loop evidence (mirrors SmartBin.after_photo): the worker's
+    # live photo of the site at resolution time. Null until a worker marks
+    # the complaint resolved with proof.
+    resolution_photo = db.Column(db.String(200), nullable=True)
 
 
 # ──────────────────────────────────────────────

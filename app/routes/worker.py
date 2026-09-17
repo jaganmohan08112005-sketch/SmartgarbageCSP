@@ -12,6 +12,9 @@ from .. import db, socketio
 
 from ..ml_model import predict_overflow_eta_hours
 
+# Daily Green Points cap shared with the citizen report path (audit fix).
+DAILY_REPORT_POINT_CAP = 4
+
 from . import (DUMP_YARDS, FORECAST_URGENT_HOURS, SECTOR_POLYGONS, _notify_admins,
                _notify_status_change, _publish_admin_alerts, fit_length, haversine_m,
                main, point_in_polygon, record_complaint_event,
@@ -437,7 +440,20 @@ def resolve_bin(hw_id):
         comp.status = "Resolved"
         comp.resolved_at = utcnow()
         reporter = User.query.get(comp.user_id)
-        if reporter: reporter.green_points += 10
+        if reporter:
+            # Same daily Green Points cap as /report (audit fix): a worker
+            # clearing many bins can't be used to pump one account past the
+            # intended reward budget. Count PREVIOUS resolutions today (all
+            # these complaints are still status-pending until the commit
+            # below, so resolved_at >= day-start is the right filter).
+            from sqlalchemy import func as _sa_func
+            from datetime import datetime as _dt, timezone as _tz
+            _day_start = _dt.now(_tz.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            _earned_today = db.session.query(_sa_func.count(Complaint.id)).filter(
+                Complaint.user_id == reporter.id,
+                Complaint.resolved_at >= _day_start).scalar() or 0
+            if _earned_today < DAILY_REPORT_POINT_CAP:
+                reporter.green_points += 10
         # Timeline event joins the single commit below (commit=False)
         record_complaint_event(comp, 'Resolved',
                                f'Bin {hw_id} cleared by sanitation worker — complaint resolved.',

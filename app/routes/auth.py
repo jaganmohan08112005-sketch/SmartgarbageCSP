@@ -1,3 +1,4 @@
+import secrets
 import random
 
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,22 @@ from .. import db, limiter
 from . import (_clear_login_failures, _hash_otp, _is_account_locked, _locked_until_utc, _record_failed_login, _send_otp_with_fallback, fit_length, logger, main, send_reset_email, send_verification_email, validate_indian_phone, write_audit)
 
 import app.routes as _routes  # call-time: honors test monkeypatches
+
+
+def _generate_otp():
+    """Cryptographically secure 6-digit OTP (audit fix: random.randint uses
+    the Mersenne Twister, which is not unpredictable under observation)."""
+    return str(secrets.randbelow(900000) + 100000)
+
+
+def _unique_phone_username(last4):
+    """Phone-login usernames derived from the number's last 4 digits.
+    Audit fix: collision suffix now comes from the CSPRNG, not randint."""
+    for _ in range(10):
+        candidate = f"citizen_{last4}_{secrets.randbelow(90) + 10}"
+        if not User.query.filter_by(username=candidate).first():
+            return candidate
+    return f"citizen_{last4}_{secrets.token_hex(4)}"
 
 
 @main.route('/register', methods=['GET', 'POST'])
@@ -200,13 +217,13 @@ def login():
         session['username'] = user.username
         session['role'] = user.role
         if user.role in ['admin', 'worker']:
-            otp_val = str(random.randint(100000, 999999))
+            otp_val = _generate_otp()
             # Store only a one-way hash of the OTP at rest, never plaintext.
             user.otp = _hash_otp(otp_val)
             user.otp_expiry = utcnow() + timedelta(minutes=5)
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
-            _send_otp_with_fallback(user.phone or '+919876543210', otp_val)
+            _send_otp_with_fallback(user.phone or _routes._otp_recipient_fallback(), otp_val)
             if _routes._is_local_request():
                 session['dev_otp'] = otp_val
             session['mfa_pending'] = True
@@ -274,7 +291,7 @@ def auth_phone_login():
     if not user:
         # Auto-create a citizen account for the verified phone number
         last4 = phone_number[-4:]
-        username = f"citizen_{last4}_{random.randint(10, 99)}"
+        username = _unique_phone_username(last4)
         # Ensure unique username
         while User.query.filter_by(username=username).first():
             username = f"citizen_{last4}_{random.randint(10, 99)}"
@@ -287,7 +304,7 @@ def auth_phone_login():
         mins_left = max(1, int((_locked_until_utc(user) - datetime.now(timezone.utc)).total_seconds() // 60))
         flash(f'Account temporarily locked after repeated failed attempts. Try again in ~{mins_left} min.', 'error')
         return redirect(url_for('main.login'))
-    otp_val = str(random.randint(100000, 999999))
+    otp_val = _generate_otp()
     # Store only a one-way hash of the OTP at rest, never plaintext.
     user.otp = _hash_otp(otp_val)
     user.otp_expiry = utcnow() + timedelta(minutes=5)

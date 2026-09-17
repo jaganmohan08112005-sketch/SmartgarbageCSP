@@ -186,12 +186,14 @@ def save_compressed_photo(file_storage, prefix):
         img.save(buf, format='JPEG', quality=JPEG_QUALITY, optimize=True)
         data = buf.getvalue()
     except Exception as e:
-        current_app.logger.warning("Photo compress failed for %s: %s", filename, e)
-        try:
-            file_storage.seek(0)
-            data = file_storage.read()
-        except Exception:
-            data = None
+        # Audit fix (image-only uploads): the old fallback stored the raw
+        # upload when PIL couldn't decode it — an .html/.exe/.php arriving
+        # with an image extension would be persisted verbatim. Fail closed:
+        # no decodable image, no stored file. The complaint still files;
+        # it just has no photo.
+        current_app.logger.warning("Photo rejected (not a decodable image) for %s: %s",
+                                   filename, e)
+        return None
 
     if data is None:
         current_app.logger.error("Photo unreadable for %s", filename)
@@ -633,6 +635,22 @@ def _is_local_request():
     except Exception:
         is_loopback = False
     return bool(current_app.debug or current_app.testing or is_loopback)
+
+
+def _otp_recipient_fallback():
+    """Recipient for an MFA OTP when the account has no phone on file.
+
+    Audit fix: this used to hardcode a real demo number (+919876543210), so
+    a phone-less account's OTP silently went to someone else's WhatsApp.
+    Now it resolves the configured civic contact (a monitored inbox), or a
+    clearly-local noreply address when unset — send_email_job's no-gateway
+    path delivers plain text into the mailman outbox, never to a stranger.
+    """
+    try:
+        contact = current_app.config.get('CIVIC_CONTACT_EMAIL')
+    except Exception:
+        contact = None
+    return contact or 'noreply@smartgarbage.local'
 
 
 def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
@@ -1731,4 +1749,4 @@ def send_email_via_smtp(to_email, subject, body, attachment_bytes=None, attachme
 # ROUTE REGISTRATION — submodules attach their handlers to `main`.
 # (imported last: they only need names defined above)
 # ═══════════════════════════════════════════════════════════════════
-from . import auth, citizen, admin, worker, iot, webhook, analytics, public  # noqa: F401  (side-effect: registers routes on `main`)
+from . import auth, citizen, admin, worker, worker_resolve_complaint, iot, webhook, analytics, public  # noqa: F401  (side-effect: registers routes on `main`)
