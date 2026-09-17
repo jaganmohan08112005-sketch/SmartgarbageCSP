@@ -949,8 +949,8 @@ def _build_impact_dashboard():
         # Segregation rate: declarations with >0 recyclable or organic
         if data['community']['waste_declarations'] > 0:
             segregated = WasteDeclaration.query.filter(
-                (WasteDeclaration.recyclable_kg > 0)
-                | (WasteDeclaration.organic_kg > 0)
+                (WasteDeclaration.dry_kg > 0)
+                | (WasteDeclaration.wet_kg > 0)
             ).count()
             data['community']['segregation_rate'] = round(
                 (segregated / data['community']['waste_declarations']) * 100, 1)

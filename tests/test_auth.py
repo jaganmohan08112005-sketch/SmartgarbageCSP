@@ -68,3 +68,23 @@ def test_phone_validation_rejects_sequential(client):
         'phone_number': '1234567890'
     }, follow_redirects=True)
     assert b'valid Indian mobile' in response.data or b'rejected' in response.data.lower()
+
+
+def test_superadmin_console_blocked_while_mfa_pending(client, app):
+    """Regression: superadmin_required never checked session['mfa_pending'],
+    so an admin with the password could skip OTP entirely and reach the
+    Super-Admin Console (and its approve/create-admin POSTs) by direct URL.
+    The console must redirect to /mfa-verify until OTP verification."""
+    from app.models import User
+    client.post("/login", data={"username": "qa_admin", "password": "testpass123"},
+                follow_redirects=False)
+    with client.session_transaction() as sess:
+        assert sess.get('mfa_pending') is True
+    r = client.get("/admin/super")
+    assert r.status_code == 302 and "/mfa-verify" in r.headers["Location"]
+    # And the approve POST is equally blocked while pending.
+    with app.app_context():
+        target = User.query.filter_by(username="qa_admin").first()
+        uid = target.id
+    r2 = client.post("/admin/super", data={"action": "approve_admin", "user_id": uid})
+    assert r2.status_code == 302 and "/mfa-verify" in r2.headers["Location"]

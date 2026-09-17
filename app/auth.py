@@ -42,6 +42,11 @@ def superadmin_required(f):
     def wrapped(*args, **kwargs):
         if 'user_id' not in session or session.get('role') != 'admin':
             return redirect(url_for('main.login'))
+        if session.get('mfa_pending'):
+            # MFA gate must hold for the super-admin console too: a pending
+            # session (password accepted, OTP not yet verified) would
+            # otherwise reach approval and admin-creation POSTs by direct URL.
+            return redirect(url_for('main.mfa_verify'))
         from .models import User
         user = User.query.get(session['user_id'])
         if not user or not user.is_superadmin:
