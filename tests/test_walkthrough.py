@@ -161,7 +161,7 @@ def test_superadmin_panel_access(client, app):
                      role='admin', phone='+919876543218', is_superadmin=True, is_approved=True)
             db.session.add(u)
             db.session.commit()
-    _login(client, app, 'wt_super')
+    _login(client, app, 'wt_super', role='admin')
     r = client.get('/admin/super')
     assert r.status_code == 200
     r = client.get('/admin/audit')
