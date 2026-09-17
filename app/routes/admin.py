@@ -16,7 +16,7 @@ from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
                       IncidentLog, MaintenanceWorkOrder, Notification,
                       OfflineDelivery, PageFeedback, PAYTInvoice,
                       PushNotificationLog, PushSubscription, SensorHealth, SmartBin,
-                      User, Webhook, WorkerProfile, utcnow)
+                      SurveyResponse, User, Webhook, WorkerProfile, utcnow)
 
 from ..ml_model import predict_overflow_eta_hours
 
@@ -518,6 +518,75 @@ def feedback_trend():
         w.pop('week_start', None)
 
     return jsonify({'weeks': weeks})
+
+
+@main.route('/api/survey/stats')
+@admin_required
+def survey_stats():
+    """Admin summary of the post-resolution 5-star satisfaction survey.
+
+    Aggregates SurveyResponse rows (one rating per resolved complaint) into:
+    totals, the average and distribution of star ratings, per-ward breakdown
+    so the panchayat can see which wards serve residents well, and the most
+    recent ratings. Ratings are anonymized at write time — no identities.
+    """
+    from sqlalchemy import func
+    from datetime import timedelta
+
+    total = SurveyResponse.query.count()
+    avg_rating = db.session.query(func.avg(SurveyResponse.rating)).scalar()
+    avg_rating = round(float(avg_rating), 2) if avg_rating is not None else 0.0
+
+    # Rating distribution 1..5 (include zero buckets so the bars stay aligned).
+    dist_rows = dict(
+        db.session.query(SurveyResponse.rating, func.count(SurveyResponse.id))
+        .group_by(SurveyResponse.rating).all())
+    distribution = [{'rating': s,
+                     'count': int(dist_rows.get(s, 0))} for s in range(1, 6)]
+
+    cutoff_24h = utcnow() - timedelta(hours=24)
+    last_24h = SurveyResponse.query.filter(
+        SurveyResponse.created_at >= cutoff_24h).count()
+
+    # Per-ward breakdown: average + volume, best-rated first. Wards without
+    # ratings are omitted (the ward list lives on the transparency page).
+    ward_rows = (db.session.query(
+        SurveyResponse.ward,
+        func.count(SurveyResponse.id),
+        func.avg(SurveyResponse.rating))
+        .filter(SurveyResponse.ward.isnot(None))
+        .group_by(SurveyResponse.ward)
+        .order_by(func.avg(SurveyResponse.rating).desc())
+        .all())
+    per_ward = [{
+        'ward': w, 'total': int(t), 'avg': round(float(a or 0), 2),
+    } for w, t, a in ward_rows]
+
+    # Most recent ratings with the ticket reference for cross-checking.
+    recent = (SurveyResponse.query
+              .order_by(SurveyResponse.created_at.desc())
+              .limit(20).all())
+    recent_data = [{
+        'id': s.id,
+        'complaint_id': s.complaint_id,
+        'rating': s.rating,
+        'ward': s.ward or '—',
+        'created_at': s.created_at.strftime('%Y-%m-%d %H:%M') if s.created_at else None,
+    } for s in recent]
+
+    # Satisfaction rate convention: share of 4–5 star ratings (promoters).
+    promoters = sum(d['count'] for d in distribution if d['rating'] >= 4)
+    satisfaction_rate = round(promoters / max(total, 1) * 100, 1)
+
+    return jsonify({
+        'total': total,
+        'avg_rating': avg_rating,
+        'satisfaction_rate': satisfaction_rate,
+        'distribution': distribution,
+        'last_24h': last_24h,
+        'per_ward': per_ward,
+        'recent': recent_data,
+    })
 
 
 @main.route('/api/push/analytics')

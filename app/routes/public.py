@@ -10,7 +10,7 @@ from flask import (abort, current_app, jsonify, render_template, request,
                    send_from_directory, redirect, url_for)
 
 from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, PageFeedback, Schedule,
-                      SmartBin, WasteDeclaration, utcnow)
+                      SmartBin, SurveyResponse, WasteDeclaration, utcnow)
 
 from ..ml_model import predict_miss
 
@@ -405,8 +405,63 @@ def track_complaint(token):
                              'note': 'Current status at the time this link was generated.',
                              'at': complaint.resolved_at or complaint.closed_at or complaint.sla_deadline})
     sla_hours = _ward_sla_hours().get(complaint.ward)
+    # Post-resolution satisfaction survey: show the rating form only once the
+    # ticket has reached a terminal state, and only until it has been rated
+    # (one rating per complaint — re-opening the link then shows the result).
+    survey = SurveyResponse.query.filter_by(complaint_id=complaint.id).first()
+    survey_eligible = (complaint.status in ('Resolved', 'Closed') and survey is None)
     return render_template('track.html', complaint=complaint, timeline=timeline,
-                           sla_hours=sla_hours, errors=None)
+                           sla_hours=sla_hours, errors=None,
+                           survey=survey, survey_eligible=survey_eligible)
+
+
+@main.route('/track/<token>/survey', methods=['POST'])
+@limiter.limit("10/minute")
+def submit_track_survey(token):
+    """Post-resolution 5-star satisfaction survey (Swachh Bharat citizen voice).
+
+    The holder of a valid tracking token rates how well their complaint was
+    resolved — no account needed, mirroring the no-login tracking page.
+    Stored anonymized (salted SHA-256 of IP + user-agent, same posture as
+    PageFeedback/ConsentRecord) and unique per complaint (uq_survey_complaint),
+    so a link can't be re-rated and a single client can't stuff the ballot.
+    Ratings power the admin ward-level satisfaction dashboard.
+    """
+    complaint_id = verify_complaint_token(token)
+    if complaint_id is None:
+        abort(404)
+    complaint = Complaint.query.get(complaint_id)
+    if complaint is None:
+        abort(404)
+    data = request.get_json(silent=True) or request.form
+    try:
+        rating = int(data.get('rating'))
+    except (TypeError, ValueError):
+        rating = 0
+    if rating < 1 or rating > 5:
+        return jsonify({'success': False,
+                        'message': 'Rating must be between 1 and 5 stars.'}), 400
+    if complaint.status not in ('Resolved', 'Closed'):
+        return jsonify({'success': False,
+                        'message': 'This complaint is not resolved yet.'}), 400
+    existing = SurveyResponse.query.filter_by(complaint_id=complaint.id).first()
+    if existing is not None:
+        return jsonify({'success': False,
+                        'message': 'This complaint has already been rated.'}), 409
+    raw = (request.headers.get('User-Agent', '') or '') + '|' + (request.remote_addr or '')
+    salt = current_app.config.get('SECRET_KEY') or 'sg-feedback'
+    fingerprint = hashlib.sha256((salt + '|' + raw).encode('utf-8')).hexdigest()
+    db.session.add(SurveyResponse(complaint_id=complaint.id, rating=rating,
+                                  ward=complaint.ward, fingerprint=fingerprint))
+    try:
+        db.session.commit()
+    except Exception:
+        # Concurrent double-submit lost the unique-constraint race — the
+        # first rating stands; report it as already-rated rather than 500.
+        db.session.rollback()
+        return jsonify({'success': False,
+                        'message': 'This complaint has already been rated.'}), 409
+    return jsonify({'success': True, 'rating': rating})
 
 
 @main.route('/sw.js')

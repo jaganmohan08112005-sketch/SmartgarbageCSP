@@ -391,26 +391,32 @@ def create_app(test_config=None):
     # local simulators/seed working without a secret configured.
     app.config['IOT_TELEMETRY_SECRET'] = os.environ.get('IOT_TELEMETRY_SECRET')
 
-    # Database Configuration
+    # Database Configuration — PostgreSQL (Supabase) ONLY.
+    # The project runs exclusively on Postgres: Render sets DATABASE_URL in
+    # production, and local development uses the bundled-Postgres harness
+    # (see run_pg_suite.py / .freebuff/run.md). A DATABASE_URL is therefore
+    # REQUIRED to boot — the app must never silently fall back to a different
+    # backend, so local and production always run the same SQL dialect.
     app.config.setdefault('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads'))
     if not test_config or 'SQLALCHEMY_DATABASE_URI' not in test_config:
         db_url = os.environ.get('DATABASE_URL')
         if not db_url:
-            # Local dev / preview fallback: use the project's local SQLite DB so
-            # the site can be previewed without a Supabase/Postgres connection.
-            # The SQLite file (instance/garbage.db) ships pre-seeded in this repo.
-            db_url = 'sqlite:///' + os.path.join(app.instance_path, 'garbage.db')
-            app.logger.warning(
-                "DATABASE_URL not set — using local SQLite at %s (set DATABASE_URL for Postgres)",
-                db_url)
-        else:
-            # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
-            # when it isn't already present (Supabase connection strings may
-            # carry their own options like ?sslmode=require or ?options=...).
-            if 'sslmode' not in db_url:
-                sep = '&' if '?' in db_url else '?'
-                db_url = f"{db_url}{sep}sslmode=require"
-            db_url = db_url.replace('postgres://', 'postgresql://')
+            raise RuntimeError(
+                "DATABASE_URL is required — SmartGarbage runs on PostgreSQL "
+                "(Supabase) only. Start the bundled local Postgres harness "
+                "(python run_pg_suite.py) or point DATABASE_URL at a Postgres "
+                "instance.")
+        # Supabase/Render/Neon all want SSL on the wire. Append sslmode only
+        # when it isn't already present (Supabase connection strings may
+        # carry their own options like ?sslmode=require or ?options=...).
+        # Remote hosts only — the bundled local Postgres (pgserver) has no
+        # SSL support and would refuse sslmode=require connections.
+        from urllib.parse import urlsplit
+        _host = (urlsplit(db_url).hostname or '').lower()
+        if 'sslmode' not in db_url and _host not in ('localhost', '127.0.0.1', '::1'):
+            sep = '&' if '?' in db_url else '?'
+            db_url = f"{db_url}{sep}sslmode=require"
+        db_url = db_url.replace('postgres://', 'postgresql://')
         app.config['SQLALCHEMY_DATABASE_URI'] = db_url
         app.config['UPLOAD_FOLDER'] = os.path.join('/tmp', 'uploads') if db_url.startswith('postgresql') else os.path.join(app.root_path, 'static', 'uploads')
 

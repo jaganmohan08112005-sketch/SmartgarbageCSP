@@ -41,6 +41,9 @@
                     <a href="#feedback-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="feedback-section">
                         <span>💬</span> {{ _('Page Feedback') }}
                     </a>
+                    <a href="#survey-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="survey-section">
+                        <span>⭐</span> {{ _('Satisfaction Survey') }}
+                    </a>
                     <a href="#bwg-section" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2" data-section="bwg-section">
                         <span>🏢</span> {{ _('BWG Pickup Requests') }}
                         {% if kpis.pending_pickups > 0 %}<span class="badge bg-warning text-dark ms-auto">{{ kpis.pending_pickups }}</span>{% endif %}
@@ -89,6 +92,7 @@
                         <option value="bot-simulator-section">🤖 {{ _('Bot Simulator') }}</option>
                         <option value="webhook-section">🔗 {{ _('Webhook Configuration') }}</option>
                         <option value="feedback-section">💬 {{ _('Page Feedback') }}</option>
+                        <option value="survey-section">⭐ {{ _('Satisfaction Survey') }}</option>
                         <option value="bwg-section">🏢 {{ _('BWG Pickup Requests') }}</option>
                         <option value="payt-section">💳 {{ _('PAYT Invoice Ledger') }}</option>
                         <option value="queue-health-section">⏱️ {{ _('Job Queue Health') }}</option>
@@ -581,6 +585,83 @@
                 </div>
             </div>
         </div>
+        <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="survey-section">
+            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                <h4 class="fw-bold mb-0">⭐ {{ _('Satisfaction Survey') }}</h4>
+                <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="loadSurveyStats()">🔄 {{ _('Refresh') }}</button>
+            </div>
+            <p class="text-muted small mb-3">{{ _('Anonymous 5-star ratings submitted on /track links after a complaint is resolved. One rating per ticket; no identities are stored.') }}</p>
+            <div class="row g-3 mb-4" id="surveyStats">
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-primary" id="svTotal">-</div>
+                        <div class="small text-muted">{{ _('Total Ratings') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-warning" id="svAvg">-</div>
+                        <div class="small text-muted">{{ _('Average Stars') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-success" id="svSatisfaction">-</div>
+                        <div class="small text-muted">{{ _('Satisfied (4–5★)') }}</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 bg-light text-center p-3">
+                        <div class="fs-4 fw-bold text-info" id="sv24h">-</div>
+                        <div class="small text-muted">{{ _('Ratings (24h)') }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="border rounded-4 p-3 h-100">
+                        <h6 class="fw-bold small text-muted mb-2">{{ _('Rating distribution') }}</h6>
+                        {% for star in range(5, 0, -1) %}
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="small text-muted text-nowrap" style="width:64px;">{{ '★' * star }}</span>
+                            <div class="progress flex-grow-1" style="height:18px;" role="presentation">
+                                <div class="progress-bar bg-warning" id="svBar{{ star }}" style="width:0%" aria-label="{{ star }} star count"></div>
+                            </div>
+                            <span class="small fw-semibold" id="svCount{{ star }}" style="width:32px;">0</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="border rounded-4 p-3 h-100">
+                        <h6 class="fw-bold small text-muted mb-2">{{ _('Ward breakdown (best first)') }}</h6>
+                        <div class="table-responsive" style="max-height:220px;">
+                            <table class="table table-sm table-hover small mb-0">
+                                <thead class="sticky-top bg-light">
+                                    <tr><th>{{ _('Ward') }}</th><th>{{ _('Ratings') }}</th><th>{{ _('Avg') }}</th></tr>
+                                </thead>
+                                <tbody id="surveyWardTable">
+                                    <tr><td colspan="3" class="text-center text-muted py-3">{{ _('Click Refresh to load analytics') }}</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <h6 class="fw-bold small text-muted mb-2">{{ _('Most recent ratings') }}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover small mb-0">
+                        <thead class="sticky-top bg-light">
+                            <tr><th>{{ _('Time') }}</th><th>{{ _('Ticket') }}</th><th>{{ _('Rating') }}</th><th>{{ _('Ward') }}</th></tr>
+                        </thead>
+                        <tbody id="surveyRecentTable">
+                            <tr><td colspan="4" class="text-center text-muted py-3">{{ _('Click Refresh to load analytics') }}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
         <div class="admin-section card border-0 shadow-sm bg-white p-4 mb-4" id="bot-simulator-section">
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <h4 class="fw-bold mb-0">🤖 WhatsApp / Telegram Bot Simulator</h4>
@@ -874,6 +955,52 @@
             }
         }
         document.querySelector('[data-section="feedback-section"]')?.addEventListener('click', loadFeedbackStats);
+
+        /* Satisfaction Survey analytics */
+        async function loadSurveyStats() {
+            try {
+                const resp = await fetch('/api/survey/stats');
+                const data = await resp.json();
+                document.getElementById('svTotal').textContent = data.total || 0;
+                document.getElementById('svAvg').textContent = (data.avg_rating || 0) + '★';
+                document.getElementById('svSatisfaction').textContent = (data.satisfaction_rate || 0) + '%';
+                document.getElementById('sv24h').textContent = data.last_24h || 0;
+                const dist = data.distribution || [];
+                const maxCount = Math.max(1, ...dist.map(d => d.count));
+                dist.forEach(d => {
+                    const bar = document.getElementById('svBar' + d.rating);
+                    const cnt = document.getElementById('svCount' + d.rating);
+                    if (bar) bar.style.width = Math.round(d.count / maxCount * 100) + '%';
+                    if (cnt) cnt.textContent = d.count;
+                });
+                const wardTbody = document.getElementById('surveyWardTable');
+                if (data.per_ward && data.per_ward.length > 0) {
+                    wardTbody.innerHTML = data.per_ward.map(w => `
+                        <tr>
+                            <td class="text-nowrap">${w.ward}</td>
+                            <td>${w.total}</td>
+                            <td><span class="badge ${w.avg >= 4 ? 'bg-success' : w.avg >= 3 ? 'bg-warning text-dark' : 'bg-danger'}">${w.avg}★</span></td>
+                        </tr>`).join('');
+                } else {
+                    wardTbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">No ratings yet</td></tr>';
+                }
+                const recTbody = document.getElementById('surveyRecentTable');
+                if (data.recent && data.recent.length > 0) {
+                    recTbody.innerHTML = data.recent.map(r => `
+                        <tr>
+                            <td class="text-nowrap">${r.created_at || ''}</td>
+                            <td class="text-nowrap">#${r.complaint_id}</td>
+                            <td class="text-nowrap text-warning" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
+                            <td class="text-nowrap">${r.ward}</td>
+                        </tr>`).join('');
+                } else {
+                    recTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No ratings yet</td></tr>';
+                }
+            } catch (e) {
+                console.error('Survey stats load failed:', e);
+            }
+        }
+        document.querySelector('[data-section="survey-section"]')?.addEventListener('click', loadSurveyStats);
         </script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
         <script src="{{ url_for('static', filename='js/admin.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></script>

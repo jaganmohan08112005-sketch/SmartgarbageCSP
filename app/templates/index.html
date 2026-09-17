@@ -152,6 +152,45 @@
 
 
 
+{# ── Swachh Bharat awareness banner (dismissible; localStorage remembers).
+      Deliberately placed BELOW the hero: the primary resident CTA must stay
+      within the first mobile screen (the fold contract enforced by
+      tests/qa/test_mobile_fold.py), and an interrupting banner above the
+      hero pushed it past 667px. Awareness supports the action; it never
+      competes with it. ── #}
+<aside class="container" aria-label="{{ _('Swachh Bharat awareness') }}">
+    <div id="sgAwarenessBanner" class="alert alert-success border-0 shadow-sm rounded-3 d-flex align-items-start gap-3 py-3 px-3 px-md-4 mb-4" role="region">
+        <span class="fs-4" aria-hidden="true">🇮🇳</span>
+        <div class="flex-grow-1">
+            {# Styled as a title but NOT a heading: an H2 here would disorder
+               the documented 41-heading map (accessibility statement +
+               CI heading-count test). #}
+            <p class="h6 fw-bold text-success mb-1" role="presentation">{{ _('Swachh Bharat Mission (Grameen) Phase II') }}</p>
+            <p class="small text-dark mb-2">
+                {{ _("Every report you file and every kilogram you segregate feeds this panchayat's cleanliness scorecard. ") }}
+                {{ _('Sort waste into wet and dry at home — it cuts landfill load and earns you Green Points under the SBM incentive framework.') }}
+            </p>
+            <a href="/faq#faq7" class="btn btn-sm btn-success rounded-pill px-3">♻️ {{ _('Learn how segregation earns Green Points') }}</a>
+        </div>
+        <button type="button" id="sgAwarenessDismiss" class="btn-close" aria-label="{{ _('Dismiss awareness banner') }}"></button>
+    </div>
+</aside>
+<script>
+(function () {
+    'use strict';
+    try {
+        if (localStorage.getItem('sgAwarenessDismissed') === '1') {
+            var b = document.getElementById('sgAwarenessBanner');
+            if (b) b.classList.add('d-none');
+        }
+    } catch (e) { /* storage unavailable — banner stays visible */ }
+    document.getElementById('sgAwarenessDismiss')?.addEventListener('click', function () {
+        document.getElementById('sgAwarenessBanner')?.classList.add('d-none');
+        try { localStorage.setItem('sgAwarenessDismissed', '1'); } catch (e) {}
+    });
+})();
+</script>
+
 {# ── 2. SERVICES AVAILABLE (H2 — what this service provides) ── #}
 <div class="card border-0 shadow-sm mb-4 animate-fade-in sg-delay-2">
     <div class="card-body p-4">

@@ -139,5 +139,86 @@
             </div>
         </div>
     </div>
+    {% if survey_eligible or survey %}
+    {# ── Post-resolution satisfaction survey (one rating per ticket) ── #}
+    <div class="card border-0 shadow-sm bg-white p-4 mt-4" id="survey-section">
+        <h3 class="h5 fw-bold text-dark mb-1">⭐ {{ _('How well was this complaint resolved?') }}</h3>
+        {% if survey %}
+        <p class="text-muted small mb-2">{{ _('This resolution was rated') }}
+            <strong>{{ survey.rating }}/5</strong> {{ _('by the reporter') }}. {{ _('Thank you for the feedback — it shapes ward-level service improvements.') }}</p>
+        <div aria-hidden="true" class="fs-4 text-warning" style="letter-spacing:2px;">{% for _ in range(survey.rating) %}★{% endfor %}{% for _ in range(5 - survey.rating) %}☆{% endfor %}</div>
+        {% else %}
+        <p class="text-muted small mb-3">{{ _('Your rating is anonymous and helps the Gram Panchayat measure service quality across wards.') }}</p>
+        <form id="sgSurveyForm" aria-label="{{ _('Satisfaction survey') }}">
+            <fieldset class="border-0 p-0 m-0">
+                <legend class="form-label small fw-semibold mb-2">{{ _('Rate this resolution (1 = poor, 5 = excellent)') }}</legend>
+                <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="{{ _('Star rating') }}">
+                    {% for value in range(1, 6) %}
+                    <input type="radio" class="btn-check sg-survey-star" name="rating" id="sgStar{{ value }}" value="{{ value }}" autocomplete="off" required>
+                    <label class="btn btn-outline-warning rounded-pill px-3" for="sgStar{{ value }}" aria-label="{{ value }} star{{ 's' if value > 1 else '' }}">★ {{ value }}</label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            <button type="submit" class="btn btn-success rounded-pill px-4" id="sgSurveySubmit">{{ _('Submit rating') }}</button>
+            <div id="sgSurveyMsg" class="small mt-2 d-none" role="status" aria-live="polite"></div>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if survey_eligible %}
+<script>
+(function () {
+    'use strict';
+    var form = document.getElementById('sgSurveyForm');
+    if (!form) return;
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var checked = form.querySelector('input[name="rating"]:checked');
+        var msg = document.getElementById('sgSurveyMsg');
+        var btn = document.getElementById('sgSurveySubmit');
+        if (!checked) {
+            msg.textContent = '{{ _('Pick a rating from 1 to 5 stars.') | e }}';
+            msg.classList.remove('d-none', 'text-success');
+            msg.classList.add('text-danger');
+            return;
+        }
+        btn.disabled = true;
+        fetch(window.location.pathname + '/survey', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ rating: Number(checked.value) })
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (res.ok && res.data.success) {
+                msg.textContent = '{{ _('Thank you! Your rating has been recorded.') | e }}';
+                msg.classList.remove('d-none', 'text-danger');
+                msg.classList.add('text-success');
+                // Replace the form with the recorded rating (single-rating contract).
+                setTimeout(function () { window.location.reload(); }, 1200);
+            } else {
+                msg.textContent = (res.data && res.data.message) || '{{ _('Something went wrong. Please try again.') | e }}';
+                msg.classList.remove('d-none', 'text-success');
+                msg.classList.add('text-danger');
+                btn.disabled = false;
+            }
+        })
+        .catch(function () {
+            msg.textContent = '{{ _('Network error — please try again.') | e }}';
+            msg.classList.remove('d-none', 'text-success');
+            msg.classList.add('text-danger');
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -1409,6 +1409,150 @@ def test_track_page_rejects_invalid_and_unknown_tokens(client, app):
     assert client.get(f'/track/{ghost}').status_code == 404
 
 
+# ── Post-resolution satisfaction survey (v9) ──────────────────────────────
+def _resolved_complaint_with_token(app, ward='Ward 1 - MVGR College Area'):
+    """Create a Resolved complaint and return (complaint_id, track_token)."""
+    from datetime import timedelta
+    from app.routes import make_complaint_token
+    with app.app_context():
+        comp = Complaint(
+            name='surveyuser', phone='+919876543210', ward=ward,
+            address='Near the bus stop', description='Overflowing bin',
+            status='Resolved', created_at=utcnow() - timedelta(hours=10),
+            resolved_at=utcnow())
+        db.session.add(comp)
+        db.session.commit()
+        cid = comp.id
+        return cid, make_complaint_token(cid)
+
+
+def test_survey_form_shows_only_after_resolution(client, app):
+    """The rating form renders only once the ticket is Resolved/Closed and
+    only until it has been rated."""
+    from app.routes import make_complaint_token
+    cid, token = _resolved_complaint_with_token(app)
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'sgSurveyForm' in body and 'Rate this resolution' in body
+
+    # Unresolved tickets must not offer the survey.
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        comp.status = 'In Progress'
+        comp.resolved_at = None
+        db.session.commit()
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'sgSurveyForm' not in body
+
+
+def test_survey_submit_records_rating_and_wards_breakdown(client, app):
+    """A valid POST on /track/<token>/survey stores one anonymized rating with
+    the ward denormalized, and the admin summary aggregates it."""
+    cid, token = _resolved_complaint_with_token(app)
+    r = client.post(f'/track/{token}/survey', json={'rating': 4})
+    assert r.status_code == 200
+    assert r.get_json()['success'] is True
+
+    with app.app_context():
+        from app.models import SurveyResponse
+        row = SurveyResponse.query.filter_by(complaint_id=cid).one()
+        assert row.rating == 4
+        assert row.ward == 'Ward 1 - MVGR College Area'
+        assert len(row.fingerprint) == 64
+
+    # Admin summary reflects the rating (ward rollup + distribution).
+    from tests.conftest import _complete_mfa
+    _complete_mfa(client, app, 'qa_admin')
+    stats = client.get('/api/survey/stats')
+    assert stats.status_code == 200
+    data = stats.get_json()
+    assert data['total'] == 1
+    assert data['avg_rating'] == 4.0
+    assert data['per_ward'][0]['ward'] == 'Ward 1 - MVGR College Area'
+    assert data['distribution'][-1]['rating'] == 5
+
+
+def test_survey_rejects_out_of_range_rating_and_unresolved(client, app):
+    """Ratings outside 1..5 and ratings on unresolved tickets are rejected."""
+    _, token = _resolved_complaint_with_token(app)
+    assert client.post(f'/track/{token}/survey', json={'rating': 0}).status_code == 400
+    assert client.post(f'/track/{token}/survey', json={'rating': 6}).status_code == 400
+    assert client.post(f'/track/{token}/survey', json={'rating': 'abc'}).status_code == 400
+
+    # The rating POST must also refuse unresolved tickets — resolve the id
+    # from the token itself (the test never kept it).
+    from app.routes import verify_complaint_token
+    with app.app_context():
+        cid2 = verify_complaint_token(token)
+        comp = db.session.get(Complaint, cid2)
+        comp.status = 'Submitted'
+        comp.resolved_at = None
+        db.session.commit()
+    r = client.post(f'/track/{token}/survey', json={'rating': 5})
+    assert r.status_code == 400
+    assert 'not resolved' in r.get_json()['message']
+
+
+def test_survey_one_rating_per_complaint_is_enforced(client, app):
+    """The unique constraint holds: a second rating (even from a different
+    fingerprint) is refused with 409, and re-GET shows the recorded result."""
+    cid, token = _resolved_complaint_with_token(app)
+    assert client.post(f'/track/{token}/survey', json={'rating': 5}).status_code == 200
+
+    # Same token again → 409 already-rated.
+    r = client.post(f'/track/{token}/survey', json={'rating': 2})
+    assert r.status_code == 409
+
+    # DB-level backstop: a direct insert with a different fingerprint fails.
+    import sqlalchemy.exc
+    with app.app_context():
+        from app.models import SurveyResponse
+        dup = SurveyResponse(complaint_id=cid, rating=1, ward='Ward 1 - MVGR College Area',
+                             fingerprint='f' * 64)
+        db.session.add(dup)
+        try:
+            db.session.commit()
+            raised = False
+        except sqlalchemy.exc.IntegrityError:
+            db.session.rollback()
+            raised = True
+        assert raised
+
+    # Re-opening the link now shows the recorded rating, not the form.
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'sgSurveyForm' not in body
+    assert 'This resolution was rated' in body
+
+
+def test_survey_requires_valid_token(client, app):
+    """The survey endpoint inherits the track page's no-enumeration rule:
+    invalid signatures 404, and valid-but-unknown complaints 404."""
+    assert client.post('/track/garbage-token/survey', json={'rating': 5}).status_code == 404
+    from app.routes import make_complaint_token
+    with app.app_context():
+        ghost = make_complaint_token(999999)
+    assert client.post(f'/track/{ghost}/survey', json={'rating': 5}).status_code == 404
+
+
+def test_survey_admin_stats_requires_admin(client, app):
+    """The survey summary is admin-only, like the other analytics endpoints."""
+    assert client.get('/api/survey/stats').status_code in (302, 401, 403)
+    # ...and an anonymous rating attempt on a valid token still works (the
+    # survey itself is public by design — rating follows the shared link).
+    _, token = _resolved_complaint_with_token(app)
+    assert client.post(f'/track/{token}/survey', json={'rating': 3}).status_code == 200
+
+
+def test_homepage_shows_dismissible_awareness_banner(client, app):
+    """The Swachh Bharat awareness banner renders on the homepage with the
+    dismiss control, and the dismiss behaviour is client-side (no server
+    state) so the banner content is cacheable public information."""
+    body = client.get('/').get_data(as_text=True)
+    assert 'sgAwarenessBanner' in body
+    assert 'sgAwarenessDismiss' in body
+    assert 'Swachh Bharat Mission (Grameen) Phase II' in body
+    assert '/faq#faq7' in body  # deep link into the segregation FAQ
+
+
 def test_report_auto_sms_tracks_link(client, app, monkeypatch):
     """Filing a complaint SMSes the reporter a signed /track/ link via the
     existing Twilio path (WhatsApp prefix mirrored when configured)."""

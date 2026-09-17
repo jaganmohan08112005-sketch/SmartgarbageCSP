@@ -674,3 +674,33 @@ class PageFeedback(db.Model):
     comment = db.Column(db.Text, nullable=True)                    # optional improvement note (<= 2000 chars)
     fingerprint = db.Column(db.String(64), nullable=False)         # salted sha256(ip + user_agent)
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+
+# ──────────────────────────────────────────────
+# v9: POST-RESOLUTION SATISFACTION SURVEY (Swachh Bharat citizen voice)
+# One 5-star rating per resolved/closed complaint, submitted on the public
+# /track/<token> page. Privacy posture matches PageFeedback/ConsentRecord:
+# the only identifier is a salted SHA-256 of (IP + user-agent) — the token
+# holder rates without an account, and the panchayat gets ward-level
+# satisfaction data without retaining anything that identifies a resident.
+# Uniqueness: exactly one row per complaint (uq_survey_complaint) so a
+# tracking link can't be re-rated, and one rating per fingerprint+complaint
+# as a second layer against trivial ballot-stuffing from one client.
+# ──────────────────────────────────────────────
+class SurveyResponse(db.Model):
+    __tablename__ = 'survey_response'
+    __table_args__ = (
+        db.UniqueConstraint('complaint_id', name='uq_survey_complaint'),
+        # Hot paths: ward breakdown + rating distribution on the admin summary.
+        db.Index('ix_survey_ward_created', 'ward', 'created_at'),
+        db.Index('ix_survey_rating_created', 'rating', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'),
+                             nullable=False, unique=True, index=True)
+    rating = db.Column(db.Integer, nullable=False)                 # 1..5 stars
+    ward = db.Column(db.String(100), nullable=True, index=True)    # denormalized from the complaint for ward rollups
+    fingerprint = db.Column(db.String(64), nullable=False)         # salted sha256(ip + user_agent)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    complaint = db.relationship('Complaint', backref=db.backref('survey_response', lazy=True))
