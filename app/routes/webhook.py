@@ -66,8 +66,10 @@ def webhook_whatsapp_cloud_verify():
     point it at this URL, Meta first sends a GET with hub.mode=subscribe and a
     hub.verify_token you typed into the dashboard. Echoing hub.challenge back
     completes the subscription so Meta starts POSTing citizen "Hi" messages —
-    each of which opens the sender's 24h service window that makes all OTP/
-    status replies free.
+    each of which opens the sender's 24h service window that carries all OTP/
+    status replies (free with no cap through Sep 30, 2026; from Oct 1, 2026
+    Meta bills per delivered message but every number gets 1,000 free
+    service messages per month — inbound citizen messages are always free).
 
     Set WHATSAPP_WEBHOOK_VERIFY_TOKEN in the environment to the exact string
     you typed into the Meta dashboard. Without it the handshake always fails
@@ -95,7 +97,9 @@ def webhook_whatsapp_cloud():
        anonymous IllegalDumpReport — the same contract as the Twilio path.
     2. Register that the sender messaged us (an audit entry), which is what
        opens their 24h customer-service window so outbound OTP/status texts
-       are free.
+       ride the free service-reply class (uncapped through Sep 30, 2026;
+       from Oct 1, 2026 the first 1,000 delivered service replies per month
+       are free — inbound messages are never charged).
 
     Security: X-Hub-Signature-256 (HMAC-SHA256 of the raw body keyed by the
     app secret) is verified whenever WHATSAPP_APP_SECRET is configured;

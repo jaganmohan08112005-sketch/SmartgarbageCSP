@@ -420,9 +420,12 @@ def _app_ctx():
 def send_sms_job(to_number, body):
     """Deliver a phone message through the free-first channel chain:
 
-    1. Meta WhatsApp Cloud API (free text replies inside the citizen's 24h
-       service window; zero per-message cost — no sandbox, no DLT, works to
-       any country) — used when WHATSAPP_CLOUD_* is configured.
+    1. Meta WhatsApp Cloud API (text replies inside the citizen's 24h
+       service window: free with no cap through Sep 30, 2026; from Oct 1,
+       2026 billed per delivered message but with 1,000 free service
+       messages per number per month — a gram-panchayat's volume stays at
+       Rs 0. No sandbox, no DLT, works to any country) — used when
+       WHATSAPP_CLOUD_* is configured.
     2. Twilio (WhatsApp if TWILIO_WHATSAPP_NUMBER is set, else SMS) — paid
        per message, kept as the business-initiated fallback.
 

@@ -1571,13 +1571,27 @@ def cache_set(key, value, ttl_seconds=60):
 def send_whatsapp_cloud(to_number, body):
     """Send a WhatsApp text via Meta's WhatsApp Cloud API (no Twilio needed).
 
-    Production economics (Meta, effective Jul 2025): messages of type
-    "text" are FREE when sent inside an open 24h customer-service window
-    (opened whenever the citizen messages the business number first — e.g.
-    by sending 'Hi' to register). Only business-initiated TEMPLATE messages
-    are charged, so status updates and OTPs delivered as replies inside the
-    window cost nothing on any tier — no sandbox, no per-recipient
-    verification, no DLT registration (WhatsApp Cloud API is not SMS).
+    Production economics (Meta, verified Sep 2026 against Meta's official
+    pricing pages): this function sends only messages of type "text" as
+    REPLIES inside a citizen's open 24h customer-service window (opened
+    whenever the citizen messages the business number first — e.g. by
+    sending 'Hi' to register).
+
+      - Through Sep 30, 2026: those service replies are free with no cap.
+      - From Oct 1, 2026: Meta bills service replies per delivered message,
+        BUT every business phone number gets 1,000 free delivered service
+        messages per month — far above a gram-panchayat portal's volume, so
+        the effective bill stays Rs 0. Inbound citizen messages are never
+        charged, and the test number needs no payment method at all.
+      - The genuinely paid category is BUSINESS-INITIATED template messages
+        (marketing/utility/auth sent outside the window). This app never
+        sends those — the only send here is a plain text reply.
+
+    Also free by construction: no sandbox, no per-recipient verification,
+    no DLT registration (WhatsApp Cloud API is not SMS). If the citizen has
+    no open window (Meta error 131047) the send fails and the caller's
+    fallback chain (next channel / email) takes over — worst case is a free
+    email, never a charged template.
 
     Returns True when Meta accepts the message (2xx). Never raises.
     """

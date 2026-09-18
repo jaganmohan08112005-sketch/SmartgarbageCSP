@@ -59,16 +59,30 @@ fly secrets set \
 
 > `REDIS_URL` is recommended when running more than one machine/worker — it
 > makes rate-limit counters shared across instances (the app falls back to
-> in-memory counters when unset). The WhatsApp Cloud vars enable FREE OTP and
-> status-alert delivery inside each citizen's 24h service window; Twilio vars
+> in-memory counters when unset). The WhatsApp Cloud vars enable OTP and
+> status-alert delivery inside each citizen's 24h service window — free
+> with no cap through Sep 30, 2026; from Oct 1, 2026 Meta bills per
+> delivered message but every business number gets 1,000 free service
+> messages per month, far above this portal's volume, so the bill stays
+> ₹0 (inbound citizen messages are always free). Twilio vars
 > are an optional paid fallback and email is the last resort. Leave the phone
 > channels unset to fall back to email/dev display.
 
 ### WhatsApp Cloud API setup (10 minutes, free, no card)
 
+> Cost status (verified against Meta's official pricing pages, Sep 2026):
+> the TEST number and all inbound citizen messages are free, no payment
+> method required. Replies inside the 24h service window are free with no
+> cap through **Sep 30, 2026**; from **Oct 1, 2026** they are billed per
+> delivered message with a **1,000 free service messages per number per
+> month** allowance — a gram-panchayat portal's OTP/status volume stays at
+> ₹0. This app sends only plain text replies, never business-initiated
+> templates (the paid category).
+
 1. **Create the app**: developers.facebook.com → My Apps → Create App →
    type **Business** → add the **WhatsApp** product. A TEST number with
-   5 recipient slots is created instantly — no business verification needed.
+   5 recipient slots is created instantly — no business verification needed,
+   and it never requires a payment method.
 2. **Copy credentials**: WhatsApp → API Setup → copy the temporary **access
    token** and the **Phone Number ID** (a long digit string, NOT the phone
    number). For a token that never expires: Business Settings → Users →
@@ -91,7 +105,9 @@ fly secrets set \
    Then Subscribe to the `messages` field. Also set `WHATSAPP_APP_SECRET`
    (App Settings → App secret) so inbound POSTs are signature-checked.
 5. **Done**: OTPs now deliver over WhatsApp to anyone who has messaged the
-   number once; status-change alerts ride the same free window.
+   number once; status-change alerts ride the same service-window replies
+   (free through Sep 30, 2026; the first 1,000 delivered per month free
+   from Oct 1, 2026 — see the cost note above this section).
 
 ## Background job queue (RQ)
 
