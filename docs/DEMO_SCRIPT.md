@@ -57,7 +57,8 @@ when, with what note.]
 
 1. **Staff Login** → `24331A4441ADMIN` / `24331A4441ADMIN`.
 2. **MFA step** — a 6-digit OTP goes to the admin's registered contact
-   via WhatsApp Cloud API (free inside the 24h window) with
+   via WhatsApp Cloud API (free through Sep 30, 2026; from Oct 1, 2026
+   the first 1,000 service replies/month are free) with
    Brevo-email fallback to `smartgarbagecsp@gmail.com`. Until either
    gateway is wired in Render, the presenter completes MFA using the
    DB-delivery fallback (ask the operator) — the flow itself is
