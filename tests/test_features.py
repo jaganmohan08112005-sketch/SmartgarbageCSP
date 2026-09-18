@@ -5870,3 +5870,72 @@ def test_ward_satisfaction_month_navigation(client, app):
     assert 'January 2026' in body
     # Next-month navigation appears because 2026-02 < now.
     assert 'Next month' in body
+
+
+# ── Meta WhatsApp Cloud webhook (subscription verify + inbound) ──────────
+def test_whatsapp_cloud_verify_handshake(client, app, monkeypatch):
+    """Meta's GET subscription handshake: correct verify token echoes the
+    challenge; wrong/missing token or no configured secret fails closed."""
+    # No WHATSAPP_WEBHOOK_VERIFY_TOKEN configured -> 403 even with correct shape
+    monkeypatch.delenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN', raising=False)
+    r = client.get('/webhook/whatsapp-cloud?hub.mode=subscribe&hub.verify_token=x&hub.challenge=123')
+    assert r.status_code == 403
+
+    monkeypatch.setenv('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'my-verify-token')
+    # Wrong token -> 403
+    r = client.get('/webhook/whatsapp-cloud?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=123456')
+    assert r.status_code == 403
+    # Right token -> challenge echoed as plain text
+    r = client.get('/webhook/whatsapp-cloud?hub.mode=subscribe&hub.verify_token=my-verify-token&hub.challenge=CHALLENGE123')
+    assert r.status_code == 200
+    assert r.get_data(as_text=True) == 'CHALLENGE123'
+
+
+def test_whatsapp_cloud_inbound_signature_enforced_when_configured(client, app, monkeypatch):
+    """With WHATSAPP_APP_SECRET set, a POST without/with a wrong
+    X-Hub-Signature-256 must be rejected (403); with the right HMAC it acks."""
+    import hashlib, hmac as hmac_mod
+    monkeypatch.setenv('WHATSAPP_APP_SECRET', 'app-secret')
+    body = _json.dumps({'entry': []})
+    # Missing header -> 403
+    r = client.post('/webhook/whatsapp-cloud', data=body, content_type='application/json')
+    assert r.status_code == 403
+    # Wrong signature -> 403
+    r = client.post('/webhook/whatsapp-cloud', data=body, content_type='application/json',
+                    headers={'X-Hub-Signature-256': 'sha256=' + '0' * 64})
+    assert r.status_code == 403
+    # Correct signature -> 200 ok
+    sig = hmac_mod.new(b'app-secret', body.encode(), hashlib.sha256).hexdigest()
+    r = client.post('/webhook/whatsapp-cloud', data=body, content_type='application/json',
+                    headers={'X-Hub-Signature-256': 'sha256=' + sig})
+    assert r.status_code == 200
+    assert r.get_json() == {'ok': True}
+
+
+def test_whatsapp_cloud_inbound_text_message_logs_report_and_auds(client, app, monkeypatch):
+    """A citizen text message ("Hi") is recorded: IllegalDumpReport row + audit
+    entry — the registration that opens their 24h service window. No secret
+    configured (dev) so no signature needed."""
+    from app.models import IllegalDumpReport, AuditLog
+    payload = _json.dumps({
+        'entry': [{'changes': [{'value': {'messages': [
+            {'from': '919876543210', 'type': 'text', 'text': {'body': 'Hi'}}
+        ]}}]}]
+    })
+    r = client.post('/webhook/whatsapp-cloud', data=payload, content_type='application/json')
+    assert r.status_code == 200
+    assert r.get_json() == {'ok': True}
+    rep = IllegalDumpReport.query.order_by(IllegalDumpReport.id.desc()).first()
+    assert rep is not None and rep.category == 'WhatsApp Report'
+    assert 'Hi' in (rep.description or '')
+    aud = AuditLog.query.filter_by(action='ILLEGAL_REPORT_WHATSAPP_CLOUD') \
+        .order_by(AuditLog.id.desc()).first()
+    assert aud is not None
+
+
+def test_whatsapp_cloud_inbound_never_errors_to_meta(client, app, monkeypatch):
+    """Malformed payloads must still 200 — Meta retries non-2xx for ~24h."""
+    r = client.post('/webhook/whatsapp-cloud', data='not json', content_type='application/json')
+    assert r.status_code == 200
+    r = client.post('/webhook/whatsapp-cloud', json={'unexpected': 'shape'})
+    assert r.status_code == 200

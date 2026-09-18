@@ -1,4 +1,7 @@
 import os
+import hashlib
+import hmac
+import json as _json
 import requests
 
 from flask import (jsonify, request)
@@ -53,6 +56,162 @@ def webhook_whatsapp():
              '<Response><Message>✅ Report received! Ticket #'
              f'{report.id} logged. Our team will inspect the location.</Message></Response>')
     return Response(twiml, mimetype='application/xml')
+
+
+@main.route('/webhook/whatsapp-cloud', methods=['GET'])
+def webhook_whatsapp_cloud_verify():
+    """Meta webhook subscription handshake (WhatsApp Cloud API).
+
+    When you click "Webhooks -> Manage -> Edit" in the Meta App Dashboard and
+    point it at this URL, Meta first sends a GET with hub.mode=subscribe and a
+    hub.verify_token you typed into the dashboard. Echoing hub.challenge back
+    completes the subscription so Meta starts POSTing citizen "Hi" messages —
+    each of which opens the sender's 24h service window that makes all OTP/
+    status replies free.
+
+    Set WHATSAPP_WEBHOOK_VERIFY_TOKEN in the environment to the exact string
+    you typed into the Meta dashboard. Without it the handshake always fails
+    closed (403) so a forgot-token deploy can't silently accept subscriptions.
+    """
+    mode = request.args.get('hub.mode')
+    token = request.args.get('hub.verify_token')
+    challenge = request.args.get('hub.challenge')
+    expected = os.environ.get('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
+    if mode == 'subscribe' and expected and token == expected and challenge:
+        return challenge, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    logger.warning("whatsapp_cloud_verify_rejected", mode=mode,
+                   token_ok=bool(expected and token == expected))
+    return 'Forbidden', 403
+
+
+@main.route('/webhook/whatsapp-cloud', methods=['POST'])
+@limiter.limit("120/minute")
+@csrf.exempt
+def webhook_whatsapp_cloud():
+    """Meta WhatsApp Cloud API inbound messages.
+
+    Two jobs:
+    1. Log a citizen's photo report (message with image + caption) as an
+       anonymous IllegalDumpReport — the same contract as the Twilio path.
+    2. Register that the sender messaged us (an audit entry), which is what
+       opens their 24h customer-service window so outbound OTP/status texts
+       are free.
+
+    Security: X-Hub-Signature-256 (HMAC-SHA256 of the raw body keyed by the
+    app secret) is verified whenever WHATSAPP_APP_SECRET is configured;
+    unconfigured (local dev) the signature check is skipped so the endpoint
+    stays testable — matching the Twilio webhook's dev-sandbox behavior.
+    Always answers 200 (Meta retries non-2xx for up to ~24h otherwise).
+    """
+    raw = request.get_data(cache=True) or b''
+    app_secret = os.environ.get('WHATSAPP_APP_SECRET')
+    if app_secret:
+        provided = (request.headers.get('X-Hub-Signature-256') or '').removeprefix('sha256=')
+        expected = hmac.new(app_secret.encode(), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(provided, expected):
+            logger.warning("whatsapp_cloud_signature_invalid", ip=request.remote_addr)
+            return 'Invalid signature', 403
+    payload = request.get_json(silent=True) or {}
+    try:
+        for entry in (payload.get('entry') or []):
+            for change in (entry.get('changes') or []):
+                value = change.get('value') or {}
+                for msg in (value.get('messages') or []):
+                    sender = msg.get('from') or ''          # E.164 digits, e.g. 919876543210
+                    mtype = msg.get('type')
+                    body = ''
+                    lat = lon = None
+                    photo = None
+                    if mtype == 'text':
+                        body = (msg.get('text') or {}).get('body') or ''
+                    elif mtype == 'image':
+                        image = msg.get('image') or {}
+                        body = image.get('caption') or ''
+                        media_id = image.get('id')
+                        token = os.environ.get('WHATSAPP_CLOUD_TOKEN')
+                        if media_id and token:
+                            photo, gps = _download_whatsapp_media(media_id, token)
+                            if gps:
+                                lat, lon = gps
+                    if mtype == 'location':
+                        loc = msg.get('location') or {}
+                        lat, lon = loc.get('latitude'), loc.get('longitude')
+                        body = (msg.get('location') or {}).get('name') or body
+                    if sender:
+                        report = IllegalDumpReport(
+                            latitude=float(lat) if lat is not None else None,
+                            longitude=float(lon) if lon is not None else None,
+                            category='WhatsApp Report',
+                            description=body or f'WhatsApp {mtype or "unknown"} message received.',
+                            scrubbed_photo=photo, ward='', status='Pending'
+                        )
+                        db.session.add(report)
+                        db.session.commit()
+                        write_audit("ILLEGAL_REPORT_WHATSAPP_CLOUD",
+                                    detail=f"from {sender[:6]}**** type={mtype}")
+    except Exception as e:
+        # Never error to Meta: log and ack, else delivery retries storm.
+        logger.error("whatsapp_cloud_webhook_error", error=str(e))
+        db.session.rollback()
+    return jsonify({'ok': True})
+
+
+def _download_whatsapp_media(media_id, token):
+    """Fetch a Meta media item (image) by id and return (bytes, (lat, lon)).
+
+    Two-step Graph API flow: GET /{media-id} returns a temporary URL, then a
+    authenticated GET downloads the bytes. EXIF GPS extraction is delegated to
+    _download_illegal_media by handing it the URL with a Bearer header — but
+    Meta's URL rejects Authorization headers, so the bytes are fetched here and
+    EXIF is extracted locally via the shared helper's parser when possible.
+    """
+    try:
+        meta = requests.get(
+            f"https://graph.facebook.com/v21.0/{media_id}",
+            params={'access_token': token}, timeout=8)
+        if meta.status_code // 100 != 2:
+            logger.warning("whatsapp_media_meta_failed", status=meta.status_code)
+            return None, None
+        url = (meta.json() or {}).get('url')
+        if not url:
+            return None, None
+        dl = requests.get(url, timeout=10)
+        if dl.status_code // 100 != 2 or not dl.content:
+            return None, None
+        blob = dl.content
+        gps = None
+        try:
+            import io
+            from PIL import Image
+            from PIL.ExifTags import GPSTAGS
+            img = Image.open(io.BytesIO(blob))
+            exif = img._getexif() or {}
+            gps_tags_raw = exif.get(34853)  # GPSInfo tag id
+            if gps_tags_raw:
+                # normalize tag names -> readable keys (GPSLatitude, GPSLatitudeRef, ...)
+                gps_tags = {GPSTAGS.get(k, k): v for k, v in gps_tags_raw.items()}
+
+                def _dms(v):
+                    """(deg, min, sec) rationals -> float degrees."""
+                    try:
+                        d, m, s = v
+                        return float(d) + float(m) / 60 + float(s) / 3600
+                    except Exception:
+                        return None
+
+                lat = _dms(gps_tags.get('GPSLatitude'))
+                lon = _dms(gps_tags.get('GPSLongitude'))
+                if lat is not None and str(gps_tags.get('GPSLatitudeRef', 'N')).upper().startswith('S'):
+                    lat = -lat
+                if lon is not None and str(gps_tags.get('GPSLongitudeRef', 'E')).upper().startswith('W'):
+                    lon = -lon
+                gps = (lat, lon) if lat and lon else None
+        except Exception:
+            gps = None
+        return blob, gps
+    except Exception as e:
+        logger.error("whatsapp_media_download_error", error=str(e))
+        return None, None
 
 
 @main.route('/webhook/telegram', methods=['POST'])

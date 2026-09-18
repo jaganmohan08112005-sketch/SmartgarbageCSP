@@ -49,18 +49,49 @@ fly secrets set \
   SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
   IOT_TELEMETRY_SECRET="$(openssl rand -hex 32)" \
   REDIS_URL="redis://:your-redis-password@your-region.upstash.io:6379" \
-  TWILIO_ACCOUNT_SID="AC..." \
-  TWILIO_AUTH_TOKEN="..." \
-  TWILIO_FROM_NUMBER="+1..." \
-  TWILIO_WHATSAPP_NUMBER="whatsapp:+1..." \
+  WHATSAPP_CLOUD_TOKEN="EAAG..." \
+  WHATSAPP_CLOUD_PHONE_NUMBER_ID="123456789" \
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN="$(openssl rand -hex 16)" \
+  WHATSAPP_APP_SECRET="..." \
   RAZORPAY_KEY_ID="rzp_live_..." \
   RAZORPAY_KEY_SECRET="..." \
   RAZORPAY_WEBHOOK_SECRET="$(openssl rand -hex 32)"
 
 > `REDIS_URL` is recommended when running more than one machine/worker — it
 > makes rate-limit counters shared across instances (the app falls back to
-> in-memory counters when unset). Twilio vars enable SMS/WhatsApp OTP and
-> complaint status alerts; leave them unset to fall back to email/dev display.
+> in-memory counters when unset). The WhatsApp Cloud vars enable FREE OTP and
+> status-alert delivery inside each citizen's 24h service window; Twilio vars
+> are an optional paid fallback and email is the last resort. Leave the phone
+> channels unset to fall back to email/dev display.
+
+### WhatsApp Cloud API setup (10 minutes, free, no card)
+
+1. **Create the app**: developers.facebook.com → My Apps → Create App →
+   type **Business** → add the **WhatsApp** product. A TEST number with
+   5 recipient slots is created instantly — no business verification needed.
+2. **Copy credentials**: WhatsApp → API Setup → copy the temporary **access
+   token** and the **Phone Number ID** (a long digit string, NOT the phone
+   number). For a token that never expires: Business Settings → Users →
+   System Users → create one → Add Assets (app: your app, permission:
+   `whatsapp_business_messaging`) → Generate Token.
+3. **Verify locally** before deploying:
+
+       WHATSAPP_CLOUD_TOKEN=EAAG... WHATSAPP_CLOUD_PHONE_NUMBER_ID=123... \
+         python scripts/test_whatsapp_send.py --to 91XXXXXXXXXX
+
+   It validates the token, then sends a real message. If the recipient gets
+   nothing, have them send "Hi" to the test number first (opens the 24h
+   service window) or add them under API Setup → "To".
+4. **Webhook** (lets citizens open their own 24h window by messaging you):
+   App Dashboard → WhatsApp → Configuration → Webhook → Edit:
+   - Callback URL: `https://smartgarbage.onrender.com/webhook/whatsapp-cloud`
+   - Verify token: the exact value of `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+     (Meta GETs the URL and expects this endpoint to echo its challenge —
+     implemented in `/webhook/whatsapp-cloud` GET).
+   Then Subscribe to the `messages` field. Also set `WHATSAPP_APP_SECRET`
+   (App Settings → App secret) so inbound POSTs are signature-checked.
+5. **Done**: OTPs now deliver over WhatsApp to anyone who has messaged the
+   number once; status-change alerts ride the same free window.
 
 ## Background job queue (RQ)
 

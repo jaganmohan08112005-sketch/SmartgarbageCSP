@@ -38,6 +38,10 @@ services:
         sync: false
       - key: WHATSAPP_CLOUD_PHONE_NUMBER_ID
         sync: false
+      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
@@ -113,6 +117,10 @@ services:
       - key: WHATSAPP_CLOUD_TOKEN
         sync: false
       - key: WHATSAPP_CLOUD_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_WEBHOOK_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
         sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
