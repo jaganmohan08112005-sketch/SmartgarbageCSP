@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Track Complaint — SmartGarbage Chintalavalasa{% endblock %}
+{% block content %}
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <span class="sg-icon-lg">🔎</span>
+        <h1 class="fw-bold text-success mb-3">Track Your Complaint</h1>
+        <p class="text-muted fs-5">Enter your tracking link to see the real-time status of your complaint.</p>
+    </div>
+
+    <div class="card border-0 shadow-sm p-4 mb-4" style="max-width: 700px; margin: 0 auto;">
+        <h2 class="h5 fw-bold text-dark mb-3">📋 How to Track</h2>
+        <p class="text-muted">When you file a complaint, you receive a <strong>tracking link</strong> via SMS or on the confirmation page. This link looks like:</p>
+        <div class="bg-light rounded p-3 mb-3">
+            <code class="text-break">https://smartgarbage.onrender.com/track/abc123...xyz</code>
+        </div>
+        <p class="text-muted mb-0">Click the link or paste it into your browser to see:</p>
+        <ul class="text-muted mt-2">
+            <li>Current status (Submitted → Under Review → Assigned → In Progress → Resolved)</li>
+            <li>SLA deadline and expected resolution time</li>
+            <li>Before/after photos (once resolved)</li>
+            <li>Option to reopen if the issue persists</li>
+        </ul>
+    </div>
+
+    <div class="card border-0 shadow-sm p-4 mb-4" style="max-width: 700px; margin: 0 auto;">
+        <h2 class="h5 fw-bold text-dark mb-3">📞 Lost Your Link?</h2>
+        <p class="text-muted mb-2">If you've lost your tracking link, you can:</p>
+        <ul class="text-muted mb-3">
+            <li>Check your SMS inbox for the tracking message</li>
+            <li>Contact the helpline: <a href="tel:+9118001199111" class="fw-semibold">1800-119-9111</a></li>
+            <li>Visit the Gram Panchayat office with your complaint details</li>
+        </ul>
+        <a href="/report" class="btn btn-success rounded-pill px-4">📝 File New Complaint</a>
+    </div>
+
+    <div class="text-center">
+        <a href="/" class="btn btn-outline-success rounded-pill px-4">🏠 Return Home</a>
+    </div>
+</div>
+{% endblock %}

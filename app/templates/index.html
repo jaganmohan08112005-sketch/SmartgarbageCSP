@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Waste Collection Schedules & Missed Pickup Reports | Chintalavalasa{% endblock %}
+{% block title %}Waste Collection & Missed Pickup Reports | Chintalavalasa{% endblock %}
 {% block meta_description %}Check collection schedules for all 5 wards in Chintalavalasa, report missed pickups with GPS and photos, track complaint resolution, view ward transparency, and explore environmental impact data{% endblock %}
 {% block content %}
 <script type="application/ld+json">
@@ -17,8 +17,7 @@
 {
     "@context": "https://schema.org",
     "@graph": [
-        {"@type": "GovernmentService", "name": "Waste Collection Schedule", "serviceType": "Collection schedule lookup", "provider": {"@type": "GovernmentOrganization", "@id": "{{ request.url_root.rstrip('/') }}/#organization" }, "areaServed": "Chintalavalasa Gram Panchayat", "url": "{{ url_for('main.schedule', _external=True) }}"},
-        {"@type": "GovernmentService", "name": "Missed Pickup Reporting", "serviceType": "Grievance reporting", "provider": {"@type": "GovernmentOrganization", "@id": "{{ request.url_root.rstrip('/') }}/#organization" }, "areaServed": "Chintalavalasa Gram Panchayat", "url": "{{ url_for('main.report', _external=True) }}"},
+        {"@type": "GovernmentService", "name": "SmartGarbage Chintalavalasa", "serviceType": "Municipal waste collection and grievance reporting", "provider": {"@type": "GovernmentOrganization", "@id": "{{ request.url_root.rstrip('/') }}/#organization" }, "areaServed": "Chintalavalasa Gram Panchayat", "url": "{{ request.url_root.rstrip('/') }}", "potentialAction": [{"@type": "ViewAction", "name": "View Schedules", "target": "{{ url_for('main.schedule', _external=True) }}"}, {"@type": "ViewAction", "name": "Report Issue", "target": "{{ url_for('main.report', _external=True) }}"}]},
         {"@type": "WebPage", "name": "{{ self.title() }}", "url": "{{ request.url }}", "datePublished": "2025-06-01", "dateModified": "{{ deploy_ts.strftime('%Y-%m-%d') if deploy_ts else '2026-08-06' }}"},
         {"@type": "FAQPage", "mainEntity": [
             {"@type": "Question", "name": "How do I check my schedule?", "acceptedAnswer": {"@type": "Answer", "text": "Go to the schedule page, select your ward, and view today's pickup timetable. No login needed."}},

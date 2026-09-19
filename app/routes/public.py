@@ -373,6 +373,13 @@ def ward_transparency():
                            resolved=len(resolved), segregation_rate=segregation_rate)
 
 
+@main.route('/track')
+def track_landing():
+    """Landing page for /track without a token — explains how to get a
+    tracking link (since /track/<token> requires a signed URL from filing)."""
+    return render_template('track_landing.html')
+
+
 @main.route('/track/<token>')
 def track_complaint(token):
     """Public complaint-tracking page for a signed token.
