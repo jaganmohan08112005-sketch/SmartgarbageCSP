@@ -445,16 +445,48 @@ def send_email_job(to_email, subject, body):
     return send_email_via_smtp(to_email, subject, body)
 
 
+def _otp_email_recipient(recipient):
+    """Resolve the OTP *email* recipient from the OTP recipient.
+
+    Callers pass either an email address or a phone number (staff MFA passes
+    user.phone). When SMS/WhatsApp is unavailable the email fallback must not
+    target the phone string — it is not a valid address and the OTP would be
+    silently dropped. A phone-shaped recipient is therefore resolved to the
+    user's email on file; users without an email fall back to the civic
+    contact inbox (_otp_recipient_fallback's semantics) so the OTP is never
+    silently lost. Valid email recipients pass through unchanged.
+    """
+    if recipient and '@' in recipient:
+        return recipient
+    from flask import current_app
+    from .models import User
+    from .routes import _otp_recipient_fallback, validate_indian_phone
+    with _app_ctx():
+        normalized = validate_indian_phone(recipient) if recipient else None
+        user = None
+        if recipient:
+            user = User.query.filter_by(phone=recipient).first()
+            if user is None and normalized and normalized != recipient:
+                user = User.query.filter_by(phone=normalized).first()
+        if user and user.email:
+            return user.email
+        return _otp_recipient_fallback()
+
+
 @instrument
 def send_otp_job(recipient, otp_val, subject='SmartGarbage OTP'):
     """Send an OTP via SMS, then email if SMS is unavailable — off the request path.
+
+    The email fallback resolves a phone-shaped recipient to the user's email
+    on file (see _otp_email_recipient) instead of mailing the phone string,
+    which no SMTP server accepts.
 
     Note: it calls the decorated send_sms_job/send_email_job directly, so one
     OTP delivery counts as multiple job runs in the metrics (function-level
     accounting — each helper genuinely executed)."""
     sms_sent = send_sms_job(recipient, f"SmartGarbage OTP: {otp_val}")
     if not sms_sent:
-        send_email_job(recipient, subject,
+        send_email_job(_otp_email_recipient(recipient), subject,
                        f"Your SmartGarbage OTP is: {otp_val}\n\nThis code expires in 5 minutes.")
 
 

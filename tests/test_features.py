@@ -3648,7 +3648,12 @@ def test_send_sms_job_prefers_whatsapp_cloud_then_twilio(app, monkeypatch):
 def test_otp_job_email_fallback_when_all_phone_channels_fail(app, monkeypatch):
     """End-to-end guard for the MFA path: when no phone channel is configured
     (and Twilio/Cloud are absent), send_otp_job must still deliver the OTP
-    through the email fallback (send_email_job -> SMTP/mailman)."""
+    through the email fallback (send_email_job -> SMTP/mailman).
+
+    A phone-shaped recipient is resolved to the user's email on file; with no
+    matching user it lands on the civic-contact fallback instead of the phone
+    string (which no SMTP server accepts — the old behavior silently dropped
+    staff OTPs)."""
     from app import routes as routes_mod
     from app.jobs import send_otp_job
 
@@ -3660,10 +3665,12 @@ def test_otp_job_email_fallback_when_all_phone_channels_fail(app, monkeypatch):
     monkeypatch.setattr(routes_mod, 'send_email_via_smtp',
                         lambda to, subject, body, **kw:
                         sent.append((to, subject, body)) or True)
-    send_otp_job('+919876543210', '654321')
+    # A phone no fixture user holds: the phone→email resolution finds nothing
+    # and the civic-contact fallback path is what's under test here.
+    send_otp_job('+919876549999', '654321')
     assert len(sent) == 1
     to, subject, body = sent[0]
-    assert to == '+919876543210'
+    assert to == 'noreply@smartgarbage.local'
     assert '654321' in body
 
 
@@ -5939,3 +5946,60 @@ def test_whatsapp_cloud_inbound_never_errors_to_meta(client, app, monkeypatch):
     assert r.status_code == 200
     r = client.post('/webhook/whatsapp-cloud', json={'unexpected': 'shape'})
     assert r.status_code == 200
+
+
+# ── OTP email-fallback recipient resolution (phone→email on file) ──
+def test_staff_otp_falls_back_to_email_on_file(client, app, monkeypatch):
+    """Staff MFA passes user.phone down the OTP chain. When SMS/WhatsApp are
+    unavailable, the email fallback must resolve the phone to the user's email
+    on file — not mail the phone string (an invalid address, silently dropped
+    by every SMTP server)."""
+    import re
+    import app.routes as routes_mod
+    monkeypatch.setattr(routes_mod, '_is_local_request', lambda: False)
+    _make_user(app, 'mfastaff', role='worker', phone='+919876543901')
+    with app.app_context():
+        User.query.filter_by(username='mfastaff').one().email = 'mfastaff@example.com'
+        db.session.commit()
+    client.post('/login', data={'username': 'mfastaff', 'password': 'testpass123'},
+                follow_redirects=False)
+    outbox = _outbox(app)
+    assert len(outbox) == 1, f'expected 1 OTP mail, got {len(outbox)}'
+    msg = outbox[0]
+    assert msg.to == ['mfastaff@example.com'], f'OTP mailed to {msg.to}, not the user email'
+    assert msg.subject == 'SmartGarbage OTP'
+    assert re.search(r'\b\d{6}\b', msg.body)
+
+
+def test_staff_otp_without_email_uses_civic_contact(client, app, monkeypatch):
+    """A phone-only staff account (no email on file) must not have its OTP
+    silently dropped: the fallback lands on CIVIC_CONTACT_EMAIL, the monitored
+    civic inbox — never on the phone string."""
+    import re
+    import app.routes as routes_mod
+    monkeypatch.setattr(routes_mod, '_is_local_request', lambda: False)
+    app.config['CIVIC_CONTACT_EMAIL'] = 'civic@example.gov.in'
+    _make_user(app, 'phoneonly', role='admin', phone='+919876543902')
+    client.post('/login', data={'username': 'phoneonly', 'password': 'testpass123'},
+                follow_redirects=False)
+    outbox = _outbox(app)
+    assert len(outbox) == 1, f'expected 1 OTP mail, got {len(outbox)}'
+    msg = outbox[0]
+    assert msg.to == ['civic@example.gov.in'], f'OTP mailed to {msg.to}'
+    assert re.search(r'\b\d{6}\b', msg.body)
+
+
+def test_otp_email_fallback_untouched_for_email_recipients(client, app, monkeypatch):
+    """The resolution is transparent for genuine email recipients: when SMS
+    succeeds the flow stops at SMS (no mail), and email recipients flow exactly
+    as before — one resolution point, no behavior drift."""
+    import app.jobs as jobs_mod
+    with app.app_context():
+        assert jobs_mod._otp_email_recipient('plain@example.com') == 'plain@example.com'
+        assert jobs_mod._otp_email_recipient('') == 'noreply@smartgarbage.local'
+        assert jobs_mod._otp_email_recipient(None) == 'noreply@smartgarbage.local'
+    calls = {'sms': [], 'mail': []}
+    monkeypatch.setattr(jobs_mod, 'send_sms_job', lambda to, body: calls['sms'].append(to) or True)
+    monkeypatch.setattr(jobs_mod, 'send_email_job', lambda to, subj, body: calls['mail'].append(to) or True)
+    jobs_mod.send_otp_job('worker@example.com', '123456')
+    assert calls['sms'] == ['worker@example.com'] and calls['mail'] == []
