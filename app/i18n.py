@@ -1072,6 +1072,28 @@ TE = {
     'Send feedback': 'ఫీడ్‌బ్యాక్ పంపండి',
     'Thank you for your feedback': 'మీ ఫీడ్‌బ్యాక్‌కు ధన్యవాదాలు',
     'Help us improve this page by telling us what you think.': 'మీ అభిప్రాయం చెప్పడం ద్వారా ఈ పేజీని మెరుగుపరచడంలో మాకు సహాయపడండి.',
+    # ── Track page: reopen/appeal, SLA visibility, resolution proof ──
+    'Was your issue not actually resolved?': 'మీ సమస్య నిజంగా పరిష్కరించబడలేదా?',
+    'If the site was not cleaned or the problem returned, you can reopen this complaint. Our team will re-inspect it within the SLA window. One reopen is allowed per complaint.': 'సైట్ శుభ్రం చేయకపోతే లేదా సమస్య తిరిగి వస్తే, మీరు ఈ ఫిర్యాదును తిరిగి తెరవవచ్చు. SLA వ్యవధిలో మా బృందం దానిని తిరిగి తనిఖీ చేస్తుంది. ఒక ఫిర్యాదుకు ఒకసారి మాత్రమే తిరిగి తెరవడానికి అనుమతి ఉంటుంది.',
+    'Reopen complaint': 'ఫిర్యాదును తిరిగి తెరవండి',
+    'Reopen this complaint for re-inspection?': 'తిరిగి తనిఖీ కోసం ఈ ఫిర్యాదును తెరవాలా?',
+    'Only a resolved or closed complaint can be reopened.': 'పరిష్కరించబడిన లేదా మూసివేయబడిన ఫిర్యాదును మాత్రమే తిరిగి తెరవగలరు.',
+    'This complaint has already been reopened once. Please contact the municipal office for further appeal.': 'ఈ ఫిర్యాదు ఇప్పటికే ఒకసారి తిరిగి తెరవబడింది. మరింత అప్పీల్ కోసం దయచేసి మునిసిపల్ కార్యాలయాన్ని సంప్రదించండి.',
+    'Complaint #%d has been reopened. Our team will re-inspect it within the SLA window.': 'ఫిర్యాదు #%d తిరిగి తెరవబడింది. SLA వ్యవధిలో మా బృందం దానిని తిరిగి తనిఖీ చేస్తుంది.',
+    'Expected resolution by': 'ఊహించిన పరిష్కార తేదీ',
+    'SLA breach — expected resolution was': 'SLA ఉల్లంఘన — ఊహించిన పరిష్కార తేదీ',
+    'This ticket has been escalated to senior staff for priority action.': 'ఈ టికెట్ ప్రాధాన్య చర్య కోసం సీనియర్ సిబ్బందికి ఎస్కలేట్ చేయబడింది.',
+    'Site after cleanup — resolution proof photo': 'శుభ్రం చేసిన తర్వాత సైట్ — పరిష్కార రుజువు ఫోటో',
+    'Resolution proof': 'పరిష్కార రుజువు',
+    # ── Report page: offline channels (GIGW) ──
+    'Other ways to report': 'నివేదించడానికి ఇతర మార్గాలు',
+    'Prefer not to file online? Any of these reaches the same sanitation team:': 'ఆన్‌లైన్‌లో నివేదించడం ఇష్టం లేదా? ఇవేమైనా ఒకే శానిటేషన్ బృందాన్ని చేరుతాయి:',
+    'Helpline (free, 6 am – 10 pm):': 'హెల్ప్‌లైన్ (ఉచితం, ఉ. 6 – రా. 10):',
+    'In person:': 'వ్యక్తిగతంగా:',
+    'Gram Panchayat office, Chintalavalasa — ask for the sanitation register at the front desk.': 'గ్రామ పంచాయితీ కార్యాలయం, చింతలవలస — ఫ్రంట్ డెస్క్ వద్ద శానిటేషన్ రిజిస్టర్ కోసం అడగండి.',
+    'Ward sanitation staff:': 'వార్డు శానిటేషన్ సిబ్బంది:',
+    'Every ward has a designated sweeper you can flag down on their route.': 'ప్రతి వార్డులో ఒక నియమించబడిన స్వీపర్ ఉంటారు, వారి మార్గంలో వారిని ఆపి చెప్పవచ్చు.',
+    'Paper reports filed at the office are entered into this portal by staff, so all channels appear on the same public dashboard.': 'కార్యాలయంలో ఫైల్ చేసిన పేపర్ నివేదికలు సిబ్బంది ద్వారా ఈ పోర్టల్‌లో నమోదు చేయబడతాయి, కాబట్టి అన్ని ఛానెల్స్ ఒకే పబ్లిక్ డాష్‌బోర్డ్‌లో కనిపిస్తాయి.',
 }
 
 

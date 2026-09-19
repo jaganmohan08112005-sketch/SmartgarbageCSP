@@ -1542,6 +1542,163 @@ def test_survey_admin_stats_requires_admin(client, app):
     assert client.post(f'/track/{token}/survey', json={'rating': 3}).status_code == 200
 
 
+# ── Citizen reopen/appeal (Swachhata-style closed loop) ───────────────────
+def _reopen_setup(app, status='Resolved'):
+    """Resolved complaint (with SLA + status log) → (cid, track_token)."""
+    from datetime import timedelta
+    from app.routes import make_complaint_token
+    from app.models import ComplaintStatusLog
+    with app.app_context():
+        comp = Complaint(
+            name='reopenuser', phone='+919876543299',
+            ward='Ward 2 - Chintalavalasa Junction',
+            address='Main road junction', description='Bin not cleared',
+            status=status, created_at=utcnow() - timedelta(days=2),
+            resolved_at=utcnow() - timedelta(days=1),
+            sla_deadline=utcnow() + timedelta(hours=24))
+        db.session.add(comp)
+        db.session.commit()
+        cid = comp.id
+        db.session.add(ComplaintStatusLog(complaint_id=cid, status='Submitted',
+                                          created_at=comp.created_at))
+        db.session.add(ComplaintStatusLog(complaint_id=cid, status='Resolved',
+                                          created_at=comp.resolved_at))
+        db.session.commit()
+        return cid, make_complaint_token(cid)
+
+
+def test_reopen_page_offers_button_with_proof_photos(client, app):
+    """A resolved complaint's track page shows the reopen affordance and the
+    resolution-proof photo alongside the original report photo."""
+    cid, token = _reopen_setup(app)
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        comp.photo = 'uploads/report_before.jpg'
+        comp.resolution_photo = 'resolution/resolution_1_after.jpg'
+        db.session.commit()
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'reopen-section' in body and 'Reopen complaint' in body
+    assert 'Resolution proof' in body
+    # After-photo URL: remote URLs pass through, static paths map to /static/.
+    assert 'resolution/resolution_1_after.jpg' in body
+
+
+def test_reopen_success_resets_state_and_logs(client, app):
+    """POST reopen: ticket returns to Under Review, resolution evidence is
+    cleared, an 'Reopened' timeline event is written, and a fresh SLA is set."""
+    cid, token = _reopen_setup(app)
+    r = client.post(f'/track/{token}/reopen')
+    assert r.status_code == 302
+    assert r.headers['Location'].endswith(f'/track/{token}')
+
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        assert comp.status == 'Under Review'
+        assert comp.resolved_at is None and comp.closed_at is None
+        assert comp.escalated is False
+        assert comp.sla_deadline is not None  # fresh SLA clock
+        from app.models import ComplaintStatusLog
+        ev = (ComplaintStatusLog.query.filter_by(complaint_id=cid,
+                                                 status='Reopened').one())
+        assert ev.note  # human-readable reason recorded
+
+    # The reloaded page now shows the reopened state and hides the button.
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'Reopened' in body
+    assert 'reopen-section' not in body
+
+
+def test_reopen_rejected_on_non_terminal_complaint(client, app):
+    """Only Resolved/Closed tickets can be reopened — an In Progress ticket
+    refuses with a flash and leaves the state untouched."""
+    cid, token = _reopen_setup(app, status='In Progress')
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        comp.resolved_at = None
+        db.session.commit()
+    r = client.post(f'/track/{token}/reopen', follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert 'Only a resolved or closed complaint can be reopened.' in body
+    with app.app_context():
+        assert db.session.get(Complaint, cid).status == 'In Progress'
+
+
+def test_reopen_one_time_only(client, app):
+    """The second reopen attempt is refused: the citizen's single appeal is
+    spent, and further escalation goes through the municipal office."""
+    cid, token = _reopen_setup(app)
+    assert client.post(f'/track/{token}/reopen').status_code == 302
+    r = client.post(f'/track/{token}/reopen', follow_redirects=True)
+    body = r.get_data(as_text=True)
+    assert 'already been reopened once' in body
+    with app.app_context():
+        # Status stayed on the first reopen's result.
+        assert db.session.get(Complaint, cid).status == 'Under Review'
+
+
+def test_reopen_invalid_token_404s(client, app):
+    """The reopen endpoint inherits the track page's no-enumeration rule."""
+    assert client.post('/track/garbage-token/reopen').status_code == 404
+    from app.routes import make_complaint_token
+    with app.app_context():
+        ghost = make_complaint_token(999999)
+    assert client.post(f'/track/{ghost}/reopen').status_code == 404
+
+
+def test_reopen_notifies_staff_and_citizen_channels(client, app, monkeypatch):
+    """Reopening fans out notifications: one in-app Notification per approved
+    admin, plus the external status-change dispatch (localhost is skipped by
+    design, so we assert the in-app rows and that nothing crashes without
+    SMS/email gateways configured)."""
+    from app.models import Notification, User
+    cid, token = _reopen_setup(app)
+    with app.app_context():
+        admin = User.query.filter_by(role='admin', is_approved=True).first()
+        assert admin is not None
+        admin_id = admin.id
+        before = Notification.query.count()
+    r = client.post(f'/track/{token}/reopen', follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        after = Notification.query.count()
+        assert after >= before + 1
+        msgs = [n.message for n in Notification.query.filter_by(user_id=admin_id).all()]
+        assert any('reopened by the citizen' in m for m in msgs)
+
+
+def test_reopen_sla_visibility_overdue_and_expected(client, app):
+    """Citizen-facing SLA: an open ticket shows 'Expected resolution by',
+    and a past-deadline ticket shows the breach wording instead."""
+    from datetime import timedelta
+    cid, token = _reopen_setup(app)
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        comp.status = 'In Progress'
+        comp.resolved_at = None
+        comp.sla_deadline = utcnow() + timedelta(hours=30)
+        db.session.commit()
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'Expected resolution by' in body
+    assert 'SLA breach' not in body
+
+    with app.app_context():
+        comp = db.session.get(Complaint, cid)
+        comp.sla_deadline = utcnow() - timedelta(hours=2)
+        db.session.commit()
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'SLA breach' in body
+    assert 'escalated to senior staff' in body
+
+
+def test_report_page_lists_offline_channels(client, app):
+    """GIGW: the report page states the offline channels (helpline, office,
+    ward staff) so the portal is never the only way to reach the panchayat."""
+    body = client.get('/report').get_data(as_text=True)
+    assert 'Other ways to report' in body
+    assert '1800-119-9111' in body and 'tel:+9118001199111' in body
+    assert 'Gram Panchayat office' in body
+
+
 def test_homepage_shows_dismissible_awareness_banner(client, app):
     """The Swachh Bharat awareness banner renders on the homepage with the
     dismiss control, and the dismiss behaviour is client-side (no server

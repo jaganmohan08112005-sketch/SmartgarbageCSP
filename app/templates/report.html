@@ -119,6 +119,17 @@
                 <p class="small text-muted text-center mt-2 mb-0">✅ {{ _('Free for residents · No login needed') }}</p>
             </form>
         </div>
+        {# ── GIGW offline-channels block: the portal is one of several ways to reach the panchayat ── #}
+        <div class="rounded-3 border p-3 mt-3 small" style="background:#f8fdf9;border-color:#d5e8dd !important;" id="other-ways-to-report">
+            <div class="fw-bold text-dark mb-2">📞 {{ _('Other ways to report') }}</div>
+            <p class="text-muted mb-2">{{ _('Prefer not to file online? Any of these reaches the same sanitation team:') }}</p>
+            <ul class="mb-2 ps-3 text-muted">
+                <li>{{ _('Helpline (free, 6 am – 10 pm):') }} <a href="tel:+9118001199111" class="fw-semibold text-decoration-none">1800-119-9111</a></li>
+                <li>{{ _('In person:') }} {{ _('Gram Panchayat office, Chintalavalasa — ask for the sanitation register at the front desk.') }}</li>
+                <li>{{ _('Ward sanitation staff:') }} {{ _('Every ward has a designated sweeper you can flag down on their route.') }}</li>
+            </ul>
+            <p class="mb-0 text-muted">{{ _('Paper reports filed at the office are entered into this portal by staff, so all channels appear on the same public dashboard.') }}</p>
+        </div>
         <div class="d-flex flex-wrap justify-content-center gap-3 text-muted small text-center">
             <span>📅 <a href="/schedule" class="text-decoration-underline text-success fw-semibold">{{ _('Check Ward Schedules') }}</a></span>
             <span>·</span>

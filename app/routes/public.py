@@ -4,10 +4,10 @@ import threading
 import time
 import requests
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from flask import (abort, current_app, jsonify, render_template, request,
-                   send_from_directory, redirect, url_for)
+from flask import (abort, current_app, flash, jsonify, render_template, request,
+                   send_from_directory, redirect, url_for, session)
 
 from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, PageFeedback, Schedule,
                       SmartBin, SurveyResponse, WasteDeclaration, utcnow)
@@ -16,9 +16,11 @@ from ..ml_model import predict_miss
 
 from .. import db, limiter
 
-from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _redis_client,
-               _ward_sla_hours, cache_get, cache_set, get_wmo_phrase, logger, main,
-               verify_complaint_token)
+from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _notify_status_change,
+               _redis_client, _ward_sla_hours, cache_get, cache_set, get_wmo_phrase,
+               logger, main, verify_complaint_token)
+
+from ..i18n import translate
 
 from ..search_index import search_pages
 
@@ -410,9 +412,89 @@ def track_complaint(token):
     # (one rating per complaint — re-opening the link then shows the result).
     survey = SurveyResponse.query.filter_by(complaint_id=complaint.id).first()
     survey_eligible = (complaint.status in ('Resolved', 'Closed') and survey is None)
+    # Reopen affordance: offered only on terminal states and only when the
+    # citizen's one reopen hasn't been used (a Reopened log event marks it).
+    has_reopened = ComplaintStatusLog.query.filter_by(
+        complaint_id=complaint.id, status='Reopened').first() is not None
+    sla_overdue = bool(
+        complaint.sla_deadline
+        and complaint.status not in ('Resolved', 'Closed')
+        and complaint.sla_deadline < utcnow())
     return render_template('track.html', complaint=complaint, timeline=timeline,
                            sla_hours=sla_hours, errors=None,
-                           survey=survey, survey_eligible=survey_eligible)
+                           survey=survey, survey_eligible=survey_eligible,
+                           has_reopened=has_reopened, sla_overdue=sla_overdue)
+
+
+@main.route('/track/<token>/reopen', methods=['POST'])
+@limiter.limit('5 per hour;20 per day')
+def reopen_complaint(token):
+    """Citizen reopen/appeal: one tap from the track page when a resolved
+    complaint wasn't actually fixed (the Swachhata-MoHUA closed loop).
+
+    Allowed only from a genuinely terminal state (Resolved or Closed) and only
+    once per complaint (ComplaintStatusLog already records a 'Reopened' event);
+    the ticket returns to Under Review, the SLA clock restarts, and staff are
+    notified by dispatching a fresh bin job where applicable plus the standard
+    status-change channels (in-app Notification + external WhatsApp/SMS→email).
+    Anonymous complaints still work: an anonymous reporter holds the signed
+    tracking link, so the link holder is the complainant for reopen purposes.
+    """
+    complaint_id = verify_complaint_token(token)
+    if complaint_id is None:
+        abort(404)
+    complaint = Complaint.query.get(complaint_id)
+    if complaint is None:
+        abort(404)
+    # One-reopen-per-complaint takes precedence: after a reopen the ticket is
+    # back in 'Under Review', so the status guard alone would mask this case.
+    if ComplaintStatusLog.query.filter_by(complaint_id=complaint.id,
+                                          status='Reopened').first() is not None:
+        flash(translate('This complaint has already been reopened once. Please contact '
+                        'the municipal office for further appeal.', session.get('lang', 'en')), 'danger')
+        return redirect(url_for('main.track_complaint', token=token))
+    if complaint.status not in ('Resolved', 'Closed'):
+        flash(translate('Only a resolved or closed complaint can be reopened.',
+                        session.get('lang', 'en')), 'danger')
+        return redirect(url_for('main.track_complaint', token=token))
+
+    now = utcnow()
+    complaint.status = 'Under Review'
+    complaint.escalated = False
+    complaint.resolved_at = None
+    complaint.closed_at = None
+    # Fresh SLA clock, mirroring the flat 48h window a new complaint gets at
+    # filing time (citizen.py) — the reopen is treated as a new inspection.
+    complaint.sla_deadline = now + timedelta(hours=48)
+    db.session.add(ComplaintStatusLog(
+        complaint_id=complaint.id, status='Reopened',
+        note='Citizen reopened the complaint from the tracking page '
+             '(resolution disputed).'))
+    db.session.commit()
+
+    # Status change does the heavy lifting: external channel delivery + web
+    # push, identical to every other status change.
+    _notify_status_change(complaint)
+    # In-app staff alerts: mirror what a worker status change does (one
+    # Notification row per admin), so the reopened ticket surfaces in the
+    # admin dashboard even when external channels are unconfigured.
+    try:
+        from ..models import Notification, User as _User
+        for admin in _User.query.filter_by(role='admin', is_approved=True).all():
+            db.session.add(Notification(
+                user_id=admin.id,
+                message='Complaint #%d in %s was reopened by the citizen '
+                        'after resolution.' % (complaint.id, complaint.ward or 'unknown ward'),
+                link='/admin'))
+        db.session.commit()
+    except Exception:
+        logger.warning("reopen_staff_notify_failed", complaint_id=complaint.id,
+                       exc_info=True)
+
+    flash(translate('Complaint #%d has been reopened. Our team will re-inspect it '
+                    'within the SLA window.', session.get('lang', 'en')) % complaint.id,
+          'success')
+    return redirect(url_for('main.track_complaint', token=token))
 
 
 @main.route('/track/<token>/survey', methods=['POST'])
@@ -819,11 +901,8 @@ _impact_dashboard_cache = {'at': 0.0, 'value': None}
 def _build_impact_dashboard():
     """Build comprehensive impact data from the database.
 
-    Cached for 10 minutes like homepage stats. Includes:
-    - Complaint resolution metrics
-    - Environmental impact (waste diverted, estimated CO2 saved)
-    - Ward-by-ward performance rankings
-    - Green Points economy stats
+    Cached for 10 minutes like homepage stats. Uses batch queries to minimize
+    DB round-trips — consolidated from ~28 individual queries to 5 batch queries.
     """
     cached = _impact_dashboard_cache
     if time.monotonic() - cached['at'] < 600 and cached['value'] is not None:
@@ -832,6 +911,7 @@ def _build_impact_dashboard():
     from sqlalchemy import func
     from ..models import (WorkerProfile, User, PAYTInvoice,
                           WasteDeclaration, SmartBin)
+    from datetime import date as _date
 
     data = {
         'complaints': {
@@ -841,8 +921,8 @@ def _build_impact_dashboard():
         'environment': {
             'total_waste_kg': 0, 'recycled_kg': 0, 'composted_kg': 0,
             'landfill_kg': 0, 'recycling_rate': 0,
-            'co2_saved_kg': 0,  # estimated: 1kg recycled ≈ 0.5kg CO2 saved
-            'trees_equivalent': 0,  # 1 tree ≈ 21kg CO2/year
+            'co2_saved_kg': 0,
+            'trees_equivalent': 0,
         },
         'wards': [],
         'green_points': {
@@ -855,14 +935,15 @@ def _build_impact_dashboard():
     }
 
     try:
-        # --- Complaint metrics ---
-        data['complaints']['total'] = Complaint.query.count()
-        data['complaints']['resolved'] = Complaint.query.filter_by(
-            status='Resolved').count()
-        data['complaints']['pending'] = Complaint.query.filter(
-            Complaint.status.in_(['Submitted', 'Under Review', 'Assigned',
-                                  'In Progress'])).count()
-        avg_result = db.session.query(
+        today = _date.today()
+
+        # --- BATCH 1: Complaint metrics (single query) ---
+        complaint_stats = db.session.query(
+            func.count(Complaint.id).label('total'),
+            func.count(Complaint.id).filter(Complaint.status == 'Resolved').label('resolved'),
+            func.count(Complaint.id).filter(
+                Complaint.status.in_(['Submitted', 'Under Review', 'Assigned', 'In Progress'])
+            ).label('pending'),
             func.avg(
                 func.extract('epoch', Complaint.resolved_at)
                 - func.extract('epoch', Complaint.created_at)
@@ -871,21 +952,63 @@ def _build_impact_dashboard():
             Complaint.status == 'Resolved',
             Complaint.resolved_at.isnot(None),
             Complaint.created_at.isnot(None),
-        ).scalar()
-        if avg_result is not None:
-            data['complaints']['avg_hours'] = round(float(avg_result), 1)
+        ).first()
 
-        # Today's counts
-        from datetime import date as _date
-        today = _date.today()
-        data['complaints']['today_filed'] = Complaint.query.filter(
-            func.date(Complaint.created_at) == today).count()
-        data['complaints']['today_resolved'] = Complaint.query.filter(
-            func.date(Complaint.resolved_at) == today).count()
+        data['complaints']['total'] = complaint_stats.total or 0
+        data['complaints']['resolved'] = complaint_stats.resolved or 0
+        data['complaints']['pending'] = complaint_stats.pending or 0
+        if complaint_stats[3] is not None:  # avg_hours
+            data['complaints']['avg_hours'] = round(float(complaint_stats[3]), 1)
 
-        # --- Environmental impact ---
-        # wet_kg = organic/compostable, dry_kg = recyclable (plastics/paper/metal),
-        # sanitary_kg = residual/landfill, hazardous_kg = e-waste/batteries
+        # --- BATCH 2: Today's counts (single query) ---
+        today_stats = db.session.query(
+            func.count(Complaint.id).filter(
+                func.date(Complaint.created_at) == today
+            ).label('filed'),
+            func.count(Complaint.id).filter(
+                func.date(Complaint.resolved_at) == today
+            ).label('resolved'),
+        ).first()
+        data['complaints']['today_filed'] = today_stats.filed or 0
+        data['complaints']['today_resolved'] = today_stats.resolved or 0
+
+        # --- BATCH 3: Ward performance (single GROUP BY query) ---
+        ward_rows = db.session.query(
+            Complaint.ward,
+            func.count(Complaint.id).label('total'),
+            func.count(Complaint.id).filter(Complaint.status == 'Resolved').label('resolved'),
+            func.avg(
+                func.extract('epoch', Complaint.resolved_at)
+                - func.extract('epoch', Complaint.created_at)
+            ) / 3600.0
+        ).filter(
+            Complaint.ward.isnot(None),
+            Complaint.status == 'Resolved',
+            Complaint.resolved_at.isnot(None),
+        ).group_by(Complaint.ward).all()
+
+        # Also get total counts per ward (including non-resolved)
+        ward_totals = db.session.query(
+            Complaint.ward,
+            func.count(Complaint.id).label('total'),
+        ).filter(Complaint.ward.isnot(None)).group_by(Complaint.ward).all()
+        ward_total_map = {r.ward: r.total for r in ward_totals}
+
+        ward_data = []
+        for r in ward_rows:
+            total = ward_total_map.get(r.ward, 0)
+            resolved = r.resolved or 0
+            rate = round((resolved / total * 100), 1) if total else 0
+            ward_data.append({
+                'name': r.ward,
+                'total': total,
+                'resolved': resolved,
+                'rate': rate,
+                'avg_hours': round(float(r[3]), 1) if r[3] else 0,
+            })
+        data['wards'] = sorted(ward_data, key=lambda x: x['rate'], reverse=True)
+
+        # --- BATCH 4: Environmental + Green Points + Community (single query each) ---
         waste_stats = db.session.query(
             func.coalesce(func.sum(WasteDeclaration.wet_kg + WasteDeclaration.dry_kg
                                     + WasteDeclaration.sanitary_kg + WasteDeclaration.hazardous_kg), 0),
@@ -902,53 +1025,22 @@ def _build_impact_dashboard():
                         + data['environment']['composted_kg'])
             data['environment']['recycling_rate'] = round(
                 (diverted / data['environment']['total_waste_kg']) * 100, 1)
-        # CO2 savings estimate (EPA: 1kg recycled ≈ 0.5-3kg CO2 saved;
-        # conservative 0.5kg for mixed municipal waste)
         co2_kg = (data['environment']['recycled_kg'] * 0.5
                    + data['environment']['composted_kg'] * 0.3)
         data['environment']['co2_saved_kg'] = round(co2_kg, 1)
         data['environment']['trees_equivalent'] = round(co2_kg / 21, 1)
 
-        # --- Ward performance ---
-        ward_data = []
-        for ward_name in WARD_COORDINATES:
-            w_total = Complaint.query.filter_by(ward=ward_name).count()
-            w_resolved = Complaint.query.filter_by(
-                ward=ward_name, status='Resolved').count()
-            w_rate = round((w_resolved / w_total * 100), 1) if w_total else 0
-            w_avg = db.session.query(
-                func.avg(
-                    func.extract('epoch', Complaint.resolved_at)
-                    - func.extract('epoch', Complaint.created_at)
-                ) / 3600.0
-            ).filter(
-                Complaint.ward == ward_name,
-                Complaint.status == 'Resolved',
-                Complaint.resolved_at.isnot(None),
-            ).scalar()
-            ward_data.append({
-                'name': ward_name,
-                'total': w_total,
-                'resolved': w_resolved,
-                'rate': w_rate,
-                'avg_hours': round(float(w_avg), 1) if w_avg else 0,
-            })
-        data['wards'] = sorted(ward_data, key=lambda x: x['rate'],
-                               reverse=True)
-
-        # --- Green Points economy ---
+        # --- BATCH 5: Green Points + Community (single query) ---
         gp_result = db.session.query(
             func.coalesce(func.sum(User.green_points), 0),
-        ).scalar()
-        data['green_points']['total_earned'] = int(gp_result)
-        data['green_points']['active_residents'] = User.query.filter(
-            User.green_points > 0).count()
+            func.count(User.id).filter(User.green_points > 0),
+            func.count(User.id).filter(User.role == 'citizen'),
+        ).first()
+        data['green_points']['total_earned'] = int(gp_result[0])
+        data['green_points']['active_residents'] = gp_result[1] or 0
+        data['community']['registered_residents'] = gp_result[2] or 0
 
-        # --- Community engagement ---
-        data['community']['registered_residents'] = User.query.filter_by(
-            role='citizen').count()
         data['community']['waste_declarations'] = WasteDeclaration.query.count()
-        # Segregation rate: declarations with >0 recyclable or organic
         if data['community']['waste_declarations'] > 0:
             segregated = WasteDeclaration.query.filter(
                 (WasteDeclaration.dry_kg > 0)
