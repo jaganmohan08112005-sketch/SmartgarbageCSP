@@ -67,6 +67,9 @@
                     <a href="/admin/failed-jobs" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
                         <span>🗑️</span> {{ _('Failed Jobs') }}
                     </a>
+                    <a href="/admin/data-deletion" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2">
+                        <span>🗂️</span> {{ _('Data-Deletion Requests') }}
+                    </a>
                     {% if is_superadmin %}
                     <a href="/admin/super" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2 text-warning">
                         <span>⭐</span> {{ _('Superadmin Panel') }}
@@ -100,6 +103,7 @@
                         <option value="/admin/audit">🔒 {{ _('Audit Trail') }}</option>
                         <option value="/admin/firmware">📡 {{ _('OTA Firmware Hub') }}</option>
                         <option value="/admin/failed-jobs">🗑️ {{ _('Failed Jobs') }}</option>
+                        <option value="/admin/data-deletion">🗂️ {{ _('Data-Deletion Requests') }}</option>
                     </select>
                 </div>
             </div>

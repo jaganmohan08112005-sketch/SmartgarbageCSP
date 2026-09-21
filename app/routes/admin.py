@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 
 from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
+                      DataDeletionRequest,
                       DispatchAssignment, FirmwareRelease, IllegalDumpReport,
                       IncidentLog, MaintenanceWorkOrder, Notification,
                       OfflineDelivery, PageFeedback, PAYTInvoice,
@@ -1118,6 +1119,81 @@ def failed_jobs_clear():
     write_audit("FAILED_JOBS_CLEAR", detail=f"{n} job(s) purged")
     flash(f"Cleared {n} failed job(s) from the dead-letter queue.", "success")
     return redirect(url_for('main.failed_jobs_dashboard'))
+
+
+# ──────────────────────────────────────────────
+# DATA-DELETION QUEUE (DPDP Act, 2023)
+# ──────────────────────────────────────────────
+def _anonymize_user(user):
+    """Erase everything that identifies the person while keeping the rows the
+    panchayat must retain (complaints, PAYT, audit trail). Login becomes
+    impossible: username is replaced and the password hash is a sentinel that
+    no hash can ever verify against."""
+    user.email = None
+    user.phone = None
+    user.otp = None
+    user.otp_expiry = None
+    user.password_hash = 'erased!'
+    user.username = f'erased_user_{user.id}'
+    user.email_verified = False
+    user.is_approved = False
+    user.failed_login_count = 0
+    user.locked_until = utcnow()
+
+
+@main.route('/admin/data-deletion')
+@admin_required
+def admin_data_deletion():
+    pending = DataDeletionRequest.query.filter_by(status='Pending') \
+        .order_by(DataDeletionRequest.requested_at.asc()).all()
+    resolved = DataDeletionRequest.query.filter(DataDeletionRequest.status != 'Pending') \
+        .order_by(DataDeletionRequest.requested_at.desc()).limit(50).all()
+    return render_template('admin_data_deletion.html', pending=pending, resolved=resolved)
+
+
+@main.route('/admin/data-deletion/<int:req_id>/complete', methods=['POST'])
+@admin_required
+def admin_data_deletion_complete(req_id):
+    req = DataDeletionRequest.query.get_or_404(req_id)
+    if req.status != 'Pending':
+        flash('This request has already been resolved.', 'error')
+        return redirect(url_for('main.admin_data_deletion'))
+    user = User.query.get(req.user_id) if req.user_id else None
+    if user is not None and (user.is_superadmin or user.role == 'admin'):
+        flash('Staff/civic accounts cannot be erased through this queue — records retention '
+              'policy applies. Reject the request and reply to the requester.', 'error')
+        return redirect(url_for('main.admin_data_deletion'))
+    if user is not None:
+        _anonymize_user(user)
+    req.status = 'Completed'
+    req.resolved_at = utcnow()
+    req.resolved_by = session.get('user_id')
+    req.resolution_note = (request.form.get('note') or '').strip()[:300] or (
+        'Personal data erased; complaint, billing and audit history retained as required.')
+    db.session.commit()
+    write_audit('DATA_DELETION_COMPLETE', target=f'DDR-{req.id:06d}',
+                detail=f"user={user.id if user else 'no-account'}")
+    flash(f"Request DDR-{req.id:06d} completed — personal data erased.", 'success')
+    return redirect(url_for('main.admin_data_deletion'))
+
+
+@main.route('/admin/data-deletion/<int:req_id>/reject', methods=['POST'])
+@admin_required
+def admin_data_deletion_reject(req_id):
+    req = DataDeletionRequest.query.get_or_404(req_id)
+    if req.status != 'Pending':
+        flash('This request has already been resolved.', 'error')
+        return redirect(url_for('main.admin_data_deletion'))
+    req.status = 'Rejected'
+    req.resolved_at = utcnow()
+    req.resolved_by = session.get('user_id')
+    req.resolution_note = (request.form.get('note') or '').strip()[:300] or (
+        'Unable to verify the requester against an account.')
+    db.session.commit()
+    write_audit('DATA_DELETION_REJECT', target=f'DDR-{req.id:06d}',
+                detail=req.resolution_note[:100])
+    flash(f"Request DDR-{req.id:06d} rejected — contact the requester with the reason.", 'info')
+    return redirect(url_for('main.admin_data_deletion'))
 
 
 @main.route('/admin/bwg-approve/<int:id>')

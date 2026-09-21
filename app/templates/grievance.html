@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Grievance Redressal — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}Grievance redressal officer, escalation ladder and statutory timelines for the SmartGarbage Chintalavalasa waste management service.{% endblock %}
+
+{% block content %}
+{% include "_breadcrumbs.html" with context %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <h1 class="fw-bold text-success mb-3">📣 Grievance Redressal</h1>
+        <p class="text-muted">
+            If a waste-collection complaint is not resolved, or you are unhappy with how your report was
+            handled, escalate it. This page names the officer responsible and the order in which a
+            grievance is heard.
+        </p>
+
+        <div class="card border-0 shadow-sm p-4 mb-4" style="border-left:5px solid #198754 !important;">
+            <h2 class="h5 fw-bold mb-3">Grievance Redressal Officer</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Name</dt>
+                <dd class="col-sm-8">{{ officer_name }}</dd>
+
+                <dt class="col-sm-4">Designation</dt>
+                <dd class="col-sm-8">{{ officer_designation }}</dd>
+
+                {% if officer_email %}
+                <dt class="col-sm-4">Email</dt>
+                <dd class="col-sm-8"><a href="mailto:{{ officer_email }}">{{ officer_email }}</a></dd>
+                {% endif %}
+
+                {% if officer_phone %}
+                <dt class="col-sm-4">Helpline</dt>
+                <dd class="col-sm-8"><a href="tel:{{ officer_phone }}">{{ officer_phone }}</a></dd>
+                {% endif %}
+
+                <dt class="col-sm-4">Address</dt>
+                <dd class="col-sm-8 mb-0">
+                    Gram Panchayat Office, Chintalavalasa, Vizianagaram District,
+                    Andhra Pradesh — 535003
+                </dd>
+            </dl>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">How to raise a grievance</h2>
+            <ol class="mb-0">
+                <li class="mb-2">
+                    <strong>Step 1 — the complaint itself.</strong> File or track a report on the
+                    <a href="{{ url_for('main.report') }}">Report an Issue</a> page and use the
+                    <a href="{{ url_for('main.track_landing') }}">Track</a> page to follow it.
+                    Every complaint carries a 48-hour resolution target for its ward.
+                </li>
+                <li class="mb-2">
+                    <strong>Step 2 — reopen it.</strong> If it is marked resolved but the problem
+                    remains, use the <em>Reopen</em> button on your tracking page. That puts the
+                    complaint back with the sanitation supervisor and records your dissatisfaction.
+                </li>
+                <li class="mb-2">
+                    <strong>Step 3 — escalate to the officer above.</strong> Call or email the
+                    Grievance Redressal Officer with the complaint reference number shown on your
+                    tracking page. Please include the ward number and the date you reported it.
+                </li>
+                <li>
+                    <strong>Step 4 — Gram Sabha.</strong> Unresolved grievances are placed before the
+                    Gram Sabha for review at its next scheduled meeting.
+                </li>
+            </ol>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">Response timelines</h2>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Stage</th>
+                            <th scope="col" class="text-end">Target</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Ward sanitation staff resolve a filed complaint</td>
+                            <td class="text-end">48 hours</td>
+                        </tr>
+                        <tr>
+                            <td>Supervisor reviews a reopened complaint</td>
+                            <td class="text-end">48 hours</td>
+                        </tr>
+                        <tr>
+                            <td>Acknowledgement of a grievance sent to the officer</td>
+                            <td class="text-end">7 days</td>
+                        </tr>
+                        <tr>
+                            <td>Final reply, or the reason it cannot be resolved</td>
+                            <td class="text-end">30 days</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mb-0 mt-3">
+                These targets follow the citizen-charter expectations set out in the Guidelines for
+                Indian Government Websites (GIGW).
+            </p>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">Related</h2>
+            <ul class="mb-0">
+                <li><a href="{{ url_for('main.privacy_policy') }}">Privacy policy</a> — what data we hold and why</li>
+                <li><a href="{{ url_for('main.data_deletion_request') }}">Request deletion of your data</a> — DPDP Act, 2023 right to erasure</li>
+                <li><a href="{{ url_for('main.accessibility') }}">Accessibility statement</a> — WCAG 2.1 AA commitment</li>
+                <li><a href="{{ url_for('main.contact') }}">Contact the panchayat office</a></li>
+            </ul>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

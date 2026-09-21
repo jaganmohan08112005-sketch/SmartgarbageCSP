@@ -126,7 +126,7 @@
         <ul>
             <li>{{ _('Access: request a copy of the data we hold about you.') }}</li>
             <li>{{ _('Correction: ask us to fix inaccurate details (e.g., your phone number).') }}</li>
-            <li>{{ _('Deletion: request deletion of your account data. Anonymous illegal-dump reports cannot be linked to you and therefore cannot be retrieved or deleted individually.') }}</li>
+            <li>{{ _('Deletion: request deletion of your account data. Anonymous illegal-dump reports cannot be linked to you and therefore cannot be retrieved or deleted individually.') }} <a href="{{ url_for('main.data_deletion_request') }}">{{ _('File a deletion request →') }}</a></li>
             <li>{{ _('Consent withdrawal: change or withdraw analytics consent at any time by clearing your browser site data or contacting us.') }}</li>
             <li>{{ _('Nominate a representative: name someone who may exercise your rights on your behalf in case of incapacity.') }}</li>
             <li>{{ _('Complaint to the regulator: if you are not satisfied with our response, you may file a complaint with the Data Protection Board of India.') }}</li>
@@ -150,6 +150,10 @@
         <p class="mb-0 mt-2"><strong>🔐 {{ _('Grievance & Data Protection Officer:') }}</strong> {{ _('Chintalavalasa Gram Panchayat') }} · 📞 <span class="sg-phone">1800-119-9111</span></p>
         {% endif %}
         <p class="small text-muted mb-0 mt-2">{{ _('We acknowledge and respond to privacy requests and grievances within 15 days.') }}</p>
+        <p class="mb-0 mt-3">
+            <a href="{{ url_for('main.grievance_officer') }}" class="btn btn-outline-success btn-sm">{{ _('Grievance redressal & the officer who handles it') }}</a>
+            <a href="{{ url_for('main.data_deletion_request') }}" class="btn btn-outline-danger btn-sm">{{ _('Request deletion of your data') }}</a>
+        </p>
         <p class="mb-0 mt-3"><strong>✅ {{ _('Recognitions & compliance') }}</strong></p>
         <ul class="small mb-0 mt-1 ps-4">
             <li>{{ _('Compliant with the Solid Waste Management Rules, 2026') }}</li>

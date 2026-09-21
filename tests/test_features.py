@@ -6160,3 +6160,299 @@ def test_otp_email_fallback_untouched_for_email_recipients(client, app, monkeypa
     monkeypatch.setattr(jobs_mod, 'send_email_job', lambda to, subj, body: calls['mail'].append(to) or True)
     jobs_mod.send_otp_job('worker@example.com', '123456')
     assert calls['sms'] == ['worker@example.com'] and calls['mail'] == []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DPDP Act 2023 — data-deletion request flow, grievance page, operational
+# visibility (/health queue + storage posture) and the staff-email backfill.
+# ═══════════════════════════════════════════════════════════════════════════
+def _make_account(app, username, role='citizen', email=None, phone=None,
+                  password='testpass123'):
+    """Create an approved account with an explicit email/phone (the shared
+    _make_user helper has no email parameter and is used everywhere)."""
+    with app.app_context():
+        u = User(username=username,
+                 email=email,
+                 password_hash=generate_password_hash(password),
+                 role=role, phone=phone or f'+9198765{abs(hash(username)) % 100000:05d}',
+                 is_approved=True, email_verified=bool(email))
+        db.session.add(u)
+        db.session.commit()
+        return u.id
+
+
+def test_data_deletion_form_renders(client):
+    r = client.get('/data-deletion')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Request Deletion of Your Data' in body
+    assert 'Digital Personal Data Protection Act, 2023' in body
+    assert 'name="identifier"' in body and 'name="confirm"' in body
+
+
+def test_data_deletion_request_matches_account_and_notifies_admins(client, app):
+    """Filing a request records it against the matching account and puts it in
+    front of the admins — the request/erasure loop DPDP requires."""
+    from app.models import DataDeletionRequest, Notification
+    user_id = _make_account(app, 'ddp_citizen', email='ddp.citizen@example.com')
+    admin_id = _make_account(app, 'ddp_admin', role='admin', email='ddp.admin@example.com')
+
+    r = client.post('/data-deletion',
+                    data={'identifier': 'ddp.citizen@example.com',
+                          'reason': 'Please erase my details.',
+                          'confirm': 'on'})
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Request received' in body and 'DDR-' in body
+
+    with app.app_context():
+        req = DataDeletionRequest.query.filter_by(identifier='ddp.citizen@example.com').one()
+        assert req.status == 'Pending'
+        assert req.user_id == user_id
+        assert req.reason == 'Please erase my details.'
+        assert len(req.fingerprint) == 64          # salted hash, never raw IP
+        assert f'DDR-{req.id:06d}' in body
+        notes = Notification.query.filter_by(user_id=admin_id).all()
+        assert any('Data-deletion request' in (n.message or '') for n in notes), \
+            'admins must be told about a new deletion request'
+        assert any((n.link or '').endswith('/admin/data-deletion') for n in notes)
+
+
+def test_data_deletion_matches_phone_and_normalises_it(client, app):
+    """A phone-only citizen can exercise the right too: the typed national
+    number is normalised to the stored +91 form before matching."""
+    from app.models import DataDeletionRequest
+    user_id = _make_account(app, 'ddp_phone', email=None, phone='+919876543321')
+
+    r = client.post('/data-deletion', data={'identifier': '9876543321', 'confirm': 'on'})
+    assert r.status_code == 200
+    with app.app_context():
+        req = DataDeletionRequest.query.one()
+        assert req.user_id == user_id
+        assert req.identifier == '+919876543321'
+
+
+def test_data_deletion_refuses_unconfirmed_and_unparseable_input(client):
+    from app.models import DataDeletionRequest
+    r = client.post('/data-deletion', data={'identifier': 'someone@example.com'})
+    assert r.status_code == 400                     # confirmation not ticked
+
+    r2 = client.post('/data-deletion', data={'identifier': 'not-an-email', 'confirm': 'on'})
+    assert r2.status_code == 400                    # neither an email nor a phone
+    with client.application.app_context():
+        assert DataDeletionRequest.query.count() == 0
+
+
+def test_data_deletion_duplicate_pending_request_is_not_queued_twice(client, app):
+    from app.models import DataDeletionRequest
+    _make_account(app, 'ddp_dup', email='ddp.dup@example.com')
+
+    first = client.post('/data-deletion',
+                        data={'identifier': 'ddp.dup@example.com', 'confirm': 'on'})
+    second = client.post('/data-deletion',
+                         data={'identifier': 'ddp.dup@example.com', 'confirm': 'on'})
+    assert first.status_code == 200 and second.status_code == 200
+    with app.app_context():
+        assert DataDeletionRequest.query.count() == 1, 'a pending request must not duplicate'
+    # The second response re-shows the SAME reference instead of issuing a new one.
+    assert first.get_data(as_text=True).split('DDR-')[1][:6] == \
+        second.get_data(as_text=True).split('DDR-')[1][:6]
+
+
+def test_admin_queue_lists_pending_and_completing_erases_personal_data(client, app):
+    """The end-to-end DPDP loop: queue → complete → personal fields scrubbed,
+    history retained, audited."""
+    from app.models import AuditLog, DataDeletionRequest, User
+    user_id = _make_account(app, 'ddp_erase', email='erase.me@example.com',
+                            phone='+919876543399')
+    _make_account(app, 'ddp_admin2', role='admin', email='ddp.admin2@example.com')
+    client.post('/data-deletion', data={'identifier': 'erase.me@example.com', 'confirm': 'on'})
+    with app.app_context():
+        req_id = DataDeletionRequest.query.one().id
+
+    _login_admin(client, app, 'ddp_admin2')
+    queue = client.get('/admin/data-deletion')
+    assert queue.status_code == 200
+    assert f'DDR-{req_id:06d}' in queue.get_data(as_text=True)
+
+    r = client.post(f'/admin/data-deletion/{req_id}/complete',
+                    data={'note': 'Verified by phone call.'}, follow_redirects=False)
+    assert r.status_code == 302
+
+    with app.app_context():
+        u = User.query.get(user_id)
+        assert u.email is None and u.phone is None          # identity scrubbed
+        assert u.username == f'erased_user_{user_id}'
+        assert u.password_hash == 'erased!'                 # cannot sign in again
+        assert u.otp is None and u.otp_expiry is None
+        assert u.email_verified is False and u.is_approved is False
+        req = DataDeletionRequest.query.get(req_id)
+        assert req.status == 'Completed' and req.resolved_at is not None
+        assert req.resolution_note == 'Verified by phone call.'
+        assert AuditLog.query.filter_by(action='DATA_DELETION_COMPLETE').count() == 1
+
+
+def test_admin_queue_refuses_to_erase_staff_accounts(client, app):
+    """Records-retention duty: a worker/admin account is not erasable through
+    the queue, so the panchayat cannot lose its audit trail by one click."""
+    from app.models import DataDeletionRequest, User
+    user_id = _make_account(app, 'ddp_staff', role='worker', email='staff.person@example.com')
+    _make_account(app, 'ddp_admin3', role='admin', email='ddp.admin3@example.com')
+    client.post('/data-deletion', data={'identifier': 'staff.person@example.com', 'confirm': 'on'})
+    with app.app_context():
+        req_id = DataDeletionRequest.query.one().id
+
+    _login_admin(client, app, 'ddp_admin3')
+    r = client.post(f'/admin/data-deletion/{req_id}/complete', follow_redirects=True)
+    assert r.status_code == 200
+    assert 'Staff/civic accounts cannot be erased' in r.get_data(as_text=True)
+    with app.app_context():
+        assert User.query.get(user_id).email == 'staff.person@example.com'
+        assert DataDeletionRequest.query.get(req_id).status == 'Pending'
+
+
+def test_admin_queue_reject_records_reason(client, app):
+    from app.models import DataDeletionRequest
+    _make_account(app, 'ddp_rej', email='ddp.rej@example.com')
+    _make_account(app, 'ddp_admin4', role='admin', email='ddp.admin4@example.com')
+    client.post('/data-deletion', data={'identifier': 'ddp.rej@example.com', 'confirm': 'on'})
+    with app.app_context():
+        req_id = DataDeletionRequest.query.one().id
+
+    _login_admin(client, app, 'ddp_admin4')
+    r = client.post(f'/admin/data-deletion/{req_id}/reject',
+                    data={'note': 'Requester could not be verified.'}, follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        req = DataDeletionRequest.query.get(req_id)
+        assert req.status == 'Rejected'
+        assert req.resolution_note == 'Requester could not be verified.'
+        assert req.resolved_at is not None
+
+
+def test_grievance_page_names_officer_and_timelines(client, app):
+    r = client.get('/grievance')
+    assert r.status_code == 200
+    body = r.get_data(as_text=True)
+    assert 'Grievance Redressal' in body
+    assert '48 hours' in body and '30 days' in body
+    # The officer identity is deploy-configurable rather than a hardcoded person.
+    assert 'Grievance Redressal Officer' in body
+    # And it links the statutory deletion route + the accessibility statement.
+    assert '/data-deletion' in body and '/accessibility' in body
+
+
+def test_footer_links_the_deletion_and_grievance_routes(client):
+    body = client.get('/').get_data(as_text=True)
+    assert 'href="/grievance"' in body
+    assert 'href="/data-deletion"' in body
+    assert '<a href="/privacy"' in body
+
+
+def test_health_reports_queue_and_storage_posture(client):
+    """Operators must be able to tell from /health whether background jobs are
+    queued or running inline, and where uploads actually land."""
+    r = client.get('/health')
+    assert r.status_code == 200
+    payload = r.get_json()
+    assert payload['queue']['backend'] in ('inline', 'redis')
+    assert payload['checks']['storage']['backend'] in ('supabase', 'cloudinary', 'disk',
+                                                       'ephemeral-disk')
+
+
+def test_upload_storage_backend_names_the_ephemeral_case(app, monkeypatch):
+    import tempfile
+    import app.routes as routes_mod
+    monkeypatch.setenv('RENDER', '1')
+    for var in ('SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY',
+                'CLOUDINARY_URL'):
+        monkeypatch.delenv(var, raising=False)
+    with app.app_context():
+        app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'sg-uploads')
+        assert routes_mod._uploads_ephemeral() is True
+        assert routes_mod.upload_storage_backend() == 'ephemeral-disk'
+        monkeypatch.setenv('SUPABASE_URL', 'https://example.supabase.co')
+        monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY', 'svc-key')
+        assert routes_mod.upload_storage_backend() == 'supabase'
+
+
+def test_compressed_photo_refuses_ephemeral_write_in_production(app, monkeypatch):
+    """The silent-data-loss path: on a managed host with no object store the
+    upload must be refused (loudly) instead of written to /tmp and lost on the
+    next deploy. The complaint still files — it just carries no photo."""
+    import io
+    import tempfile
+    from werkzeug.datastructures import FileStorage
+    from PIL import Image
+    import app.routes as routes_mod
+    from app.models import Notification
+
+    _make_account(app, 'storage_admin', role='admin', email='storage.admin@example.com')
+    monkeypatch.setenv('RENDER', '1')
+    monkeypatch.delenv('CLOUDINARY_URL', raising=False)
+    monkeypatch.setattr(routes_mod, '_upload_to_supabase', lambda data, fn, prefix: None)
+    routes_mod._STORAGE_ALERT_AT['at'] = 0.0     # bypass the 1/hour throttle
+
+    buf = io.BytesIO()
+    Image.new('RGB', (32, 32), 'green').save(buf, format='JPEG')
+    buf.seek(0)
+    fs = FileStorage(stream=buf, filename='proof.jpg', content_type='image/jpeg')
+
+    with app.app_context():
+        app.config['UPLOAD_FOLDER'] = os.path.join(tempfile.gettempdir(), 'sg-uploads-2')
+        assert routes_mod.save_compressed_photo(fs, 'resolution') is None
+        alerts = Notification.query.filter(
+            Notification.message.like('Photo storage is misconfigured%')).all()
+        assert alerts, 'staff must be alerted when photo storage would lose the file'
+    # Nothing was written into the ephemeral folder either.
+    assert not os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], 'resolution_proof.jpg'))
+
+
+def _load_backfill_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'backfill_staff_emails',
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                     'scripts', 'backfill_staff_emails.py'))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_backfill_staff_emails_uses_plus_addressing_not_personal_addresses():
+    """The backfill derives per-person addresses from the monitored project
+    inbox (so no personal address is needed and delivery stays in one place),
+    and falls back to the base domain when the base is not Gmail."""
+    mod = _load_backfill_module()
+    assert mod.build_address('smartgarbagecsp@gmail.com', 'driver_cv-01') == \
+        'smartgarbagecsp+driver_cv-01@gmail.com'
+    assert mod.build_address('civic@example.gov.in', 'driver_cv-01') == \
+        'driver_cv-01@example.gov.in'
+    try:
+        mod.build_address('', 'x')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('an empty base address must be rejected')
+
+
+def test_backfill_staff_emails_writes_only_staff_missing_an_email(app):
+    mod = _load_backfill_module()
+    from app.models import User
+    _make_account(app, 'bf_worker', role='worker', email=None)
+    _make_account(app, 'bf_admin_ok', role='admin', email='already@example.com')
+    _make_account(app, 'bf_citizen', role='citizen', email=None)
+
+    planned, applied = mod.backfill_staff_emails(
+        app=app, base='smartgarbagecsp@gmail.com', apply=False)
+    assert applied == []                                     # dry run writes nothing
+    assert [row[0] for row in planned] == ['bf_worker']      # never a citizen
+
+    planned, applied = mod.backfill_staff_emails(
+        app=app, base='smartgarbagecsp@gmail.com', apply=True)
+    assert [row[0] for row in applied] == ['bf_worker']
+    with app.app_context():
+        assert User.query.filter_by(username='bf_worker').one().email == \
+            'smartgarbagecsp+bf_worker@gmail.com'
+        assert User.query.filter_by(username='bf_admin_ok').one().email == 'already@example.com'
+        assert User.query.filter_by(username='bf_citizen').one().email is None

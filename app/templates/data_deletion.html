@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Request Deletion of Your Data — SmartGarbage Chintalavalasa{% endblock %}
+{% block meta_description %}File a data-deletion request under the Digital Personal Data Protection Act, 2023. Requests are acknowledged within 7 days and completed within 30 days.{% endblock %}
+
+{% block content %}
+{% include "_breadcrumbs.html" with context %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <h1 class="fw-bold text-success mb-3">🗑️ Request Deletion of Your Data</h1>
+        <p class="text-muted">
+            Under the <strong>Digital Personal Data Protection Act, 2023</strong>, you may ask us to erase the
+            personal data we hold about you. You do <strong>not</strong> need an account to file this request.
+        </p>
+
+        {% if submitted_ref %}
+        <div class="card border-0 shadow-sm p-4 mb-4" style="border-left:5px solid #198754 !important;">
+            <h2 class="h5 fw-bold mb-2">✅ Request received</h2>
+            <p class="mb-2">Your reference number is:</p>
+            <p class="fs-4 fw-bold text-success mb-3">{{ submitted_ref }}</p>
+            <p class="mb-0">
+                We acknowledge deletion requests within <strong>7 days</strong> and complete them within
+                <strong>30 days</strong>. Please note the reference number above — it is the only way to
+                follow up on this request.
+            </p>
+        </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">What happens after you file</h2>
+            <ol class="mb-0">
+                <li class="mb-2"><strong>We verify</strong> the email address or mobile number you give us against our records.</li>
+                <li class="mb-2"><strong>We erase</strong> your name, email, phone number, one-time codes and login credentials. Your account can no longer sign in.</li>
+                <li class="mb-2"><strong>We retain</strong> the complaint, billing and audit history the Gram Panchayat is legally required to keep — with your identity removed from it.</li>
+                <li><strong>We reply</strong> with the outcome, or tell you plainly why the request could not be completed.</li>
+            </ol>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">File a request</h2>
+            <form method="POST" action="{{ url_for('main.data_deletion_request') }}" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label for="identifier" class="form-label fw-semibold">
+                        Email address or 10-digit mobile number
+                    </label>
+                    <input type="text" class="form-control" id="identifier" name="identifier"
+                           inputmode="text" autocomplete="username" required
+                           placeholder="you@example.com or 9876543210"
+                           aria-describedby="identifier-help">
+                    <div id="identifier-help" class="form-text">
+                        Use the same email or mobile number you registered with, so we can find your account.
+                        If you never registered, we will still record the request.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="reason" class="form-label fw-semibold">Reason <span class="text-muted">(optional)</span></label>
+                    <textarea class="form-control" id="reason" name="reason" rows="3" maxlength="2000"
+                              placeholder="Anything you want us to know about this request."></textarea>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirm" name="confirm" required>
+                    <label class="form-check-label" for="confirm">
+                        I understand this request will permanently erase my personal data and that
+                        I will no longer be able to sign in with this account.
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-danger btn-lg w-100">Submit deletion request</button>
+            </form>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">Prefer to talk to someone?</h2>
+            <p class="mb-2">
+                Contact the Grievance Redressal Officer for Chintalavalasa Gram Panchayat — see the
+                <a href="{{ url_for('main.grievance_officer') }}">grievance redressal page</a> for the
+                officer's name, email and helpline.{% if config.CIVIC_CONTACT_EMAIL %} You may also write to
+                <a href="mailto:{{ config.CIVIC_CONTACT_EMAIL }}">{{ config.CIVIC_CONTACT_EMAIL }}</a>.{% endif %}
+            </p>
+            <p class="mb-0 small text-muted">
+                See also our <a href="{{ url_for('main.privacy_policy') }}">privacy policy</a> for the full
+                picture of what we collect and why.
+            </p>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
