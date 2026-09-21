@@ -6,6 +6,8 @@ import base64
 import hashlib
 import json
 import random
+import time
+import tempfile
 import structlog
 from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer
@@ -145,6 +147,77 @@ def _upload_to_supabase(data, filename, prefix):
 
 
 # ──────────────────────────────────────────────
+# UPLOAD STORAGE POSTURE
+# ──────────────────────────────────────────────
+def _on_managed_platform():
+    """True when running on a host whose container filesystem is ephemeral."""
+    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+
+
+def _uploads_ephemeral(folder=None):
+    """True when uploads would land in a temp dir that a restart wipes.
+
+    On Render (and locally with DATABASE_URL set) UPLOAD_FOLDER points at
+    /tmp/uploads, so anything written there vanishes on the next deploy.
+    """
+    if folder is None:
+        try:
+            folder = current_app.config.get('UPLOAD_FOLDER') if current_app else None
+        except Exception:
+            folder = None
+    folder = folder or ''
+    if not folder:
+        return False
+    try:
+        tmp = os.path.abspath(tempfile.gettempdir())
+        return os.path.abspath(folder).startswith(tmp)
+    except Exception:
+        return False
+
+
+def upload_storage_backend():
+    """Which store photo uploads land in: 'supabase', 'cloudinary', 'disk'
+    or 'ephemeral-disk'. Reported by /health so a misconfigured production
+    deploy is visible instead of silently dropping photos."""
+    if os.environ.get('SUPABASE_URL') and (
+            os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_ANON_KEY')):
+        return 'supabase'
+    if os.getenv('CLOUDINARY_URL'):
+        return 'cloudinary'
+    return 'ephemeral-disk' if _uploads_ephemeral() else 'disk'
+
+
+# -inf, not 0.0: time.monotonic() measures time since boot on Linux, so on a
+# freshly started container `now - 0.0` can be under the throttle window and the
+# FIRST storage failure — the one that matters most — would be dropped silently.
+_STORAGE_ALERT_AT = {'at': float('-inf')}
+
+
+def _alert_admins_storage_down(prefix):
+    """Raise a throttled (1/hour) in-app alert so a broken object-store
+    configuration is noticed by staff at the time it breaks, instead of
+    surfacing weeks later as broken images nobody can explain."""
+    now = time.monotonic()
+    if now - _STORAGE_ALERT_AT['at'] < 3600:
+        return
+    _STORAGE_ALERT_AT['at'] = now
+    try:
+        from .. import db
+        from ..models import Notification, User
+        for admin in User.query.filter_by(role='admin').all():
+            db.session.add(Notification(
+                user_id=admin.id,
+                message=('Photo storage is misconfigured: an uploaded photo was rejected '
+                         'because it would only have reached the container\'s ephemeral '
+                         'disk. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or '
+                         'CLOUDINARY_URL) to restore photo uploads. Latest: ' + str(prefix)),
+                link='/admin'))
+        db.session.commit()
+    except Exception as e:
+        logger.error("storage_alert_failed", error=str(e))
+
+
+# ──────────────────────────────────────────────
 # PHOTO COMPRESSION HELPER
 # ──────────────────────────────────────────────
 MAX_IMAGE_DIM = 1280      # longest edge, px
@@ -219,6 +292,18 @@ def save_compressed_photo(file_storage, prefix):
         except Exception as e:
             current_app.logger.error("Cloudinary upload failed for %s: %s", filename, e)
             # Fall through to local disk so we never lose the upload.
+
+    # Local disk is the last resort and is only acceptable where it persists.
+    # In production the upload folder is the container's ephemeral /tmp (see
+    # create_app), so a file written here disappears on the next deploy and
+    # every complaint reference to it becomes a broken image with no error
+    # ever surfacing. Fail loudly instead: log, alert the admins, and store
+    # no photo — the complaint still files, it just carries no image.
+    if _on_managed_platform() and _uploads_ephemeral():
+        current_app.logger.error(
+            "photo_storage_unavailable — refusing ephemeral /tmp write for %s", filename)
+        _alert_admins_storage_down(prefix)
+        return None
 
     upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
     os.makedirs(os.path.dirname(upload_path), exist_ok=True)

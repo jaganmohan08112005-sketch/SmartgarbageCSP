@@ -708,3 +708,43 @@ class SurveyResponse(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
     complaint = db.relationship('Complaint', backref=db.backref('survey_response', lazy=True))
+
+
+# ──────────────────────────────────────────────
+# v7: DATA-DELETION REQUESTS (DPDP Act, 2023)
+# ──────────────────────────────────────────────
+class DataDeletionRequest(db.Model):
+    """Right-to-erasure workflow promised on /privacy.
+
+    A resident (or anyone acting for them) files a request; admins work a
+    queue and completing a request PSEUDONYMIZES the account rather than
+    hard-deleting the row. That keeps the complaint / PAYT / audit history
+    the panchayat is legally required to retain, while every field that
+    identifies the person is scrubbed.
+
+    Privacy posture matches PageFeedback/ConsentRecord: the only identifier
+    kept for abuse-limiting is a salted fingerprint, and `identifier` is the
+    email/phone the requester typed (needed to match and to reply) — never a
+    device identifier.
+    """
+    __tablename__ = 'data_deletion_request'
+    __table_args__ = (
+        # Admin queue: filter by status, newest first.
+        db.Index('ix_ddr_status_requested', 'status', 'requested_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'),
+                        nullable=True, index=True)      # NULL when no account matches
+    identifier = db.Column(db.String(120), nullable=False)   # email or phone as supplied
+    reason = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='Pending', nullable=False)  # Pending / Completed / Rejected
+    fingerprint = db.Column(db.String(64), nullable=False)   # salted sha256(ip + user-agent)
+    requested_at = db.Column(db.DateTime, default=utcnow, index=True)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+    resolved_by = db.Column(db.Integer, db.ForeignKey('user.id'),
+                            nullable=True, index=True)     # acting admin
+    resolution_note = db.Column(db.String(300), nullable=True)
+
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('data_deletion_requests', lazy=True))
+    resolver = db.relationship('User', foreign_keys=[resolved_by])

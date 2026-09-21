@@ -312,6 +312,42 @@ Then:
    address by default; set `MAIL_DEFAULT_SENDER` explicitly if you want a
    separate noreply from-address.
 
+### 8.6 Publish the grievance officer (GIGW) and work the deletion queue (DPDP)
+
+Two pages exist so the portal behaves like a real government service rather
+than a demo:
+
+| Page | What it is | Who uses it |
+|---|---|---|
+| `/grievance` | Named Grievance Redressal Officer, the escalation ladder, and the 48h / 7-day / 30-day targets | Any citizen whose complaint stalled |
+| `/data-deletion` | DPDP Act 2023 right-to-erasure request form (no account needed) | Any resident, or someone acting for them |
+| `/admin/data-deletion` | The queue that resolves those requests (complete = erase personal data, keep required history; or reject with a reason) | Staff with the admin role |
+
+Publish a real officer — never leave a placeholder person:
+
+```bash
+GRIEVANCE_OFFICER_NAME="<officer's name>"
+GRIEVANCE_OFFICER_DESIGNATION="Grievance Redressal Officer, Chintalavalasa Gram Panchayat"
+GRIEVANCE_OFFICER_EMAIL="<monitored inbox>"
+GRIEVANCE_OFFICER_PHONE="1800-119-9111"
+```
+
+Unset, `/grievance` shows the Panchayat Secretary plus the civic contact
+address instead of inventing a person. The page is in `sitemap.xml` and linked
+from the footer, `/privacy` and `/data-deletion`.
+
+Give every staff account its own email so MFA codes reach the person logging
+in (a NULL email can only fall back to the shared civic inbox):
+
+```bash
+python scripts/backfill_staff_emails.py            # dry run — prints the plan
+python scripts/backfill_staff_emails.py --apply    # writes the addresses
+```
+
+It derives addresses from `CIVIC_CONTACT_EMAIL` in plus-addressed form
+(`civic+driver_cv-01@gmail.com`) so delivery still lands in one monitored
+mailbox, and never touches citizen accounts.
+
 ## 9. Migrating Existing Data from Render Postgres
 
 If you have data on Render's old Postgres:

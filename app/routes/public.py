@@ -9,16 +9,18 @@ from datetime import datetime, timedelta, timezone
 from flask import (abort, current_app, flash, jsonify, render_template, request,
                    send_from_directory, redirect, url_for, session)
 
-from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, PageFeedback, Schedule,
-                      SmartBin, SurveyResponse, WasteDeclaration, utcnow)
+from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, DataDeletionRequest,
+                      PageFeedback, Schedule, SmartBin, SurveyResponse, WasteDeclaration,
+                      utcnow)
 
 from ..ml_model import predict_miss
 
 from .. import db, limiter
 
-from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _notify_status_change,
+from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _notify_admins, _notify_status_change,
                _redis_client, _ward_sla_hours, cache_get, cache_set, get_wmo_phrase,
-               logger, main, verify_complaint_token)
+               logger, main, upload_storage_backend, validate_indian_phone,
+               verify_complaint_token, write_audit)
 
 from ..i18n import translate
 
@@ -553,6 +555,101 @@ def submit_track_survey(token):
     return jsonify({'success': True, 'rating': rating})
 
 
+@main.route('/data-deletion', methods=['GET', 'POST'])
+@limiter.limit("5/hour")
+def data_deletion_request():
+    """DPDP Act, 2023 right-to-erasure request (also linked from /privacy).
+
+    Anyone may file — a resident, or someone acting for them — because the
+    right is not conditional on holding an account. The identifier they type
+    (email or phone) is matched against accounts so admins can act, and a
+    duplicate Pending request is refused rather than queueing twice. Nothing
+    is deleted here: admins work the queue, and completing a request
+    pseudonymizes the account while the history the panchayat must retain
+    stays intact.
+    """
+    submitted_ref = None
+    if request.method == 'POST':
+        identifier = (request.form.get('identifier') or '').strip()
+        reason = (request.form.get('reason') or '').strip()[:2000]
+        confirmed = request.form.get('confirm') == 'on'
+        lang = session.get('lang', 'en')
+
+        # Accept an email or an Indian mobile number; normalise phone numbers so
+        # the stored identifier matches the account's canonical +91 form.
+        email = None
+        phone = None
+        if '@' in identifier and '.' in identifier.split('@')[-1]:
+            email = identifier.lower()[:120]
+        else:
+            phone = validate_indian_phone(identifier)
+
+        if not email and not phone:
+            flash(translate('Enter the email address or 10-digit mobile number on your account.', lang), 'danger')
+            return render_template('data_deletion.html', submitted_ref=None), 400
+        if not confirmed:
+            flash(translate('Please tick the confirmation box so we know this request is deliberate.', lang), 'danger')
+            return render_template('data_deletion.html', submitted_ref=None), 400
+
+        from ..models import User as _User
+        user = None
+        if email:
+            user = _User.query.filter(db.func.lower(_User.email) == email).first()
+        else:
+            user = _User.query.filter_by(phone=phone).first()
+
+        pending = DataDeletionRequest.query.filter_by(status='Pending', user_id=(user.id if user else None)).first() \
+            if user else None
+        if pending is not None:
+            flash(translate('A deletion request for this account is already pending. We will respond within 30 days.', lang), 'info')
+            return render_template('data_deletion.html', submitted_ref=f"DDR-{pending.id:06d}")
+
+        raw = (request.headers.get('User-Agent', '') or '') + '|' + (request.remote_addr or '')
+        salt = current_app.config.get('SECRET_KEY') or 'sg-feedback'
+        fingerprint = hashlib.sha256((salt + '|' + raw).encode('utf-8')).hexdigest()
+        req = DataDeletionRequest(
+            user_id=(user.id if user else None),
+            identifier=email or phone,
+            reason=reason or None,
+            status='Pending',
+            fingerprint=fingerprint,
+        )
+        db.session.add(req)
+        db.session.commit()
+        submitted_ref = f"DDR-{req.id:06d}"
+
+        write_audit('DATA_DELETION_REQUEST', target=submitted_ref,
+                    detail=f"identifier={'email' if email else 'phone'}; matched={'yes' if user else 'no'}")
+        _notify_admins(
+            f"Data-deletion request {submitted_ref} filed — "
+            f"{'account matched' if user else 'no account matched'}; "
+            "resolve it from the deletion queue.",
+            link='/admin/data-deletion')
+        db.session.commit()
+        flash(translate('Request received. We acknowledge data-deletion requests within 7 days and complete them within 30 days.', lang), 'success')
+
+    return render_template('data_deletion.html', submitted_ref=submitted_ref)
+
+
+@main.route('/grievance')
+def grievance_officer():
+    """GIGW-style grievance redressal page: a named officer, the escalation
+    ladder, and the statutory response timelines — the thing a citizen is
+    told to look at when a complaint about the service (not a bin) stalls.
+    Officer details are deploy-configurable so a real panchayat can publish
+    their own without a code change.
+    """
+    return render_template(
+        'grievance.html',
+        officer_name=os.environ.get('GRIEVANCE_OFFICER_NAME', 'Panchayat Secretary'),
+        officer_designation=os.environ.get('GRIEVANCE_OFFICER_DESIGNATION',
+                                          'Grievance Redressal Officer, Chintalavalasa Gram Panchayat'),
+        officer_email=os.environ.get('GRIEVANCE_OFFICER_EMAIL',
+                                     current_app.config.get('CIVIC_CONTACT_EMAIL')),
+        officer_phone=os.environ.get('GRIEVANCE_OFFICER_PHONE', '1800-119-9111'),
+    )
+
+
 @main.route('/sw.js')
 def serve_sw():
     import pathlib
@@ -715,8 +812,11 @@ def sitemap_xml():
         ('/register',    '0.7', 'monthly'),
         ('/register/picker', '0.5', 'monthly'),
         ('/privacy',     '0.6', 'yearly'),
+        ('/grievance',   '0.6', 'yearly'),
+        ('/data-deletion', '0.5', 'yearly'),
         ('/contact',     '0.7', 'monthly'),
         ('/terms',       '0.5', 'yearly'),
+        ('/accessibility', '0.5', 'yearly'),
     ]
     urls = ''.join(
         f"  <url><loc>{base}{p}</loc><lastmod>{last_mod_str}</lastmod>"
@@ -886,10 +986,21 @@ def health_check():
         jobs_kpis = _job_kpis(_counter_snapshot())
     except Exception:
         jobs_kpis = None
+    # Queue + upload-storage posture. Both share a "works on a laptop, silently
+    # degrades in production" failure mode — an unset REDIS_URL turns every
+    # background send into inline work inside a request, and a missing object
+    # store makes uploads vanish on the next restart — so report which branch
+    # this process actually took rather than leaving operators to infer it.
+    checks['storage'] = {'backend': upload_storage_backend()}
     healthy = db_ok and (redis_ok is not False)
     payload = {
         'status': 'healthy' if healthy else 'unhealthy',
         'checks': checks,
+        'queue': {
+            'backend': 'redis' if r is not None else 'inline',
+            'detail': ('background jobs consumed by the RQ worker' if r is not None
+                       else 'no REDIS_URL — jobs execute inline in the web process'),
+        },
         'timestamp': datetime.now(timezone.utc).isoformat(),
     }
     if jobs_kpis is not None:
