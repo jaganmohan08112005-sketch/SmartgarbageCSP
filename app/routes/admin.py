@@ -1159,7 +1159,10 @@ def admin_data_deletion_complete(req_id):
         flash('This request has already been resolved.', 'error')
         return redirect(url_for('main.admin_data_deletion'))
     user = User.query.get(req.user_id) if req.user_id else None
-    if user is not None and (user.is_superadmin or user.role == 'admin'):
+    # Any non-citizen account (worker, admin, superadmin) is staff. Erasing one
+    # would sever the audit trail that names who resolved what, so it is refused
+    # here and answered with the records-retention reply instead.
+    if user is not None and user.role != 'citizen':
         flash('Staff/civic accounts cannot be erased through this queue — records retention '
               'policy applies. Reject the request and reply to the requester.', 'error')
         return redirect(url_for('main.admin_data_deletion'))

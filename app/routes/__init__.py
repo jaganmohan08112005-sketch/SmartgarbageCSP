@@ -187,7 +187,10 @@ def upload_storage_backend():
     return 'ephemeral-disk' if _uploads_ephemeral() else 'disk'
 
 
-_STORAGE_ALERT_AT = {'at': 0.0}
+# -inf, not 0.0: time.monotonic() measures time since boot on Linux, so on a
+# freshly started container `now - 0.0` can be under the throttle window and the
+# FIRST storage failure — the one that matters most — would be dropped silently.
+_STORAGE_ALERT_AT = {'at': float('-inf')}
 
 
 def _alert_admins_storage_down(prefix):

@@ -6391,7 +6391,13 @@ def test_compressed_photo_refuses_ephemeral_write_in_production(app, monkeypatch
     monkeypatch.setenv('RENDER', '1')
     monkeypatch.delenv('CLOUDINARY_URL', raising=False)
     monkeypatch.setattr(routes_mod, '_upload_to_supabase', lambda data, fn, prefix: None)
-    routes_mod._STORAGE_ALERT_AT['at'] = 0.0     # bypass the 1/hour throttle
+    # Make the throttle inert WITHOUT relying on the host clock: on a managed
+    # Linux host time.monotonic() is uptime, so a container that booted seconds
+    # ago would have `now - <last alert>` inside the window and silently drop
+    # this first alert. Simulating a 12-second-old container here means a
+    # throttle that starts at 0.0 fails this test, which is the whole point.
+    routes_mod._STORAGE_ALERT_AT['at'] = float('-inf')
+    monkeypatch.setattr(routes_mod.time, 'monotonic', lambda: 12.0)
 
     buf = io.BytesIO()
     Image.new('RGB', (32, 32), 'green').save(buf, format='JPEG')
