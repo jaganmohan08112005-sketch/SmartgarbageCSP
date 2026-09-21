@@ -98,7 +98,7 @@ class Complaint(db.Model):
     # v3: Complaint lifecycle state machine (Submitted → Under Review →
     # Assigned → In Progress → Resolved → Closed) with SLA + escalation.
     bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=True, index=True)
-    assigned_worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True)
+    assigned_worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True, index=True)
     sla_deadline = db.Column(db.DateTime, nullable=True)
     escalated = db.Column(db.Boolean, default=False, nullable=False)
     resolved_at = db.Column(db.DateTime, nullable=True)
@@ -247,7 +247,7 @@ class BinTelemetryLog(db.Model):
 # ──────────────────────────────────────────────
 class IncidentLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=True)
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=True, index=True)
     incident_type = db.Column(db.String(50), nullable=False)  # Fire Hazard / Vandalism / Methane Leak / Overflow / Sensor Fault / Impurity
     severity = db.Column(db.String(20), nullable=False)       # Critical / Warning
     status = db.Column(db.String(20), default='Active', nullable=False)
@@ -266,7 +266,7 @@ class AuditLog(db.Model):
         db.Index('ix_audit_action_target', 'action', 'target'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     username = db.Column(db.String(100), nullable=True)       # denormalized for immutability
     role = db.Column(db.String(50), nullable=True)
     action = db.Column(db.String(100), nullable=False)        # e.g. "RESOLVE_BIN", "LOGIN", "OFFLOAD_LOG"
@@ -299,7 +299,7 @@ class SensorHealth(db.Model):
 # ──────────────────────────────────────────────
 class OffloadLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=False)
+    worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=False, index=True)
     dump_yard_id = db.Column(db.String(50), nullable=False)              # e.g. "YARD-A", "YARD-B"
     weight_kg = db.Column(db.Float, nullable=False)
     vehicle_id = db.Column(db.String(20), nullable=True)
@@ -378,7 +378,7 @@ class BWGDeclaration(db.Model):
 # ──────────────────────────────────────────────
 class PAYTInvoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     period = db.Column(db.String(50), nullable=False)                   # e.g. "July 2025"
     weight_kg = db.Column(db.Float, default=0.0, nullable=False)
     bin_pickups = db.Column(db.Integer, default=0, nullable=False)
@@ -431,7 +431,7 @@ class FirmwareRelease(db.Model):
     target_bins = db.Column(db.Text, nullable=True)                     # comma-separated hw_ids or "ALL"
     pushed_at = db.Column(db.DateTime, nullable=True)
     push_status = db.Column(db.String(20), default='Pending', nullable=False)  # Pending / Pushed / Failed
-    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=utcnow)
 
 
@@ -594,15 +594,15 @@ class MaintenanceWorkOrder(db.Model):
         db.Index('ix_maintenance_worker_status', 'worker_id', 'status'),
     )
     id = db.Column(db.Integer, primary_key=True)
-    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=False)
+    bin_id = db.Column(db.Integer, db.ForeignKey('smart_bin.id'), nullable=False, index=True)
     worker_id = db.Column(db.Integer, db.ForeignKey('worker_profile.id'), nullable=True)  # None = unassigned pool
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)          # acting admin
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)  # acting admin
     status = db.Column(db.String(20), default='Scheduled', nullable=False)  # Scheduled / In Progress / Completed
     due_date = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.String(300), nullable=True)
     created_at = db.Column(db.DateTime, default=utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
-    completed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    completed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     # v6: Overdue-escalation dedupe — set by the scheduled escalation job the
     # first time the order's due_date passes without completion. The job only
     # escalates orders where this is still NULL, so a long-overdue order
@@ -626,12 +626,12 @@ class MaintenanceWorkOrder(db.Model):
 class OfflineDelivery(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     endpoint = db.Column(db.String(100), nullable=False)          # '/report' or '/report-illegal'
-    complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'), nullable=True)
-    illegal_report_id = db.Column(db.Integer, db.ForeignKey('illegal_dump_report.id'), nullable=True)
+    complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'), nullable=True, index=True)
+    illegal_report_id = db.Column(db.Integer, db.ForeignKey('illegal_dump_report.id'), nullable=True, index=True)
     ward = db.Column(db.String(100), nullable=True, index=True)
     has_photo = db.Column(db.Boolean, default=False, nullable=False)
     attempts = db.Column(db.Integer, default=0, nullable=False)    # replay attempts before success
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     delivered_at = db.Column(db.DateTime, default=utcnow, index=True)
 
 
@@ -701,7 +701,7 @@ class SurveyResponse(db.Model):
     )
     id = db.Column(db.Integer, primary_key=True)
     complaint_id = db.Column(db.Integer, db.ForeignKey('complaint.id'),
-                             nullable=False, unique=True, index=True)
+                             nullable=False, unique=True)  # unique=True already creates the covering index
     rating = db.Column(db.Integer, nullable=False)                 # 1..5 stars
     ward = db.Column(db.String(100), nullable=True, index=True)    # denormalized from the complaint for ward rollups
     fingerprint = db.Column(db.String(64), nullable=False)         # salted sha256(ip + user_agent)
