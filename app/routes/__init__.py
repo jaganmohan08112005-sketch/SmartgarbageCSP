@@ -140,6 +140,11 @@ def _upload_to_supabase(data, filename, prefix):
         path = f"{prefix}/{filename}"
         client.storage.from_('uploads').upload(path, data, {'content-type': 'image/jpeg', 'upsert': 'true'})
         public_url = client.storage.from_('uploads').get_public_url(path)
+        # The SDK appends a bare '?' when there is no query string. Stored that
+        # way the URL is still fetchable, but any downstream URL quoting turns
+        # the '?' into '%3F' and the object 404s, so drop the empty query.
+        if public_url and public_url.endswith('?'):
+            public_url = public_url[:-1]
         return public_url
     except Exception as e:
         logger.error("supabase_upload_failed", error=str(e))
