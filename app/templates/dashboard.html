@@ -345,8 +345,15 @@
                                 </td>
                                 <td>
                                     {% if c.photo %}
-                                        {% set file_path = c.photo.replace('static/', '').replace('app/static/', '') %}
-                                        <a href="{{ url_for('static', filename=file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3">
+                                        {# Absolute object-storage URLs must be linked as-is;
+                                           only local-disk paths resolve against /static. #}
+                                        {% if c.photo.startswith('http') %}
+                                            {% set photo_src = c.photo %}
+                                        {% else %}
+                                            {% set file_path = c.photo.replace('static/', '').replace('app/static/', '') %}
+                                            {% set photo_src = url_for('static', filename=file_path) %}
+                                        {% endif %}
+                                        <a href="{{ photo_src }}" target="_blank" class="btn btn-sm btn-outline-primary py-1 px-3">
                                             View Image
                                         </a>
                                     {% else %}

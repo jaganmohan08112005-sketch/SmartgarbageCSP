@@ -7,7 +7,7 @@ import hashlib
 from datetime import datetime, timezone
 import structlog
 from flask import (Flask, Response, current_app, jsonify, render_template,
-                   session, redirect, url_for, request)
+                   send_from_directory, session, redirect, url_for, request)
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
@@ -431,6 +431,18 @@ def create_app(test_config=None):
         'pool_size': 3,
         'max_overflow': 2,
     }
+
+    # ── Upload serving ──
+    # With Postgres configured, UPLOAD_FOLDER is /tmp/uploads — OUTSIDE
+    # app/static — so Flask's built-in /static route can never serve it, and
+    # every stored photo path ('uploads/foo.jpg', rendered as
+    # /static/uploads/foo.jpg) 404s even though the file exists. Serve
+    # /static/uploads/<name> from the configured folder explicitly. When the
+    # folder already lives inside static (SQLite-less local runs, test apps)
+    # this route shadows the static handler for the same bytes — harmless.
+    @app.route('/static/uploads/<path:name>')
+    def uploaded_file(name):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], name)
 
     # Ensure the upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

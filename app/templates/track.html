@@ -152,8 +152,18 @@
                 {% if complaint.photo %}
                     <div class="mb-3">
                         <div class="text-muted small text-uppercase fw-semibold mb-1">{{ _('Photo Evidence') }}</div>
-                        {% set file_path = complaint.photo.replace('static/', '').replace('app/static/', '') %}
-                        <img src="{{ url_for('static', filename=file_path) }}"
+                        {# Object storage returns an absolute URL; only a local-disk
+                           path ('uploads/x.jpg') needs resolving against /static.
+                           Passing an absolute URL through url_for('static', ...)
+                           produced '/static/https://…jpg%3F', which 404s — the
+                           citizen saw a broken image for their own photo. #}
+                        {% if complaint.photo.startswith('http') %}
+                            {% set before_src = complaint.photo %}
+                        {% else %}
+                            {% set file_path = complaint.photo.replace('static/', '').replace('app/static/', '') %}
+                            {% set before_src = url_for('static', filename=file_path) %}
+                        {% endif %}
+                        <img src="{{ before_src }}"
                              class="img-fluid rounded-3 border" style="max-height:220px;object-fit:cover;width:100%;"
                              alt="{{ _('Complaint photo') }}">
                     </div>
