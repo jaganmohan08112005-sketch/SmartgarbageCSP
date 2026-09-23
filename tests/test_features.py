@@ -284,6 +284,93 @@ def test_report_photo_upload_succeeds_with_real_pipeline(client, app):
         assert comp.photo is not None and 'uploads/' in comp.photo
 
 
+# ── Smoke: report-with-photo → track page renders the image (PR #7) ──
+def test_report_with_photo_track_page_renders_image(client, app):
+    """End-to-end smoke: a citizen files a report WITH a photo, then the
+    public /track/<token> page must render that photo in an <img> whose src
+    actually resolves (HTTP 200).
+
+    Regression for PR #7: an absolute object-storage URL passed through
+    url_for('static', ...) rendered as '/static/https://…jpg' (404) and the
+    citizen saw a broken image for their own photo. Locks in both halves of
+    the contract: storage URLs are rendered as-is, relative upload paths are
+    resolved, and either way the src serves bytes."""
+    from app.routes import make_complaint_token
+    import re as _re
+
+    _make_user(app, 'trackphotocit')
+    client.post('/login', data={'username': 'trackphotocit', 'password': 'testpass123'},
+                follow_redirects=False)
+    r = client.post('/report',
+                    data={'name': 'trackphotocit', 'phone': '+919876543218',
+                          'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
+                          'description': 'Overflow with photo evidence',
+                          'latitude': '18.05', 'longitude': '83.40',
+                          'report_time': '2026-08-03T10:00',
+                          'photo': (_make_jpeg_bytes(), 'shot.jpg')},
+                    content_type='multipart/form-data', follow_redirects=False)
+    assert r.status_code in (200, 302)  # not bounced back to the form
+
+    with app.app_context():
+        comp = Complaint.query.filter_by(name='trackphotocit').first()
+        assert comp is not None, 'photo complaint was rejected'
+        stored_photo = comp.photo
+        assert stored_photo, 'photo was not persisted on the complaint'
+        token = make_complaint_token(comp.id)
+
+    body = client.get(f'/track/{token}').get_data(as_text=True)
+    assert 'Photo Evidence' in body
+    m = _re.search(r'<img src="([^"]+)"[^>]*alt="Complaint photo"', body)
+    assert m, f'photo-evidence <img> missing on /track: {body[:600]!r}'
+    src = m.group(1)
+    if stored_photo.startswith('http'):
+        # Object-storage URL must be rendered verbatim — never url_for'd.
+        assert src == stored_photo
+    else:
+        # Relative upload path resolves under /static (served by the
+        # dedicated route when UPLOAD_FOLDER lives outside app/static).
+        assert src.endswith(stored_photo), f'{src} does not carry {stored_photo}'
+        img = client.get(src)
+        assert img.status_code == 200, \
+            f'track-page photo src {src} returned {img.status_code} (the PR #7 bug)'
+
+
+def test_uploaded_file_route_serves_uploads_outside_static(client, app):
+    """The /static/uploads/<name> route must serve files from UPLOAD_FOLDER
+    even when that folder lives OUTSIDE app/static (the Postgres/Render
+    layout). Flask's built-in static handler never sees files under a
+    different root — before PR #7 every locally-stored citizen photo 404'd
+    even though the DB and templates pointed at it."""
+    from PIL import Image
+    import io
+
+    folder = app.config['UPLOAD_FOLDER']
+    target_dir = os.path.join(folder, 'complaint')
+    os.makedirs(target_dir, exist_ok=True)
+    buf = io.BytesIO()
+    Image.new('RGB', (60, 40), (10, 10, 10)).save(buf, format='JPEG')
+    name = 'smoke_route_serves.jpg'
+    with open(os.path.join(target_dir, name), 'wb') as f:
+        f.write(buf.getvalue())
+    try:
+        r = client.get(f'/static/uploads/complaint/{name}')
+        assert r.status_code == 200, \
+            f'uploads route returned {r.status_code} for a file outside app/static'
+        assert (r.mimetype or '') in ('image/jpeg', 'image/jpg'), r.mimetype
+        assert r.data == buf.getvalue()
+        # Release the streamed file handle before cleanup (Windows locks it).
+        r.close()
+    finally:
+        try:
+            os.remove(os.path.join(target_dir, name))
+        except PermissionError:
+            # The response's lazy file handle can outlive the request briefly
+            # on Windows; one short wait always releases it.
+            import time
+            time.sleep(0.3)
+            os.remove(os.path.join(target_dir, name))
+
+
 # ── Telemetry audit only on state change (no per-ping bloat) ──
 def test_telemetry_audit_only_on_state_change(client, app):
     from app.models import SmartBin, AuditLog
