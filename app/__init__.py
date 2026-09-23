@@ -370,6 +370,15 @@ def create_app(test_config=None):
     app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'false').lower() in ('true', '1', 'yes')
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+    # Never let a mail server hang a web request. Render (and most PaaS hosts)
+    # blackhole outbound SMTP ports 25/465/587, so the TCP connect neither
+    # succeeds nor is refused — it just blocks. flask-mailman only passes a
+    # timeout to smtplib when MAIL_TIMEOUT is set, and Python's default is no
+    # timeout at all, so without this an unreachable SMTP host stalls
+    # registration / OTP login / password reset until the worker is killed
+    # and the citizen gets a 500 instead of the graceful flash. 10s is enough
+    # for a real send and short enough to fail fast when the port is blocked.
+    app.config['MAIL_TIMEOUT'] = int(os.environ.get('MAIL_TIMEOUT', 10))
 
     # Public civic contact email — the single source of truth for the footer,
     # GovernmentOrganization schema and privacy-policy Contact section. Set
