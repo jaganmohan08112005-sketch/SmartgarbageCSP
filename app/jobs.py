@@ -106,6 +106,31 @@ def _retry_for(fn):
         return None
 
 
+def worker_health():
+    """Whether queued jobs are actually being CONSUMED — not just brokered.
+
+    "REDIS_URL is set" does not mean jobs run: RQ only executes what a worker
+    polls for. With REDIS_URL set, RQ_IN_PROCESS_WORKER=false and no worker
+    service, every send is written into Redis and never delivered — mail/SMS
+    vanish silently while the site looks perfectly healthy. This reports the
+    live worker count so operators can see that state. RQ registers workers via
+    heartbeats, so the in-process thread started by wsgi.py shows up here too.
+
+    Returns {'backend', 'workers', 'starved'}: workers is None when the answer
+    is unknown (no Redis, or rq unavailable) — unknown never cries wolf.
+    """
+    r = _redis()
+    if r is None:
+        return {'backend': 'inline', 'workers': None, 'starved': False}
+    try:
+        from rq import Worker
+        workers = len(Worker.all(connection=r))
+    except Exception as e:
+        logger.warning("worker_health_error", error=str(e))
+        return {'backend': 'redis', 'workers': None, 'starved': False}
+    return {'backend': 'redis', 'workers': workers, 'starved': workers == 0}
+
+
 def enqueue(fn, *args, retry=None, **kwargs):
     """Run fn through RQ when Redis is configured; otherwise run it inline.
 

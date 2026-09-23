@@ -6470,6 +6470,53 @@ def test_health_reports_queue_and_storage_posture(client):
                                                        'ephemeral-disk')
 
 
+class _FakeRedisPing:
+    """Minimal Redis stand-in: /health only needs ping() to succeed."""
+
+    def ping(self):
+        return True
+
+
+def test_health_warns_when_redis_is_configured_without_a_consumer(client, monkeypatch):
+    """Redis with NOTHING consuming the queue is the silent-failure state: jobs
+    are queued and never run, so OTP mail / status alerts / receipts vanish while
+    the site looks perfectly healthy. /health must say so out loud."""
+    import app.jobs as jobs_mod
+    import app.routes.public as public_mod
+    monkeypatch.setattr(public_mod, '_redis_client', lambda: _FakeRedisPing())
+    monkeypatch.setattr(jobs_mod, 'worker_health',
+                        lambda: {'backend': 'redis', 'workers': 0, 'starved': True})
+    r = client.get('/health')
+    assert r.status_code == 200
+    queue = r.get_json()['queue']
+    assert queue['backend'] == 'redis'
+    assert queue['workers'] == 0
+    assert 'will not run' in queue['warning']
+
+
+def test_health_reports_live_workers_without_warning(client, monkeypatch):
+    """A consuming worker is reported as consuming — no false alarm."""
+    import app.jobs as jobs_mod
+    import app.routes.public as public_mod
+    monkeypatch.setattr(public_mod, '_redis_client', lambda: _FakeRedisPing())
+    monkeypatch.setattr(jobs_mod, 'worker_health',
+                        lambda: {'backend': 'redis', 'workers': 2, 'starved': False})
+    queue = client.get('/health').get_json()['queue']
+    assert queue['workers'] == 2
+    assert 'warning' not in queue
+    assert '2 live RQ worker' in queue['detail']
+
+
+def test_worker_health_is_inline_and_never_starved_without_redis(monkeypatch):
+    """No REDIS_URL means jobs run inline inside the request, so there is
+    nothing to starve. The worker count is unknown (None) — NOT zero — because
+    'unknown' must never raise a starvation warning."""
+    import app.jobs as jobs_mod
+    monkeypatch.setattr(jobs_mod, '_redis', lambda: None)
+    assert jobs_mod.worker_health() == {'backend': 'inline', 'workers': None,
+                                       'starved': False}
+
+
 def test_upload_storage_backend_names_the_ephemeral_case(app, monkeypatch):
     import tempfile
     import app.routes as routes_mod
