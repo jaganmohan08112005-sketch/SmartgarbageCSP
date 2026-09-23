@@ -3235,6 +3235,29 @@ def test_send_email_with_pdf_attachment(app, monkeypatch):
     assert 'Here is your receipt.' in captured['msg']
 
 
+def test_mail_timeout_prevents_unreachable_smtp_from_hanging_requests(app):
+    """A blocked/unreachable SMTP host must never stall a web request.
+
+    Render blackholes outbound SMTP ports 25/465/587 — the TCP connect neither
+    succeeds nor is refused, it just blocks. flask-mailman forwards a socket
+    timeout to smtplib ONLY when MAIL_TIMEOUT is set, and Python's default is
+    no timeout at all, so a mis-ported mail server left registration / OTP
+    login hanging until the worker was killed and the citizen got a 500
+    instead of the graceful no-gateway flash.
+    """
+    timeout = app.config.get('MAIL_TIMEOUT')
+    assert isinstance(timeout, int), \
+        'MAIL_TIMEOUT must be configured — None means an unreachable SMTP host hangs forever'
+    assert 0 < timeout <= 30, f'MAIL_TIMEOUT={timeout} must be short enough to fail fast'
+    # flask-mailman keeps its per-app state in app.extensions['mailman']
+    # (Mail.__getattr__ delegates to self.state, which init_app never sets —
+    # checking mail.timeout would assert against None and prove nothing).
+    state = app.extensions.get('mailman')
+    assert state is not None, 'mailman state must be registered on the app'
+    assert state.timeout == timeout, \
+        'flask-mailman must receive MAIL_TIMEOUT (it only forwards it to smtplib when set)'
+
+
 # ── Email outbox assertions (flask-mailman locmem backend) ──
 def _outbox(app):
     """The locmem mail outbox: messages sent through the flask-mailman backend

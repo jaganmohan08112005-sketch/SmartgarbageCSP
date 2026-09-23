@@ -312,6 +312,30 @@ Then:
    address by default; set `MAIL_DEFAULT_SENDER` explicitly if you want a
    separate noreply from-address.
 
+#### ⚠️ SMTP on Render: ports 25/465/587 are blocked
+
+Render blocks **outbound** traffic to SMTP ports **25, 465 and 587** (free and
+paid web services alike). A blocked port is *blackholed* — the connection is
+neither accepted nor refused, it simply hangs — so the failure looks like a
+site that never responds:
+
+| Symptom | What is actually happening |
+|---|---|
+| `/register`, OTP login or password reset hangs, then the page **500s** | The worker is stuck on the SMTP `connect()` until the platform kills the request |
+| No error in the UI, no mail in the provider's log | The send never completes; nothing was ever handed to the mail server |
+
+**Fix — pick a port the platform allows:**
+
+1. Brevo (and most relays) accept submission on **2525**, which Render permits.
+   Render Dashboard → the web service → **Environment** → set
+   `MAIL_PORT=2525` → **Save Changes** (redeploys automatically).
+2. Keep `MAIL_TIMEOUT` set (default `10`s, see `.env.example`). It is the
+   safety net: without it Python's socket default is *no timeout*, so a
+   blackholed port hangs the request instead of failing fast into the graceful
+   no-gateway fallback. Mail must never be able to 500 a citizen page.
+3. Providers that only speak 587/465 (e.g. plain Gmail SMTP) cannot be used
+   from Render at all — use their HTTPS API or a relay offering 2525.
+
 ### 8.6 Publish the grievance officer (GIGW) and work the deletion queue (DPDP)
 
 Two pages exist so the portal behaves like a real government service rather
