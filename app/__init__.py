@@ -793,6 +793,18 @@ def create_app(test_config=None):
     @app.errorhandler(500)
     def internal_error(e):
         app.logger.error("Unhandled exception: %s", e, exc_info=True)
+        # Surface the failure to the owner without anyone watching a console:
+        # files or updates a GitHub issue when ALERT_ISSUES=1 (production
+        # only). app/alerting.py fails soft — a broken reporter must never
+        # change what the visitor sees.
+        try:
+            from .alerting import report_exception
+            # Flask wraps non-HTTP exceptions in InternalServerError before
+            # this handler runs; the useful fingerprint is the original.
+            original = getattr(e, 'original_exception', None)
+            report_exception(original if original is not None else e, request.path)
+        except Exception:
+            app.logger.exception("alerting hook failed")
         return render_template('error.html', code=500, message="Something went wrong on our side."), 500
 
     @app.errorhandler(404)
