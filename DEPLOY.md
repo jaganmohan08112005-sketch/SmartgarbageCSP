@@ -412,3 +412,23 @@ If you have data on Render's old Postgres:
 - **Fly.io**: `fly deploy --image flyio/smartgarbage:previous-tag` or use the Fly dashboard
 - **Render**: Previous deploy is available in the dashboard; just click Rollback
 - **Supabase**: Database branching lets you snapshot before migrations; restore from backup if needed
+
+## 11. Monitoring & Alerting (Rs. 0)
+
+Failures surface on their own — see **docs/ALERTING.md** for the full runbook:
+
+- **Uptime probe**: `.github/workflows/uptime.yml` pings `/health` every 15 min
+  and auto-opens/closes a GitHub issue (`[uptime] site is DOWN — …`) on
+  failures — GitHub emails the owner. Sees: down, unhealthy, DB failing,
+  queue starvation (`queue.workers: 0` with `queue.backend: redis`).
+- **Runtime errors**: `app/alerting.py` files a `[500] …` GitHub issue from
+  the 500 handler. Off by default; enable on Render with `ALERT_ISSUES=1` +
+  `ALERT_GITHUB_TOKEN` (free fine-grained PAT, Issues: read/write — mint per
+  docs/ALERTING.md). Reports run in a daemon thread so a failing request
+  never waits on the GitHub API.
+- **Optional**: Sentry via `SENTRY_DSN` (already wired; free tier).
+
+Caveat: GitHub's free scheduler delays cron on low-activity repos (~hourly,
+not 15 min) — the exact-cadence pg_cron keepalive (`sg-keepalive-render` in
+Supabase) keeps the site warm but does not alert. The uptime workflow is the
+alerting path.

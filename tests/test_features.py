@@ -6599,6 +6599,111 @@ def test_backfill_staff_emails_uses_plus_addressing_not_personal_addresses():
         raise AssertionError('an empty base address must be rejected')
 
 
+# ── Failure alerting (app/alerting.py + 500-handler wiring) ──────────────
+
+class _ImmediateThread:
+    """Runs the alert thread body synchronously so tests can assert on it.
+    (Production report_exception spawns a daemon thread so a failing request
+    never waits on the GitHub API.)"""
+
+    def __init__(self, target=None, args=(), **kwargs):
+        self._target, self._args = target, args
+
+    def start(self):
+        self._target(*self._args)
+
+    def join(self, *a, **k):
+        pass
+
+
+def test_alerting_report_exception_is_noop_without_alert_issues(monkeypatch):
+    """The reporter must be silent unless ALERT_ISSUES=1, so local dev, tests,
+    and CI never file issues."""
+    import app.alerting as alerting_mod
+    monkeypatch.delenv('ALERT_ISSUES', raising=False)
+    called = []
+    monkeypatch.setattr(alerting_mod, '_report_exception',
+                        lambda *a, **k: called.append(a))
+    alerting_mod.report_exception(ValueError('x'), '/x')
+    assert called == []
+
+
+def test_alerting_report_exception_files_issue_when_enabled(monkeypatch):
+    """With ALERT_ISSUES=1 a 500 becomes a [500]-titled GitHub issue with the
+    runtime-error label, the exception fingerprint, and the failing path."""
+    import app.alerting as alerting_mod
+    monkeypatch.setenv('ALERT_ISSUES', '1')
+    monkeypatch.setattr(alerting_mod, '_github_token', lambda: 'tok')
+    monkeypatch.setattr(alerting_mod, '_find_open_issue', lambda headers, key: None)
+    monkeypatch.setattr(alerting_mod.threading, 'Thread', _ImmediateThread)
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen['url'] = url
+        seen['payload'] = json
+
+        class _R:
+            status_code = 201
+
+            def json(self):
+                return {'number': 321}
+        return _R()
+
+    monkeypatch.setattr(alerting_mod.requests, 'post', fake_post)
+    alerting_mod.report_exception(ValueError('boom'), '/complaints/new')
+    assert seen['url'].endswith('/issues')
+    assert seen['payload']['title'].startswith('[500] ValueError')
+    assert '/complaints/new' in seen['payload']['body']
+    assert 'runtime-error' in seen['payload']['labels']
+
+
+def test_alerting_recurrence_comments_instead_of_duplicate_issue(monkeypatch):
+    """An open issue for the same outage window (fingerprint + UTC day) gets a
+    recurrence comment — never a duplicate issue."""
+    import app.alerting as alerting_mod
+    monkeypatch.setenv('ALERT_ISSUES', '1')
+    monkeypatch.setattr(alerting_mod, '_github_token', lambda: 'tok')
+    monkeypatch.setattr(alerting_mod, '_find_open_issue', lambda headers, key: 99)
+    monkeypatch.setattr(alerting_mod.threading, 'Thread', _ImmediateThread)
+    posts = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        posts.append(url)
+
+        class _R:
+            status_code = 201
+
+            def json(self):
+                return {'number': 1}
+        return _R()
+
+    monkeypatch.setattr(alerting_mod.requests, 'post', fake_post)
+    alerting_mod.report_exception(ValueError('again'), '/x')
+    assert any(url.endswith('/issues/99/comments') for url in posts)
+    assert not any(url.endswith('/issues') for url in posts)
+
+
+def test_500_handler_reports_exception_to_alerting(app, client, monkeypatch):
+    """The global 500 handler must hand the exception to app.alerting — that is
+    the only way a runtime error inside one request can surface externally
+    (an uptime probe only ever sees green 200s)."""
+    import app.alerting as alerting_mod
+    calls = []
+    monkeypatch.setattr(alerting_mod, 'report_exception',
+                        lambda exc, path: calls.append((type(exc).__name__, path)))
+    # TESTING fixtures propagate exceptions and bypass error handlers; the
+    # explicit override restores the production handler path.
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+
+    @app.route('/sg-alert-boom')
+    def _boom():
+        raise ValueError('probe')
+
+    r = client.get('/sg-alert-boom')
+    assert r.status_code == 500
+    assert calls == [('ValueError', '/sg-alert-boom')]
+
+
 def test_backfill_staff_emails_writes_only_staff_missing_an_email(app):
     mod = _load_backfill_module()
     from app.models import User
