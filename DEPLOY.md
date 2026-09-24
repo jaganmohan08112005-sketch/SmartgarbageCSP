@@ -125,7 +125,9 @@ fly deploy
 Update `render.yaml` (already configured for starter plan + Supabase env vars):
 
 1. In Render dashboard → New Web Service → connect repo
-2. Set `plan: starter`
+2. Set `plan: free` — Rs 0. The instance sleeps when idle (a free uptime
+   pinger keeps it warm; see §8.5). Choose `starter` (~$7/mo) only if you
+   need zero cold starts.
 3. Add env vars: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SECRET_KEY`, `IOT_TELEMETRY_SECRET`, `REDIS_URL` (Upstash free tier)
 4. Remove the Render managed Postgres database (Supabase is your DB now)
 5. Deploy
@@ -133,20 +135,38 @@ Update `render.yaml` (already configured for starter plan + Supabase env vars):
 ### Background jobs on Render (important)
 
 Background jobs (SMS/WhatsApp sends, webhook dispatch, export generation, PAYT
-dunning, retention/sweeps) run through an RQ worker on `REDIS_URL`. Two paths:
+dunning, retention/sweeps) run through an RQ worker over `REDIS_URL`.
 
-- **Blueprint (recommended):** `render.yaml` defines a `smartgarbage-worker`
-  service (runs `python worker.py`). If your service was created from this
-  blueprint, that worker executes the queue automatically.
-- **Native-Python services (the current live one):** Render created it as a
-  native Python service, so it ignores `render.yaml` and the Dockerfile, and
-  starts `gunicorn app:app`. The app detects this: when `REDIS_URL` is set,
-  `wsgi.py` runs the RQ worker in an in-process thread (set
-  `RQ_IN_PROCESS_WORKER=false` to disable when a dedicated worker exists).
-  The Docker path spawns `python worker.py` itself and sets that flag for you.
+**Decision (2026-09-23): there is no dedicated worker service.** Render has no
+free tier for background workers — they start at ~$7/mo, and only web services,
+Key Value and Postgres can run free. `render.yaml` used to declare a
+`smartgarbage-worker` on `plan: starter`; with `REDIS_URL` unset it printed
+*"background worker disabled"* and exited — a paid no-op. It is now commented
+out in `render.yaml` (recipe preserved there for a deliberate re-enable).
 
-Without `REDIS_URL` every job executes inline, so local dev and the test-suite
-need no extra process.
+The queue still works for **Rs 0**:
+
+- **In-process worker (the free path, and what this project uses):** whenever
+  `REDIS_URL` is set, `wsgi.py` starts an RQ worker in a daemon thread inside
+  the web process, so sends run off the request thread. Set `REDIS_URL` to a
+  free **Render Key Value (25 MB)** instance — no extra service, no signup, no
+  bill. (Upstash's free tier also works but counts commands/day; RQ polls, so
+  a 25 MB Render Key Value is the better fit here.)
+- **Dedicated worker (optional, paid):** uncomment the worker block in
+  `render.yaml` **and** set `RQ_IN_PROCESS_WORKER=false` on the web service —
+  otherwise both processes would execute the same jobs twice. The Docker path
+  spawns `python worker.py` itself and sets that flag for you.
+
+- **No `REDIS_URL` at all:** every job executes inline inside the request
+  (local dev, the test-suite, and the current live service). Perfectly valid at
+  panchayat scale — just keep `MAIL_TIMEOUT` set so a slow mail server can't
+  hold a request open (see §8.5).
+
+> ⚠️ **The one dangerous combination:** `REDIS_URL` set with *nothing*
+> consuming the queue. Jobs are then written to Redis and never run — OTP mail,
+> status alerts and receipts disappear while the site looks perfectly healthy.
+> `/health` reports `queue.workers` and now emits a `queue.warning` when it is
+> `0`, so this state is visible from outside instead of silent.
 
 ### Start Command (native-Python services)
 

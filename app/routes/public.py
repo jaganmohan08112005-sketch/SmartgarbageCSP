@@ -992,15 +992,52 @@ def health_check():
     # store makes uploads vanish on the next restart — so report which branch
     # this process actually took rather than leaving operators to infer it.
     checks['storage'] = {'backend': upload_storage_backend()}
+    # Queue posture. "REDIS_URL is set" is NOT the same as "jobs run": RQ only
+    # executes what a worker polls for, so Redis + no worker means every
+    # background send (OTP, status alert, receipt) is written to the queue and
+    # never delivered — the site looks healthy while mail silently vanishes.
+    # Report the live worker count so that state is visible from outside.
+    if r is None:
+        queue_posture = {
+            'backend': 'inline',
+            'workers': None,
+            'detail': 'no REDIS_URL — jobs execute inline in the web process',
+        }
+    else:
+        try:
+            from ..jobs import worker_health
+            qh = worker_health() or {}
+        except Exception:
+            qh = {}
+        workers = qh.get('workers')
+        if workers == 0:
+            queue_posture = {
+                'backend': 'redis',
+                'workers': 0,
+                'detail': 'REDIS_URL set but NO worker is consuming the queue',
+                'warning': ('queued jobs (OTP mail, status alerts, receipts) will not '
+                            'run until a worker registers: keep the in-process worker '
+                            'enabled (wsgi.py) or run worker.py'),
+            }
+        elif isinstance(workers, int):
+            queue_posture = {
+                'backend': 'redis',
+                'workers': workers,
+                'detail': f'background jobs consumed by {workers} live RQ worker(s)',
+            }
+        else:
+            # Worker discovery unavailable (rq missing / Redis hiccup): report the
+            # broker without asserting anything about consumption.
+            queue_posture = {
+                'backend': 'redis',
+                'workers': None,
+                'detail': 'REDIS_URL set — worker count unavailable',
+            }
     healthy = db_ok and (redis_ok is not False)
     payload = {
         'status': 'healthy' if healthy else 'unhealthy',
         'checks': checks,
-        'queue': {
-            'backend': 'redis' if r is not None else 'inline',
-            'detail': ('background jobs consumed by the RQ worker' if r is not None
-                       else 'no REDIS_URL — jobs execute inline in the web process'),
-        },
+        'queue': queue_posture,
         'timestamp': datetime.now(timezone.utc).isoformat(),
     }
     if jobs_kpis is not None:
