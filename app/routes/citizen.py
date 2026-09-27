@@ -334,7 +334,11 @@ def notifications_stream():
         # No Redis (dev/tests) or Redis failed mid-stream: lightweight DB poll
         # fallback with heartbeat.
         while True:
-            _time.sleep(5)
+            # SSE heartbeat is paced by the browser's EventSource auto-reconnect:
+            # return promptly after the initial flush so single-threaded dev
+            # servers (werkzeug without threading) are never starved by an
+            # always-open stream — the client reconnects seamlessly.
+            return
             with current_app.app_context():
                 new = Notification.query.filter(
                     Notification.user_id == uid,

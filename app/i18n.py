@@ -524,6 +524,11 @@ EN = {
     'Send feedback': 'Send feedback',
     'Thank you for your feedback': 'Thank you for your feedback',
     'Help us improve this page by telling us what you think.': 'Help us improve this page by telling us what you think.',
+    # ── WhatsApp fallback CTA (Meta WhatsApp parked) ──
+    'usually replies within a few hours': 'usually replies within a few hours',
+    "Don't want to wait? Call the free helpline": "Don't want to wait? Call the free helpline",
+    'Prefer to report offline?': 'Prefer to report offline?',
+    'Offline-first: download the PWA and report without internet.': 'Offline-first: download the PWA and report without internet.',
 }
 
 TE = {
@@ -1094,6 +1099,11 @@ TE = {
     'Ward sanitation staff:': 'వార్డు శానిటేషన్ సిబ్బంది:',
     'Every ward has a designated sweeper you can flag down on their route.': 'ప్రతి వార్డులో ఒక నియమించబడిన స్వీపర్ ఉంటారు, వారి మార్గంలో వారిని ఆపి చెప్పవచ్చు.',
     'Paper reports filed at the office are entered into this portal by staff, so all channels appear on the same public dashboard.': 'కార్యాలయంలో ఫైల్ చేసిన పేపర్ నివేదికలు సిబ్బంది ద్వారా ఈ పోర్టల్‌లో నమోదు చేయబడతాయి, కాబట్టి అన్ని ఛానెల్స్ ఒకే పబ్లిక్ డాష్‌బోర్డ్‌లో కనిపిస్తాయి.',
+    # ── WhatsApp fallback CTA (Meta WhatsApp parked) ──
+    'usually replies within a few hours': 'తక్కువ కాలంలో సమాధానం ఇస్తారు',
+    "Don't want to wait? Call the free helpline": 'ఒక కాలం ఆపకుండా ఉచిత హెల్ప్‌లైన్‌కి కాల్ చేయండి',
+    'Prefer to report offline?': 'ఆన్‌లైన్లో నివేదించడం ఇష్టం లేదా?',
+    'Offline-first: download the PWA and report without internet.': 'ఆఫ్లెయిం-ఫాస్ట్: PWA ని డౌన్లోడ్ చేసి ఇంటర్నెట్ లేకుండా నివేదించండి.',
 }
 
 

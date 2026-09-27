@@ -223,7 +223,14 @@ def login():
             user.otp_expiry = utcnow() + timedelta(minutes=5)
             db.session.commit()
             logger.info("mfa_otp_generated", username=user.username)
-            _send_otp_with_fallback(user.phone or _routes._otp_recipient_fallback(), otp_val)
+            # "Email me the code" (staff option): deliver straight to the
+            # account's registered email — keeps MFA working on deployments
+            # without Twilio/WhatsApp credentials. Default: gateway chain.
+            _email_otp = bool(request.form.get('otp_channel_email'))
+            _recipient = ((user.email or user.phone or _routes._otp_recipient_fallback())
+                          if _email_otp
+                          else (user.phone or _routes._otp_recipient_fallback()))
+            _send_otp_with_fallback(_recipient, otp_val, send_email=_email_otp)
             if _routes._is_local_request():
                 session['dev_otp'] = otp_val
             session['mfa_pending'] = True
@@ -272,6 +279,39 @@ def mfa_verify():
             return redirect(url_for('main.login'))
     dev_otp = session.get('dev_otp')
     return render_template('mfa_verify.html', dev_otp=dev_otp)
+
+
+@main.route('/mfa-resend', methods=['POST'])
+@limiter.limit("5/minute")
+def mfa_resend():
+    """Re-send the pending MFA OTP — on the SAME channel the user now chooses.
+
+    Staff (admin/worker) MFA page button: regenerates a fresh 6-digit code for
+    the session's pending login (never extends a finished/expired session) and
+    delivers it via the selected channel: gateway chain (WhatsApp/SMS with
+    email fallback) by default, or straight email when 'otp_channel_email' is
+    set — the "Email me the code" option that keeps staff logins working on
+    deployments without Twilio/WhatsApp credentials.
+    """
+    if not session.get('mfa_pending') or 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    user = User.query.get(session['user_id'])
+    if user is None or user.role not in ['admin', 'worker']:
+        return redirect(url_for('main.logout'))
+    otp_val = _generate_otp()
+    # Same at-rest discipline as the login path: one-way hash, 5-minute TTL.
+    user.otp = _hash_otp(otp_val)
+    user.otp_expiry = utcnow() + timedelta(minutes=5)
+    db.session.commit()
+    logger.info("mfa_otp_resent", username=user.username)
+    _email_otp = bool(request.form.get('otp_channel_email'))
+    _recipient = ((user.email or user.phone or _routes._otp_recipient_fallback())
+                  if _email_otp
+                  else (user.phone or _routes._otp_recipient_fallback()))
+    _send_otp_with_fallback(_recipient, otp_val, send_email=_email_otp)
+    if _routes._is_local_request():
+        session['dev_otp'] = otp_val
+    return redirect(url_for('main.mfa_verify'))
 
 
 @main.route('/auth/phone-login', methods=['POST'])

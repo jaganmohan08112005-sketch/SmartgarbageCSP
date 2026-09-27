@@ -1,0 +1,203 @@
+name: Uptime monitor
+
+# Free uptime + alerting for smartgarbage.onrender.com (Rs. 0, no external
+# accounts): this workflow probes /health every 15 minutes and escalates to a
+# GitHub issue — which emails the owner via GitHub notifications — when the
+# site is down or degraded. No secrets are needed (issues are created as the
+# pusher via the default GITHUB_TOKEN).
+#
+# What counts as unhealthy (mirrors docs/ALERTING.md):
+#   down     - /health unreachable, non-200, or invalid JSON after 3 attempts
+#   degraded - HTTP 200 but status != healthy (database check failing), or the
+#              queue-starvation posture (REDIS_URL set, zero workers consuming
+#              the queue — the "site looks healthy while mail silently vanishes"
+#              state surfaced by PR #10).
+#
+# Alert lifecycle (stateless — no cache to corrupt or expire):
+#   unhealthy -> an issue titled "[uptime] site is DOWN — <UTC timestamp>" is
+#                opened (or commented on, if one is already open for this
+#                outage window). Consecutive bad runs update the same issue
+#                instead of spamming duplicates.
+#   healthy   -> any open uptime-alert issue gets an auto-resolve comment and
+#                is closed. A one-line grace note is included because the
+#                first healthy run after a fix may still be inside a bad
+#                window (scheduler delays, cold start).
+#
+# HONEST LIMITATIONS:
+#   - GitHub's free scheduler delays `schedule` events on low-activity repos
+#     (the 5-minute keepalive workflow verifiably fires ~hourly). Treat the
+#     cadence as "minutes, not seconds"; the pg_cron keepalive inside Supabase
+#     (keepalive/supabase_keepalive.sql) is the exact-cadence path for
+#     wake-ups, while this workflow is the ALERTING path.
+#   - A green uptime probe cannot see runtime errors (unhandled exceptions
+#     render a 500 page only for the request that tripped them). Those are
+#     covered by app/alerting.py (500s -> GitHub issue when ALERT_ISSUES=1)
+#     and, optionally, Sentry via SENTRY_DSN. See docs/ALERTING.md.
+
+on:
+  schedule:
+    # Every 15 minutes (GitHub Actions' minimum is 5; 15 keeps quota headroom
+    # given scheduler delays make the effective cadence looser anyway).
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Serialize probe runs so two overlapping runs can't double-open issues.
+  group: uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe /health (3 attempts)
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o health.json -w '%{http_code}' \
+              --max-time 45 \
+              "https://smartgarbage.onrender.com/health" 2>/dev/null) && break
+            echo "attempt $attempt failed (unreachable), retrying..."
+            sleep 10
+          done
+          echo "HTTP_CODE=${code:-000}" >> "$GITHUB_ENV"
+
+      - name: Classify result (healthy / degraded / down)
+        run: |
+          python3 - <<'PY'
+          import json, os
+
+          code = os.environ.get('HTTP_CODE', '000')
+          state, reason = 'down', f'/health unreachable or non-200 (HTTP {code})'
+
+          if code == '200':
+              try:
+                  with open('health.json') as f:
+                      payload = json.load(f)
+                  checks = payload.get('checks', {})
+                  db = checks.get('database', {}).get('status')
+                  queue = payload.get('queue', {})
+                  workers = queue.get('workers')
+                  if payload.get('status') != 'healthy' or db != 'pass':
+                      state = 'degraded'
+                      reason = f'/health 200 but status={payload.get("status")!r}, database={db!r}'
+                  elif queue.get('backend') == 'redis' and workers == 0:
+                      # Queue starvation: jobs queued but never consumed —
+                      # OTP mail, status alerts and receipts silently vanish.
+                      state = 'degraded'
+                      reason = ('queue starvation: REDIS_URL set but 0 workers '
+                                'consuming — background mail will not send')
+                  else:
+                      state = 'healthy'
+                      reason = '/health 200, all checks pass'
+              except Exception as exc:
+                  state = 'down'
+                  reason = f'/health returned invalid JSON: {exc!r}'
+
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'STATE={state}\n')
+          print(f'STATE={state} — {reason}')
+          with open('reason.txt', 'w') as f:
+              f.write(reason)
+          PY
+
+      - name: Auto-resolve open alert on healthy probe
+        if: env.STATE == 'healthy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OPEN=$(curl -sS -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/issues?state=open&labels=uptime-alert" \
+            | jq -r 'length')
+          if [ "$OPEN" -gt 0 ]; then
+            STAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+            for num in $(curl -sS -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/issues?state=open&labels=uptime-alert" \
+              | jq -r '.[].number'); do
+              curl -sS -X POST \
+                -H "Authorization: token $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/$num/comments" \
+                -d "$(jq -n --arg body "✅ Back healthy at $STAMP (probe: \`/health\` returned 200 with all checks passing).
+
+          Closed automatically by the uptime monitor. If the site was genuinely still failing in the last few minutes, the next bad probe will reopen an alert." '{body: $body}')" >/dev/null
+              curl -sS -X PATCH \
+                -H "Authorization: token $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/$num" \
+                -d '{"state":"closed"}' >/dev/null
+              echo "auto-resolved #$num"
+            done
+          else
+            echo "no open uptime alerts; nothing to resolve"
+          fi
+
+      - name: Open or update the alert issue
+        if: env.STATE != 'healthy'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          STAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+          REASON=$(cat reason.txt)
+          STATE="$STATE"  # down | degraded
+          LABELS="uptime-alert"
+          [ "$STATE" = "degraded" ] && LABELS="uptime-alert,degraded"
+
+          # Find an existing alert for the current outage window by exact
+          # title so "down" and "degraded" alerts never collide and healthy
+          # auto-resolves (which close by label, not title) can't strand one.
+          MATCH=$(curl -sS -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/search/issues?q=repo:${{ github.repository }}+is:issue+is:open+in:title+%22%5Buptime%5D+site+is+DOWN%22" \
+            | jq -r '.items[0].number // empty')
+
+          if [ -n "$MATCH" ]; then
+            curl -sS -X POST \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$MATCH/comments" \
+              -d "$(jq -n --arg body "⏳ Still $STATE at $STAMP — $REASON" '{body: $body}')" >/dev/null
+            echo "updated existing alert #$MATCH"
+          else
+            BODY=$(cat <<EOF
+          ## Uptime alert — $STATE
+
+          **Detected:** $STAMP
+          **Probe result:** $REASON
+
+          | Check | Expectation |
+          |---|---|
+          | \`GET /health\` | HTTP 200 within 45 s (3 attempts) |
+          | \`status\` | \`healthy\` |
+          | \`checks.database.status\` | \`pass\` |
+          | \`queue.workers\` | not \`0\` while \`queue.backend\` is \`redis\` |
+
+          **Triage:**
+          1. Live status: \`curl https://smartgarbage.onrender.com/health\`
+          2. Render dashboard → web service → Events / Logs (free tier can
+             also show a crash-loop or a paused instance)
+          3. Supabase → check the database is not paused (free tier pauses
+             after 7 days of inactivity; the pg_cron keepalive prevents this)
+          4. If \`queue.workers\` is 0 with \`queue.backend: redis\`: background
+             mail is silently queueing — see docs/ALERTING.md § starvation
+
+          This issue was opened automatically by the **Uptime monitor**
+          workflow (free GitHub Actions probe, no external service). It will
+          be closed automatically by the first healthy probe. Runtime errors
+          (500s) are reported separately by \`app/alerting.py\` — see
+          docs/ALERTING.md.
+          EOF
+          )
+            NEW=$(curl -sS -X POST \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues" \
+              -d "$(jq -n --arg title "[uptime] site is DOWN — $STAMP" \
+                         --arg body "$BODY" \
+                         --arg labels "$LABELS" \
+                         '{title: $title, body: $body, labels: ($labels | split(","))}' \
+                    | jq -r '.number')")
+            echo "opened alert issue #$NEW"
+          fi

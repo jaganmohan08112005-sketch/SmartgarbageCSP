@@ -1956,3 +1956,77 @@ textarea:focus-visible,
 }
 .sg-hero-use-list a { text-underline-offset: 2px; }
 [data-theme="dark"] .sg-hero-use-list a { color: #4ade80; }
+
+/* ── WhatsApp fallback CTA block (Meta WhatsApp parked; free helpline + offline routes primary) ── */
+.sg-whatsapp-fallback {
+    border: 1px solid var(--sg-line);
+    border-radius: var(--r-lg);
+    background: var(--sg-card-bg);
+    box-shadow: var(--sh-sm);
+    padding: 1.25rem 1.25rem 0.75rem;
+    margin-top: 1.5rem;
+}
+.sg-whatsapp-fallback .row>div {
+    padding: 0 0.5rem;
+}
+.sg-whatsapp-fallback .card {
+    border-radius: var(--r-lg);
+    border: 1px solid var(--sg-line);
+    background: var(--sg-card-bg);
+    box-shadow: var(--sh-sm);
+    height: 100%;
+}
+.sg-whatsapp-fallback .card>div.p-3,
+.sg-whatsapp-fallback .card-body {
+    padding: 1rem;
+}
+.sg-whatsapp-fallback .card-title,
+.sg-whatsapp-fallback .card .fs-6 {
+    font-size: 0.95rem;
+}
+.sg-whatsapp-fallback .btn {
+    border-radius: 999px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.sg-whatsapp-fallback .text-muted {
+    font-size: 0.8rem;
+}
+.sg-whatsapp-fallback a.text-decoration-none {
+    color: var(--sg-navy-800);
+}
+.sg-whatsapp-fallback a.text-decoration-none:hover {
+    color: var(--sg-navy-900);
+}
+.sg-wa-icon svg {
+    color: #00e676;
+}
+
+[data-theme="dark"] .sg-whatsapp-fallback {
+    background: var(--sg-surface);
+    border-color: var(--sg-line) !important;
+}
+[data-theme="dark"] .sg-whatsapp-fallback a.text-decoration-none {
+    color: #e2e8f0;
+}
+[data-theme="dark"] .sg-whatsapp-fallback a.text-decoration-none:hover {
+    color: #94a3b8;
+}
+
+[data-contrast="true"] .sg-whatsapp-fallback {
+    border: 2px solid #000 !important;
+}
+[data-contrast="true"] .sg-whatsapp-fallback a.text-decoration-none {
+    color: #000 !important;
+}
+
+@media (max-width: 991.98px) {
+    .sg-whatsapp-fallback .row>div {
+        padding: 0 0.25rem;
+    }
+    .sg-whatsapp-fallback .col-lg-4 {
+        padding-bottom: 0.75rem;
+    }
+}
+

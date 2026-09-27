@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import time
 import hmac
 import base64
@@ -393,6 +393,31 @@ def create_app(test_config=None):
         or app.config['CIVIC_CONTACT_EMAIL']
         or 'noreply@smartgarbage.local'
     )
+
+    # ── WhatsApp Cloud (Meta) configuration ──
+    # WhatsApp Cloud is parked as the future primary channel. Until the
+    # WHATSAPP_CLOUD_TOKEN / WHATSAPP_CLOUD_PHONE_NUMBER_ID are re-enabled in
+    # the platform dashboard, the free toll-free grievance helpline and the
+    # offline channels stay the primary rescue routes. The fallback CTA gate in
+    # base.html reads this key, so it must be loaded into Flask config here.
+    app.config['WHATSAPP_CLOUD_TOKEN'] = os.environ.get('WHATSAPP_CLOUD_TOKEN')
+    app.config['WHATSAPP_CLOUD_PHONE_NUMBER_ID'] = (
+        os.environ.get('WHATSAPP_CLOUD_PHONE_NUMBER_ID')
+    )
+
+    # ── Mail-connectivity self-check ──
+    # The relay that sent your OTP may have been blackholed. Probe it at boot
+    # (never in a request path) and let /health report the real state: a
+    # reachable relay means all transactional mail goes out; a blackholed/
+    # blocked relay (Render on 25/465/587, or a revoked Brevo password) is a
+    # warning — not a hidden 500 for staff to discover when OTP stops arriving.
+    # Import laz so the probe never breaks older interpreters or missing
+    # stdlib parts; it is guarded by the value check below.
+    try:
+        from . import mail_probe
+        mail_probe.init_mail_health(app)
+    except Exception as exc:  # pragma: no cover - boot-time probe must never
+        app.logger.error("mail probe failed to initialize: %s", exc)  # unreachable
 
     # Shared secret for authenticating IoT telemetry POSTs from ESP32/Arduino
     # devices. When set (production), /api/bin-telemetry requires a valid

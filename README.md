@@ -114,12 +114,18 @@ SmartGarbage is a comprehensive waste management platform built for compliance w
 | **Cache** | Redis | Rate limiting, background jobs |
 | **Queue** | RQ (Redis Queue) | Background job processing |
 | **Auth** | Flask-Login, Flask-WTF | Authentication, CSRF protection |
-| **SMS/WhatsApp** | Twilio | OTP delivery, status alerts |
+| **SMS/WhatsApp** | Twilio (fallback) + Meta WhatsApp Cloud (planned primary) | Citizen helpline 1800-119-9111; WhatsApp Cloud wired but parked until credentials are provided |
 | **Storage** | Supabase Storage | Photo uploads |
 | **Monitoring** | Sentry | Error tracking |
 | **Deployment** | Docker, Render/Fly.io | Containerised deployment |
 
 ---
+
+## WhatsApp delivery (parked — helpline + offline primary)
+
+Meta WhatsApp Cloud is **parked** as the future primary channel. Until `WHATSAPP_CLOUD_TOKEN` is provided, the portal stays on the **free toll-free grievance helpline 1800-119-9111** and the **offline channels** (schedules, ward dashboard, contact form) on every citizen-facing page — including a fallback CTA block above the footer.
+
+Once `WHATSAPP_CLOUD_TOKEN` + `WHATSAPP_CLOUD_PHONE_NUMBER_ID` are set (via Render secrets / `render.yaml`), the fallback CTA is replaced by the primary WhatsApp flow and the app's `send_whatsapp_cloud()` delivers plain-text replies inside the citizen's 24h service window (free; inbound always free).
 
 ## Quick Start
 

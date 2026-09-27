@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash
 from app import db, create_app, socketio
 import json as _json
 import os
+import socket
 import threading
 
 
@@ -3912,7 +3913,27 @@ def test_send_sms_job_prefers_whatsapp_cloud_then_twilio(app, monkeypatch):
     assert calls == [('cloud', '+919876543210')]  # Twilio never called
 
 
-def test_otp_job_email_fallback_when_all_phone_channels_fail(app, monkeypatch):
+def test_whatsapp_fallback_block_visible_when_whatsapp_not_configured(client, app):
+    """Meta WhatsApp Cloud is parked; the free toll-free helpline and the
+    offline channels must be prominent on every citizen-facing page."""
+    body = client.get('/').get_data(as_text=True)
+    assert 'whatsapp-fallback' in body
+    assert '1800-119-9111' in body and 'tel:+9118001199111' in body
+    assert 'Meta WhatsApp' in body and 'Planned' in body
+    assert 'Prefer to report offline?' in body
+    assert 'Check schedules' in body and 'Ward dashboard' in body
+
+
+def test_whatsapp_fallback_block_hidden_when_whatsapp_configured(client, app, monkeypatch):
+    """Once WHATSAPP_CLOUD_TOKEN is re-enabled, the fallback CTA must not show."""
+    # The gate reads current_app.config, which create_app populates from the
+    # env var. Set it in the app config directly (matching how create_app
+    # loads env vars), so the block is hidden once WhatsApp is configured.
+    app.config['WHATSAPP_CLOUD_TOKEN'] = 'eaag-test'
+    body = client.get('/').get_data(as_text=True)
+    assert 'whatsapp-fallback' not in body
+    assert '1800-119-9111' in body  # helpline remains on every page
+
     """End-to-end guard for the MFA path: when no phone channel is configured
     (and Twilio/Cloud are absent), send_otp_job must still deliver the OTP
     through the email fallback (send_email_job -> SMTP/mailman).
@@ -6601,6 +6622,130 @@ def test_backfill_staff_emails_uses_plus_addressing_not_personal_addresses():
 
 # ── Failure alerting (app/alerting.py + 500-handler wiring) ──────────────
 
+class _MailProbeTests:
+    """Mail-connectivity self-check: /health must report unreachable SMTP
+    instead of silently passing healthy."""
+
+    def test_mail_probe_skips_when_no_smtp_configured(self, monkeypatch):
+        """An agent with no MAIL_SERVER is silent by design: mailman still
+        covers plain-text verification/OTP mails, and /health must not pretend
+        mail is healthy when the relay was never configured."""
+        import app.mail_probe as mp
+        monkeypatch.setenv('MAIL_SERVER', '')
+        monkeypatch.delenv('MAIL_USERNAME', raising=False)
+        monkeypatch.delenv('MAIL_PASSWORD', raising=False)
+        monkeypatch.delenv('MAIL_USE_TLS', raising=False)
+        pos = mp.probe()
+        assert pos['initialized'] is False
+        assert pos['transport'] == 'unconfigured'
+        assert pos['pingable'] is None
+        assert not pos['warning']
+
+    def test_mail_probe_reports_unreachable_relay_as_warning(self, monkeypatch):
+        """A blackholed relay (the exact Render failure from the MAIL_TIMEOUT
+        fix) must surface as an explicit warning + warning health verdict,
+        with the exact symptom — staff fix the port once instead of awaiting
+        weeks of missing OTP emails."""
+        import app.mail_probe as mp
+        import pytest
+        with monkeypatch.context() as m:
+            m.setenv('MAIL_SERVER', 'relay.blackholed.example')
+            m.setenv('MAIL_PORT', '25')
+            m.delenv('MAIL_USE_TLS', raising=False)
+            m.delenv('MAIL_USERNAME', raising=False)
+            m.delenv('MAIL_PASSWORD', raising=False)
+            called = []
+
+            class _FakeConn:
+                pass
+
+            def fake_socket(*args, **kwargs):
+                class _FakeConn:
+                    def connect(*a, **k):
+                        raise ConnectionRefusedError(111, 'connection refused')
+                return _FakeConn()
+
+            monkeypatch.setattr(socket, 'socket', fake_socket)
+            pos = mp.probe()
+            assert pos['initialized'] is False
+            assert pos['transport'] == 'smtp'
+            assert pos['pingable'] is False
+            assert 'warning' in pos
+            assert 'connection refused' in pos['warning']
+
+    def test_mail_probe_reports_reachable_relay_as_healthy(self, monkeypatch):
+        """A working relay (Brevo on 2525 for this project) reports pingable=True
+        and no warning — /health stays healthy and mail still escapes."""
+        import app.mail_probe as mp
+        import pytest
+        with monkeypatch.context() as m:
+            m.setenv('MAIL_SERVER', 'smtp.brevo.com')
+            m.setenv('MAIL_PORT', '2525')
+            m.setenv('MAIL_USE_TLS', 'true')
+            m.setenv('MAIL_USERNAME', 'app@smartgarbage.csp')
+            m.setenv('MAIL_PASSWORD', 'prod-app-password')
+            calls = []
+
+            class _FakeConn:
+                def __init__(self, host, port, timeout=5):
+                    calls.append((host, port))
+
+                def starttls(self):
+                    calls.append('starttls')
+
+                def login(self, user, password):
+                    calls.append((user, password))
+
+                def quit(self):
+                    pass
+
+                def close(self):
+                    pass
+
+            def fake_socket(*args, **kwargs):
+                return _FakeConn(*args, **kwargs)
+
+            monkeypatch.setattr(socket, 'socket', fake_socket)
+            pos = mp.probe()
+            assert pos['initialized'] is True
+            assert pos['transport'] == 'smtp'
+            assert pos['pingable'] is True
+            assert not pos['warning']
+            assert ('smtp.brevo.com', 2525) in calls
+            assert ('app@smartgarbage.csp', 'prod-app-password') in calls
+
+    def test_mail_health_consumer_uses_boot_value(self, monkeypatch):
+        """/health's mail consumer must be a pure read of the boot-time probe,
+        never execute the network itself."""
+        import app.mail_probe as mp
+        captured = {}
+
+        class _FakeApp:
+            def __init__(self):
+                self.config = {'mail_initialized': False, 'mail': None}
+
+        def fake_probe(_):
+            captured['probe'] = True
+            return {'initialized': True, 'transport': 'smtp',
+                    'pingable': True, 'warning': None, 'detail': 'ok'}
+
+        monkeypatch.setattr(mp, 'probe', fake_probe)
+        app = _FakeApp()
+        mp.init_mail_health(app)
+        out = mp.mail_health(app)
+        assert out['initialized'] is True
+        assert out['transport'] == 'smtp'
+        assert captured.get('probe')  # probe ran at boot, not here
+
+    def test_mail_health_consumer_without_boot_probe_returns_default(self, monkeypatch):
+        """A worker that never ran init_mail_health still reports correctly:
+        unconfigured => default posture (no false healthy)."""
+        import app.mail_probe as mp
+        out = mp.mail_health()
+        assert out['initialized'] is False
+        assert out['transport'] == 'unconfigured'
+        assert out['pingable'] is None
+        assert not out['warning']
 class _ImmediateThread:
     """Runs the alert thread body synchronously so tests can assert on it.
     (Production report_exception spawns a daemon thread so a failing request

@@ -743,7 +743,15 @@ def _otp_recipient_fallback():
     return contact or 'noreply@smartgarbage.local'
 
 
-def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
+def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP', send_email=False):
+    """Deliver an MFA OTP without blocking the login request.
+
+    Default: the gateway chain (WhatsApp Cloud API → Twilio → email fallback)
+    through the RQ queue. send_email=True — the staff (admin/worker) "email me
+    the code" option on the MFA page — skips the SMS attempt and delivers
+    straight to the account's registered email, so a deployment without
+    Twilio/WhatsApp credentials can still complete staff logins.
+    """
     is_local = _is_local_request()
     if is_local:
         flash(f"Dev OTP (localhost): {otp_val}", "success")
@@ -751,8 +759,12 @@ def _send_otp_with_fallback(recipient, otp_val, subject='SmartGarbage OTP'):
     # Gateway send runs in the RQ background queue (inline fallback without Redis)
     # so the login request never blocks on Twilio/SMTP.
     from ..jobs import enqueue, send_otp_job
-    enqueue(send_otp_job, recipient, otp_val, subject)
-    flash("MFA required. Enter the OTP sent to your registered contact.", "success")
+    enqueue(send_otp_job, recipient, otp_val, subject,
+            **({'channel': 'email'} if send_email else {}))
+    if send_email:
+        flash("MFA required. Enter the OTP sent to your registered email.", "success")
+    else:
+        flash("MFA required. Enter the OTP sent to your registered contact.", "success")
 
 
 # Citizen Green-Points leaderboard (ward-scoped, privacy-conscious:

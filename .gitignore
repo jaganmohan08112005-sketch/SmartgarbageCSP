@@ -29,3 +29,11 @@ scratch/
 # 26MB trained model: excluded from git (purged 2026-08-10) and the Docker
 # image. Regenerate with train_model.py if needed.
 app/ml_fill_model.pkl
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

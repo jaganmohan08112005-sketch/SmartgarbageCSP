@@ -25,6 +25,19 @@
                     <p class="mb-0 text-muted small">{{ _('Having issues?') }} <a href="/login" class="text-success fw-bold text-decoration-none">{{ _('Back to Login') }}</a></p>
                 </div>
             </form>
+
+            <div class="text-center mt-2">
+                <p class="mb-2 text-muted small">{{ _('Didn\'t get the code?') }}</p>
+            </div>
+            <form method="POST" action="/mfa-resend" class="d-grid gap-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-success btn-sm fw-bold">
+                    📱 {{ _('Resend via WhatsApp / SMS') }}
+                </button>
+                <button type="submit" name="otp_channel_email" value="1" class="btn btn-outline-secondary btn-sm fw-bold">
+                    ✉️ {{ _('Email me the code') }}
+                </button>
+            </form>
         </div>
 
         {% if dev_otp %}
