@@ -90,6 +90,8 @@ requests==2.34.2
 
 scikit-learn==1.9.0
 
+onnxruntime==1.30.0   # photo-classifier inference (opt-in via PHOTO_CLASSIFIER_MODEL)
+
 scipy==1.17.1
 
 six==1.17.0

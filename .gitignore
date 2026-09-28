@@ -53,3 +53,12 @@ report/video/_video_live/seg*.mp4
 report/video/_video_live/list.txt
 report/video/_qa_frames/
 report/_qa_check/
+
+# Photo-classifier training dataset (fetched by scripts/fetch_photo_dataset.py;
+# multi-GB, regenerable — only the trained .onnx artifact is committed)
+_dataset/
+app/photo_classifier.pt
+_pip_torch.log
+_dataset_fetch.log
+_train_photo.log
+_export.log

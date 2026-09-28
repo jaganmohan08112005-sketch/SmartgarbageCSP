@@ -32,6 +32,14 @@ services:
         sync: false
       - key: REDIS_URL
         sync: false
+      # ── Photo classifier (opt-in). app/photo_classifier.onnx ships inside
+      # the Docker image; setting this var enables garbage-vs-non-garbage
+      # classification in _ai_verify_photo (fail-open: unset/broken →
+      # decodability gate only). Threshold defaults to 0.5.
+      - key: PHOTO_CLASSIFIER_MODEL
+        value: "/app/photo_classifier.onnx"
+      - key: PHOTO_CLASSIFIER_THRESHOLD
+        value: "0.6"
       # ── Free WhatsApp (Meta Cloud API) — free text replies inside the
       # citizen's 24h service window; no sandbox, no per-number verification.
       - key: WHATSAPP_CLOUD_TOKEN
