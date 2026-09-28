@@ -1,3 +1,4 @@
+import re
 import secrets
 import random
 
@@ -11,6 +12,8 @@ from flask_login import login_user, logout_user
 
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from sqlalchemy.exc import IntegrityError
+
 from ..models import (User, WorkerProfile, utcnow)
 
 from .. import db, limiter
@@ -18,6 +21,24 @@ from .. import db, limiter
 from . import (_clear_login_failures, _hash_otp, _is_account_locked, _locked_until_utc, _record_failed_login, _send_otp_with_fallback, fit_length, logger, main, send_reset_email, send_verification_email, validate_indian_phone, write_audit)
 
 import app.routes as _routes  # call-time: honors test monkeypatches
+
+# Server-side minimum password length. The registration form's minlength and
+# hint text must agree with this — they previously said 6 while this module
+# rejected anything under 8, so a user who followed the on-screen instruction
+# was rejected with no explanation.
+MIN_PASSWORD_LENGTH = 8
+
+# Pragmatic email shape: a local part, '@', and a dotted domain, with no
+# whitespace anywhere. Deliberately not full RFC 5322 (that admits addresses
+# no provider issues and rejects nothing real) — it exists to reject the
+# obvious garbage the previous `'@' in email` test waved through: 'a@b',
+# 'x@y.', 'a b@c.d'.
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
+def is_valid_email(value):
+    """True when `value` looks like a deliverable email address."""
+    return bool(value) and bool(_EMAIL_RE.match(value))
 
 
 def _generate_otp():
@@ -57,8 +78,8 @@ def register():
         if not phone:
             flash('Enter a valid Indian mobile number (10 digits starting with 6–9, e.g. +91 98765 43210). Fake or sequential numbers are not accepted.', 'error')
             return redirect(url_for('main.register'))
-        if not email or '@' not in email:
-            flash('A valid email address is required.', 'error')
+        if not is_valid_email(email):
+            flash('A valid email address is required (e.g. name@example.com).', 'error')
             return redirect(url_for('main.register'))
         # ─────────────────────────────────────────────────────────────
         if not username or not password:
@@ -71,8 +92,8 @@ def register():
         if len(email) > 120:
             flash('Email must be 120 characters or fewer.', 'error')
             return redirect(url_for('main.register'))
-        if len(password) < 8:
-            flash('Password must be at least 8 characters.', 'error')
+        if len(password) < MIN_PASSWORD_LENGTH:
+            flash(f'Password must be at least {MIN_PASSWORD_LENGTH} characters.', 'error')
             return redirect(url_for('main.register'))
         if password.lower() == username.lower():
             flash('Password must be different from your username.', 'error')
@@ -89,7 +110,23 @@ def register():
         new_user = User(username=username, email=email, password_hash=generate_password_hash(password),
                         role=role, phone=phone, is_approved=(role != 'admin'))
         db.session.add(new_user)
-        db.session.commit()
+        # The SELECT checks above exist only to give a friendly message; the
+        # real guard is the unique index on phone/email added in migration
+        # l1m2n3o4p5q6. Before that, two concurrent registrations carrying the
+        # same phone or email could both pass the SELECT and both INSERT,
+        # permanently creating duplicate accounts. The loser of that race now
+        # hits IntegrityError here and gets the same friendly message.
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists.', 'error')
+            elif User.query.filter_by(phone=phone).first():
+                flash('This phone number is already registered with another account.', 'error')
+            else:
+                flash('This email address is already registered.', 'error')
+            return redirect(url_for('main.register'))
         if role == 'worker':
             wp = WorkerProfile(user_id=new_user.id, vehicle_id=f"CV-{random.randint(10, 99)}",
                                status="Idle", performance_rating=5.0)
@@ -138,8 +175,8 @@ def register_picker():
         if not phone:
             flash('Enter a valid Indian mobile number.', 'error')
             return redirect(url_for('main.register_picker'))
-        if len(password) < 8:
-            flash('Password must be at least 8 characters.', 'error')
+        if len(password) < MIN_PASSWORD_LENGTH:
+            flash(f'Password must be at least {MIN_PASSWORD_LENGTH} characters.', 'error')
             return redirect(url_for('main.register_picker'))
         if password.lower() == username.lower():
             flash('Password must be different from your username.', 'error')
@@ -153,7 +190,12 @@ def register_picker():
         picker = User(username=username, password_hash=generate_password_hash(password),
                       role='worker', phone=phone)
         db.session.add(picker)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash('This phone or name is already registered.', 'error')
+            return redirect(url_for('main.register_picker'))
         wp = WorkerProfile(user_id=picker.id, status='Active',
                            is_informal_picker=True, picker_area=fit_length(area, 100))
         db.session.add(wp)
@@ -335,9 +377,28 @@ def auth_phone_login():
         # Ensure unique username
         while User.query.filter_by(username=username).first():
             username = f"citizen_{last4}_{random.randint(10, 99)}"
-        user = User(username=username, password_hash=generate_password_hash("phone_otp_user"),
+        # Phone-OTP accounts authenticate with the OTP, never with a password.
+        # The previous code stored a FIXED, publicly-known password hash
+        # ("phone_otp_user") on every such account, so anyone who learned the
+        # generated username could sign in without ever receiving an OTP.
+        # Store an unguessable random secret instead; the citizen still signs
+        # in by phone OTP and can set a real password later via
+        # /reset-password-request if they want one.
+        user = User(username=username,
+                    password_hash=generate_password_hash(secrets.token_hex(32)),
                     role="citizen", phone=phone_number)
-        db.session.add(user); db.session.commit()
+        db.session.add(user)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Concurrent phone-login for the same not-yet-registered number:
+            # the other request inserted first (unique index on phone). Use
+            # that row instead of failing.
+            db.session.rollback()
+            user = User.query.filter_by(phone=phone_number).first()
+            if user is None:
+                flash("Could not start phone login. Please try again.", "error")
+                return redirect(url_for('main.login'))
     # Lockout applies to phone-login too: an attacker with the victim's number
     # must not be able to spam OTP generation while the account is cooling down.
     if _is_account_locked(user):
@@ -400,7 +461,7 @@ def resend_verification():
     """Let an unverified user request a new email-verification link."""
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
-        if not email or '@' not in email:
+        if not is_valid_email(email):
             flash('Please enter a valid email address.', 'error')
             return redirect(url_for('main.resend_verification'))
         user = User.query.filter_by(email=email).first()
@@ -455,8 +516,8 @@ def reset_password(token):
         return redirect(url_for('main.login'))
     if request.method == 'POST':
         password = request.form.get('password', '')
-        if len(password) < 8:
-            flash('Password must be at least 8 characters.', 'error')
+        if len(password) < MIN_PASSWORD_LENGTH:
+            flash(f'Password must be at least {MIN_PASSWORD_LENGTH} characters.', 'error')
             return redirect(url_for('main.reset_password', token=token))
         user.password_hash = generate_password_hash(password)
         db.session.commit()
