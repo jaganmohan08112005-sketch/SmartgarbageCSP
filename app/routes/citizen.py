@@ -618,7 +618,9 @@ def report_illegal():
             ai_verified, ai_note = _ai_verify_photo(file)
             if not ai_verified:
                 flash(f'Photo rejected: {ai_note}', 'error')
-                return redirect(url_for('main.report_illegal'))
+                # Anonymous reporters hold no session, so the flash alone is
+                # lost on redirect — carry the outcome in the URL too.
+                return redirect(url_for('main.report_illegal', photo='rejected'))
             photo_filename = save_compressed_photo(file, 'illegal')
         report = IllegalDumpReport(
             latitude=float(latitude) if latitude else None,
@@ -633,7 +635,17 @@ def report_illegal():
                                  has_photo=bool(photo_filename), illegal_report_id=report.id)
         # No user_id stored — anonymous by design
         flash("Anonymous report submitted. Your identity is protected. Thank you! 🛡️", "success")
-        return redirect(url_for('main.report_illegal'))
+        # Anonymous visitors hold no session, so the flash would be lost on
+        # redirect — surface the outcome in the URL as well.
+        return redirect(url_for('main.report_illegal', submitted='1'))
+    # Stateless outcome banners: anonymous reporters hold no session, so the
+    # flash (kept for logged-in reporters) is paired with a query marker.
+    if request.args.get('photo') == 'rejected':
+        flash('Your photo was rejected: it does not look like a waste photo. '
+              'The report was not filed — please retry with a live on-site photo '
+              'of the dumping.', 'error')
+    elif request.args.get('submitted') == '1':
+        flash('Anonymous report submitted. Your identity is protected. Thank you! 🛡️', 'success')
     return render_template('illegal_dump.html')
 
 
