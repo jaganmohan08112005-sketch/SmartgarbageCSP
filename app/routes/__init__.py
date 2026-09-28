@@ -1019,7 +1019,13 @@ def _load_photo_classifier():
     from pathlib import Path
     if _PHOTO_CLF['sess'] is not None or _PHOTO_CLF['failed']:
         return _PHOTO_CLF['sess'] and _PHOTO_CLF
-    model_path = os.getenv('PHOTO_CLASSIFIER_MODEL', '')
+    # Explicit env var wins; on a deployed platform the bundled model in
+    # app/ is the default (no env var required — render.yaml syncs of NEW
+    # env vars need a dashboard apply, so the artifact ships enabled).
+    # Local dev / tests stay opt-in so the historical behaviour is kept.
+    model_path = (os.getenv('PHOTO_CLASSIFIER_MODEL', '')
+                  or (str(Path(__file__).with_name('photo_classifier.onnx'))
+                      if _is_deployed() else ''))
     if not model_path:
         _PHOTO_CLF['failed'] = True  # feature not configured — decide once
         return None
