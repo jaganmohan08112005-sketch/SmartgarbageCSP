@@ -38,11 +38,14 @@ staff accounts use different emails.
 | `smart_bin` | 40 | 8 bins per ward × 5 wards (BIN-101…508) |
 | `bin_telemetry_log` | 244 | ~6 pings/bin over 48 h → ML fill-rate velocity |
 | `complaint` | 6 | Every ward: Resolved ×3, Submitted ×2, Assigned ×1 |
+| `complaint_status_log` | 13 | Full Submitted→Assigned→Resolved timelines per complaint |
 | `waste_declaration` | 9 | 4-stream weights for 3 citizens (Green Points fuel) |
+| `payt_invoice` | 6 | Jul–Sep 2026: Paid (UPI/Razorpay) + Unpaid + one 1.30× non-compliance penalty |
+| `offload_log` | 3 | CV-01/CV-02 at YARD-A/YARD-B incl. one impurity flag |
+| `dispatch_assignment` | 4 | Completed ×1, Assigned (BIN-106 active claim) ×1, Pending ×1, + worker-claimed |
 | `incident_log` | 5 | Overflow incidents incl. BIN-101 Active/High |
-| `dispatch_assignment` | 1 | Worker claim from the AI dispatch queue |
-| `audit_log` | 79 | Every privileged action (logins, MFA, registrations) |
-| others | 0 | PAYT invoices, offload logs, firmware, webhooks… empty until you act in the UI |
+| `notification` | 5 | Resolution + PAYT + schedule reminders for demo citizens |
+| `audit_log` | 79+ | Every privileged action (logins, MFA, registrations) |
 
 ### Sample bins (of 40)
 BIN-101 Ward 1 92% Critical · BIN-106 Ward 1 100% Critical · BIN-107 Ward 1 103% Critical ·
