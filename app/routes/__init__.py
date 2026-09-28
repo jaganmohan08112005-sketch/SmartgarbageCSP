@@ -1006,12 +1006,29 @@ def _ai_verify_photo(file_storage):
     return True, 'AI verification pending'
 
 
-# ONNX garbage classifier — loaded lazily and cached per process. Absent or
-# broken setup yields None and _ai_verify_photo degrades to the decodability
-# gate (fail-open by design; see its docstring).
+# ONNX garbage classifier — loaded lazily and cached per process. Resolution:
+# PHOTO_CLASSIFIER_MODEL=off|none|disabled forces it off; an env path that
+# exists wins; otherwise the bundled app/photo_classifier.onnx is used (its
+# presence in the deploy IS the switch — env-var updates need a dashboard
+# apply, so code-level enablement is the reliable path). Any load/inference
+# failure fails OPEN to the decodability gate and is reported on /health.
 _PHOTO_CLF = {'sess': None, 'in_name': None, 'out_name': None,
               'size': (224, 224), 'labels': None, 'reject_idx': 1,
               'failed': False}
+_PHOTO_CLF_DIAG = {'mode': 'unloaded', 'detail': ''}
+
+
+def photo_classifier_health():
+    """/health surface: how the photo classifier resolves in THIS process.
+    Calling it forces the lazy load, so /health both reports and warms the
+    session (no cold-start penalty on the first citizen upload)."""
+    try:
+        _load_photo_classifier()
+    except Exception:
+        pass
+    return {'status': ('active' if _PHOTO_CLF['sess'] is not None
+                       else _PHOTO_CLF_DIAG['mode']),
+            'detail': _PHOTO_CLF_DIAG['detail']}
 
 
 def _load_photo_classifier():
@@ -1019,33 +1036,41 @@ def _load_photo_classifier():
     from pathlib import Path
     if _PHOTO_CLF['sess'] is not None or _PHOTO_CLF['failed']:
         return _PHOTO_CLF['sess'] and _PHOTO_CLF
-    # Resolution order: an env-configured path that actually exists wins;
-    # otherwise on a deployed platform the bundled model in app/ is used.
-    # This is deliberately forgiving — a stale Blueprint value (env-var
-    # updates need a dashboard apply) must not silently disable the gate.
-    # Local dev / tests stay opt-in so the historical behaviour is kept.
-    model_path = os.getenv('PHOTO_CLASSIFIER_MODEL', '')
-    if model_path and not Path(model_path).exists():
-        model_path = ''  # stale/misconfigured value — fall through
-    if not model_path and _is_deployed():
-        model_path = str(Path(__file__).with_name('photo_classifier.onnx'))
-    if not model_path:
-        _PHOTO_CLF['failed'] = True  # feature not configured — decide once
+    bundled = Path(__file__).with_name('photo_classifier.onnx')
+    env_val = os.getenv('PHOTO_CLASSIFIER_MODEL', '').strip()
+    if env_val.lower() in ('off', 'none', 'disabled', '0'):
+        _PHOTO_CLF['failed'] = True
+        _PHOTO_CLF_DIAG.update(mode='off', detail='disabled via PHOTO_CLASSIFIER_MODEL')
         return None
+    path = env_val
+    if path and not Path(path).exists():
+        # Stale/misconfigured env value (Blueprint edits need a dashboard
+        # apply) — fall back to the bundled artifact rather than silently
+        # disabling the gate.
+        _PHOTO_CLF_DIAG.update(mode='unloaded',
+                               detail=f'env path missing: {path}; using bundled')
+        path = ''
+    if not path:
+        if bundled.exists():
+            path = str(bundled)
+        else:
+            _PHOTO_CLF['failed'] = True
+            _PHOTO_CLF_DIAG.update(mode='off', detail='no model configured')
+            return None
     try:
         import json
         import onnxruntime as ort
-        path = Path(model_path)
-        if not path.exists():
-            raise FileNotFoundError(f'classifier model not found: {path}')
+        model_path = Path(path)
+        if not model_path.exists():
+            raise FileNotFoundError(f'classifier model not found: {model_path}')
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1  # 512 MB container: keep inference tiny
-        sess = ort.InferenceSession(str(path), sess_options=opts,
+        sess = ort.InferenceSession(str(model_path), sess_options=opts,
                                     providers=['CPUExecutionProvider'])
         inp = sess.get_inputs()[0]
         dims = [d or 224 for d in inp.shape[2:]] or [224, 224]
         labels = ['garbage', 'non_garbage']
-        sidecar = path.with_suffix('.json')
+        sidecar = model_path.with_suffix('.json')
         if sidecar.exists():
             labels = json.loads(sidecar.read_text(encoding='utf-8'))
         reject_idx = next((i for i, l in enumerate(labels)
@@ -1054,10 +1079,13 @@ def _load_photo_classifier():
                           out_name=sess.get_outputs()[0].name,
                           size=(int(dims[0]), int(dims[1])),
                           labels=labels, reject_idx=reject_idx)
+        _PHOTO_CLF_DIAG.update(mode='active',
+                               detail=f'{model_path.name}, {len(labels)} classes')
         return _PHOTO_CLF
     except Exception as exc:
         logger.warning("photo_classifier_unavailable", error=str(exc))
         _PHOTO_CLF['failed'] = True
+        _PHOTO_CLF_DIAG.update(mode='error', detail=str(exc)[:160])
         return None
 
 

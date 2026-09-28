@@ -21,6 +21,7 @@ from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _notify_admins, _noti
                _redis_client, _ward_sla_hours, cache_get, cache_set, get_wmo_phrase,
                logger, main, upload_storage_backend, validate_indian_phone,
                verify_complaint_token, write_audit)
+from ..mail_probe import mail_health  # real SMTP posture for /health (was a globals()-guard miss)
 
 from ..i18n import translate
 
@@ -989,14 +990,23 @@ def health_check():
     # Upload storage posture. A misconfigured object store makes photos vanish
     # on the next restart; report it rather than leaving operators to infer.
     checks['storage'] = {'backend': upload_storage_backend()}
+    # Photo-classifier posture: is the garbage-vs-non-garbage gate active in
+    # this process? Forces the lazy load, so this also warms the session.
+    try:
+        from . import photo_classifier_health as _pc_health
+        checks['photo_classifier'] = _pc_health()
+    except Exception as _pc_exc:
+        checks['photo_classifier'] = {'status': 'unknown', 'detail': str(_pc_exc)[:120]}
     # Mail posture. Report which branch this process actually took (prod SMTP
     # relay vs plain-text mailman fallback) and whether the relay answers.
     # A blackholed outbound SMTP port (Render on 25/465/587) fails fast here and
     # surfaces as a warning health verdict with the exact symptom — the master
     # alert staff get when OTP/verification mail stops leaving.
-    m = mail_health() if 'mail_health' in globals() else None
-    if m is None:
-        m = {}
+    m = {}
+    try:
+        m = mail_health() or {}
+    except Exception as _mail_exc:
+        m = {'warning': f'mail health probe failed: {_mail_exc}'}
     mail_posture = {
         'initialized': m.get('initialized'),
         'transport': m.get('transport'),
