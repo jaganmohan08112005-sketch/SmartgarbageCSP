@@ -610,6 +610,15 @@ def report_illegal():
         photo_filename = None
         file = request.files.get('photo')
         if file and file.filename != '':
+            # Same anti-fake-report gate as /report: the upload must decode
+            # as a real image AND (when PHOTO_CLASSIFIER_MODEL is configured)
+            # look like actual waste — a non-garbage photo refuses the whole
+            # submission with the classifier's note in the flash, mirroring
+            # the /report path.
+            ai_verified, ai_note = _ai_verify_photo(file)
+            if not ai_verified:
+                flash(f'Photo rejected: {ai_note}', 'error')
+                return redirect(url_for('main.report_illegal'))
             photo_filename = save_compressed_photo(file, 'illegal')
         report = IllegalDumpReport(
             latitude=float(latitude) if latitude else None,
@@ -757,7 +766,9 @@ def report():
             # AI image-verification pipeline placeholder (anti-fake-report).
             ai_verified, ai_note = _ai_verify_photo(file)
             if not ai_verified:
-                flash('Uploaded photo could not be verified as a valid image. Please retry.', 'error')
+                # Surface the verifier's verdict (decodability failure or the
+                # classifier's non-garbage score) so the reporter knows why.
+                flash(f'Photo rejected: {ai_note}', 'error')
                 return redirect(url_for('main.report'))
             photo_filename = save_compressed_photo(file, 'complaint')
         # Complaint lifecycle v3: new reports enter the state machine as
