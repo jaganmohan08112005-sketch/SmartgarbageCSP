@@ -39,3 +39,17 @@ node_modules/
 /playwright/.auth/
 # Kimi project memory
 .kimi-memory/
+
+# ── Video production working files (report/video/_video_live) ──
+# Only the FINAL deliverable (../Documentation_DEMO_VIDEO.mp4) and the build
+# tooling (tts.ps1, DEMO_VIDEO_SCRIPT.md) are tracked. Everything below is
+# regenerable intermediates: raw Playwright captures, per-segment encodes,
+# narration WAVs, and the concat manifest with absolute paths.
+report/video/_video_live/raw_*/
+report/video/_video_live/*.wav
+report/video/_video_live/*.webm
+report/video/_video_live/*.webm.done
+report/video/_video_live/seg*.mp4
+report/video/_video_live/list.txt
+report/video/_qa_frames/
+report/_qa_check/
