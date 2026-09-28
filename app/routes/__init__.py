@@ -1019,13 +1019,16 @@ def _load_photo_classifier():
     from pathlib import Path
     if _PHOTO_CLF['sess'] is not None or _PHOTO_CLF['failed']:
         return _PHOTO_CLF['sess'] and _PHOTO_CLF
-    # Explicit env var wins; on a deployed platform the bundled model in
-    # app/ is the default (no env var required — render.yaml syncs of NEW
-    # env vars need a dashboard apply, so the artifact ships enabled).
+    # Resolution order: an env-configured path that actually exists wins;
+    # otherwise on a deployed platform the bundled model in app/ is used.
+    # This is deliberately forgiving — a stale Blueprint value (env-var
+    # updates need a dashboard apply) must not silently disable the gate.
     # Local dev / tests stay opt-in so the historical behaviour is kept.
-    model_path = (os.getenv('PHOTO_CLASSIFIER_MODEL', '')
-                  or (str(Path(__file__).with_name('photo_classifier.onnx'))
-                      if _is_deployed() else ''))
+    model_path = os.getenv('PHOTO_CLASSIFIER_MODEL', '')
+    if model_path and not Path(model_path).exists():
+        model_path = ''  # stale/misconfigured value — fall through
+    if not model_path and _is_deployed():
+        model_path = str(Path(__file__).with_name('photo_classifier.onnx'))
     if not model_path:
         _PHOTO_CLF['failed'] = True  # feature not configured — decide once
         return None
@@ -1081,7 +1084,7 @@ def _classify_garbage_photo(file_storage):
         probs = exp / exp.sum()
         p_reject = float(probs[clf['reject_idx']])
         import os
-        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.5'))
+        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.6'))
         img.close()
         file_storage.seek(0)  # rewind for save_compressed_photo()
         accepted = p_reject < threshold
