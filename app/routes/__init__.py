@@ -1036,7 +1036,8 @@ def _load_photo_classifier():
     from pathlib import Path
     if _PHOTO_CLF['sess'] is not None or _PHOTO_CLF['failed']:
         return _PHOTO_CLF['sess'] and _PHOTO_CLF
-    bundled = Path(__file__).with_name('photo_classifier.onnx')
+    # __init__.py lives in app/routes/, the artifact in app/ — go up one level.
+    bundled = Path(__file__).resolve().parent.parent / 'photo_classifier.onnx'
     env_val = os.getenv('PHOTO_CLASSIFIER_MODEL', '').strip()
     if env_val.lower() in ('off', 'none', 'disabled', '0'):
         _PHOTO_CLF['failed'] = True
