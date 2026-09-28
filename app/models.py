@@ -26,10 +26,17 @@ class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
-    email = db.Column(db.String(120), nullable=True, index=True)
+    # unique index, not a bare index: registration uniqueness for email and
+    # phone used to live only in register()'s SELECT-then-INSERT, which two
+    # concurrent POSTs could both pass (duplicate accounts, no cleanup path).
+    # NOT NULL is not required — Postgres treats NULLs as distinct under a
+    # unique index, so accounts legitimately without an email (phone-OTP
+    # registrations) or without a phone still coexist. See migration
+    # l1m2n3o4p5q6_unique_user_phone_email.
+    email = db.Column(db.String(120), nullable=True, unique=True, index=True)
     password_hash = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), default='citizen', nullable=False)  # 'citizen', 'worker', 'admin'
-    phone = db.Column(db.String(20), nullable=True)
+    phone = db.Column(db.String(20), nullable=True, unique=True)
     green_points = db.Column(db.Integer, default=0, nullable=False)
     otp = db.Column(db.String(128), nullable=True)  # sha256 hex digest (64 chars)
     otp_expiry = db.Column(db.DateTime, nullable=True)

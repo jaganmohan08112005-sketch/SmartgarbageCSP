@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import time
 import hmac
 import base64
@@ -224,19 +224,24 @@ def create_app(test_config=None):
     app.wsgi_app = _StripVaryCookieMiddleware(app.wsgi_app)
 
     # ── Sentry error tracking (if DSN present) ──
-    sentry_dsn = os.getenv('SENTRY_DSN')
-    if sentry_dsn:
+    sentry_dsn = os.getenv('SENTRY_DSN', '').strip()
+    if sentry_dsn.startswith(('http://', 'https://')):
         try:
             import sentry_sdk
             from sentry_sdk.integrations.flask import FlaskIntegration
             sentry_sdk.init(
                 dsn=sentry_dsn,
                 integrations=[FlaskIntegration()],
-                auto_setup=False,   # we let Flask register manually
+                default_integrations=False,  # sentry 2.x: opt-out of auto setup
             )
-        except ImportError:
-            # Sentry is optional — don't crash the app if the package is absent.
-            app.logger.warning("SENTRY_DSN set but sentry_sdk not installed; skipping init.")
+        except Exception as exc:
+            # Sentry is optional — a missing package or bad DSN must never
+            # take the portal down (e.g. BadDsn at startup).
+            app.logger.warning("Sentry init failed (%s); continuing without error tracking.", exc)
+    elif sentry_dsn:
+        app.logger.warning(
+            "SENTRY_DSN is set but is not a valid DSN (expected an https:// URL); "
+            "skipping Sentry init.")
 
     if test_config:
         app.config.update(test_config)
@@ -393,6 +398,31 @@ def create_app(test_config=None):
         or app.config['CIVIC_CONTACT_EMAIL']
         or 'noreply@smartgarbage.local'
     )
+
+    # ── WhatsApp Cloud (Meta) configuration ──
+    # WhatsApp Cloud is parked as the future primary channel. Until the
+    # WHATSAPP_CLOUD_TOKEN / WHATSAPP_CLOUD_PHONE_NUMBER_ID are re-enabled in
+    # the platform dashboard, the free toll-free grievance helpline and the
+    # offline channels stay the primary rescue routes. The fallback CTA gate in
+    # base.html reads this key, so it must be loaded into Flask config here.
+    app.config['WHATSAPP_CLOUD_TOKEN'] = os.environ.get('WHATSAPP_CLOUD_TOKEN')
+    app.config['WHATSAPP_CLOUD_PHONE_NUMBER_ID'] = (
+        os.environ.get('WHATSAPP_CLOUD_PHONE_NUMBER_ID')
+    )
+
+    # ── Mail-connectivity self-check ──
+    # The relay that sent your OTP may have been blackholed. Probe it at boot
+    # (never in a request path) and let /health report the real state: a
+    # reachable relay means all transactional mail goes out; a blackholed/
+    # blocked relay (Render on 25/465/587, or a revoked Brevo password) is a
+    # warning — not a hidden 500 for staff to discover when OTP stops arriving.
+    # Import laz so the probe never breaks older interpreters or missing
+    # stdlib parts; it is guarded by the value check below.
+    try:
+        from . import mail_probe
+        mail_probe.init_mail_health(app)
+    except Exception as exc:  # pragma: no cover - boot-time probe must never
+        app.logger.error("mail probe failed to initialize: %s", exc)  # unreachable
 
     # Shared secret for authenticating IoT telemetry POSTs from ESP32/Arduino
     # devices. When set (production), /api/bin-telemetry requires a valid
@@ -793,6 +823,18 @@ def create_app(test_config=None):
     @app.errorhandler(500)
     def internal_error(e):
         app.logger.error("Unhandled exception: %s", e, exc_info=True)
+        # Surface the failure to the owner without anyone watching a console:
+        # files or updates a GitHub issue when ALERT_ISSUES=1 (production
+        # only). app/alerting.py fails soft — a broken reporter must never
+        # change what the visitor sees.
+        try:
+            from .alerting import report_exception
+            # Flask wraps non-HTTP exceptions in InternalServerError before
+            # this handler runs; the useful fingerprint is the original.
+            original = getattr(e, 'original_exception', None)
+            report_exception(original if original is not None else e, request.path)
+        except Exception:
+            app.logger.exception("alerting hook failed")
         return render_template('error.html', code=500, message="Something went wrong on our side."), 500
 
     @app.errorhandler(404)

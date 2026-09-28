@@ -499,16 +499,25 @@ def _otp_email_recipient(recipient):
 
 
 @instrument
-def send_otp_job(recipient, otp_val, subject='SmartGarbage OTP'):
+def send_otp_job(recipient, otp_val, subject='SmartGarbage OTP', channel='auto'):
     """Send an OTP via SMS, then email if SMS is unavailable — off the request path.
 
     The email fallback resolves a phone-shaped recipient to the user's email
     on file (see _otp_email_recipient) instead of mailing the phone string,
     which no SMTP server accepts.
 
+    channel='email' skips the SMS/WhatsApp attempt entirely and delivers
+    straight to the resolved email address — the staff (admin/worker) "email
+    me the code" MFA option, so a deployment without Twilio/WhatsApp
+    credentials can still complete staff logins.
+
     Note: it calls the decorated send_sms_job/send_email_job directly, so one
     OTP delivery counts as multiple job runs in the metrics (function-level
     accounting — each helper genuinely executed)."""
+    if channel == 'email':
+        send_email_job(_otp_email_recipient(recipient), subject,
+                       f"Your SmartGarbage OTP is: {otp_val}\n\nThis code expires in 5 minutes.")
+        return
     sms_sent = send_sms_job(recipient, f"SmartGarbage OTP: {otp_val}")
     if not sms_sent:
         send_email_job(_otp_email_recipient(recipient), subject,

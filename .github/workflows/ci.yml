@@ -46,6 +46,12 @@ jobs:
         run: |
           # Shared single database: MUST run sequentially (-n 0); the per-test
           # timeout still applies so a hang fails fast instead of blocking.
+          # NOTE: the repo root must be on sys.path for the app package and its
+          # tests (the runner's checkout dir is $GITHUB_WORKSPACE, not the
+          # local repo root where the previous run happened to be), so add it
+          # explicitly. This is why the earlier alerting tests failed with
+          # ModuleNotFoundError in CI but passed locally.
+          export PYTHONPATH="$GITHUB_WORKSPACE"
           python -m pytest tests/ -n 0 --timeout=180 -v
       - name: Verify stateless CSRF path (anonymous consent + feedback)
         run: |

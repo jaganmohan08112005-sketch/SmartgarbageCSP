@@ -59,17 +59,24 @@ fly secrets set \
 
 > `REDIS_URL` is recommended when running more than one machine/worker — it
 > makes rate-limit counters shared across instances (the app falls back to
-> in-memory counters when unset). The WhatsApp Cloud vars enable OTP and
-> status-alert delivery inside each citizen's 24h service window — free
-> with no cap through Sep 30, 2026; from Oct 1, 2026 Meta bills per
-> delivered message but every business number gets 1,000 free service
-> messages per month, far above this portal's volume, so the bill stays
-> ₹0 (inbound citizen messages are always free). Twilio vars
-> are an optional paid fallback and email is the last resort. Leave the phone
-> channels unset to fall back to email/dev display.
+> in-memory counters when unset). The WhatsApp Cloud vars are **parked by
+> default**: the port falls back to the free toll-free grievance helpline
+> 1800-119-9111 and offline channels until the vars are set. When
+> `WHATSAPP_CLOUD_TOKEN` / `WHATSAPP_CLOUD_PHONE_NUMBER_ID` are provided,
+> the portal's fallback CTA is replaced by WhatsApp and `send_whatsapp_cloud()`
+> delivers plain-text replies inside each citizen's 24h service window.
+> Inbound citizen messages are always free and OTP/status-alerts are free
+> through Sep 30, 2026 (1,000 free service messages/month from Oct 1, 2026).
+> Twilio vars are an optional paid fallback and email is last resort.
 
-### WhatsApp Cloud API setup (10 minutes, free, no card)
+### WhatsApp Cloud API setup (10 minutes, free, no card) — parked until configured
 
+> Status while **parked** (no `WHATSAPP_CLOUD_TOKEN` set): the portal's
+> fallback CTA is visible on every citizen-facing page and the free toll-free
+> helpline 1800-119-9111 + offline channels stay primary. Set the two vars
+> below and the fallback CTA is replaced by WhatsApp; `send_whatsapp_cloud()`
+> then delivers plain-text replies inside each citizen's 24h service window.
+>
 > Cost status (verified against Meta's official pricing pages, Sep 2026):
 > the TEST number and all inbound citizen messages are free, no payment
 > method required. Replies inside the 24h service window are free with no
@@ -85,7 +92,7 @@ fly secrets set \
    and it never requires a payment method.
 2. **Copy credentials**: WhatsApp → API Setup → copy the temporary **access
    token** and the **Phone Number ID** (a long digit string, NOT the phone
-   number). For a token that never expires: Business Settings → Users →
+   number). For a never-expiring token: Business Settings → Users →
    System Users → create one → Add Assets (app: your app, permission:
    `whatsapp_business_messaging`) → Generate Token.
 3. **Verify locally** before deploying:
@@ -104,10 +111,9 @@ fly secrets set \
      implemented in `/webhook/whatsapp-cloud` GET).
    Then Subscribe to the `messages` field. Also set `WHATSAPP_APP_SECRET`
    (App Settings → App secret) so inbound POSTs are signature-checked.
-5. **Done**: OTPs now deliver over WhatsApp to anyone who has messaged the
-   number once; status-change alerts ride the same service-window replies
-   (free through Sep 30, 2026; the first 1,000 delivered per month free
-   from Oct 1, 2026 — see the cost note above this section).
+5. **Deploy + done**: set `WHATSAPP_CLOUD_TOKEN`/`WHATSAPP_CLOUD_PHONE_NUMBER_ID` in
+   Render/Docker — the fallback CTA is replaced by WhatsApp and other
+   citizen-initiated channels are consistent.
 
 ## Background job queue (RQ)
 
@@ -412,3 +418,23 @@ If you have data on Render's old Postgres:
 - **Fly.io**: `fly deploy --image flyio/smartgarbage:previous-tag` or use the Fly dashboard
 - **Render**: Previous deploy is available in the dashboard; just click Rollback
 - **Supabase**: Database branching lets you snapshot before migrations; restore from backup if needed
+
+## 11. Monitoring & Alerting (Rs. 0)
+
+Failures surface on their own — see **docs/ALERTING.md** for the full runbook:
+
+- **Uptime probe**: `.github/workflows/uptime.yml` pings `/health` every 15 min
+  and auto-opens/closes a GitHub issue (`[uptime] site is DOWN — …`) on
+  failures — GitHub emails the owner. Sees: down, unhealthy, DB failing,
+  queue starvation (`queue.workers: 0` with `queue.backend: redis`).
+- **Runtime errors**: `app/alerting.py` files a `[500] …` GitHub issue from
+  the 500 handler. Off by default; enable on Render with `ALERT_ISSUES=1` +
+  `ALERT_GITHUB_TOKEN` (free fine-grained PAT, Issues: read/write — mint per
+  docs/ALERTING.md). Reports run in a daemon thread so a failing request
+  never waits on the GitHub API.
+- **Optional**: Sentry via `SENTRY_DSN` (already wired; free tier).
+
+Caveat: GitHub's free scheduler delays cron on low-activity repos (~hourly,
+not 15 min) — the exact-cadence pg_cron keepalive (`sg-keepalive-render` in
+Supabase) keeps the site warm but does not alert. The uptime workflow is the
+alerting path.

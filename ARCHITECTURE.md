@@ -85,12 +85,11 @@ erDiagram
 4. Server validates, stores complaint, awards Green Points
 5. Redirects to success page
 
-### WhatsApp Illegal-Dump Reporting
-
-1. Citizen sends photo via WhatsApp to Twilio number
-2. Twilio webhook POSTs to `/webhook/whatsapp`
-3. Server downloads media, extracts GPS, creates `IllegalDumpReport`
-4. Replies with TwiML acknowledgment
+### WhatsApp (parked — helpline + offline primary until configured)
+1. Citizen taps a `wa.me` saved-Chat link, or calls the free toll-free helpline 1800-119-9111
+2. Meta WhatsApp Cloud (`send_whatsapp_cloud()`) delivers plain-text replies inside the citizen's 24h service window
+3. Twilio and email are fallbacks when WhatsApp Cloud is not configured
+4. Inbound webhook `/webhook/whatsapp-cloud`; outbound only (no business-initiated templates)
 
 ### IoT Telemetry Processing
 

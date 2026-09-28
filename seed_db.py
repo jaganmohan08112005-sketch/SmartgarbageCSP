@@ -47,15 +47,20 @@ with app.app_context():
     print("👤 Seeding default users...")
     if not User.query.filter_by(username="24331A4441ADMIN").first():
         admin_user = User(username="24331A4441ADMIN", password_hash=generate_password_hash("24331A4441ADMIN"),
-                         role="admin", phone="+919876543210", is_approved=True, is_superadmin=True)
+                         role="admin", phone="+919876543210", is_approved=True, is_superadmin=True,
+                         email="jaganmohan08112005@gmail.com")
         db.session.add(admin_user)
     if not User.query.filter_by(username="24331A4441CITIZEN").first():
         citizen_user = User(username="24331A4441CITIZEN", password_hash=generate_password_hash("24331A4441CITIZEN"),
                            role="citizen", phone="+919876543211", is_approved=True, green_points=120)
         db.session.add(citizen_user)
     if not User.query.filter_by(username="24331A4441WORKER").first():
+        # Unique index uq_user_email (migration l1m2n3o4p5q6) forbids two
+        # accounts sharing one email — the worker therefore uses Rama's
+        # address as its registered MFA email.
         worker_user = User(username="24331A4441WORKER", password_hash=generate_password_hash("24331A4441WORKER"),
-                          role="worker", phone="+919876543212", is_approved=True)
+                          role="worker", phone="+919876543212", is_approved=True,
+                          email="rama18072005@gmail.com")
         db.session.add(worker_user)
     db.session.commit()
 
@@ -81,6 +86,9 @@ with app.app_context():
     print("   - Admin: username='24331A4441ADMIN', password='24331A4441ADMIN'")
     print("   - Citizen: username='24331A4441CITIZEN', password='24331A4441CITIZEN'")
     print("   - Worker: username='24331A4441WORKER', password='24331A4441WORKER'")
+    print("   - Email OTP: staff OTPs fall back to email when no SMS/WhatsApp "
+          "gateway is configured — admin: jaganmohan08112005@gmail.com, "
+          "worker: rama18072005@gmail.com")
 
     # 2. Seed Chintalavalasa Schedules
     print("📅 Seeding Chintalavalasa collection schedules...")

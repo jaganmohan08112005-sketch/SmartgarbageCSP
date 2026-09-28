@@ -332,19 +332,23 @@ def notifications_stream():
             if redis_ok:
                 return
         # No Redis (dev/tests) or Redis failed mid-stream: lightweight DB poll
-        # fallback with heartbeat.
-        while True:
-            _time.sleep(5)
-            with current_app.app_context():
-                new = Notification.query.filter(
-                    Notification.user_id == uid,
-                    Notification.id > last_id).order_by(Notification.id.asc()).all()
-                for n in new:
-                    last_id = n.id
-                    yield f"data: {n.message}\n\n"
-                    MAX_EVENTS -= 1
-                    if MAX_EVENTS <= 0:
-                        return
+        # fallback. One final poll, then return: the SSE heartbeat is paced by
+        # the browser's EventSource auto-reconnect, so a single-threaded dev
+        # server (werkzeug without threading) is never starved by an
+        # always-open stream — the client reconnects seamlessly. The last poll
+        # guarantees anything created between the snapshot and here (e.g. the
+        # alert for the action that just completed) is still delivered before
+        # the stream closes.
+        with current_app.app_context():
+            new = Notification.query.filter(
+                Notification.user_id == uid,
+                Notification.id > last_id).order_by(Notification.id.asc()).all()
+            for n in new:
+                last_id = n.id
+                yield f"data: {n.message}\n\n"
+                MAX_EVENTS -= 1
+                if MAX_EVENTS <= 0:
+                    return
     return Response(stream_with_context(event_stream()),
                     mimetype='text/event-stream')
 

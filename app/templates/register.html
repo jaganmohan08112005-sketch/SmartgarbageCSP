@@ -25,9 +25,9 @@
                     <label class="form-label fw-bold text-secondary" for="reg_password">{{ _('Password') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">🔒</span>
-                        <input name="password" id="reg_password" type="password" class="form-control" placeholder="{{ _('Choose a password (min. 6 chars)') }}" required minlength="6">
+                        <input name="password" id="reg_password" type="password" class="form-control" placeholder="{{ _('Choose a password (min. 8 chars)') }}" required minlength="8">
                     </div>
-                    <small class="text-muted">{{ _('Minimum 6 characters.') }}</small>
+                    <small class="text-muted">{{ _('Minimum 8 characters.') }}</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_phone">{{ _('Mobile Number') }} <span class="text-danger">*</span></label>
@@ -96,7 +96,7 @@
             return valid;
         }
         function validatePassword() {
-            const valid = password.value.length >= 6;
+            const valid = password.value.length >= 8;
             setValid(password, valid);
             return valid;
         }

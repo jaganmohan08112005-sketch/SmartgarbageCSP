@@ -21,15 +21,39 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-# Load .env if present (same parser as the preview launcher).
-env_file = os.path.join(ROOT, '.env')
-if os.path.exists(env_file):
-    with open(env_file, encoding='utf-8') as f:
+def _load_env_file(path):
+    """Load KEY=VALUE pairs from an env file.
+
+    Ignores comment lines, inline `# comment` tails (e.g.
+    `SENTRY_DSN=  # OPTIONAL: Error tracking`) and empty values, so a
+    template .env never injects placeholder junk into the environment.
+    """
+    with open(path, encoding='utf-8') as f:
         for raw in f:
             line = raw.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, val = line.split('=', 1)
-                os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, val = line.split('=', 1)
+            key = key.strip()
+            val = val.strip()
+            # Drop an inline comment: '#' outside single/double quotes.
+            if '#' in val:
+                in_s = in_d = False
+                for i, ch in enumerate(val):
+                    if ch == "'" and not in_d:
+                        in_s = not in_s
+                    elif ch == '"' and not in_s:
+                        in_d = not in_d
+                    elif ch == '#' and not in_s and not in_d:
+                        val = val[:i]
+                        break
+                val = val.strip()
+            if not key or not val:
+                continue
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in ('"', "'"):
+                val = val[1:-1]
+            os.environ.setdefault(key, val)
+
 
 import requests
 
@@ -40,6 +64,10 @@ def fail(step, msg):
 
 
 def main():
+    env_file = os.path.join(ROOT, '.env')
+    if os.path.exists(env_file):
+        _load_env_file(env_file)
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--to', help='recipient phone in E.164 digits, e.g. 919876543210 '
                                  '(defaults to $WHATSAPP_TEST_TO)')

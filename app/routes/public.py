@@ -986,57 +986,49 @@ def health_check():
         jobs_kpis = _job_kpis(_counter_snapshot())
     except Exception:
         jobs_kpis = None
-    # Queue + upload-storage posture. Both share a "works on a laptop, silently
-    # degrades in production" failure mode — an unset REDIS_URL turns every
-    # background send into inline work inside a request, and a missing object
-    # store makes uploads vanish on the next restart — so report which branch
-    # this process actually took rather than leaving operators to infer it.
+    # Upload storage posture. A misconfigured object store makes photos vanish
+    # on the next restart; report it rather than leaving operators to infer.
     checks['storage'] = {'backend': upload_storage_backend()}
-    # Queue posture. "REDIS_URL is set" is NOT the same as "jobs run": RQ only
-    # executes what a worker polls for, so Redis + no worker means every
-    # background send (OTP, status alert, receipt) is written to the queue and
-    # never delivered — the site looks healthy while mail silently vanishes.
-    # Report the live worker count so that state is visible from outside.
-    if r is None:
-        queue_posture = {
-            'backend': 'inline',
-            'workers': None,
-            'detail': 'no REDIS_URL — jobs execute inline in the web process',
-        }
-    else:
-        try:
-            from ..jobs import worker_health
-            qh = worker_health() or {}
-        except Exception:
-            qh = {}
-        workers = qh.get('workers')
-        if workers == 0:
-            queue_posture = {
-                'backend': 'redis',
-                'workers': 0,
-                'detail': 'REDIS_URL set but NO worker is consuming the queue',
-                'warning': ('queued jobs (OTP mail, status alerts, receipts) will not '
-                            'run until a worker registers: keep the in-process worker '
-                            'enabled (wsgi.py) or run worker.py'),
-            }
-        elif isinstance(workers, int):
-            queue_posture = {
-                'backend': 'redis',
-                'workers': workers,
-                'detail': f'background jobs consumed by {workers} live RQ worker(s)',
-            }
-        else:
-            # Worker discovery unavailable (rq missing / Redis hiccup): report the
-            # broker without asserting anything about consumption.
-            queue_posture = {
-                'backend': 'redis',
-                'workers': None,
-                'detail': 'REDIS_URL set — worker count unavailable',
-            }
-    healthy = db_ok and (redis_ok is not False)
+    # Mail posture. Report which branch this process actually took (prod SMTP
+    # relay vs plain-text mailman fallback) and whether the relay answers.
+    # A blackholed outbound SMTP port (Render on 25/465/587) fails fast here and
+    # surfaces as a warning health verdict with the exact symptom — the master
+    # alert staff get when OTP/verification mail stops leaving.
+    m = mail_health() if 'mail_health' in globals() else None
+    if m is None:
+        m = {}
+    mail_posture = {
+        'initialized': m.get('initialized'),
+        'transport': m.get('transport'),
+        'pingable': m.get('pingable'),
+        'warning': m.get('warning'),
+        'detail': m.get('detail'),
+    }
+    checks['mail'] = mail_posture
+    # Queue posture: worker_health() reports the live RQ worker count (or
+    # 'inline' when jobs run on the request path without Redis). Read-only;
+    # never crash /health over reporting it.
+    try:
+        from ..jobs import worker_health as _queue_posture
+        queue_posture = _queue_posture()
+    except Exception:
+        queue_posture = {'backend': 'unknown', 'workers': None, 'starved': False}
+    # Human-readable posture: a Redis backend with zero live workers is the
+    # silent-failure state (jobs brokered but never delivered), so /health
+    # says it out loud; a consuming worker gets a plain-language detail line.
+    if queue_posture.get('backend') == 'redis':
+        _workers = queue_posture.get('workers')
+        if _workers == 0 or queue_posture.get('starved'):
+            queue_posture['warning'] = ('No RQ workers are running — queued jobs '
+                                        '(OTP mail, status alerts, receipts) will not run.')
+        elif _workers:
+            queue_posture['detail'] = (
+                f"{_workers} live RQ worker{'s' if _workers != 1 else ''} consuming the queue.")
+    healthy = db_ok and (redis_ok is not False) and (not mail_posture.get('warning'))
     payload = {
         'status': 'healthy' if healthy else 'unhealthy',
         'checks': checks,
+        'mail': mail_posture,
         'queue': queue_posture,
         'timestamp': datetime.now(timezone.utc).isoformat(),
     }
