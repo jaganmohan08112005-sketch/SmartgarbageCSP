@@ -1801,7 +1801,7 @@ def test_homepage_shows_dismissible_awareness_banner(client, app):
 def test_report_auto_sms_tracks_link(client, app, monkeypatch):
     """Filing a complaint SMSes the reporter a signed /track/ link via the
     existing Twilio path (WhatsApp prefix mirrored when configured)."""
-    cid = _make_user(app, 'trackreporter', phone='+919876543211')
+    cid = _make_user(app, 'trackreporter', phone='+919876543311')
     client.post('/login', data={'username': 'trackreporter', 'password': 'testpass123'},
                 follow_redirects=False)
     sent = {}
@@ -1818,14 +1818,14 @@ def test_report_auto_sms_tracks_link(client, app, monkeypatch):
     monkeypatch.setattr(routes, '_is_local_request', lambda: False)
 
     r = client.post('/report', data={
-        'name': 'trackreporter', 'phone': '+919876543211',
+        'name': 'trackreporter', 'phone': '+919876543311',
         'ward': 'Ward 1 - MVGR College Area', 'address': 'Gate',
         'description': 'Overflow', 'latitude': '18.05', 'longitude': '83.40',
         'report_time': '2026-08-03T10:00'
     }, follow_redirects=True)
     assert r.status_code in (200, 302)
     # The SMS body must contain a signed /track/ link.
-    assert sent.get('to') == 'whatsapp:+919876543211'
+    assert sent.get('to') == 'whatsapp:+919876543311'
     assert '/track/' in sent.get('body', '')
     # And the success page exposes the same link for copying.
     with app.app_context():

@@ -224,19 +224,24 @@ def create_app(test_config=None):
     app.wsgi_app = _StripVaryCookieMiddleware(app.wsgi_app)
 
     # ── Sentry error tracking (if DSN present) ──
-    sentry_dsn = os.getenv('SENTRY_DSN')
-    if sentry_dsn:
+    sentry_dsn = os.getenv('SENTRY_DSN', '').strip()
+    if sentry_dsn.startswith(('http://', 'https://')):
         try:
             import sentry_sdk
             from sentry_sdk.integrations.flask import FlaskIntegration
             sentry_sdk.init(
                 dsn=sentry_dsn,
                 integrations=[FlaskIntegration()],
-                auto_setup=False,   # we let Flask register manually
+                default_integrations=False,  # sentry 2.x: opt-out of auto setup
             )
-        except ImportError:
-            # Sentry is optional — don't crash the app if the package is absent.
-            app.logger.warning("SENTRY_DSN set but sentry_sdk not installed; skipping init.")
+        except Exception as exc:
+            # Sentry is optional — a missing package or bad DSN must never
+            # take the portal down (e.g. BadDsn at startup).
+            app.logger.warning("Sentry init failed (%s); continuing without error tracking.", exc)
+    elif sentry_dsn:
+        app.logger.warning(
+            "SENTRY_DSN is set but is not a valid DSN (expected an https:// URL); "
+            "skipping Sentry init.")
 
     if test_config:
         app.config.update(test_config)

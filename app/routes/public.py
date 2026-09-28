@@ -1013,6 +1013,17 @@ def health_check():
         queue_posture = _queue_posture()
     except Exception:
         queue_posture = {'backend': 'unknown', 'workers': None, 'starved': False}
+    # Human-readable posture: a Redis backend with zero live workers is the
+    # silent-failure state (jobs brokered but never delivered), so /health
+    # says it out loud; a consuming worker gets a plain-language detail line.
+    if queue_posture.get('backend') == 'redis':
+        _workers = queue_posture.get('workers')
+        if _workers == 0 or queue_posture.get('starved'):
+            queue_posture['warning'] = ('No RQ workers are running — queued jobs '
+                                        '(OTP mail, status alerts, receipts) will not run.')
+        elif _workers:
+            queue_posture['detail'] = (
+                f"{_workers} live RQ worker{'s' if _workers != 1 else ''} consuming the queue.")
     healthy = db_ok and (redis_ok is not False) and (not mail_posture.get('warning'))
     payload = {
         'status': 'healthy' if healthy else 'unhealthy',

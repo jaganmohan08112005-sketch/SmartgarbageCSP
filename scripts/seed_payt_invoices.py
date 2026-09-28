@@ -41,7 +41,10 @@ DEMO_PASSWORD = "24331A4441CITIZEN"
 # (username, phone, email, green_points). The first entry is the app's existing
 # demo citizen; the rest are extra households created on first run.
 SEED_CITIZENS = [
-    ("24331A4441CITIZEN", "+919876543211", "citizen@example.com", 195),
+    # NOTE: phone/email must NOT collide with the conftest qa_admin seed
+    # (admin phone +919876543211) — user.phone and user.email now carry unique
+    # constraints, and tests run this seeder against the shared test schema.
+    ("24331A4441CITIZEN", "+919876543290", "citizen4441@example.com", 195),
     ("ramesh_n",           "+919876510001", "ramesh.n@example.com",   142),
     ("lakshmi_k",          "+919876510002", "lakshmi.k@example.com",   87),
     ("suresh_p",           "+919876510003", "suresh.p@example.com",   231),

@@ -86,8 +86,9 @@ target repo if you ever want issues filed elsewhere.
 ### Optional: Sentry instead / as well
 
 `sentry-sdk` is already in `requirements.txt` and `app/__init__.py` wires it
-when `SENTRY_DSN` is set. Note: the existing init uses `auto_setup=False`,
-which means Flask's own error handler path is not instrumented — with Sentry
+when `SENTRY_DSN` is set. Note: the existing init passes
+`default_integrations=False` (the sentry 2.x opt-out — `auto_setup` was
+removed in 2.x), which means Flask's own error handler path is not instrumented — with Sentry
 you get request/traceback context for errors that are captured, but this
 project's 500 handler still needs the `report_exception` call to know a 500
 happened. Sentry's free tier (5k errors/month) is the richer option if you
