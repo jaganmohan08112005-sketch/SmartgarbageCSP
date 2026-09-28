@@ -7,10 +7,11 @@ __pycache__/
 *.pyc
 instance/
 uploads/
-# 26MB trained fill-rate regressor: excluded from the deploy image (the app
-# falls back to its heuristic when absent — see ml_model._load_fill_model).
-# Regenerate with train_model.py if needed; keep for local training.
-app/ml_fill_model.pkl
+# Trained ML artifacts ship INSIDE the image: ml_fill_model.pkl (fill-rate
+# regressor) and photo_classifier.onnx (garbage classifier) are loaded from
+# app/ at startup and are part of the reproducible-ML story. Exclude only the
+# training checkpoint, which is never read at runtime.
+app/photo_classifier.pt
 # Root-level diagnostic script (survey CSV analytics) — not needed at runtime.
 analyze_survey.py
 .vscode/
