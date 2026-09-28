@@ -1,0 +1,22 @@
+{
+  "labels": [
+    "garbage",
+    "non_garbage"
+  ],
+  "reject_label": "non_garbage",
+  "input_size": 224,
+  "preprocess": {
+    "resize": 224,
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "trained_on": "TrashNet (garbage) + COCO val2017 (non-garbage), MobileNetV3-Small"
+}
