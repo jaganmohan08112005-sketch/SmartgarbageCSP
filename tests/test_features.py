@@ -285,6 +285,79 @@ def test_report_photo_upload_succeeds_with_real_pipeline(client, app):
         assert comp.photo is not None and 'uploads/' in comp.photo
 
 
+# ── ONNX garbage-vs-non-garbage classifier hook (opt-in, fail-open) ──
+def _reset_photo_clf(monkeypatch, **overrides):
+    import app.routes as routes
+    state = {'sess': None, 'in_name': None, 'out_name': None,
+             'size': (224, 224), 'labels': ['garbage', 'non_garbage'],
+             'reject_idx': 1, 'failed': False}
+    state.update(overrides)
+    monkeypatch.setattr(routes, '_PHOTO_CLF', state)
+
+
+def test_ai_verify_photo_without_classifier_is_fail_open(app, monkeypatch):
+    """No PHOTO_CLASSIFIER_MODEL configured → decodability gate only, the
+    historical behaviour. The upload stream must survive for the next
+    consumer (save_compressed_photo)."""
+    import io as _io
+    import app.routes as routes
+    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
+    _reset_photo_clf(monkeypatch)
+    buf = _make_jpeg_bytes()
+    ok, note = routes._ai_verify_photo(buf)
+    assert ok is True and note == 'AI verification pending'
+    buf.seek(0)  # stream still usable
+
+
+def test_ai_verify_photo_with_broken_model_fails_open(app, monkeypatch):
+    """A configured-but-broken model path must NEVER block a citizen report:
+    the classifier degrades to the decodability gate and caches the failure."""
+    import io as _io
+    import app.routes as routes
+    monkeypatch.setenv('PHOTO_CLASSIFIER_MODEL', 'Z:/nope/net.onnx')
+    _reset_photo_clf(monkeypatch)
+    buf = _make_jpeg_bytes()
+    ok, note = routes._ai_verify_photo(buf)
+    assert ok is True and note == 'AI verification pending'
+    assert routes._PHOTO_CLF['failed'] is True  # decided once, not retried per upload
+
+
+def test_ai_verify_photo_classifies_and_rejects_non_garbage(app, monkeypatch):
+    """With a (stubbed) session favouring the reject class, the photo is
+    refused with the probability in the note — and the stream is rewound."""
+    import io as _io
+    import numpy as np
+    import app.routes as routes
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]  # reject class dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    buf = _make_jpeg_bytes()
+    ok, note = routes._ai_verify_photo(buf)
+    assert ok is False
+    assert 'non_garbage' in note and 'p=' in note
+    buf.seek(0)  # rewound for downstream consumers
+
+
+def test_ai_verify_photo_accepts_garbage_photo(app, monkeypatch):
+    import io as _io
+    import numpy as np
+    import app.routes as routes
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[3.0, -2.0]])]  # garbage class dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    ok, note = routes._ai_verify_photo(_make_jpeg_bytes())
+    assert ok is True
+    assert 'AI verified' in note
+
+
 # ── Smoke: report-with-photo → track page renders the image (PR #7) ──
 def test_report_with_photo_track_page_renders_image(client, app):
     """End-to-end smoke: a citizen files a report WITH a photo, then the

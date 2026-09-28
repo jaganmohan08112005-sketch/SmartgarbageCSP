@@ -966,12 +966,18 @@ def _photo_gps_from_upload(file_storage):
 
 
 def _ai_verify_photo(file_storage):
-    """AI image-verification placeholder (anti-fake-report pipeline).
+    """AI image verification (anti-fake-report pipeline).
 
-    Real-world hook: a CV classifier (garbage vs. no-garbage) would run here
-    and return (verified, note). The placeholder validates the file is a
-    decodable image (PIL) and returns (True, 'AI verification pending') so the
-    pipeline is wired end-to-end and a model can be dropped in later.
+    Two stages:
+      1. Fail-closed decodability gate (always on): the upload must decode
+         as a real image with Pillow, so an .exe named .jpg never lands.
+      2. Garbage-vs-non-garbage ONNX classifier (opt-in): set
+         ``PHOTO_CLASSIFIER_MODEL`` to a MobileNet-style ONNX export and
+         (optionally) ``PHOTO_CLASSIFIER_THRESHOLD`` (default 0.5). The
+         sidecar ``<model>.json`` lists the class labels; a label containing
+         'non'/'clean'/'not' marks the reject class. ANY failure — runtime
+         missing, model unreadable, inference error — fails OPEN to stage 1
+         behaviour, so a model outage can never block citizen reports.
     Returns (bool, note) and never raises.
     """
     try:
@@ -986,7 +992,6 @@ def _ai_verify_photo(file_storage):
         img.verify()
         img.close()          # closes only our copy
         file_storage.seek(0)  # rewind the original for the next consumer
-        return True, 'AI verification pending'
     except Exception as e:
         logger.error("ai_photo_verify_error", error=str(e))
         try:
@@ -994,6 +999,97 @@ def _ai_verify_photo(file_storage):
         except Exception:
             pass
         return False, f'Image could not be verified: {e}'
+
+    verdict = _classify_garbage_photo(file_storage)
+    if verdict is not None:
+        return verdict
+    return True, 'AI verification pending'
+
+
+# ONNX garbage classifier — loaded lazily and cached per process. Absent or
+# broken setup yields None and _ai_verify_photo degrades to the decodability
+# gate (fail-open by design; see its docstring).
+_PHOTO_CLF = {'sess': None, 'in_name': None, 'out_name': None,
+              'size': (224, 224), 'labels': None, 'reject_idx': 1,
+              'failed': False}
+
+
+def _load_photo_classifier():
+    import os
+    from pathlib import Path
+    if _PHOTO_CLF['sess'] is not None or _PHOTO_CLF['failed']:
+        return _PHOTO_CLF['sess'] and _PHOTO_CLF
+    model_path = os.getenv('PHOTO_CLASSIFIER_MODEL', '')
+    if not model_path:
+        _PHOTO_CLF['failed'] = True  # feature not configured — decide once
+        return None
+    try:
+        import json
+        import onnxruntime as ort
+        path = Path(model_path)
+        if not path.exists():
+            raise FileNotFoundError(f'classifier model not found: {path}')
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1  # 512 MB container: keep inference tiny
+        sess = ort.InferenceSession(str(path), sess_options=opts,
+                                    providers=['CPUExecutionProvider'])
+        inp = sess.get_inputs()[0]
+        dims = [d or 224 for d in inp.shape[2:]] or [224, 224]
+        labels = ['garbage', 'non_garbage']
+        sidecar = path.with_suffix('.json')
+        if sidecar.exists():
+            labels = json.loads(sidecar.read_text(encoding='utf-8'))
+        reject_idx = next((i for i, l in enumerate(labels)
+                           if any(w in str(l).lower() for w in ('non', 'clean', 'not'))), 1)
+        _PHOTO_CLF.update(sess=sess, in_name=inp.name,
+                          out_name=sess.get_outputs()[0].name,
+                          size=(int(dims[0]), int(dims[1])),
+                          labels=labels, reject_idx=reject_idx)
+        return _PHOTO_CLF
+    except Exception as exc:
+        logger.warning("photo_classifier_unavailable", error=str(exc))
+        _PHOTO_CLF['failed'] = True
+        return None
+
+
+def _classify_garbage_photo(file_storage):
+    """Run the configured ONNX classifier; None means 'not configured / failed' (fail-open)."""
+    clf = _load_photo_classifier()
+    if clf is None:
+        return None
+    try:
+        import io
+        import numpy as np
+        from PIL import Image
+        file_storage.seek(0)
+        buf = io.BytesIO(file_storage.read())  # private copy (Pillow-12 ownership)
+        img = Image.open(buf).convert('RGB').resize(clf['size'])
+        arr = np.asarray(img, dtype=np.float32) / 255.0
+        # ImageNet normalisation — the contract the exported model trained with.
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        arr = (arr - mean) / std
+        blob = np.transpose(arr, (2, 0, 1))[np.newaxis, ...]  # HWC -> NCHW
+        logits = clf['sess'].run([clf['out_name']], {clf['in_name']: blob})[0][0]
+        exp = np.exp(logits - logits.max())
+        probs = exp / exp.sum()
+        p_reject = float(probs[clf['reject_idx']])
+        import os
+        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.5'))
+        img.close()
+        file_storage.seek(0)  # rewind for save_compressed_photo()
+        accepted = p_reject < threshold
+        note = (f"AI verified ({clf['labels'][clf['reject_idx']]} p={p_reject:.2f})"
+                if accepted else
+                f"Rejected: does not look like waste ({clf['labels'][clf['reject_idx']]} p={p_reject:.2f})")
+        return accepted, note
+    except Exception as exc:
+        logger.warning("photo_classifier_error", error=str(exc))
+        try:
+            file_storage.seek(0)
+        except Exception:
+            pass
+        return None  # fail-open
 
 
 def _extract_gps_from_exif(img):
