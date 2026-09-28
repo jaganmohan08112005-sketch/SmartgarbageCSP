@@ -88,7 +88,7 @@ garbage needs **no new app at all**.
 | Auth/security | Flask-Login, **Flask-WTF CSRF**, Flask-Talisman, hashed OTPs, account lockout, signed tracking tokens (itsdangerous), HMAC IoT ingestion | Defense-in-depth on a civic system that stores citizen phones | JWT: we're a cookie-session server-rendered app; sessions revocation is simpler than token rotation |
 | Payments | **Razorpay + UPI** | India-native, UPI-first, webhook-capture flow with receipts | Stripe: no UPI autopay depth for small municipalities, harder KYC |
 | Messaging | **Meta WhatsApp Cloud API → Twilio → SMTP email** chain | WhatsApp is free in the citizen's 24h service window (Rs 0 at panchayat volumes), no DLT sandbox hassle; Twilio as business-initiated fallback; email (Gmail SMTP/Brevo) last — and now an explicit **"Email me the code"** MFA option | **MSG91/DLT SMS** routes need DLT registration and per-SMS cost; WhatsApp-first is both cheaper and what residents actually read |
-| ML | **scikit-learn RandomForest** (RandomForestClassifier ward miss-risk, RandomForestRegressor fill-rate, linear velocity fit for overflow ETA) | Tabular telemetry → forests train in seconds in-process, resist overfit on small data, need no feature scaling, ship as pickled `.pkl` artifacts with a transparent heuristic fallback | **TensorFlow/PyTorch**: no images/audio/text here; deep learning on 600 telemetry rows would overfit and can't retrain on a 512 MB container; **XGBoost/LightGBM**: extra dependency for a marginal delta at this data size; **HistGradientBoosting**: our features are always complete, so its NaN handling buys nothing |
+| ML | **scikit-learn RandomForest** for tabular telemetry (RandomForestClassifier ward miss-risk, RandomForestRegressor fill-rate, linear velocity fit for overflow ETA) + a **PyTorch-trained MobileNetV3 (ONNX)** for garbage-vs-non-garbage photo verification | Tabular telemetry → forests train in seconds in-process, resist overfit on small data, need no feature scaling, ship as pickled `.pkl` artifacts with a transparent heuristic fallback; the photo model is the one place deep learning earns its keep (transfer learning on 4,000 images, 6 MB ONNX, CPU inference) | **TensorFlow**: heavier runtime for the same ONNX result; **XGBoost/LightGBM**: extra dependency for a marginal delta at this data size; **HistGradientBoosting**: our features are always complete, so its NaN handling buys nothing |
 | Frontend | Jinja2 templates (46), Bootstrap 5, vanilla JS (admin.js, offline.js, chatbot.js), **service-worker PWA** | Zero build step — the Panchayat's volunteers can edit templates without a node toolchain | React/Vue SPA: build pipeline + SEO loss + no offline story without extra work; we already get installability + offline via SW |
 | Tests | pytest, **359 tests** across 8 suites, pgserver-embedded Postgres — **all green** on a full local run and gating every branch push via the `tests` workflow | Tests run against *real* Postgres (not sqlite mocks), so migration/RLS bugs surface locally; CI runs the identical harness (`run_pg_suite.py`) | — |
 | Observability | structlog, Sentry (prod-only), `/health` (DB+queue posture+worker+mail checks, incl. a starvation **warning** when Redis is configured with zero live workers), Prometheus-style `/metrics` job counters | Reviewer-visible ops story: failed jobs alert admins in-app before anyone complains | — |
@@ -140,6 +140,7 @@ gracefully and expose confidence, not a deep net pretending to know more than th
 | **Ward miss predictor** (`predict_miss` + RandomForestClassifier `ml_model.pkl`) | day_of_week, season_idx (live wttr.in weather override), complaints_last7, ward_id → miss-risk flag | Trained forest on operational history with a **transparent heuristic fallback** (≥3 complaints/week or monsoon ⇒ elevated) so `/schedule` NEVER errors when the artifact is missing | Schedule page early-warning badge |
 | **Rule-based incident triggers** (`app/routes/iot.py`) | level/temperature/methane thresholds per ping → fire/methane/overflow incidents + stuck-sensor classifier | Incident thresholds are physics, not statistics — deterministic, auditable, zero false-negative risk from a model; the "stuck sensor" detector (constant ≥95% across 5 pings) is a data-quality guard | Incident feed, emergency webhooks |
 | **Route ranking** (deterministic + ETA blend, `/api/route-optimize`) | Bins × ETA × road-distance cost | Reproducible, explainable ordering — a worker must trust and argue with a route | Worker route |
+| **Photo garbage classifier** (`_ai_verify_photo` + MobileNetV3-Small `photo_classifier.onnx`) | citizen photo upload → garbage / non-garbage + probability | Transfer learning beats from-scratch on 4,000 images; runs in-process on CPU via onnxruntime (6.3 MB, single-threaded) with **fail-open** semantics — a model outage can never block a report | /report + /report-illegal upload gates |
 
 **Q. Why not a neural net / LSTM for prediction?**
 No long history (the dataset question above), 512 MB container, and the decisions ("empty bin X
@@ -152,6 +153,15 @@ net would; they need **no feature scaling** (mixed units: %, ppm, °C, weekday);
 **feature importances** a reviewer can inspect; and a forest retrain inside the app process takes
 seconds — required by `model_retraining_job` on a 512 MB free-tier container. Artifacts are pickled
 (`ml_model.pkl` classifier, `ml_fill_model.pkl` regressor) and hot-swapped with atomic rename.
+
+**Q. Are the artifacts reproducible from the repo?**
+Yes — every model is one command away. `python train_model.py` rebuilds both telemetry forests
+with the exact inference-time feature contracts, evaluates on a held-out split and sanity-probes
+before saving; `scripts/fetch_photo_dataset.py && scripts/train_photo_classifier.py` refetches
+the 4,000-image dataset and retrains the photo classifier (a torch checkpoint is kept so
+re-exports never retrain). Every artifact ships inside the Docker image — including
+`ml_fill_model.pkl`, which a `.dockerignore` rule once excluded and silently pushed prod onto
+the heuristic ETA path; the build now carries every trained model.
 
 **Q. How do models stay current?**
 `model_retraining_job` (RQ, retry policy 600s) retrains from the telemetry log on schedule; the
@@ -221,7 +231,7 @@ Three layers of defence (`app/routes/auth.py: register` + migration `l1m2n3o4p5q
 - Every photo passes `save_compressed_photo()` (`app/routes/__init__.py`): it is opened with **Pillow and must decode as a real image — fail-closed**. An `.exe/.php/.html` arriving with a `.jpg` extension is rejected and never stored (the old fallback stored raw bytes — an audit finding, now fixed). A complaint with an unreadable photo still files; it just carries no image.
 - The photo is re-encoded to RGB JPEG (1280 px longest edge, q=82): **all EXIF is stripped**, including location — privacy by construction.
 - **Anti-fake-report cross-check:** before compression, EXIF GPS is read and compared to the submitter's device GPS (haversine). More than **100 m apart** (`GPS_VERIFY_RADIUS_M`) → rejected: *"Photo location does not match your device location — submit a live, on-site photo."* Screenshots and internet images have no matching GPS, so they fail this check.
-- `_ai_verify_photo()` **runs a trained garbage-vs-non-garbage classifier**: a MobileNetV3-Small fine-tuned on TrashNet (waste) vs. COCO val2017 (everyday non-waste) — 4,000 images, **97.3% validation accuracy** — exported to a 6.3 MB ONNX file that ships in the Docker image and runs in-process via onnxruntime. Uploads scoring high non-waste probability are rejected with the score in the message (`PHOTO_CLASSIFIER_THRESHOLD`, 0.6 in prod), and any model error fails **open** to the decodability gate, so an inference outage can never block a citizen report. Fully reproducible: `scripts/fetch_photo_dataset.py` → `scripts/train_photo_classifier.py`.
+- `_ai_verify_photo()` **runs a trained garbage-vs-non-garbage classifier**: a MobileNetV3-Small fine-tuned on TrashNet (waste) vs. COCO val2017 (everyday non-waste) — 4,000 images, **97.3% validation accuracy** — exported to a 6.3 MB ONNX file that ships in the Docker image and runs in-process via onnxruntime. Uploads scoring high non-waste probability are rejected with the score in the message (`PHOTO_CLASSIFIER_THRESHOLD`, 0.6 in prod), and any model error fails **open** to the decodability gate, so an inference outage can never block a citizen report. Both citizen upload surfaces — `/report` and the anonymous `/report-illegal` — run this gate; worker after-photos are exempt because they photograph the *cleared* site. Fully reproducible: `scripts/fetch_photo_dataset.py` → `scripts/train_photo_classifier.py`.
 - **Close-the-loop proof:** a worker can only clear a bin/ticket by uploading a **live after-photo** — the same image pipeline validates it.
 - Storage posture: **Supabase Storage → Cloudinary → persistent disk**; a write to ephemeral `/tmp` in production is refused and alerts admins rather than silently losing photos.
 **Sound-bite:** *"We guarantee every upload is a real, on-site, metadata-stripped image; a garbage-vs-junk classifier is the next drop-in upgrade, and the pipeline is already waiting for it."*
@@ -266,7 +276,8 @@ Three layers of defence (`app/routes/auth.py: register` + migration `l1m2n3o4p5q
 ## 7. Rapid-fire (the questions panels actually ask)
 
 - **Team size / your part?** Batch of 4 (rolls 24331A4441/4434/4446/4426) — full-stack shared;
-  23 tables, 29 migrations, 359 tests are the artefact trail.
+  23 tables, 29 migrations, 359 tests, and 3 retrainable ML artifacts
+  (`train_model.py` + `scripts/train_photo_classifier.py`) are the artefact trail.
 - **Cost to run?** ₹0 today: Render free web + Supabase free Postgres; WhatsApp service messages free;
   Redis optional (in-process fallback). First paid step only if scaling beyond one ward cluster.
 - **What's not real / limitations?** Seeded telemetry + 600-row synthetic history (documented);

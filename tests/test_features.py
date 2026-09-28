@@ -2540,6 +2540,53 @@ def test_illegal_report_compresses_photo(client, app):
     assert os.path.getsize(path) < 500 * 1024
 
 
+def test_illegal_report_rejects_non_garbage_photo(app, monkeypatch):
+    """The illegal-dump upload section must refuse a non-garbage photo at the
+    upload step (same classifier gate as /report): the submission is not
+    filed and the flash carries the classifier's note."""
+    import numpy as np
+    import app.routes as routes
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]  # non_garbage dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    r = app.test_client().post('/report-illegal',
+                               data={'category': 'e-waste',
+                                     'photo': (_make_jpeg_bytes(), 'cat.jpg')},
+                               content_type='multipart/form-data',
+                               follow_redirects=True)
+    assert r.status_code == 200
+    assert b'Photo rejected' in r.data, 'flash must name the reason'
+    with app.app_context():
+        from app.models import IllegalDumpReport
+        assert IllegalDumpReport.query.count() == 0, \
+            'a submission with a rejected photo must not file a report'
+
+
+def test_illegal_report_accepts_garbage_photo(app, monkeypatch):
+    import numpy as np
+    import app.routes as routes
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[3.0, -2.0]])]  # garbage dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    r = app.test_client().post('/report-illegal',
+                               data={'category': 'e-waste',
+                                     'photo': (_make_jpeg_bytes(), 'trash.jpg')},
+                               content_type='multipart/form-data')
+    assert r.status_code in (200, 302)
+    with app.app_context():
+        from app.models import IllegalDumpReport
+        rep = IllegalDumpReport.query.order_by(IllegalDumpReport.id.desc()).first()
+        assert rep is not None and rep.scrubbed_photo is not None
+
+
 # ── Photo storage: local fallback when Cloudinary is NOT configured ──
 def test_photo_storage_local_fallback(app, monkeypatch):
     monkeypatch.delenv('CLOUDINARY_URL', raising=False)
