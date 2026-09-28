@@ -90,8 +90,8 @@ garbage needs **no new app at all**.
 | Messaging | **Meta WhatsApp Cloud API → Twilio → SMTP email** chain | WhatsApp is free in the citizen's 24h service window (Rs 0 at panchayat volumes), no DLT sandbox hassle; Twilio as business-initiated fallback; email (Gmail SMTP/Brevo) last — and now an explicit **"Email me the code"** MFA option | **MSG91/DLT SMS** routes need DLT registration and per-SMS cost; WhatsApp-first is both cheaper and what residents actually read |
 | ML | **scikit-learn RandomForest** (RandomForestClassifier ward miss-risk, RandomForestRegressor fill-rate, linear velocity fit for overflow ETA) | Tabular telemetry → forests train in seconds in-process, resist overfit on small data, need no feature scaling, ship as pickled `.pkl` artifacts with a transparent heuristic fallback | **TensorFlow/PyTorch**: no images/audio/text here; deep learning on 600 telemetry rows would overfit and can't retrain on a 512 MB container; **XGBoost/LightGBM**: extra dependency for a marginal delta at this data size; **HistGradientBoosting**: our features are always complete, so its NaN handling buys nothing |
 | Frontend | Jinja2 templates (46), Bootstrap 5, vanilla JS (admin.js, offline.js, chatbot.js), **service-worker PWA** | Zero build step — the Panchayat's volunteers can edit templates without a node toolchain | React/Vue SPA: build pipeline + SEO loss + no offline story without extra work; we already get installability + offline via SW |
-| Tests | pytest, **359 tests** across 8 suites, pgserver-embedded Postgres | Tests run against *real* Postgres (not sqlite mocks), so migration/RLS bugs surface locally | — |
-| Observability | structlog, Sentry (prod-only), `/health` (DB+queue+worker+mail checks), Prometheus-style `/metrics` job counters | Reviewer-visible ops story: failed jobs alert admins in-app before anyone complains | — |
+| Tests | pytest, **359 tests** across 8 suites, pgserver-embedded Postgres — **all green** on a full local run and gating every branch push via the `tests` workflow | Tests run against *real* Postgres (not sqlite mocks), so migration/RLS bugs surface locally; CI runs the identical harness (`run_pg_suite.py`) | — |
+| Observability | structlog, Sentry (prod-only), `/health` (DB+queue posture+worker+mail checks, incl. a starvation **warning** when Redis is configured with zero live workers), Prometheus-style `/metrics` job counters | Reviewer-visible ops story: failed jobs alert admins in-app before anyone complains | — |
 | Deploy | **Docker on Render** (gunicorn+gevent, 2 workers), `render.yaml` IaC, health-check `/health` | Reproducible image; one free web service; in-process RQ worker avoids the $7/mo worker service | Heroku (paid), Vercel (not for long-running Socket.IO + RQ) |
 
 **Q. Why is the DB "Postgres-only"? (code refuses sqlite)**
@@ -177,7 +177,7 @@ job-metrics dashboard shows retrain outcomes; a failed retrain alerts admins (de
   built — stateless app containers behind load balancer, Redis for rate-limit/socket state, RQ
   worker processes separated (`RQ_IN_PROCESS_WORKER=false` + worker service), Postgres read replicas.
   No code rewrite, only config.
-- **Measured guardrails:** `/health` (checks DB, queue depth, worker liveness, mail path),
+- **Measured guardrails:** `/health` (checks DB, mail path, storage, and the queue — a Redis backend with zero live workers is reported as a loud **"queued jobs will not run"** warning instead of a green flash),
   `/metrics` job counters, Sentry-only-in-prod, in-app dead-letter alerts.
 
 **Q. What happens when traffic spikes (collection-day morning)?**

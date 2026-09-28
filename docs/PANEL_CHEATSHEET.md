@@ -39,7 +39,7 @@ The MFA page has an explicit "Email me the code" button — staff logins work ev
 Everything degrades gracefully by design: no Redis → jobs run inline in-process; no WhatsApp keys → email path; no Cloudinary/Supabase → disk storage with loud admin alerts rather than silent loss; no network at all → the service worker serves the PWA shell and complaints queue in IndexedDB, syncing automatically on reconnect.
 
 **12. "How do you know the system actually works?"** [§2, §7]
-359 automated tests across 8 suites, running against a real embedded PostgreSQL — not SQLite mocks — so migration and RLS bugs surface locally. Plus a live `/health` endpoint that checks database, queue workers, mail path, and storage, pinged by GitHub Actions every 15 minutes. Today we also ran a 21-point end-to-end verification of every role and API on the live stack — all green.
+359 automated tests across 8 suites, running against a real embedded PostgreSQL — not SQLite mocks — so migration and RLS bugs surface locally. Plus a live `/health` endpoint that checks database, mail path, storage, and the job queue — if Redis is configured and no worker is consuming, `/health` says so out loud instead of flashing green while OTP mail silently dies — and the same suite gates every branch push in GitHub Actions. Today we also ran a 21-point end-to-end verification of every role and API on the live stack — all green.
 
 **13. "What was YOUR part in the team?"** [§7]
 Batch of four (24331A4441/4434/4446/4426), full-stack shared. The artefact trail speaks: 23 tables, 29 Alembic migrations, 131 routes in 9 blueprints, 359 tests — every line reviewable on GitHub, deployed live at smartgarbage.onrender.com today.
