@@ -36,8 +36,10 @@ services:
       # the Docker image; setting this var enables garbage-vs-non-garbage
       # classification in _ai_verify_photo (fail-open: unset/broken →
       # decodability gate only). Threshold defaults to 0.5.
+      # NOTE: the repo's app/ package lands at /app/app/ in the container
+      # (WORKDIR /app + COPY . .), hence the doubled segment.
       - key: PHOTO_CLASSIFIER_MODEL
-        value: "/app/photo_classifier.onnx"
+        value: "/app/app/photo_classifier.onnx"
       - key: PHOTO_CLASSIFIER_THRESHOLD
         value: "0.6"
       # ── Free WhatsApp (Meta Cloud API) — free text replies inside the
