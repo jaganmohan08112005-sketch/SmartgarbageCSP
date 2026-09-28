@@ -295,31 +295,52 @@ def _reset_photo_clf(monkeypatch, **overrides):
     monkeypatch.setattr(routes, '_PHOTO_CLF', state)
 
 
-def test_ai_verify_photo_without_classifier_is_fail_open(app, monkeypatch):
-    """No PHOTO_CLASSIFIER_MODEL configured → decodability gate only, the
-    historical behaviour. The upload stream must survive for the next
-    consumer (save_compressed_photo)."""
+def test_ai_verify_photo_without_classifier_is_off(app, monkeypatch):
+    """PHOTO_CLASSIFIER_MODEL=off must disable classification entirely:
+    decodability gate only, the historical note, stream still usable."""
     import io as _io
     import app.routes as routes
-    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
+    monkeypatch.setenv('PHOTO_CLASSIFIER_MODEL', 'off')
     _reset_photo_clf(monkeypatch)
     buf = _make_jpeg_bytes()
     ok, note = routes._ai_verify_photo(buf)
     assert ok is True and note == 'AI verification pending'
     buf.seek(0)  # stream still usable
+    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
 
 
-def test_ai_verify_photo_with_broken_model_fails_open(app, monkeypatch):
-    """A configured-but-broken model path must NEVER block a citizen report:
-    the classifier degrades to the decodability gate and caches the failure."""
+def test_ai_verify_photo_stale_env_path_falls_back_to_bundled(app, monkeypatch):
+    """A configured-but-missing model path (e.g. a stale Render Blueprint
+    value) must NOT disable the gate: the loader falls back to the bundled
+    artifact, so an upload still gets classified."""
     import io as _io
+    from pathlib import Path
     import app.routes as routes
     monkeypatch.setenv('PHOTO_CLASSIFIER_MODEL', 'Z:/nope/net.onnx')
     _reset_photo_clf(monkeypatch)
     buf = _make_jpeg_bytes()
     ok, note = routes._ai_verify_photo(buf)
+    if Path(routes.__file__).parent.parent.joinpath('photo_classifier.onnx').exists():
+        assert ok is True and 'AI verified' in note, note
+    else:  # repo checked out without the artifact: explicit off
+        assert ok is True and note == 'AI verification pending'
+    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
+
+
+def test_ai_verify_photo_corrupt_model_fails_open(app, tmp_path, monkeypatch):
+    """A configured-but-CORRUPT model file must never block a citizen report:
+    the classifier degrades to the decodability gate and caches the failure."""
+    import io as _io
+    import app.routes as routes
+    bad = tmp_path / 'broken.onnx'
+    bad.write_bytes(b'not-an-onnx-model')
+    monkeypatch.setenv('PHOTO_CLASSIFIER_MODEL', str(bad))
+    _reset_photo_clf(monkeypatch)
+    buf = _make_jpeg_bytes()
+    ok, note = routes._ai_verify_photo(buf)
     assert ok is True and note == 'AI verification pending'
     assert routes._PHOTO_CLF['failed'] is True  # decided once, not retried per upload
+    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
 
 
 def test_ai_verify_photo_classifies_and_rejects_non_garbage(app, monkeypatch):
@@ -356,6 +377,22 @@ def test_ai_verify_photo_accepts_garbage_photo(app, monkeypatch):
     ok, note = routes._ai_verify_photo(_make_jpeg_bytes())
     assert ok is True
     assert 'AI verified' in note
+
+
+def test_bundled_classifier_path_resolves_to_app_dir(app, monkeypatch):
+    """Regression: the auto-enable fallback must look for the bundled ONNX in
+    app/, not app/routes/ (a with_name() on this package's __init__ pointed
+    one level too deep, so production silently ran with the gate off)."""
+    from pathlib import Path
+    import app.routes as routes
+    monkeypatch.delenv('PHOTO_CLASSIFIER_MODEL', raising=False)
+    _reset_photo_clf(monkeypatch)
+    routes._load_photo_classifier()
+    if Path(routes.__file__).parent.parent.joinpath('photo_classifier.onnx').exists():
+        assert routes._PHOTO_CLF['sess'] is not None, \
+            'bundled artifact present but the loader did not activate'
+    else:
+        assert routes._PHOTO_CLF['failed'] is True  # repo without the artifact: explicit off
 
 
 # ── Smoke: report-with-photo → track page renders the image (PR #7) ──
