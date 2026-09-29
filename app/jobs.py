@@ -87,6 +87,7 @@ JOB_RETRY_POLICIES = {
     'maintenance_overdue_escalation_job': (1, [300]),   # overdue work-order escalation: single 5m retry
     'payt_reconciliation_job': (1, [300]),              # billing reconcile: single 5m retry
     'model_retraining_job': (1, [600]),                 # ML retrain: single 10m retry
+    'photo_gate_canary_job': (1, [120]),                # gate canary: single 2m retry before next sweep
 }
 
 
@@ -1488,3 +1489,291 @@ def schedule_model_retraining(interval_days=7):
             pass
     q.enqueue_in(timedelta(days=interval_days), model_retraining_job,
                  retry=_retry_for(model_retraining_job))
+
+
+# ──────────────────────────────────────────────
+# PHOTO-GATE CANARY (uptime check for the anti-fake-report classifier)
+# ──────────────────────────────────────────────
+# The classifier gate is load-bearing: a silent regression (bundled artifact
+# missing from the image, ONNX runtime breakage, a bad deploy) would wave
+# every fake report through with nobody noticing — /health alone cannot see
+# it when the failure is in the REQUEST path rather than the model file.
+# This canary exercises the REAL user flow end-to-end over HTTP: GET the
+# form (CSRF), POST an embedded ~7 KB non-garbage probe photo to the
+# anonymous /report-illegal surface, and verify the response lands on
+# ?photo=rejected. Anything else (accepted, banner missing, HTTP error) is
+# a canary failure → admin Notification + PHOTO_GATE_BREACH webhook + a
+# log line. The probe self-identifies in the description so a human can
+# tell canary traffic from abuse at a glance.
+_PHOTO_GATE_PROBE_JPEG_B64 = (
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3"
+    "Ojo6Iys/RD84QzQ5Ojf/2wBDAQoKCg0MDRoPDxo3JR8lNzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3"
+    "Nzc3Nzc3Nzf/wAARCACoAOADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUF"
+    "BAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVW"
+    "V1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi"
+    "4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAEC"
+    "AxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVm"
+    "Z2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq"
+    "8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDnLi2vLC4k1Brgy5O5QjYxx0OeDUttq012Zm1WFopQmYJn6KDx2qjpl/NdQG2Plvbqu3fK"
+    "MknuB6j61nam11ZQG2lLyQIPklUcEGosVc6WwuLCKFLWFFIIO7Axk9+fWs6/gMkUk9rfiMRsN0bc7fQVzdql/wDejilWKQ+u3d9M"
+    "1oNBcWE7XFvAZIXGGhzkg/4ZqrCuSXF7cHVFF/BkXIVVZGwNuRgjHX3Brp57eC0K3CQ5VF+cvzxjsK5i7SaS1jub+0mXyztSMEBR"
+    "/WtOOTUn0plkiUGZSY/NbB2UmC3C40t59ThuNLEfluA5fO3aKj1Z9WhjlkiuInjVQHTuo9s0zTbySy06WO5Zo2j4jcDcp+hrLSaO"
+    "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"
+    "FFAH/9k="
+)
+
+
+PHOTO_GATE_BREACH_EVENT = "PHOTO_GATE_BREACH"
+
+
+def alert_photo_gate_breach(note=''):
+    """Notify admins that the photo gate stopped rejecting the canary probe.
+
+    Mirrors alert_on_dead_letter: one in-app Notification per approved admin,
+    deduped to at most ONE alert per UTC day via a per-day link marker (a
+    persistent breach re-alerts daily, not every 30-minute sweep); SSE push
+    after commit; best-effort PHOTO_GATE_BREACH webhook. Never raises.
+    Returns the number of notifications created (0 = already alerted today)."""
+    created = 0
+    marker = f"/admin/photo-rejections#canary-{datetime.now(timezone.utc).strftime('%Y%m%d')}"
+    try:
+        with _app_ctx():
+            from .models import Notification
+            from app import db
+            if Notification.query.filter_by(link=marker).first() is not None:
+                return 0  # already alerted today
+            message = ("🚨 Photo gate canary FAILED: the non-garbage probe was "
+                       "NOT rejected by /report-illegal — fake reports may be "
+                       "getting through. Check /health's photo_classifier and "
+                       "the rejection panel.")
+            pushed = []
+            for uid in _admin_user_ids():
+                db.session.add(Notification(user_id=uid, message=message, link=marker))
+                pushed.append((uid, message))
+                created += 1
+            db.session.commit()
+            if pushed:
+                try:
+                    from .routes import _publish_user_event
+                    for uid, msg in pushed:
+                        _publish_user_event(uid, msg)
+                except Exception:
+                    pass
+    except Exception as e:
+        logger.warning("photo_gate_breach_alert_error", error=str(e))
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+        return 0
+    if created:
+        try:
+            from .routes import _dispatch_webhooks  # lazy: avoids circular import
+            _dispatch_webhooks(PHOTO_GATE_BREACH_EVENT, {
+                'check': 'photo_gate_canary',
+                'note': (note or '')[-2000:],
+            })
+        except Exception as e:
+            logger.warning("photo_gate_breach_webhook_error", error=str(e))
+    return created
+
+
+@instrument
+def photo_gate_canary_job(base_url=None):
+    """Uptime canary for the anti-fake-report photo gate (end-to-end).
+
+    Exercises the real user flow over HTTP: GET /report-illegal (fresh CSRF),
+    POST an embedded ~7 KB non-garbage probe photo (p(garbage)≈0.0002
+    locally, ~1500x under the 0.3 threshold), then verify the redirect lands
+    on ?photo=rejected. A canary failure means the gate stopped rejecting —
+    file an admin Notification, dispatch a PHOTO_GATE_BREACH webhook, and
+    raise so the RQ retry policy retries the probe before the next sweep.
+
+    No-ops (returns False, no alert) outside a deployed RENDER environment
+    so local dev / pytest / CI never probe production. Runs inside its own
+    app context via _app_ctx() (RQ workers have none).
+    """
+    with _app_ctx():
+        import io
+        import re as _re
+        import base64 as _b64
+        import requests as _requests
+
+        if os.environ.get('RENDER') != 'true' and not base_url:
+            logger.info("photo_gate_canary_skipped", reason="not deployed")
+            return False
+        base = (base_url or os.environ.get('PHOTO_GATE_CANARY_URL')
+                or 'https://smartgarbage.onrender.com').rstrip('/')
+        timeout = int(os.environ.get('PHOTO_GATE_CANARY_TIMEOUT', '60'))
+
+        s = _requests.Session()
+        s.headers['User-Agent'] = 'SmartGarbage-canary/1.0 (uptime probe)'
+        r0 = s.get(f'{base}/report-illegal', params={'canary': int(time.time())},
+                   timeout=timeout)
+        if r0.status_code != 200:
+            raise RuntimeError(f'canary GET /report-illegal -> HTTP {r0.status_code}')
+        m = _re.search(r'name="csrf_token"[^>]*value="([^"]+)"', r0.text)
+        if not m:
+            raise RuntimeError('canary GET /report-illegal: csrf token not found')
+        jpeg = _b64.b64decode(_PHOTO_GATE_PROBE_JPEG_B64)
+        r = s.post(f'{base}/report-illegal',
+                   data={'category': 'Other',
+                         'description': 'PHOTO-GATE CANARY probe - non-garbage '
+                                        'photo, self-verifying uptime check',
+                         'latitude': '12.9716', 'longitude': '77.5946',
+                         'ward': 'Test', 'csrf_token': m.group(1)},
+                   files={'photo': ('canary_probe.jpg', io.BytesIO(jpeg),
+                                    'image/jpeg')},
+                   headers={'Referer': f'{base}/report-illegal',
+                            'Origin': base},
+                   allow_redirects=True, timeout=timeout)
+        rejected = ('photo=rejected' in r.url) and \
+                   ('does not look like a waste photo' in r.text)
+        note = None
+        if not rejected:
+            rej = _re.search(r'Photo rejected[^<]{0,120}', r.text)
+            note = (f'final URL {r.url}; flash: {rej.group(0) if rej else "none"}')
+
+        # Outcome telemetry on /health jobs counters (success + failure both).
+        if not rejected:
+            alert_photo_gate_breach(note)
+            raise RuntimeError(f'photo gate did NOT reject the probe photo ({note})')
+        logger.info("photo_gate_canary_ok")
+        return True
+
+
+def schedule_photo_gate_canary(interval_minutes=30):
+    """Enqueue the next photo-gate canary run (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:photo-gate-canary:scheduled', '1', nx=True,
+                         ex=int(interval_minutes * 60)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(minutes=interval_minutes), photo_gate_canary_job,
+                 retry=_retry_for(photo_gate_canary_job))
+
+
+def _start_photo_gate_canary_thread(interval_minutes=30):
+    """Redis-free fallback scheduler for the canary (deployed hosts only).
+
+    This deployment runs with queue backend 'inline' (no REDIS_URL), so
+    RQ-scheduled periodic jobs never fire there; a daemon thread per web
+    worker runs the canary inline every PHOTO_GATE_CANARY_INTERVAL seconds
+    instead (default 1800). The rejection log's same-client dedupe window
+    and the per-day breach-alert marker keep multi-worker runs quiet.
+    No-op outside RENDER=true so local dev / pytest / CI never probe prod."""
+    if os.environ.get('RENDER') != 'true':
+        return
+    if _get_queue() is not None:
+        return  # Redis broker present: the RQ scheduler owns the cadence
+    interval = int(os.environ.get('PHOTO_GATE_CANARY_INTERVAL',
+                                  interval_minutes * 60))
+    if interval <= 0:
+        return  # 0/negative disables the thread loop (RQ path still active)
+
+    import threading
+
+    def _loop():
+        time.sleep(45)  # let boot settle (migrations, first requests)
+        while True:
+            try:
+                photo_gate_canary_job()
+            except Exception as e:
+                # alert_photo_gate_breach already fired inside the job;
+                # the next interval retries the probe.
+                logger.warning("photo_gate_canary_thread_error", error=str(e))
+            time.sleep(interval)
+
+    t = threading.Thread(target=_loop, daemon=True,
+                         name='sg-photo-gate-canary')
+    t.start()
+    logger.info("photo_gate_canary_thread_started", interval_s=interval)

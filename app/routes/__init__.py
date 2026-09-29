@@ -973,7 +973,7 @@ def _ai_verify_photo(file_storage):
          as a real image with Pillow, so an .exe named .jpg never lands.
       2. Garbage-vs-non-garbage ONNX classifier (opt-in): set
          ``PHOTO_CLASSIFIER_MODEL`` to a MobileNet-style ONNX export and
-         (optionally) ``PHOTO_CLASSIFIER_THRESHOLD`` (default 0.5). The
+         (optionally) ``PHOTO_CLASSIFIER_THRESHOLD`` (default 0.3). The
          sidecar ``<model>.json`` lists the class labels; a label containing
          'non'/'clean'/'not' marks the reject class. ANY failure — runtime
          missing, model unreadable, inference error — fails OPEN to stage 1
@@ -1117,7 +1117,11 @@ def _classify_garbage_photo(file_storage):
         probs = exp / exp.sum()
         p_reject = float(probs[clf['reject_idx']])
         import os
-        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.6'))
+        # ROC-chosen operating point (val AUC 0.996): non-garbage rejection
+        # is flat at 0.983 from 0.25–0.65, so 0.30 sits mid-plateau while
+        # halving false rejections of genuine waste vs the old 0.6
+        # (3.0% vs 6.0% bounced). Set PHOTO_CLASSIFIER_THRESHOLD to override.
+        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.3'))
         img.close()
         file_storage.seek(0)  # rewind for save_compressed_photo()
         accepted = p_reject < threshold
@@ -1195,6 +1199,20 @@ def _record_photo_rejection(surface, stage, note, file_storage):
         else:  # direct calls (tests, jobs): no request to fingerprint
             fingerprint = f'ctx:{stage}'[:64]
         thumb = _photo_rejection_thumbnail(file_storage) if file_storage is not None else None
+        # Same-client dedupe window: the uptime canary (stable UA + server
+        # egress IP) probes every 30 min and would flood the 500-row panel,
+        # evicting genuine rejections. Skip when THIS client already logged
+        # the same surface+stage within the last 6 h (also collapses
+        # repeated attempts by one spammy client — the panel is a sample,
+        # not an attempt ledger).
+        recent = PhotoRejection.query.filter(
+            PhotoRejection.fingerprint == fingerprint,
+            PhotoRejection.surface == surface,
+            PhotoRejection.stage == stage,
+            PhotoRejection.created_at >= utcnow() - timedelta(hours=6),
+        ).first()
+        if recent is not None:
+            return
         db.session.add(PhotoRejection(surface=surface, stage=stage,
                                       note=note[:200], fingerprint=fingerprint,
                                       thumbnail=thumb))

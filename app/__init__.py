@@ -1031,6 +1031,18 @@ def create_app(test_config=None):
     except Exception:
         pass
 
+    # Schedule the photo-gate canary: every 30 minutes it POSTs an embedded
+    # non-garbage probe photo to the LIVE /report-illegal and alerts admins
+    # (+ PHOTO_GATE_BREACH webhook) if the gate ever stops rejecting. The RQ
+    # scheduler is a no-op without Redis, so the daemon-thread fallback below
+    # is what actually runs on this deployment (inline queue backend).
+    try:
+        from .jobs import schedule_photo_gate_canary, _start_photo_gate_canary_thread
+        schedule_photo_gate_canary()
+        _start_photo_gate_canary_thread()
+    except Exception:
+        pass
+
     # Schema is owned by Flask-Migrate/Alembic (see migrations/). Do NOT call
     # db.create_all() here: it silently creates tables/columns matching the
     # current models, and then Alembic's own ADD COLUMN/CREATE TABLE fails with
