@@ -12,7 +12,7 @@ import structlog
 from datetime import datetime, timedelta, timezone
 from itsdangerous import URLSafeTimedSerializer
 from flask import (Blueprint, request, url_for, session, flash, current_app,
-                   has_request_context)
+                   has_request_context, g)
 from werkzeug.utils import secure_filename
 import requests
 
@@ -53,7 +53,7 @@ if sys.stdout.encoding != 'utf-8':
 from .. import db
 from ..models import (Complaint, ComplaintStatusLog, User, SmartBin, WorkerProfile, IncidentLog,
                       AuditLog, SensorHealth, OffloadLog, Notification,
-                      WasteDeclaration, BWGDeclaration,
+                      WasteDeclaration, BWGDeclaration, PhotoRejection,
                       Webhook, OfflineDelivery, utcnow)
 
 logger = structlog.get_logger("smartgarbage.routes")
@@ -998,6 +998,10 @@ def _ai_verify_photo(file_storage):
             file_storage.seek(0)
         except Exception:
             pass
+        # Log the refusal for the admin false-positive monitor before
+        # returning — fire-and-forget: monitoring must never break the gate.
+        _record_photo_rejection(None, 'decodability',
+                                f'Image could not be verified: {e}', file_storage)
         return False, f'Image could not be verified: {e}'
 
     verdict = _classify_garbage_photo(file_storage)
@@ -1120,6 +1124,9 @@ def _classify_garbage_photo(file_storage):
         note = (f"AI verified ({clf['labels'][clf['reject_idx']]} p={p_reject:.2f})"
                 if accepted else
                 f"Rejected: does not look like waste ({clf['labels'][clf['reject_idx']]} p={p_reject:.2f})")
+        if not accepted:
+            # Log the refusal for the admin false-positive monitor.
+            _record_photo_rejection(None, 'classifier', note, file_storage)
         return accepted, note
     except Exception as exc:
         logger.warning("photo_classifier_error", error=str(exc))
@@ -1128,6 +1135,90 @@ def _classify_garbage_photo(file_storage):
         except Exception:
             pass
         return None  # fail-open
+
+
+# ──────────────────────────────────────────────
+# PHOTO-REJECTION AUDIT TRAIL (admin false-positive monitor)
+# Every refusal the photo gate makes is logged with a ~112 px thumbnail so
+# /admin/photo-rejections can show WHAT was refused and WHY — that is the
+# only way to spot false positives (real waste photos bounced by the
+# classifier) and retrain. Privacy matches PageFeedback: the only stored
+# identifier is a salted fingerprint of (IP + user-agent).
+# ──────────────────────────────────────────────
+PHOTO_REJECTION_MAX_ROWS = 500          # cap table growth on the free-tier DB
+PHOTO_REJECTION_MAX_THUMB_BYTES = 32000  # ~112 px JPEG quality 70 fits well under this
+
+
+def _photo_rejection_thumbnail(file_storage):
+    """Downscale the refused upload to a ≤112 px JPEG for the admin panel.
+    Returns None on ANY failure (the row still logs, just without a thumb).
+    Rewinds the stream either way so the caller keeps working."""
+    try:
+        import io
+        from PIL import Image
+        file_storage.seek(0)
+        buf = io.BytesIO(file_storage.read())  # private copy (Pillow-12 ownership)
+        img = Image.open(buf).convert('RGB')
+        img.thumbnail((112, 112))
+        out = io.BytesIO()
+        img.save(out, format='JPEG', quality=70)
+        data = out.getvalue()
+        return data if len(data) <= PHOTO_REJECTION_MAX_THUMB_BYTES else None
+    except Exception:
+        return None
+    finally:
+        try:
+            file_storage.seek(0)
+        except Exception:
+            pass
+
+
+def _record_photo_rejection(surface, stage, note, file_storage):
+    """Persist one photo-gate refusal (surface, stage, note, fingerprint,
+    thumbnail). Best-effort: wrapped end-to-end so a monitoring failure can
+    never break the reject path; prunes the table to the newest
+    PHOTO_REJECTION_MAX_ROWS so it cannot grow without bound.
+
+    `surface=None` (helper-level callers) resolves to the route that set
+    ``g.photo_gate_surface`` when a request is active, else 'report'.
+    Safe to call without a request context (unit tests, background jobs).
+    """
+    try:
+        if surface is None and has_request_context():
+            surface = getattr(g, 'photo_gate_surface', None)
+        surface = surface or 'report'
+        if has_request_context():
+            raw = (request.headers.get('User-Agent', '') or '') + '|' + \
+                  (request.remote_addr or '')
+            salt = current_app.config.get('SECRET_KEY') or 'sg-photo-gate'
+            fingerprint = hashlib.sha256((salt + '|' + raw).encode('utf-8')).hexdigest()
+        else:  # direct calls (tests, jobs): no request to fingerprint
+            fingerprint = f'ctx:{stage}'[:64]
+        thumb = _photo_rejection_thumbnail(file_storage) if file_storage is not None else None
+        db.session.add(PhotoRejection(surface=surface, stage=stage,
+                                      note=note[:200], fingerprint=fingerprint,
+                                      thumbnail=thumb))
+        db.session.commit()
+        # Prune: keep only the newest N rows (cheap on a tiny table).
+        try:
+            cutoff = PhotoRejection.query.order_by(
+                PhotoRejection.created_at.desc(),
+                PhotoRejection.id.desc()).offset(PHOTO_REJECTION_MAX_ROWS).limit(1).all()
+            if cutoff:
+                PhotoRejection.query.filter(
+                    (PhotoRejection.created_at < cutoff[0].created_at) |
+                    ((PhotoRejection.created_at == cutoff[0].created_at) &
+                     (PhotoRejection.id <= cutoff[0].id))).delete(
+                    synchronize_session=False)
+                db.session.commit()
+        except Exception:
+            db.session.rollback()
+    except Exception as exc:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        logger.warning("photo_rejection_log_error", error=str(exc))
 
 
 def _extract_gps_from_exif(img):

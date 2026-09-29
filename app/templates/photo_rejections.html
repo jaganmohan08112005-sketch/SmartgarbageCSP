@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Photo-Gate Rejections — SmartGarbage Admin') }}{% endblock %}
+{% block content %}
+<style>
+  .rej-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: .5rem;
+               border: 1px solid #dee2e6; background: #f8f9fa; }
+  .badge-classifier { background:#fdf2f2; color:#842029; border:1px solid #f5c2c7; }
+  .badge-decodability { background:#e2e3e5; color:#383d41; border:1px solid #d3d6d8; }
+  .rej-note { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem; }
+</style>
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-5 flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="rounded-3 p-3" style="background:linear-gradient(135deg,#E67E22,#B9770E);width:60px;height:60px;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:1.8rem;">🚫</span>
+      </div>
+      <div>
+        <h1 class="fw-bold mb-0">{{ _('Photo-Gate Rejections') }}</h1>
+        <p class="text-muted mb-0">{{ _('Uploads refused by the anti-fake-report photo gate · eyeball thumbnails to spot false positives') }}</p>
+      </div>
+    </div>
+    <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">← {{ _('Admin Home') }}</a>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Total rejections') }}</div>
+        <div class="fs-3 fw-bold">{{ counts.total }}</div>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Classifier refusals') }}</div>
+        <div class="fs-3 fw-bold text-danger">{{ counts.classifier }}</div>
+        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', stage='classifier') }}">{{ _('filter') }}</a>
+      </div></div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Undecodable uploads') }}</div>
+        <div class="fs-3 fw-bold">{{ counts.decodability }}</div>
+        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', stage='decodability') }}">{{ _('filter') }}</a>
+      </div></div>
+    </div>
+  </div>
+
+  {% if stage %}<p class="text-muted small">Showing only <strong>{{ stage }}</strong> · <a href="{{ url_for('main.photo_rejections_dashboard') }}">{{ _('clear filter') }}</a></p>{% endif %}
+
+  {% if not rejections %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <div style="font-size:3rem;margin-bottom:.5rem;">✅</div>
+      <h4 class="fw-bold mb-1">{{ _('No rejections logged') }}</h4>
+      <p class="text-muted mb-0">{{ _('Every upload so far passed the photo gate. Refusals (with thumbnails) will appear here as they happen.') }}</p>
+    </div>
+  </div>
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>{{ _('Sample') }}</th>
+              <th>#</th>
+              <th>{{ _('When (UTC)') }}</th>
+              <th>{{ _('Surface') }}</th>
+              <th>{{ _('Stage') }}</th>
+              <th>{{ _('Verifier note') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rejections %}
+            <tr>
+              <td>
+                {% if r.thumbnail %}
+                  <a href="{{ url_for('main.photo_rejection_thumb', rej_id=r.id) }}" target="_blank" rel="noopener">
+                    <img class="rej-thumb" src="{{ url_for('main.photo_rejection_thumb', rej_id=r.id) }}" alt="{{ _('rejected upload') }} #{{ r.id }}">
+                  </a>
+                {% else %}
+                  <span class="text-muted small">{{ _('no thumbnail') }}</span>
+                {% endif %}
+              </td>
+              <td>{{ r.id }}</td>
+              <td class="small">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
+              <td><span class="badge bg-secondary">{{ r.surface }}</span></td>
+              <td><span class="badge badge-{{ r.stage }}">{{ r.stage }}</span></td>
+              <td class="rej-note">{{ r.note }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p class="text-muted small mt-2 mb-0">{{ _('Newest 100 shown · the log keeps the newest 500 rows total. A “does not look like waste” thumbnail that is actually waste is a false positive — feed it to the next retraining run.') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

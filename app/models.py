@@ -755,3 +755,35 @@ class DataDeletionRequest(db.Model):
     user = db.relationship('User', foreign_keys=[user_id],
                            backref=db.backref('data_deletion_requests', lazy=True))
     resolver = db.relationship('User', foreign_keys=[resolved_by])
+
+
+# ──────────────────────────────────────────────
+# v11: PHOTO-CLASSIFIER REJECTION LOG (admin false-positive monitor)
+# Every upload the photo gate refuses (stage-1 decodability or the ONNX
+# garbage-vs-non-garbage classifier) is logged here with a small thumbnail
+# so admins can eyeball false positives on /admin/photo-rejections and tune
+# the model. Privacy posture matches PageFeedback/ConsentRecord: the only
+# identifier is a salted SHA-256 fingerprint of (IP + user-agent) — the
+# submitter is anonymous (many reports are) and nothing else is stored.
+# Rows are pruned to the newest PHOTO_REJECTION_MAX_ROWS by the writer.
+# Thumbnails live in the DB (LargeBinary) on purpose: containers are
+# ephemeral, the local disk vanishes on deploy, and mirroring rejected
+# uploads to Cloudinary would give abuse reports a longer life than the
+# report they were refused for. A ~112 px JPEG is a few KB — Postgres
+# handles that comfortably.
+# ──────────────────────────────────────────────
+class PhotoRejection(db.Model):
+    __tablename__ = 'photo_rejection'
+    __table_args__ = (
+        # Panel query: newest first; the writer prunes by created_at.
+        db.Index('ix_photo_rejection_created', 'created_at'),
+        # Per-surface counts (report vs report-illegal vs decodability).
+        db.Index('ix_photo_rejection_stage', 'stage', 'created_at'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    surface = db.Column(db.String(40), nullable=False)   # 'report' | 'report-illegal'
+    stage = db.Column(db.String(20), nullable=False)     # 'decodability' | 'classifier'
+    note = db.Column(db.String(200), nullable=False)     # the flash text shown to the reporter
+    fingerprint = db.Column(db.String(64), nullable=False)  # salted sha256(ip + user_agent)
+    thumbnail = db.Column(db.LargeBinary, nullable=True)    # ~112px JPEG, ≤ ~32 KB
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)

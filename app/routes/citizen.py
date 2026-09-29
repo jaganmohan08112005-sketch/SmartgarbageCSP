@@ -2,7 +2,8 @@ import os
 
 from datetime import datetime, timedelta, timezone
 
-from flask import (Response, abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for)
+from flask import (Response, abort, current_app, flash, g, jsonify, redirect,
+                   render_template, request, session, url_for)
 
 from ..models import (BWGDeclaration, Complaint, IllegalDumpReport, Notification,
                       NotificationPreference, PAYTInvoice, SmartBin, User,
@@ -602,6 +603,9 @@ def payt_invoice_list():
 @limiter.limit("10/hour")
 def report_illegal():
     if request.method == 'POST':
+        # Tag this request so photo-gate refusals log the right surface on
+        # the admin false-positive monitor (/admin/photo-rejections).
+        g.photo_gate_surface = 'report-illegal'
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
         category = request.form.get('category', 'Unknown')
@@ -617,6 +621,9 @@ def report_illegal():
             # the /report path.
             ai_verified, ai_note = _ai_verify_photo(file)
             if not ai_verified:
+                # The refusal is already logged (with thumbnail) for the admin
+                # monitor by _ai_verify_photo itself — surface is read from
+                # g.photo_gate_surface, so no route-level logging needed here.
                 flash(f'Photo rejected: {ai_note}', 'error')
                 # Anonymous reporters hold no session, so the flash alone is
                 # lost on redirect — carry the outcome in the URL too.
@@ -723,6 +730,9 @@ def bwg_ledger():
 @limiter.limit("15/hour")
 def report():
     if request.method == 'POST':
+        # Tag this request so photo-gate refusals log the right surface on
+        # the admin false-positive monitor (/admin/photo-rejections).
+        g.photo_gate_surface = 'report'
         uid = session.get('user_id')
         name = (request.form.get('name') or '').strip() or 'Anonymous Resident'
         phone = (request.form.get('phone') or '').strip()
@@ -778,6 +788,8 @@ def report():
             # AI image-verification pipeline placeholder (anti-fake-report).
             ai_verified, ai_note = _ai_verify_photo(file)
             if not ai_verified:
+                # Already logged (with thumbnail) for the admin monitor by
+                # _ai_verify_photo itself — see g.photo_gate_surface above.
                 # Surface the verifier's verdict (decodability failure or the
                 # classifier's non-garbage score) so the reporter knows why.
                 flash(f'Photo rejected: {ai_note}', 'error')

@@ -1,11 +1,12 @@
 import hashlib
+import io
 import math
 import os
 import random
 import requests
 from datetime import datetime
 
-from flask import (current_app, flash, jsonify, redirect, render_template, request, session, send_file, url_for)
+from flask import (abort, current_app, flash, jsonify, redirect, render_template, request, session, send_file, url_for)
 
 from werkzeug.utils import secure_filename
 
@@ -15,7 +16,7 @@ from ..models import (AuditLog, BWGDeclaration, Complaint, ConsentRecord,
                       DataDeletionRequest,
                       DispatchAssignment, FirmwareRelease, IllegalDumpReport,
                       IncidentLog, MaintenanceWorkOrder, Notification,
-                      OfflineDelivery, PageFeedback, PAYTInvoice,
+                      OfflineDelivery, PageFeedback, PAYTInvoice, PhotoRejection,
                       PushNotificationLog, PushSubscription, SensorHealth, SmartBin,
                       SurveyResponse, User, Webhook, WorkerProfile, utcnow)
 
@@ -1119,6 +1120,43 @@ def failed_jobs_clear():
     write_audit("FAILED_JOBS_CLEAR", detail=f"{n} job(s) purged")
     flash(f"Cleared {n} failed job(s) from the dead-letter queue.", "success")
     return redirect(url_for('main.failed_jobs_dashboard'))
+
+
+# ──────────────────────────────────────────────
+# PHOTO-REJECTION MONITOR (photo-gate false positives)
+# Every upload the photo gate refuses is logged with a ~112 px thumbnail;
+# eyeballing those thumbnails is the only way to spot false positives
+# (real waste photos bounced by the classifier) and decide on retraining.
+# ──────────────────────────────────────────────
+@main.route('/admin/photo-rejections')
+@admin_required
+def photo_rejections_dashboard():
+    stage = request.args.get('stage') or None
+    q = PhotoRejection.query
+    if stage in ('classifier', 'decodability'):
+        q = q.filter(PhotoRejection.stage == stage)
+    rejections = q.order_by(PhotoRejection.created_at.desc(),
+                            PhotoRejection.id.desc()).limit(100).all()
+    counts = {
+        'total': PhotoRejection.query.count(),
+        'classifier': PhotoRejection.query.filter_by(stage='classifier').count(),
+        'decodability': PhotoRejection.query.filter_by(stage='decodability').count(),
+    }
+    return render_template('photo_rejections.html', rejections=rejections,
+                           counts=counts, stage=stage)
+
+
+@main.route('/admin/photo-rejections/<int:rej_id>/thumb')
+@admin_required
+def photo_rejection_thumb(rej_id):
+    """Serve the stored thumbnail. The bytes live in the DB on purpose:
+    containers are ephemeral and a refused upload should not get a longer
+    life in object storage than the report it was refused for."""
+    rej = PhotoRejection.query.get_or_404(rej_id)
+    if not rej.thumbnail:
+        abort(404)
+    return send_file(io.BytesIO(rej.thumbnail), mimetype='image/jpeg',
+                     download_name=f'photo_rejection_{rej_id}.jpg')
 
 
 # ──────────────────────────────────────────────
