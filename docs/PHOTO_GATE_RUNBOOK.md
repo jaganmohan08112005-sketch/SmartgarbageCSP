@@ -57,16 +57,21 @@ running inference (useful for shadow-mode measurements).
 
 ## 3. Threshold tuning
 
-Accept rule: an upload passes when `p(garbage) > PHOTO_CLASSIFIER_THRESHOLD`
-(default **0.3**, ROC-chosen — see below). Override via the dashboard env var.
+Accept rule: an upload passes when `p_reject < PHOTO_CLASSIFIER_THRESHOLD`
+(default **0.7**, ROC-chosen — see below). Override via the dashboard env var.
+**Mind the semantics**: the threshold compares against the NON-GARBAGE
+probability. The chosen operating point is "accept genuine waste when
+p(garbage) > 0.30", which is a p_reject threshold of 0.70 — writing 0.3 here
+would mean p(garbage) > 0.70 and bounce 7.5% of real waste photos.
 
 The operating point was chosen from the validation-set ROC (AUC 0.9959):
-non-garbage rejection is **flat at 0.983 across thresholds 0.25–0.65**, while
-waste-photo acceptance climbs as the threshold drops. 0.30 sits mid-plateau:
-3.0% of genuine waste photos are bounced (vs 6.0% at the old 0.6) at
-unchanged strictness. Lower than ~0.25 starts eroding strictness (0.977 at
-0.10, 0.973 at 0.05) — only go there if the rejection panel (§5) shows
-residual false positives and the panchayat tolerates more fake reports.
+non-garbage rejection is **flat at 0.983 across p(garbage) thresholds
+0.25–0.65**, while waste-photo acceptance climbs as the threshold drops. The
+0.30-p_garbage point sits mid-plateau: 3.0% of genuine waste photos are
+bounced (vs 6.0% before) at unchanged strictness. Pushing p(garbage) lower
+than ~0.25 starts eroding strictness (0.977 at 0.10, 0.973 at 0.05) — only
+go there if the rejection panel (§5) shows residual false positives and the
+panchayat tolerates more fake reports.
 
 ## 4. Monitoring: the photo-gate canary
 
