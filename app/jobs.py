@@ -1740,3 +1740,40 @@ def schedule_photo_gate_canary(interval_minutes=30):
             pass
     q.enqueue_in(timedelta(minutes=interval_minutes), photo_gate_canary_job,
                  retry=_retry_for(photo_gate_canary_job))
+
+
+def _start_photo_gate_canary_thread(interval_minutes=30):
+    """Redis-free fallback scheduler for the canary (deployed hosts only).
+
+    This deployment runs with queue backend 'inline' (no REDIS_URL), so
+    RQ-scheduled periodic jobs never fire there; a daemon thread per web
+    worker runs the canary inline every PHOTO_GATE_CANARY_INTERVAL seconds
+    instead (default 1800). The rejection log's same-client dedupe window
+    and the per-day breach-alert marker keep multi-worker runs quiet.
+    No-op outside RENDER=true so local dev / pytest / CI never probe prod."""
+    if os.environ.get('RENDER') != 'true':
+        return
+    if _get_queue() is not None:
+        return  # Redis broker present: the RQ scheduler owns the cadence
+    interval = int(os.environ.get('PHOTO_GATE_CANARY_INTERVAL',
+                                  interval_minutes * 60))
+    if interval <= 0:
+        return  # 0/negative disables the thread loop (RQ path still active)
+
+    import threading
+
+    def _loop():
+        time.sleep(45)  # let boot settle (migrations, first requests)
+        while True:
+            try:
+                photo_gate_canary_job()
+            except Exception as e:
+                # alert_photo_gate_breach already fired inside the job;
+                # the next interval retries the probe.
+                logger.warning("photo_gate_canary_thread_error", error=str(e))
+            time.sleep(interval)
+
+    t = threading.Thread(target=_loop, daemon=True,
+                         name='sg-photo-gate-canary')
+    t.start()
+    logger.info("photo_gate_canary_thread_started", interval_s=interval)

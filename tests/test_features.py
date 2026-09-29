@@ -2861,6 +2861,20 @@ def test_photo_gate_canary_passes_when_gate_rejects(app, monkeypatch):
         assert Notification.query.count() == 0
 
 
+def test_photo_gate_canary_thread_guardrails(app, monkeypatch):
+    """The Redis-free canary thread only starts on RENDER=true with no queue,
+    and PHOTO_GATE_CANARY_INTERVAL=0 disables it (kill switch)."""
+    from app import jobs as jobs_mod
+    monkeypatch.delenv('REDIS_URL', raising=False)
+    # No RENDER -> no thread.
+    monkeypatch.delenv('RENDER', raising=False)
+    assert jobs_mod._start_photo_gate_canary_thread() is None
+    # RENDER=true but PHOTO_GATE_CANARY_INTERVAL=0 -> disabled.
+    monkeypatch.setenv('RENDER', 'true')
+    monkeypatch.setenv('PHOTO_GATE_CANARY_INTERVAL', '0')
+    assert jobs_mod._start_photo_gate_canary_thread() is None
+
+
 # ── Photo storage: local fallback when Cloudinary is NOT configured ──
 def test_photo_storage_local_fallback(app, monkeypatch):
     monkeypatch.delenv('CLOUDINARY_URL', raising=False)
