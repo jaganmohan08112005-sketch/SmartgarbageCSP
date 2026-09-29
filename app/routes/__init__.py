@@ -1132,8 +1132,11 @@ def _classify_garbage_photo(file_storage):
                 if accepted else
                 f"Rejected: does not look like waste ({clf['labels'][clf['reject_idx']]} p={p_reject:.2f})")
         if not accepted:
-            # Log the refusal for the admin false-positive monitor.
-            _record_photo_rejection(None, 'classifier', note, file_storage)
+            # Log the refusal for the admin false-positive monitor (the score
+            # rides along so the harvest job can flag near-threshold rows as
+            # UNCERTAIN and admins can relabel false positives).
+            _record_photo_rejection(None, 'classifier', note, file_storage,
+                                    p_reject=p_reject)
         return accepted, note
     except Exception as exc:
         logger.warning("photo_classifier_error", error=str(exc))
@@ -1180,11 +1183,12 @@ def _photo_rejection_thumbnail(file_storage):
             pass
 
 
-def _record_photo_rejection(surface, stage, note, file_storage):
+def _record_photo_rejection(surface, stage, note, file_storage, p_reject=None):
     """Persist one photo-gate refusal (surface, stage, note, fingerprint,
-    thumbnail). Best-effort: wrapped end-to-end so a monitoring failure can
-    never break the reject path; prunes the table to the newest
-    PHOTO_REJECTION_MAX_ROWS so it cannot grow without bound.
+    thumbnail, and the classifier's p_reject when known). Best-effort:
+    wrapped end-to-end so a monitoring failure can never break the reject
+    path; prunes the table to the newest PHOTO_REJECTION_MAX_ROWS so it
+    cannot grow without bound.
 
     `surface=None` (helper-level callers) resolves to the route that set
     ``g.photo_gate_surface`` when a request is active, else 'report'.
@@ -1218,7 +1222,7 @@ def _record_photo_rejection(surface, stage, note, file_storage):
             return
         db.session.add(PhotoRejection(surface=surface, stage=stage,
                                       note=note[:200], fingerprint=fingerprint,
-                                      thumbnail=thumb))
+                                      thumbnail=thumb, p_reject=p_reject))
         db.session.commit()
         # Prune: keep only the newest N rows (cheap on a tiny table).
         try:

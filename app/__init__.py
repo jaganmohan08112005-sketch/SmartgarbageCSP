@@ -1037,9 +1037,16 @@ def create_app(test_config=None):
     # scheduler is a no-op without Redis, so the daemon-thread fallback below
     # is what actually runs on this deployment (inline queue backend).
     try:
-        from .jobs import schedule_photo_gate_canary, _start_photo_gate_canary_thread
+        from .jobs import (schedule_photo_gate_canary,
+                           _start_photo_gate_canary_thread,
+                           schedule_photo_gate_relabel_harvest,
+                           _start_photo_gate_harvest_thread)
         schedule_photo_gate_canary()
         _start_photo_gate_canary_thread()
+        # Every 6h: flag uncertain photo-gate rejections (p_reject near the
+        # threshold) for admin review — the relabel workflow's intake pump.
+        schedule_photo_gate_relabel_harvest()
+        _start_photo_gate_harvest_thread()
     except Exception:
         pass
 

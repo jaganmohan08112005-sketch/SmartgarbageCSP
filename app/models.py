@@ -786,4 +786,20 @@ class PhotoRejection(db.Model):
     note = db.Column(db.String(200), nullable=False)     # the flash text shown to the reporter
     fingerprint = db.Column(db.String(64), nullable=False)  # salted sha256(ip + user_agent)
     thumbnail = db.Column(db.LargeBinary, nullable=True)    # ~112px JPEG, ≤ ~32 KB
+    p_reject = db.Column(db.Float, nullable=True)           # classifier non-garbage score (NULL for decodability rows)
+    # Admin relabel workflow (false-positive monitoring → retraining feed):
+    #   auto        default — recorded by the gate, untouched by humans
+    #   pending     harvest job flagged it as UNCERTAIN (p_reject near the
+    #               threshold) — an admin should eyeball it
+    #   garbage     admin says it IS waste (a false positive) — queued for
+    #               the next retraining batch
+    #   not_garbage admin confirms the rejection was correct
+    #   dismissed   admin says the row is noise (test probes etc.)
+    relabel_status = db.Column(db.String(20), nullable=False, server_default='auto',
+                               default='auto', index=True)
+    relabeled_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    relabeled_at = db.Column(db.DateTime, nullable=True)
+    batched_at = db.Column(db.DateTime, nullable=True)  # last export into a retrain ZIP
     created_at = db.Column(db.DateTime, default=utcnow, index=True)
+
+    relabeler = db.relationship('User', foreign_keys=[relabeled_by])
