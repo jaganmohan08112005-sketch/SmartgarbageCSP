@@ -18,6 +18,7 @@ open on any error — so the exported contract here must match it.
 import argparse
 import json
 import random
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -42,9 +43,12 @@ def build_loaders(data_dir: Path, size: int, batch: int):
         transforms.ToTensor(),
         transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ])
+    # Val/eval transform MUST match the runtime contract (direct resize to
+    # the model input — see _classify_garbage_photo). The previous
+    # Resize(256)+CenterCrop(224) inflated offline val_acc (~+6 pts) relative
+    # to what production actually scores.
     val_tf = transforms.Compose([
-        transforms.Resize(int(size * 256 / 224)),
-        transforms.CenterCrop(size),
+        transforms.Resize((size, size)),
         transforms.ToTensor(),
         transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ])
@@ -97,8 +101,33 @@ def export_onnx(model, size: int, out: Path):
     labels = {'labels': CLASSES, 'reject_label': 'non_garbage',
               'input_size': size,
               'preprocess': {'resize': size, 'mean': IMAGENET_MEAN, 'std': IMAGENET_STD},
-              'trained_on': 'TrashNet (garbage) + COCO val2017 (non-garbage), MobileNetV3-Small'}
+              'trained_on': 'TrashNet (garbage) + COCO val2017 + Wikimedia '
+                            'hard negatives: Landfills/Dumpsters/Streets/Roads/'
+                            'Parks as non_garbage (dump-yard + clean-scene), '
+                            'MobileNetV3-Small'}
     out.with_suffix('.onnx.json').write_text(json.dumps(labels, indent=2), encoding='utf-8')
+
+
+def oversample_hard_negatives(data_dir: Path, copies: int):
+    """Duplicate hard-negative train files (dumpyard_/dumpster_/street_/
+    road_/park_/streetin_/roadin_ prefixes) `copies` extra times so the
+    small hard-negative set carries real weight against ~2k COCO scenes.
+    Deterministic, filesystem-level, and self-cleaning on the next fetch
+    (dup files are named <stem>__dup<k>.jpg)."""
+    train_dir = data_dir / 'train' / 'non_garbage'
+    n = 0
+    for f in sorted(train_dir.iterdir()):
+        if not f.name.endswith('.jpg') or '__dup' in f.name:
+            continue
+        if not f.name.startswith(('dumpyard_', 'dumpster_', 'street_',
+                                  'road_', 'park_', 'streetin_', 'roadin_')):
+            continue
+        for k in range(1, copies + 1):
+            dst = train_dir / f'{f.stem}__dup{k}.jpg'
+            if not dst.exists():
+                shutil.copyfile(f, dst)
+            n += 1
+    print(f'[oversample] +{n} hard-negative copies (x{copies + 1} effective)')
 
 
 def main():
@@ -110,6 +139,9 @@ def main():
     ap.add_argument('--out', default=str(ROOT / 'app' / 'photo_classifier.onnx'))
     ap.add_argument('--export-only', action='store_true',
                     help='re-export ONNX from the saved .pt checkpoint (no training)')
+    ap.add_argument('--hard-neg-oversample', type=int, default=0,
+                    help='duplicate hard-negative train files N extra times '
+                         'before training (they are scarce by design)')
     args = ap.parse_args()
 
     data_dir = Path(args.data)
@@ -120,6 +152,8 @@ def main():
     torch.manual_seed(42)
     random.seed(42)
 
+    if args.hard_neg_oversample > 0:
+        oversample_hard_negatives(data_dir, args.hard_neg_oversample)
     train_loader, val_loader = build_loaders(data_dir, args.size, args.batch)
     print(f'[data] train={len(train_loader.dataset)} val={len(val_loader.dataset)}')
 

@@ -18,5 +18,5 @@
       0.225
     ]
   },
-  "trained_on": "TrashNet (garbage) + COCO val2017 (non-garbage), MobileNetV3-Small"
+  "trained_on": "TrashNet (garbage) + COCO val2017 + Wikimedia hard negatives: Landfills/Dumpsters/Streets/Roads/Parks as non_garbage (dump-yard + clean-scene), MobileNetV3-Small"
 }
