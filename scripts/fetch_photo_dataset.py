@@ -200,6 +200,9 @@ HARD_NEGATIVE_SOURCES = [
     ('Streets', 'street'),
     ('Roads', 'road'),
     ('Parks', 'park'),
+    # Bigger photographic pools for the clean-scene negatives.
+    ('Streets in India', 'streetin'),
+    ('Roads in India', 'roadin'),
 ]
 
 
