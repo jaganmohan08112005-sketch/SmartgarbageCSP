@@ -2680,6 +2680,33 @@ def test_photo_rejection_decodability_stage_logged(app, monkeypatch):
         assert rej.thumbnail is None  # nothing decodable to thumbnail
 
 
+def test_photo_rejection_same_client_deduped_within_window(app, monkeypatch):
+    """Repeated rejections from the SAME client (same fingerprint — e.g. the
+    30-minute uptime canary) collapse into one row per surface+stage inside
+    a 6-hour window, so the 500-row panel keeps sampling real traffic instead
+    of filling with canary rows."""
+    import numpy as np
+    import app.routes as routes
+    from app.models import PhotoRejection
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    c = app.test_client()
+    for _ in range(3):  # three identical probes, same test client
+        c.post('/report-illegal',
+               data={'category': 'e-waste',
+                     'photo': (_make_jpeg_bytes(), 'cat.jpg')},
+               content_type='multipart/form-data')
+    with app.app_context():
+        rows = PhotoRejection.query.filter_by(surface='report-illegal',
+                                              stage='classifier').all()
+        assert len(rows) == 1, f'expected 1 deduped row, got {len(rows)}'
+
+
 def test_accepted_photo_logs_no_rejection(app, monkeypatch):
     """Photos the gate ACCEPTS must never land in the rejection log — the
     panel stays a false-positive monitor, not an upload history."""
@@ -2744,6 +2771,94 @@ def test_admin_photo_rejections_panel_and_thumb(app, monkeypatch):
     assert client.get('/admin/photo-rejections?stage=classifier').status_code == 200
     assert client.get('/admin/photo-rejections?stage=bogus').status_code == 200
     assert client.get('/admin/photo-rejections/999999/thumb').status_code == 404
+
+
+# ── Photo-gate uptime canary (periodic end-to-end probe) ──
+def test_photo_gate_canary_detects_breach(app, monkeypatch):
+    """When the gate stops rejecting, the canary must alert every admin
+    (deduped to one notification per UTC day) and raise."""
+    from app import jobs as jobs_mod
+    from app.models import Notification
+
+    class FakeResp:
+        status_code = 200
+        text = '<input type="hidden" name="csrf_token" value="tok">'
+        url = 'https://smartgarbage.onrender.com/report-illegal'
+
+    class FakeSession:
+        headers = {}
+
+        def get(self, *a, **k):
+            return FakeResp()
+
+        def post(self, *a, **k):
+            r = FakeResp()
+            r.url = 'https://smartgarbage.onrender.com/report-illegal?submitted=1'
+            r.text = 'Anonymous report submitted'
+            return r
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, 'Session', lambda: FakeSession())
+    # Base64 decode must yield real JPEG bytes for the multipart upload.
+    import base64 as _b64
+    monkeypatch.setattr(jobs_mod, '_PHOTO_GATE_PROBE_JPEG_B64',
+                        _b64.b64encode(_make_jpeg_bytes().read()).decode())
+
+    _make_user(app, 'canaryadmin', role='admin')
+    with app.app_context():
+        try:
+            jobs_mod.photo_gate_canary_job(base_url='http://localhost:1')
+            raised = False
+        except RuntimeError as e:
+            raised = True
+            assert 'did NOT reject' in str(e)
+        assert raised, 'accepted probe must raise a canary failure'
+        from app.models import User as U
+        admin = U.query.filter_by(username='canaryadmin').first()
+        notes = Notification.query.filter_by(user_id=admin.id).all()
+        assert notes, 'canary breach must notify admins'
+        assert 'canary FAILED' in notes[0].message
+        assert notes[0].link.startswith('/admin/photo-rejections#canary-')
+        # Re-running the same day must dedupe to zero new notifications.
+        assert jobs_mod.alert_photo_gate_breach('retry note') == 0
+
+
+def test_photo_gate_canary_passes_when_gate_rejects(app, monkeypatch):
+    """A rejecting gate (photo=rejected + banner in the final response) is a
+    clean canary run: returns True, files no notifications."""
+    from app import jobs as jobs_mod
+    from app.models import Notification
+
+    class FakeResp:
+        status_code = 200
+        text = '<input type="hidden" name="csrf_token" value="tok">'
+        url = 'https://smartgarbage.onrender.com/report-illegal'
+
+    class FakeSession:
+        headers = {}
+
+        def get(self, *a, **k):
+            return FakeResp()
+
+        def post(self, *a, **k):
+            r = FakeResp()
+            r.url = 'https://smartgarbage.onrender.com/report-illegal?photo=rejected'
+            r.text = 'does not look like a waste photo'
+            return r
+
+    import requests as _requests
+    monkeypatch.setattr(_requests, 'Session', lambda: FakeSession())
+    import base64 as _b64
+    monkeypatch.setattr(jobs_mod, '_PHOTO_GATE_PROBE_JPEG_B64',
+                        _b64.b64encode(_make_jpeg_bytes().read()).decode())
+
+    try:
+        result = jobs_mod.photo_gate_canary_job(base_url='http://localhost:1')
+        assert result is True
+    except RuntimeError:
+        raise AssertionError('a rejecting gate must pass the canary')
+    with app.app_context():
+        assert Notification.query.count() == 0
 
 
 # ── Photo storage: local fallback when Cloudinary is NOT configured ──
