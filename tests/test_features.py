@@ -2624,6 +2624,128 @@ def test_illegal_report_accepts_garbage_photo(app, monkeypatch):
         assert rep is not None and rep.scrubbed_photo is not None
 
 
+# ── Photo-rejection audit trail (admin false-positive monitor) ──
+def test_photo_rejection_logged_with_thumbnail(app, monkeypatch):
+    """A classifier refusal is persisted with the right surface/stage/note, a
+    salted fingerprint (never a raw IP), and a decodable ≤112 px JPEG
+    thumbnail so admins can eyeball false positives on the panel."""
+    import io
+    import numpy as np
+    from PIL import Image
+    import app.routes as routes
+    from app.models import PhotoRejection
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]  # non_garbage dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    r = app.test_client().post('/report-illegal',
+                               data={'category': 'e-waste',
+                                     'photo': (_make_jpeg_bytes(), 'cat.jpg')},
+                               content_type='multipart/form-data')
+    assert r.status_code in (200, 302)
+    with app.app_context():
+        rej = PhotoRejection.query.order_by(PhotoRejection.id.desc()).first()
+        assert rej is not None, 'classifier refusal must be logged'
+        assert rej.surface == 'report-illegal'   # g.photo_gate_surface marker
+        assert rej.stage == 'classifier'
+        assert 'Rejected: does not look like waste' in rej.note
+        assert len(rej.fingerprint) == 64        # salted sha256 — no raw IP/UA
+        assert rej.thumbnail and rej.thumbnail[:3] == b'\xff\xd8\xff'  # JPEG magic
+        thumb = Image.open(io.BytesIO(rej.thumbnail))
+        thumb.verify()                            # fully decodable
+        thumb2 = Image.open(io.BytesIO(rej.thumbnail))
+        assert max(thumb2.size) <= 112
+
+
+def test_photo_rejection_decodability_stage_logged(app, monkeypatch):
+    """An upload that cannot decode (an .exe named .jpg) is logged at the
+    decodability stage with no thumbnail — and still refused."""
+    import io
+    import app.routes as routes
+    from app.models import PhotoRejection
+    _reset_photo_clf(monkeypatch)
+    r = app.test_client().post('/report-illegal',
+                               data={'category': 'e-waste',
+                                     'photo': (io.BytesIO(b'not-an-image'), 'fake.jpg')},
+                               content_type='multipart/form-data')
+    assert r.status_code in (200, 302)
+    with app.app_context():
+        rej = PhotoRejection.query.order_by(PhotoRejection.id.desc()).first()
+        assert rej is not None
+        assert rej.stage == 'decodability'
+        assert rej.surface == 'report-illegal'
+        assert rej.thumbnail is None  # nothing decodable to thumbnail
+
+
+def test_accepted_photo_logs_no_rejection(app, monkeypatch):
+    """Photos the gate ACCEPTS must never land in the rejection log — the
+    panel stays a false-positive monitor, not an upload history."""
+    import numpy as np
+    import app.routes as routes
+    from app.models import PhotoRejection
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[3.0, -2.0]])]  # garbage dominates
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    app.test_client().post('/report-illegal',
+                           data={'category': 'e-waste',
+                                 'photo': (_make_jpeg_bytes(), 'trash.jpg')},
+                           content_type='multipart/form-data')
+    with app.app_context():
+        assert PhotoRejection.query.count() == 0
+
+
+def test_admin_photo_rejections_panel_and_thumb(app, monkeypatch):
+    """The admin panel lists refusals with thumbnails and stage filters;
+    anonymous visitors are bounced to login; missing thumbs 404."""
+    import numpy as np
+    import app.routes as routes
+    from app.models import PhotoRejection
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    app.test_client().post('/report-illegal',
+                           data={'category': 'e-waste',
+                                 'photo': (_make_jpeg_bytes(), 'cat.jpg')},
+                           content_type='multipart/form-data')
+    with app.app_context():
+        rej = PhotoRejection.query.order_by(PhotoRejection.id.desc()).first()
+        assert rej is not None
+        rej_id = rej.id
+
+    # Anonymous users must not see the panel.
+    anon = app.test_client().get('/admin/photo-rejections')
+    assert anon.status_code == 302
+    assert '/login' in (anon.headers.get('Location') or '')
+
+    _make_user(app, 'rejviewer', role='admin')
+    client = app.test_client()
+    _login_admin(client, app, 'rejviewer')
+    page = client.get('/admin/photo-rejections')
+    assert page.status_code == 200
+    assert 'Photo-Gate Rejections' in page.get_data(as_text=True)
+    assert b'report-illegal' in page.data
+    assert f'/admin/photo-rejections/{rej_id}/thumb'.encode() in page.data
+
+    # Thumbnail endpoint serves the stored JPEG bytes.
+    t = client.get(f'/admin/photo-rejections/{rej_id}/thumb')
+    assert t.status_code == 200 and t.data[:3] == b'\xff\xd8\xff'
+    # Stage filter (valid and ignored-invalid) and a missing row.
+    assert client.get('/admin/photo-rejections?stage=classifier').status_code == 200
+    assert client.get('/admin/photo-rejections?stage=bogus').status_code == 200
+    assert client.get('/admin/photo-rejections/999999/thumb').status_code == 404
+
+
 # ── Photo storage: local fallback when Cloudinary is NOT configured ──
 def test_photo_storage_local_fallback(app, monkeypatch):
     monkeypatch.delenv('CLOUDINARY_URL', raising=False)
