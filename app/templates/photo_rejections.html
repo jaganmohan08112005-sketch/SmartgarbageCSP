@@ -6,7 +6,13 @@
                border: 1px solid #dee2e6; background: #f8f9fa; }
   .badge-classifier { background:#fdf2f2; color:#842029; border:1px solid #f5c2c7; }
   .badge-decodability { background:#e2e3e5; color:#383d41; border:1px solid #d3d6d8; }
+  .badge-auto { background:#e2e3e5; color:#383d41; }
+  .badge-pending { background:#fff8e1; color:#664d03; border:1px solid #ffe69c; }
+  .badge-garbage { background:#d1e7dd; color:#0a3622; border:1px solid #a3cfbb; }
+  .badge-not_garbage { background:#cfe2ff; color:#084298; border:1px solid #b6d4fe; }
+  .badge-dismissed { background:#f8f9fa; color:#6c757d; }
   .rej-note { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem; }
+  .rej-actions form { display: inline; }
 </style>
 <div class="container-fluid py-4">
   <div class="d-flex align-items-center justify-content-between mb-5 flex-wrap gap-3">
@@ -16,43 +22,65 @@
       </div>
       <div>
         <h1 class="fw-bold mb-0">{{ _('Photo-Gate Rejections') }}</h1>
-        <p class="text-muted mb-0">{{ _('Uploads refused by the anti-fake-report photo gate · eyeball thumbnails to spot false positives') }}</p>
+        <p class="text-muted mb-0">{{ _('Uploads refused by the anti-fake-report photo gate · relabel false positives to feed the next retraining batch') }}</p>
       </div>
     </div>
-    <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">← {{ _('Admin Home') }}</a>
+    <div class="d-flex gap-2">
+      {% if counts.garbage > 0 %}
+      <a href="{{ url_for('main.photo_rejection_retrain_batch') }}" class="btn btn-success">
+        ⬇️ {{ _('Export retrain batch') }} ({{ counts.garbage }})
+      </a>
+      {% endif %}
+      <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">← {{ _('Admin Home') }}</a>
+    </div>
   </div>
 
   <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card border-0 shadow-sm h-100"><div class="card-body">
         <div class="text-muted small fw-bold text-uppercase">{{ _('Total rejections') }}</div>
         <div class="fs-3 fw-bold">{{ counts.total }}</div>
       </div></div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card border-0 shadow-sm h-100"><div class="card-body">
-        <div class="text-muted small fw-bold text-uppercase">{{ _('Classifier refusals') }}</div>
-        <div class="fs-3 fw-bold text-danger">{{ counts.classifier }}</div>
-        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', stage='classifier') }}">{{ _('filter') }}</a>
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Needs review') }}</div>
+        <div class="fs-3 fw-bold text-warning">{{ counts.pending }}</div>
+        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', status='pending') }}">{{ _('review queue') }}</a>
       </div></div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card border-0 shadow-sm h-100"><div class="card-body">
-        <div class="text-muted small fw-bold text-uppercase">{{ _('Undecodable uploads') }}</div>
-        <div class="fs-3 fw-bold">{{ counts.decodability }}</div>
-        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', stage='decodability') }}">{{ _('filter') }}</a>
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Confirmed false positives') }}</div>
+        <div class="fs-3 fw-bold text-success">{{ counts.garbage }}</div>
+        <a class="small" href="{{ url_for('main.photo_rejections_dashboard', status='garbage') }}">{{ ('queued for retraining') }}</a>
+      </div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100"><div class="card-body">
+        <div class="text-muted small fw-bold text-uppercase">{{ _('Confirmed rejections') }}</div>
+        <div class="fs-3 fw-bold">{{ counts.not_garbage }}</div>
+        <span class="small text-muted">{{ counts.batched }} {{ _('already exported') }}</span>
       </div></div>
     </div>
   </div>
 
-  {% if stage %}<p class="text-muted small">Showing only <strong>{{ stage }}</strong> · <a href="{{ url_for('main.photo_rejections_dashboard') }}">{{ _('clear filter') }}</a></p>{% endif %}
+  <div class="mb-3 d-flex flex-wrap gap-2">
+    <span class="text-muted small me-2 align-self-center">{{ _('Filter:') }}</span>
+    {% set filters = [(none, _('all')), ('pending', _('needs review')), ('garbage', _('false positives')), ('not_garbage', _('confirmed')), ('dismissed', _('dismissed'))] %}
+    {% for st, label in filters %}
+      <a href="{{ url_for('main.photo_rejections_dashboard', status=st if st else none, stage=stage) }}"
+         class="btn btn-sm {{ 'btn-dark' if (status or none) == st else 'btn-outline-secondary' }}">{{ label }}</a>
+    {% endfor %}
+    {% if stage %}<span class="badge bg-secondary align-self-center">{{ stage }}</span>{% endif %}
+  </div>
 
   {% if not rejections %}
   <div class="card border-0 shadow-sm">
     <div class="card-body text-center py-5">
       <div style="font-size:3rem;margin-bottom:.5rem;">✅</div>
-      <h4 class="fw-bold mb-1">{{ _('No rejections logged') }}</h4>
-      <p class="text-muted mb-0">{{ _('Every upload so far passed the photo gate. Refusals (with thumbnails) will appear here as they happen.') }}</p>
+      <h4 class="fw-bold mb-1">{{ _('No rejections here') }}</h4>
+      <p class="text-muted mb-0">{{ _('Refusals (with thumbnails) appear as they happen; the harvest job flags uncertain ones for review every 6 hours.') }}</p>
     </div>
   </div>
   {% else %}
@@ -67,7 +95,10 @@
               <th>{{ _('When (UTC)') }}</th>
               <th>{{ _('Surface') }}</th>
               <th>{{ _('Stage') }}</th>
+              <th>{{ _('p(reject)') }}</th>
+              <th>{{ _('Status') }}</th>
               <th>{{ _('Verifier note') }}</th>
+              <th>{{ _('Relabel') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -86,7 +117,27 @@
               <td class="small">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '—' }}</td>
               <td><span class="badge bg-secondary">{{ r.surface }}</span></td>
               <td><span class="badge badge-{{ r.stage }}">{{ r.stage }}</span></td>
+              <td class="small">{{ '%.2f'|format(r.p_reject) if r.p_reject is not none else '—' }}</td>
+              <td><span class="badge badge-{{ r.relabel_status }}">{{ r.relabel_status }}</span>
+                  {% if r.batched_at %}<div class="small text-muted">exported</div>{% endif %}</td>
               <td class="rej-note">{{ r.note }}</td>
+              <td class="rej-actions">
+                <form method="POST" action="{{ url_for('main.photo_rejection_relabel', rej_id=r.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="status" value="garbage">
+                  <button type="submit" class="btn btn-sm btn-outline-success" title="{{ _('It IS waste — a false positive; queue for retraining') }}">♻️ {{ _('waste') }}</button>
+                </form>
+                <form method="POST" action="{{ url_for('main.photo_rejection_relabel', rej_id=r.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="status" value="not_garbage">
+                  <button type="submit" class="btn btn-sm btn-outline-primary" title="{{ _('Rejection was correct') }}">✅ {{ _('correct') }}</button>
+                </form>
+                <form method="POST" action="{{ url_for('main.photo_rejection_relabel', rej_id=r.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="status" value="dismissed">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" title="{{ _('Noise (probe traffic etc.)') }}">🔇</button>
+                </form>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
@@ -94,7 +145,7 @@
       </div>
     </div>
   </div>
-  <p class="text-muted small mt-2 mb-0">{{ _('Newest 100 shown · the log keeps the newest 500 rows total. A “does not look like waste” thumbnail that is actually waste is a false positive — feed it to the next retraining run.') }}</p>
+  <p class="text-muted small mt-2 mb-0">{{ _('Newest 100 shown · the log keeps the newest 500 rows total. “♻️ waste” marks a false positive and queues the thumbnail into the retrain-batch ZIP (exported once, then marked). A 6-hourly harvest flags uncertain rejections (p near the threshold) as “needs review”.') }}</p>
   {% endif %}
 </div>
 {% endblock %}

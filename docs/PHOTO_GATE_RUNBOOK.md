@@ -73,6 +73,29 @@ than ~0.25 starts eroding strictness (0.977 at 0.10, 0.973 at 0.05) — only
 go there if the rejection panel (§5) shows residual false positives and the
 panchayat tolerates more fake reports.
 
+### P/R memo: 0.6 vs 0.5 vs the current 0.7 (2026-09-29 retrain)
+
+Sweep on the 501-image val set (waste = positive class; accept when
+`p_reject < thr`):
+
+| p_reject thr | waste precision | waste recall | F1 | non-garbage rejected | false rejects | slipped through |
+|---|---|---|---|---|---|---|
+| 0.40 | 0.974 | 0.940 | 0.957 | 0.983 | 12 | 5 |
+| 0.50 | 0.974 | 0.945 | 0.959 | 0.983 | 11 | 5 |
+| 0.60 | 0.974 | 0.945 | 0.959 | 0.983 | 11 | 5 |
+| **0.70 (prod)** | **0.975** | **0.970** | **0.972** | 0.983 | **6** | 5 |
+| 0.80 | 0.970 | 0.970 | 0.970 | 0.980 | 6 | 6 |
+
+**Recommendation: keep 0.7 — do not move to 0.5 (or back to 0.6).**
+0.7 Pareto-dominates both: same waste precision, +2.5 pts recall (6 vs 11
+bounced genuine-waste photos), identical strictness (0.983) and identical
+slipped-through count (5). Moving to 0.5 would double false rejections for
+zero strictness gain; 0.8 gains nothing (same recall) and starts leaking
+(slipped 5 → 6, strictness 0.980). Caveat: the val set is small (200/301),
+so treat ±2-photo differences as noise — the right instrument for further
+moves is the rejection panel's relabel data, and the harvest job's
+"needs review" queue makes that signal usable.
+
 ## 4. Monitoring: the photo-gate canary
 
 Every 30 minutes (deployed Render environments only) `photo_gate_canary_job`

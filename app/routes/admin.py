@@ -4,6 +4,7 @@ import math
 import os
 import random
 import requests
+import zipfile
 from datetime import datetime
 
 from flask import (abort, current_app, flash, jsonify, redirect, render_template, request, session, send_file, url_for)
@@ -1132,18 +1133,25 @@ def failed_jobs_clear():
 @admin_required
 def photo_rejections_dashboard():
     stage = request.args.get('stage') or None
+    status = request.args.get('status') or None
     q = PhotoRejection.query
     if stage in ('classifier', 'decodability'):
         q = q.filter(PhotoRejection.stage == stage)
+    if status in ('auto', 'pending', 'garbage', 'not_garbage', 'dismissed'):
+        q = q.filter(PhotoRejection.relabel_status == status)
     rejections = q.order_by(PhotoRejection.created_at.desc(),
                             PhotoRejection.id.desc()).limit(100).all()
     counts = {
         'total': PhotoRejection.query.count(),
         'classifier': PhotoRejection.query.filter_by(stage='classifier').count(),
         'decodability': PhotoRejection.query.filter_by(stage='decodability').count(),
+        'pending': PhotoRejection.query.filter_by(relabel_status='pending').count(),
+        'garbage': PhotoRejection.query.filter_by(relabel_status='garbage').count(),
+        'not_garbage': PhotoRejection.query.filter_by(relabel_status='not_garbage').count(),
+        'batched': PhotoRejection.query.filter(PhotoRejection.batched_at.isnot(None)).count(),
     }
     return render_template('photo_rejections.html', rejections=rejections,
-                           counts=counts, stage=stage)
+                           counts=counts, stage=stage, status=status)
 
 
 @main.route('/admin/photo-rejections/<int:rej_id>/thumb')
@@ -1157,6 +1165,75 @@ def photo_rejection_thumb(rej_id):
         abort(404)
     return send_file(io.BytesIO(rej.thumbnail), mimetype='image/jpeg',
                      download_name=f'photo_rejection_{rej_id}.jpg')
+
+
+_RELABEL_STATUSES = ('garbage', 'not_garbage', 'dismissed', 'auto')
+
+
+@main.route('/admin/photo-rejections/<int:rej_id>/relabel', methods=['POST'])
+@admin_required
+def photo_rejection_relabel(rej_id):
+    """Relabel a rejected upload: 'garbage' marks a FALSE POSITIVE (the
+    classifier bounced a real waste photo) and queues the thumbnail into the
+    next retraining batch; 'not_garbage' confirms the rejection; 'dismissed'
+    marks noise (probe traffic etc.). One row per action in the audit log."""
+    rej = PhotoRejection.query.get_or_404(rej_id)
+    new_status = request.form.get('status', '')
+    if new_status not in _RELABEL_STATUSES:
+        flash('Invalid relabel status.', 'error')
+        return redirect(url_for('main.photo_rejections_dashboard'))
+    rej.relabel_status = new_status
+    rej.relabeled_by = session.get('user_id')
+    rej.relabeled_at = utcnow()
+    db.session.commit()
+    write_audit("PHOTO_REJECTION_RELABEL", target=f"photo_rejection:{rej_id}",
+                detail=f"status={new_status} (p_reject={rej.p_reject})")
+    label = {'garbage': 'queued for retraining as waste (false positive)',
+             'not_garbage': 'confirmed as correctly rejected',
+             'dismissed': 'dismissed as noise',
+             'auto': 'reset to auto'}.get(new_status, new_status)
+    flash(f'Rejection #{rej_id} {label}.', 'success')
+    return redirect(url_for('main.photo_rejections_dashboard'))
+
+
+@main.route('/admin/photo-rejections/retrain-batch.zip')
+@admin_required
+def photo_rejection_retrain_batch():
+    """Download the queued false positives as a retraining batch ZIP:
+    garbage/<id>.jpg (admin-confirmed false positives, never exported
+    before) + manifest.csv with scores/notes, ready to drop into
+    _dataset/train/garbage/ for the next training run. Marks the exported
+    rows batched_at so every upload ships exactly once."""
+    rows = (PhotoRejection.query
+            .filter(PhotoRejection.relabel_status == 'garbage',
+                    PhotoRejection.batched_at.is_(None),
+                    PhotoRejection.thumbnail.isnot(None))
+            .order_by(PhotoRejection.id.asc()).all())
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        manifest = ['id,surface,stage,p_reject,relabel_status,relabeled_at,filename']
+        for r in rows:
+            name = f'garbage/rejection_{r.id}.jpg'
+            zf.writestr(name, r.thumbnail)
+            manifest.append(','.join([
+                str(r.id), r.surface, r.stage,
+                '' if r.p_reject is None else f'{r.p_reject:.4f}',
+                r.relabel_status,
+                r.relabeled_at.isoformat() if r.relabeled_at else '',
+                name,
+            ]))
+        zf.writestr('manifest.csv', '\n'.join(manifest) + '\n')
+    now = utcnow()
+    for r in rows:
+        r.batched_at = now
+    db.session.commit()
+    write_audit("PHOTO_RETRAIN_BATCH_EXPORT", detail=f"{len(rows)} image(s)")
+    if not rows:
+        flash('No new confirmed false positives to export.', 'error')
+        return redirect(url_for('main.photo_rejections_dashboard'))
+    buf.seek(0)
+    return send_file(buf, mimetype='application/zip', as_attachment=True,
+                     download_name=f'retrain_batch_{now.strftime("%Y%m%d_%H%M%S")}.zip')
 
 
 # ──────────────────────────────────────────────

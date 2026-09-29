@@ -2875,6 +2875,148 @@ def test_photo_gate_canary_thread_guardrails(app, monkeypatch):
     assert jobs_mod._start_photo_gate_canary_thread() is None
 
 
+# ── Relabel workflow: false positives → retraining batch ──
+def _seed_rejection(app, p_reject=0.9, status='auto', stage='classifier',
+                    with_thumb=True, batched=None):
+    """Insert one PhotoRejection row directly and return its id."""
+    from app.models import PhotoRejection
+    with app.app_context():
+        r = PhotoRejection(
+            surface='report-illegal', stage=stage,
+            note=f'Rejected: does not look like waste (non_garbage p={p_reject:.2f})',
+            fingerprint='f' * 64,
+            thumbnail=(b'\xff\xd8\xff' + b'x' * 64) if with_thumb else None,
+            p_reject=p_reject if stage == 'classifier' else None,
+            relabel_status=status, batched_at=batched)
+        db.session.add(r)
+        db.session.commit()
+        return r.id
+
+
+def test_photo_rejection_relabel_workflow(app, monkeypatch):
+    """Admins can relabel a rejection (garbage = false positive → retraining
+    queue); the action is audited, anonymous users are bounced, and invalid
+    statuses are refused without changing the row."""
+    import numpy as np
+    import app.routes as routes
+    from app.models import PhotoRejection, AuditLog
+
+    class StubSession:
+        def run(self, out_names, feed):
+            return [np.array([[-2.0, 3.0]])]
+
+    _reset_photo_clf(monkeypatch, sess=StubSession(), in_name='input',
+                     out_name='logits')
+    app.test_client().post('/report-illegal',
+                           data={'category': 'e-waste',
+                                 'photo': (_make_jpeg_bytes(), 'cat.jpg')},
+                           content_type='multipart/form-data')
+    with app.app_context():
+        rej = PhotoRejection.query.order_by(PhotoRejection.id.desc()).first()
+        assert rej.p_reject is not None, 'classifier rows must carry p_reject'
+        rej_id = rej.id
+
+    # Anonymous relabel attempts are bounced to login.
+    anon = app.test_client().post(f'/admin/photo-rejections/{rej_id}/relabel',
+                                  data={'status': 'garbage'})
+    assert anon.status_code == 302 and '/login' in (anon.headers.get('Location') or '')
+
+    _make_user(app, 'relabeler', role='admin')
+    client = app.test_client()
+    _login_admin(client, app, 'relabeler')
+    r = client.post(f'/admin/photo-rejections/{rej_id}/relabel',
+                    data={'status': 'garbage'}, follow_redirects=True)
+    assert r.status_code == 200
+    with app.app_context():
+        rej = PhotoRejection.query.get(rej_id)
+        assert rej.relabel_status == 'garbage'
+        assert rej.relabeled_by is not None and rej.relabeled_at is not None
+        audit = AuditLog.query.filter_by(
+            action='PHOTO_REJECTION_RELABEL').order_by(AuditLog.id.desc()).first()
+        assert audit and f'photo_rejection:{rej_id}' in (audit.target or '')
+    # Invalid status: refused, row unchanged.
+    r2 = client.post(f'/admin/photo-rejections/{rej_id}/relabel',
+                     data={'status': 'bogus'}, follow_redirects=True)
+    assert r2.status_code == 200
+    with app.app_context():
+        assert PhotoRejection.query.get(rej_id).relabel_status == 'garbage'
+
+
+def test_retrain_batch_export_marks_rows_once(app):
+    """The ZIP contains every confirmed false positive with a thumbnail that
+    has not been exported yet (manifest included), marks them batched_at, and
+    the next export is empty."""
+    import io
+    import zipfile as _zf
+    kept = _seed_rejection(app, p_reject=0.72, status='garbage')
+    already = _seed_rejection(app, p_reject=0.8, status='garbage',
+                              batched=__import__('datetime').datetime(2026, 9, 1))
+    _seed_rejection(app, p_reject=0.75, status='garbage', with_thumb=False)
+    _seed_rejection(app, p_reject=0.99, status='auto')  # not relabeled → excluded
+
+    _make_user(app, 'batcher', role='admin')
+    client = app.test_client()
+    _login_admin(client, app, 'batcher')
+    r = client.get('/admin/photo-rejections/retrain-batch.zip')
+    assert r.status_code == 200 and r.data[:2] == b'PK'
+    zf = _zf.ZipFile(io.BytesIO(r.data))
+    names = zf.namelist()
+    assert f'garbage/rejection_{kept}.jpg' in names
+    assert f'garbage/rejection_{already}.jpg' not in names, 'exported once only'
+    assert 'manifest.csv' in names
+    manifest = zf.read('manifest.csv').decode()
+    assert f'rejection_{kept}.jpg' in manifest and 'p_reject' in manifest
+    with app.app_context():
+        from app.models import PhotoRejection
+        assert PhotoRejection.query.get(kept).batched_at is not None
+    # Second export: nothing new → redirect back with a flash.
+    r2 = client.get('/admin/photo-rejections/retrain-batch.zip',
+                    follow_redirects=False)
+    assert r2.status_code == 302
+
+
+# ── Harvest job: rejection log → review queue → retraining feed ──
+def test_harvest_flags_uncertain_and_notifies_once(app):
+    """The harvest flips UNCERTAIN auto rows (p_reject within the band above
+    the threshold) to pending and notifies admins once per day; out-of-band
+    rows and decodability rows are untouched, and a re-run re-flags nothing."""
+    from app import jobs as jobs_mod
+    from app.models import PhotoRejection, Notification
+    in_band = _seed_rejection(app, p_reject=0.75)   # 0.7 ≤ p < 0.85
+    edge = _seed_rejection(app, p_reject=0.70)      # inclusive lower bound
+    out_hi = _seed_rejection(app, p_reject=0.95)    # emphatic rejection
+    decod = _seed_rejection(app, stage='decodability')
+
+    _make_user(app, 'harvestadmin', role='admin')
+    flagged = jobs_mod.photo_gate_relabel_harvest_job()
+    assert flagged == 2, 'only the two in-band rows'
+    with app.app_context():
+        assert PhotoRejection.query.get(in_band).relabel_status == 'pending'
+        assert PhotoRejection.query.get(edge).relabel_status == 'pending'
+        assert PhotoRejection.query.get(out_hi).relabel_status == 'auto'
+        assert PhotoRejection.query.get(decod).relabel_status == 'auto'
+        from app.models import User as U
+        admin = U.query.filter_by(username='harvestadmin').first()
+        notes = Notification.query.filter_by(user_id=admin.id).all()
+        assert len(notes) == 1 and 'flagged for review' in notes[0].message
+    # Re-run: nothing left to flag, no new notifications (per-admin dedupe).
+    assert jobs_mod.photo_gate_relabel_harvest_job() == 0
+    with app.app_context():
+        from app.models import User as U
+        admin = U.query.filter_by(username='harvestadmin').first()
+        assert Notification.query.filter_by(user_id=admin.id).count() == 1
+
+
+def test_harvest_thread_guardrails(app, monkeypatch):
+    from app import jobs as jobs_mod
+    monkeypatch.delenv('REDIS_URL', raising=False)
+    monkeypatch.delenv('RENDER', raising=False)
+    assert jobs_mod._start_photo_gate_harvest_thread() is None
+    monkeypatch.setenv('RENDER', 'true')
+    monkeypatch.setenv('PHOTO_GATE_HARVEST_INTERVAL', '0')
+    assert jobs_mod._start_photo_gate_harvest_thread() is None
+
+
 # ── Photo storage: local fallback when Cloudinary is NOT configured ──
 def test_photo_storage_local_fallback(app, monkeypatch):
     monkeypatch.delenv('CLOUDINARY_URL', raising=False)

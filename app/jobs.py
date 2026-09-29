@@ -88,6 +88,7 @@ JOB_RETRY_POLICIES = {
     'payt_reconciliation_job': (1, [300]),              # billing reconcile: single 5m retry
     'model_retraining_job': (1, [600]),                 # ML retrain: single 10m retry
     'photo_gate_canary_job': (1, [120]),                # gate canary: single 2m retry before next sweep
+    'photo_gate_relabel_harvest_job': (1, [300]),       # harvest sweep: single 5m retry
 }
 
 
@@ -1794,3 +1795,148 @@ def _start_photo_gate_canary_thread(interval_minutes=30):
         t.start()
         _CANARY_THREAD_STARTED = True
         logger.info("photo_gate_canary_thread_started", interval_s=interval)
+
+
+# ──────────────────────────────────────────────
+# FALSE-POSITIVE HARVEST (rejection log → retraining feed)
+# ──────────────────────────────────────────────
+# The relabel workflow only helps if admins actually look at the panel. This
+# sweep surfaces the rows most likely to contain false positives — classifier
+# rejections with p_reject just inside the operating threshold (UNCERTAIN
+# band) — by flipping them to relabel_status='pending' (the panel's "needs
+# review" tab) and notifying admins when there is new work. Admins then mark
+# them garbage / not_garbage / dismissed; confirmed garbage rows queue into
+# the retrain-batch ZIP export. Pure-DB job: no HTTP, idempotent.
+@instrument
+def photo_gate_relabel_harvest_job(uncertain_band=0.15, limit=25):
+    """Flag uncertain classifier rejections for admin review.
+
+    A rejection is UNCERTAIN when p_reject sits within `uncertain_band` above
+    the operating threshold (the same PHOTO_CLASSIFIER_THRESHOLD the gate
+    uses) — exactly the score region where false positives live. Rows are
+    moved auto → pending (once; never re-flagged), and admins get one
+    in-app notification per day there is new review work.
+    Returns the number of newly flagged rows.
+    """
+    with _app_ctx():
+        from app import db
+        from .models import PhotoRejection, Notification, utcnow
+
+        try:
+            threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.7'))
+        except ValueError:
+            threshold = 0.7
+        lo, hi = threshold, threshold + uncertain_band
+        rows = (PhotoRejection.query
+                .filter(PhotoRejection.stage == 'classifier',
+                        PhotoRejection.relabel_status == 'auto',
+                        PhotoRejection.p_reject.isnot(None),
+                        PhotoRejection.p_reject >= lo,
+                        PhotoRejection.p_reject < hi)
+                .order_by(PhotoRejection.created_at.desc())
+                .limit(limit).all())
+        if not rows:
+            logger.info("photo_gate_harvest_nothing_uncertain", band=(lo, hi))
+            return 0
+        for r in rows:
+            r.relabel_status = 'pending'
+        db.session.commit()
+        outstanding = PhotoRejection.query.filter_by(
+            relabel_status='pending').count()
+
+        # One in-app notification per UTC day there is NEW review work
+        # (same marker-dedupe pattern as the breach alert).
+        created = 0
+        marker = (f"/admin/photo-rejections?status=pending"
+                  f"#harvest-{datetime.now(timezone.utc).strftime('%Y%m%d')}")
+        try:
+            if Notification.query.filter_by(link=marker).first() is None:
+                message = (f"🔍 {len(rows)} photo rejection(s) flagged for review "
+                           f"(p_reject near the threshold); {outstanding} pending "
+                           f"in total. False positives marked 'garbage' feed the "
+                           f"next retraining batch.")
+                pushed = []
+                for uid in _admin_user_ids():
+                    db.session.add(Notification(user_id=uid, message=message,
+                                                link=marker))
+                    pushed.append((uid, message))
+                    created += 1
+                db.session.commit()
+                if pushed:
+                    try:
+                        from .routes import _publish_user_event
+                        for uid, msg in pushed:
+                            _publish_user_event(uid, msg)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.warning("photo_gate_harvest_alert_error", error=str(e))
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+        logger.info("photo_gate_harvest_flagged", flagged=len(rows),
+                    outstanding_pending=outstanding, notified=created)
+        return len(rows)
+
+
+def schedule_photo_gate_relabel_harvest(interval_hours=6):
+    """Enqueue the next relabel-harvest sweep (no-op without Redis)."""
+    q = _get_queue()
+    if q is None:
+        return
+    r = _redis()
+    if r is not None:
+        try:
+            if not r.set('sg:photo-gate-harvest:scheduled', '1', nx=True,
+                         ex=int(interval_hours * 3600)):
+                return  # another instance already scheduled the run
+        except Exception:
+            pass
+    q.enqueue_in(timedelta(hours=interval_hours), photo_gate_relabel_harvest_job,
+                 retry=_retry_for(photo_gate_relabel_harvest_job))
+
+
+_HARVEST_THREAD_STARTED = False
+_HARVEST_THREAD_LOCK = None
+
+
+def _start_photo_gate_harvest_thread(interval_hours=6):
+    """Redis-free fallback scheduler for the harvest (deployed hosts only).
+
+    Same pattern and guard as the canary thread: queue 'inline' means RQ
+    schedules never fire on this deployment, so a single daemon thread per
+    process runs the sweep every PHOTO_GATE_HARVEST_INTERVAL seconds
+    (default 6h; 0 disables). No-op outside RENDER=true."""
+    global _HARVEST_THREAD_STARTED, _HARVEST_THREAD_LOCK
+    if os.environ.get('RENDER') != 'true':
+        return
+    if _get_queue() is not None:
+        return  # Redis broker present: the RQ scheduler owns the cadence
+    if _HARVEST_THREAD_STARTED:
+        return
+    import threading
+    if _HARVEST_THREAD_LOCK is None:
+        _HARVEST_THREAD_LOCK = threading.Lock()
+    with _HARVEST_THREAD_LOCK:
+        if _HARVEST_THREAD_STARTED:
+            return
+        interval = int(os.environ.get('PHOTO_GATE_HARVEST_INTERVAL',
+                                      interval_hours * 3600))
+        if interval <= 0:
+            return
+
+        def _loop():
+            time.sleep(120)  # let boot settle
+            while True:
+                try:
+                    photo_gate_relabel_harvest_job()
+                except Exception as e:
+                    logger.warning("photo_gate_harvest_thread_error", error=str(e))
+                time.sleep(interval)
+
+        t = threading.Thread(target=_loop, daemon=True,
+                             name='sg-photo-gate-harvest')
+        t.start()
+        _HARVEST_THREAD_STARTED = True
+        logger.info("photo_gate_harvest_thread_started", interval_s=interval)
