@@ -973,7 +973,7 @@ def _ai_verify_photo(file_storage):
          as a real image with Pillow, so an .exe named .jpg never lands.
       2. Garbage-vs-non-garbage ONNX classifier (opt-in): set
          ``PHOTO_CLASSIFIER_MODEL`` to a MobileNet-style ONNX export and
-         (optionally) ``PHOTO_CLASSIFIER_THRESHOLD`` (default 0.3). The
+         (optionally) ``PHOTO_CLASSIFIER_THRESHOLD`` (default 0.7). The
          sidecar ``<model>.json`` lists the class labels; a label containing
          'non'/'clean'/'not' marks the reject class. ANY failure — runtime
          missing, model unreadable, inference error — fails OPEN to stage 1
@@ -1117,11 +1117,14 @@ def _classify_garbage_photo(file_storage):
         probs = exp / exp.sum()
         p_reject = float(probs[clf['reject_idx']])
         import os
-        # ROC-chosen operating point (val AUC 0.996): non-garbage rejection
-        # is flat at 0.983 from 0.25–0.65, so 0.30 sits mid-plateau while
-        # halving false rejections of genuine waste vs the old 0.6
-        # (3.0% vs 6.0% bounced). Set PHOTO_CLASSIFIER_THRESHOLD to override.
-        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.3'))
+        # ROC-chosen operating point (val AUC 0.996). NOTE the semantics:
+        # the threshold applies to p_REJECT — an upload is accepted when
+        # p_reject < THRESHOLD. The chosen point (accept genuine waste when
+        # p_garbage > 0.30) therefore equals a p_reject threshold of 0.70:
+        # non-garbage rejection stays flat at 0.983 while false rejections
+        # of genuine waste drop to 3.0% (vs 6.0% at the old 0.6). Set
+        # PHOTO_CLASSIFIER_THRESHOLD to override.
+        threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.7'))
         img.close()
         file_storage.seek(0)  # rewind for save_compressed_photo()
         accepted = p_reject < threshold
