@@ -109,8 +109,10 @@ POSTs **two** embedded probe photos (~5–7 KB) to the **live**
    the gate still *accepts*. This is the check that would have caught the
    2026-09-29 over-strict threshold slip (0.3 silently bounced every genuine
    report while `/health` stayed green) within one sweep. The accept probe
-   creates a real report, so the job deletes its own self-identifying report
-   row + storage object after every run — ward analytics stay clean.
+   never leaves a report behind: `/report-illegal` discards self-identified
+   canary submissions AFTER the classifier gate passes, so ward analytics
+   stay clean (a legacy sweeper in the canary job also removes rows from
+   older deploys, limited to the last 3 hours).
 
 Failures (wrong outcome, missing banner, HTTP error, timeout) raise → RQ
 retries once after 2 min → admins get an in-app **Notification** (deduped to

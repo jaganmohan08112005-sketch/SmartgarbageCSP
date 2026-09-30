@@ -628,6 +628,17 @@ def report_illegal():
                 # Anonymous reporters hold no session, so the flash alone is
                 # lost on redirect — carry the outcome in the URL too.
                 return redirect(url_for('main.report_illegal', photo='rejected'))
+            # Uptime-canary accept probe: the canary POSTs a garbage photo
+            # marked with this prefix to prove the gate's ACCEPT path every
+            # 30 minutes. The classifier verdict above is the thing being
+            # verified, so the gate runs in full — but the probe must not
+            # leave a real report (or a storage upload) behind: that would
+            # pollute ward analytics with up to 48 fake reports/day.
+            # Discard the submission AFTER the gate passes, mirroring the
+            # success response the canary asserts on (?submitted=1).
+            if description.startswith('PHOTO-GATE CANARY probe'):
+                flash("Anonymous report submitted. Your identity is protected. Thank you! 🛡️", "success")
+                return redirect(url_for('main.report_illegal', submitted='1'))
             photo_filename = save_compressed_photo(file, 'illegal')
         report = IllegalDumpReport(
             latitude=float(latitude) if latitude else None,
