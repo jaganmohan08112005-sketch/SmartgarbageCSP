@@ -99,11 +99,23 @@ moves is the rejection panel's relabel data, and the harvest job's
 ## 4. Monitoring: the photo-gate canary
 
 Every 30 minutes (deployed Render environments only) `photo_gate_canary_job`
-POSTs an embedded ~7 KB non-garbage probe photo to the **live**
-`/report-illegal` and verifies the response lands on `?photo=rejected` with
-the rejection banner. Failures (probe accepted, banner missing, HTTP error)
-raise → RQ retries once after 2 min → admins get an in-app **Notification**
-(deduped to at most one per UTC day) and a `PHOTO_GATE_BREACH` webhook; each
+POSTs **two** embedded probe photos (~5–7 KB) to the **live**
+`/report-illegal`, one on each side of the classifier threshold:
+
+1. **non-garbage probe** (p(garbage)≈0.0002) must land on `?photo=rejected`
+   with the rejection banner — proves the gate still *enforces*.
+2. **garbage probe** (p(garbage)≈0.9999, the TrashNet sample verified live
+   as a positive control on 2026-09-29) must land on `?submitted=1` — proves
+   the gate still *accepts*. This is the check that would have caught the
+   2026-09-29 over-strict threshold slip (0.3 silently bounced every genuine
+   report while `/health` stayed green) within one sweep. The accept probe
+   creates a real report, so the job deletes its own self-identifying report
+   row + storage object after every run — ward analytics stay clean.
+
+Failures (wrong outcome, missing banner, HTTP error, timeout) raise → RQ
+retries once after 2 min → admins get an in-app **Notification** (deduped to
+at most one per UTC day), a `PHOTO_GATE_BREACH` webhook, and — when
+configured — email/SMS to the opted-in alert recipients (see below); each
 run's outcome also shows up on `/health` → `jobs.per_function` as
 `photo_gate_canary_job`.
 
@@ -115,8 +127,15 @@ once shipped silently (a wrong bundled-path lookup disabled prod for weeks).
   explicit `base_url` is passed.
 - `PHOTO_GATE_CANARY_URL` — override the probed base URL.
 - `PHOTO_GATE_CANARY_TIMEOUT` — HTTP timeout in seconds (default 60).
-- The probe self-identifies (`description: "PHOTO-GATE CANARY probe..."`) so
+- The probes self-identify (`description: "PHOTO-GATE CANARY probe..."`) so
   canary traffic is distinguishable from abuse in the rejection panel.
+- `PHOTO_GATE_ALERT_EMAIL` — comma-separated extra email recipients for
+  breach alerts (e.g. the panchayat secretary), day-deduped like the
+  in-app alert. Unset = no external email.
+- `PHOTO_GATE_ALERT_SMS` — comma-separated phone numbers that receive the
+  breach via WhatsApp (Meta Cloud API) / Twilio SMS. Unset = no external
+  SMS/WhatsApp. Opt-in only: outside a citizen's 24h WhatsApp service
+  window an outbound send can cost money.
 
 ## 5. The admin rejection panel
 
