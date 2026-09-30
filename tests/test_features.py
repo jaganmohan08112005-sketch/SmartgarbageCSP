@@ -2953,6 +2953,45 @@ def test_photo_gate_breach_alert_channels(app, monkeypatch):
     assert calls == []
 
 
+def test_report_illegal_discards_canary_accept_probe(app, monkeypatch):
+    """The canary's garbage probe must exercise the photo gate but leave NO
+    report behind: a self-identified canary submission is discarded AFTER
+    the gate passes (mirroring the success redirect), while an identical
+    non-canary submission still files a real report."""
+    from app.models import IllegalDumpReport
+    client = app.test_client()
+
+    def _pass_gate(file):
+        return True, 'AI verified (non_garbage p=0.01)'
+
+    monkeypatch.setattr('app.routes._ai_verify_photo', _pass_gate)
+
+    from PIL import Image
+    import io
+
+    def _jpeg(desc):
+        buf = io.BytesIO()
+        Image.new('RGB', (32, 32), (90, 90, 90)).save(buf, format='JPEG')
+        buf.seek(0)
+        return client.post('/report-illegal', data={
+            'category': 'Other', 'description': desc, 'ward': 'Test',
+            'photo': (buf, 'canary_probe.jpg')},
+            content_type='multipart/form-data')
+
+    r = _jpeg('PHOTO-GATE CANARY probe - garbage photo (accept-path '
+              'check; this report self-deletes)')
+    assert r.status_code == 302 and 'submitted=1' in r.headers['Location']
+    with app.app_context():
+        assert IllegalDumpReport.query.count() == 0, \
+            'canary probe must not create a report'
+
+    # Control: the same submission without the canary marker files a report.
+    r2 = _jpeg('genuine citizen complaint about dumping')
+    assert r2.status_code == 302
+    with app.app_context():
+        assert IllegalDumpReport.query.count() == 1
+
+
 def test_photo_gate_canary_thread_guardrails(app, monkeypatch):
     """The Redis-free canary thread only starts on RENDER=true with no queue,
     and PHOTO_GATE_CANARY_INTERVAL=0 disables it (kill switch)."""

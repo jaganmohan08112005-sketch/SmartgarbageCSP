@@ -1761,21 +1761,27 @@ def _photo_gate_post_probe(s, base, timeout, jpeg, description):
 
 
 def _cleanup_canary_reports():
-    """Delete the accept-probe's self-identifying reports (+ storage objects).
+    """Delete leftover self-identifying canary reports (+ storage objects).
 
-    The garbage probe is ACCEPTED, so it creates a real IllegalDumpReport
-    row (and, on the Supabase backend, an uploaded JPEG). Left alone, that
-    would add up to ~2 fake reports/day to ward analytics. Best-effort and
-    run on every canary outcome: a failed cleanup must never mask a clean
-    run. On the disk/ephemeral backend only the DB row is removed (the temp
-    file ages out with the instance).
+    Legacy safety net: the canary's accept probe no longer creates reports
+    at all (report_illegal discards self-identified canary submissions
+    after the gate passes), so this only sweeps rows written by deploys of
+    the older create-then-delete design during a rollout window. Restricted
+    to rows from the last 3 hours so it can never sweep unrelated history,
+    and best-effort on every canary outcome: a failed cleanup must never
+    mask a clean run. On the disk/ephemeral backend only the DB row is
+    removed (the temp file ages out with the instance).
     """
     try:
+        from datetime import timedelta
         from .models import IllegalDumpReport
         from app import db
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) \
+            - timedelta(hours=3)
         rows = (IllegalDumpReport.query
                 .filter(IllegalDumpReport.description
-                        .like('PHOTO-GATE CANARY probe - garbage%'))
+                        .like('PHOTO-GATE CANARY probe - garbage%'),
+                        IllegalDumpReport.timestamp >= cutoff)
                 .order_by(IllegalDumpReport.id.desc()).limit(10).all())
         if not rows:
             return 0
@@ -1822,8 +1828,10 @@ def photo_gate_canary_job(base_url=None):
     2. garbage probe (p(garbage)≈0.9999) MUST be accepted → ?submitted=1.
        Catches the OPPOSITE failure: an over-strict threshold silently
        bouncing EVERY genuine report while /health stays green (the 0.3
-       mis-set caught by hand on 2026-09-29 is the case study). The accept
-       probe's report row + storage object self-delete after the run.
+       mis-set caught by hand on 2026-09-29 is the case study). The probe
+       never files a report: report_illegal discards self-identified canary
+       submissions after the gate passes, and _cleanup_canary_reports
+       sweeps leftovers from older deploys (last 3 hours only).
 
     Any probe failure files an admin Notification, dispatches a
     PHOTO_GATE_BREACH webhook, fans out to the opted-in email/SMS alert
