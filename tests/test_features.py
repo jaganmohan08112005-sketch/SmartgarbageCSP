@@ -2774,35 +2774,75 @@ def test_admin_photo_rejections_panel_and_thumb(app, monkeypatch):
 
 
 # ── Photo-gate uptime canary (periodic end-to-end probe) ──
-def test_photo_gate_canary_detects_breach(app, monkeypatch):
-    """When the gate stops rejecting, the canary must alert every admin
-    (deduped to one notification per UTC day) and raise."""
-    from app import jobs as jobs_mod
-    from app.models import Notification
 
-    class FakeResp:
-        status_code = 200
-        text = '<input type="hidden" name="csrf_token" value="tok">'
-        url = 'https://smartgarbage.onrender.com/report-illegal'
+class _CanaryFakeResp:
+    status_code = 200
+    text = '<input type="hidden" name="csrf_token" value="tok">'
+    url = 'https://smartgarbage.onrender.com/report-illegal'
+
+
+def _canary_probe_routes_post(reject_jpeg, accept_jpeg, always=None):
+    """Build a FakeSession.post that simulates gate outcomes per probe.
+
+    always=None (healthy): the non-garbage probe (matched by exact bytes)
+    is rejected and the garbage probe is accepted — the passing gate.
+    always='accepted': the gate accepts EVERYTHING (over-permissive —
+    non-garbage wrongly accepted). always='rejected': the gate rejects
+    EVERYTHING (the over-strict 0.3-threshold incident — garbage wrongly
+    bounced).
+    """
+    def post(self, *a, **k):
+        jpeg = k['files']['photo'][1].read()
+        r = _CanaryFakeResp()
+        if always is not None:
+            outcome = always
+        else:
+            outcome = 'rejected' if jpeg == reject_jpeg else 'accepted'
+        if outcome == 'rejected':
+            r.url = 'https://smartgarbage.onrender.com/report-illegal?photo=rejected'
+            r.text = 'does not look like a waste photo'
+        else:
+            r.url = 'https://smartgarbage.onrender.com/report-illegal?submitted=1'
+            r.text = 'Anonymous report submitted. Your identity is protected. Thank you!'
+        return r
 
     class FakeSession:
         headers = {}
 
         def get(self, *a, **k):
-            return FakeResp()
+            return _CanaryFakeResp()
 
-        def post(self, *a, **k):
-            r = FakeResp()
-            r.url = 'https://smartgarbage.onrender.com/report-illegal?submitted=1'
-            r.text = 'Anonymous report submitted'
-            return r
+    # Attached post-definition: class bodies cannot close over the enclosing
+    # function's locals (`post = post` inside the class would NameError).
+    FakeSession.post = post
+    return FakeSession
 
-    import requests as _requests
-    monkeypatch.setattr(_requests, 'Session', lambda: FakeSession())
-    # Base64 decode must yield real JPEG bytes for the multipart upload.
+
+def _patch_canary_probes(monkeypatch):
+    """Swap both embedded probes for small known JPEGs the fakes can route on."""
     import base64 as _b64
+    reject_jpeg = _make_jpeg_bytes().read()
+    accept_jpeg = b'\xff\xd8\xff' + b'y' * 32
+    from app import jobs as jobs_mod
     monkeypatch.setattr(jobs_mod, '_PHOTO_GATE_PROBE_JPEG_B64',
-                        _b64.b64encode(_make_jpeg_bytes().read()).decode())
+                        _b64.b64encode(reject_jpeg).decode())
+    monkeypatch.setattr(jobs_mod, '_PHOTO_GATE_ACCEPT_PROBE_JPEG_B64',
+                        _b64.b64encode(accept_jpeg).decode())
+    return reject_jpeg, accept_jpeg
+
+
+def test_photo_gate_canary_detects_breach(app, monkeypatch):
+    """When the gate stops rejecting (fake reports get through), the canary
+    must alert every admin (deduped to one notification per UTC day) and
+    raise."""
+    from app import jobs as jobs_mod
+    from app.models import Notification
+
+    reject_jpeg, accept_jpeg = _patch_canary_probes(monkeypatch)
+    import requests as _requests
+    monkeypatch.setattr(_requests, 'Session',
+                        lambda: _canary_probe_routes_post(
+                            reject_jpeg, accept_jpeg, 'accepted'))
 
     _make_user(app, 'canaryadmin', role='admin')
     with app.app_context():
@@ -2811,8 +2851,8 @@ def test_photo_gate_canary_detects_breach(app, monkeypatch):
             raised = False
         except RuntimeError as e:
             raised = True
-            assert 'did NOT reject' in str(e)
-        assert raised, 'accepted probe must raise a canary failure'
+            assert 'non-garbage probe was NOT rejected' in str(e)
+        assert raised, 'accepted non-garbage probe must raise a canary failure'
         from app.models import User as U
         admin = U.query.filter_by(username='canaryadmin').first()
         notes = Notification.query.filter_by(user_id=admin.id).all()
@@ -2823,42 +2863,94 @@ def test_photo_gate_canary_detects_breach(app, monkeypatch):
         assert jobs_mod.alert_photo_gate_breach('retry note') == 0
 
 
-def test_photo_gate_canary_passes_when_gate_rejects(app, monkeypatch):
-    """A rejecting gate (photo=rejected + banner in the final response) is a
-    clean canary run: returns True, files no notifications."""
+def test_photo_gate_canary_detects_overstrict_accept_path(app, monkeypatch):
+    """The 2026-09-29 '0.3 threshold' incident, as a regression test: an
+    over-strict gate silently bounces EVERY genuine report while /health
+    stays green. The garbage probe MUST catch it (raise + notify) within one
+    sweep, and the probe's self-identifying report row must be cleaned up."""
+    from app import jobs as jobs_mod
+    from app.models import Notification, IllegalDumpReport
+
+    reject_jpeg, accept_jpeg = _patch_canary_probes(monkeypatch)
+    import requests as _requests
+    monkeypatch.setattr(_requests, 'Session',
+                        lambda: _canary_probe_routes_post(
+                            reject_jpeg, accept_jpeg, 'rejected'))
+
+    _make_user(app, 'acceptadmin', role='admin')
+    with app.app_context():
+        # The accept probe creates a REAL report when accepted; seed the row
+        # it would have created so the cleanup assertion is meaningful.
+        db.session.add(IllegalDumpReport(
+            category='Other', ward='Test',
+            description='PHOTO-GATE CANARY probe - garbage photo (accept-path '
+                        'check; this report self-deletes)'))
+        db.session.commit()
+        try:
+            jobs_mod.photo_gate_canary_job(base_url='http://localhost:1')
+            raised = False
+        except RuntimeError as e:
+            raised = True
+            assert 'garbage probe was NOT accepted' in str(e)
+        assert raised, 'a rejected garbage probe must raise a canary failure'
+        from app.models import User as U
+        admin = U.query.filter_by(username='acceptadmin').first()
+        notes = Notification.query.filter_by(user_id=admin.id).all()
+        assert notes, 'over-strict gate must notify admins'
+        # Self-cleanup: the probe report is gone on every canary outcome.
+        assert IllegalDumpReport.query.filter(
+            IllegalDumpReport.description.like(
+                'PHOTO-GATE CANARY probe - garbage%')).count() == 0
+
+
+def test_photo_gate_canary_passes_when_gate_rejects_and_accepts(app, monkeypatch):
+    """A healthy gate (non-garbage rejected, garbage accepted) is a clean
+    canary run: returns True, files no notifications."""
     from app import jobs as jobs_mod
     from app.models import Notification
 
-    class FakeResp:
-        status_code = 200
-        text = '<input type="hidden" name="csrf_token" value="tok">'
-        url = 'https://smartgarbage.onrender.com/report-illegal'
-
-    class FakeSession:
-        headers = {}
-
-        def get(self, *a, **k):
-            return FakeResp()
-
-        def post(self, *a, **k):
-            r = FakeResp()
-            r.url = 'https://smartgarbage.onrender.com/report-illegal?photo=rejected'
-            r.text = 'does not look like a waste photo'
-            return r
-
+    reject_jpeg, accept_jpeg = _patch_canary_probes(monkeypatch)
     import requests as _requests
-    monkeypatch.setattr(_requests, 'Session', lambda: FakeSession())
-    import base64 as _b64
-    monkeypatch.setattr(jobs_mod, '_PHOTO_GATE_PROBE_JPEG_B64',
-                        _b64.b64encode(_make_jpeg_bytes().read()).decode())
+    monkeypatch.setattr(_requests, 'Session',
+                        lambda: _canary_probe_routes_post(
+                            reject_jpeg, accept_jpeg))
 
     try:
         result = jobs_mod.photo_gate_canary_job(base_url='http://localhost:1')
         assert result is True
     except RuntimeError:
-        raise AssertionError('a rejecting gate must pass the canary')
+        raise AssertionError('a healthy gate must pass the canary')
     with app.app_context():
         assert Notification.query.count() == 0
+
+
+def test_photo_gate_breach_alert_channels(app, monkeypatch):
+    """Opted-in PHOTO_GATE_ALERT_EMAIL / _SMS recipients get the breach via
+    the email/SMS jobs, day-deduped exactly like the in-app alert; with no
+    recipients configured nothing external is attempted."""
+    from app import jobs as jobs_mod
+
+    calls = []
+    monkeypatch.setattr(
+        jobs_mod, 'enqueue',
+        lambda fn, *a, **k: calls.append((fn.__name__, a)))
+    monkeypatch.setenv('PHOTO_GATE_ALERT_EMAIL',
+                       'ops@panchayat.gov.in, secretary@panchayat.gov.in')
+    monkeypatch.setenv('PHOTO_GATE_ALERT_SMS', '+919800000001')
+
+    _make_user(app, 'channeladmin', role='admin')
+    created = jobs_mod.alert_photo_gate_breach('channel test')
+    # Per-admin in-app notifications (conftest seeds qa_admin too).
+    assert created >= 1
+    emails = [a[0] for name, a in calls if name == 'send_email_job']
+    smses = [a[0] for name, a in calls if name == 'send_sms_job']
+    assert emails == ['ops@panchayat.gov.in', 'secretary@panchayat.gov.in']
+    assert smses == ['+919800000001']
+
+    # Same-day re-alert: deduped — no new in-app rows, no channel fan-out.
+    calls.clear()
+    assert jobs_mod.alert_photo_gate_breach('channel test 2') == 0
+    assert calls == []
 
 
 def test_photo_gate_canary_thread_guardrails(app, monkeypatch):

@@ -1606,7 +1606,61 @@ _PHOTO_GATE_PROBE_JPEG_B64 = (
 )
 
 
+# The ACCEPT-path probe: the same TrashNet garbage sample that was verified
+# LIVE on production as a positive control on 2026-09-29 (accepted with
+# p(garbage)≈0.9999), thumbnailed to 224px q72 with the identical recipe as
+# the non-garbage probe below (~5 KB). Scored against the shipped ONNX
+# weights: p_reject ≈ 0.000087 — ~8000x under the 0.7 p_reject threshold.
+# This is the counterpart check to the non-garbage probe: an over-strict
+# threshold change (like the 0.3 mistake caught by hand on 2026-09-29, which
+# silently bounced EVERY genuine report while /health stayed green) now trips
+# the canary within one sweep instead of waiting for a citizen complaint.
+_PHOTO_GATE_ACCEPT_PROBE_JPEG_B64 = (
+    "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"
+)
+
+
 PHOTO_GATE_BREACH_EVENT = "PHOTO_GATE_BREACH"
+
+# Opt-in external alert channel: when a gate breach fires, these comma-
+# separated recipients ALSO get the alert by email (via the SMTP chain) and
+# SMS/WhatsApp (via the same free-first channel chain citizens use). Empty
+# by default so nothing is ever sent without explicit opt-in — outside a
+# citizen's 24h WhatsApp service window, an outbound send can cost money.
+# Example: PHOTO_GATE_ALERT_EMAIL=ops@panchayat.gov.in,secretary@panchayat.gov.in
+_PHOTO_GATE_ALERT_EMAIL_ENV = 'PHOTO_GATE_ALERT_EMAIL'
+_PHOTO_GATE_ALERT_SMS_ENV = 'PHOTO_GATE_ALERT_SMS'
+
+
+def _photo_gate_alert_recipients(env_var):
+    """Parse a comma/semicolon-separated recipient env var (trimmed, non-empty)."""
+    raw = os.environ.get(env_var, '') or ''
+    return [r.strip() for r in raw.replace(';', ',').split(',') if r.strip()]
+
+
+def _alert_photo_gate_channels(message, sms_body):
+    """Best-effort email + SMS fan-out of a gate breach to opted-in staff.
+
+    Reuses the instrumented send_email_job / send_sms_job jobs so alert
+    delivery behaves like every other notification: inline when Redis is
+    absent (this deployment), queued through RQ when a broker exists, and
+    instrumented on /health's jobs counters. send_sms_job walks the free
+    Meta WhatsApp Cloud API first, then Twilio SMS. Never raises — the
+    in-app alert (already filed) must not depend on external channels.
+    """
+    for email in _photo_gate_alert_recipients(_PHOTO_GATE_ALERT_EMAIL_ENV):
+        try:
+            enqueue(send_email_job, email,
+                    '[SmartGarbage] photo gate breach', message)
+        except Exception as e:
+            logger.warning("photo_gate_alert_email_error", error=str(e),
+                           to=email)
+    for phone in _photo_gate_alert_recipients(_PHOTO_GATE_ALERT_SMS_ENV):
+        try:
+            enqueue(send_sms_job, phone, sms_body)
+        except Exception as e:
+            logger.warning("photo_gate_alert_sms_error", error=str(e),
+                           to=phone)
 
 
 def alert_photo_gate_breach(note=''):
@@ -1625,10 +1679,11 @@ def alert_photo_gate_breach(note=''):
             from app import db
             if Notification.query.filter_by(link=marker).first() is not None:
                 return 0  # already alerted today
-            message = ("🚨 Photo gate canary FAILED: the non-garbage probe was "
-                       "NOT rejected by /report-illegal — fake reports may be "
-                       "getting through. Check /health's photo_classifier and "
-                       "the rejection panel.")
+            message = ("🚨 Photo gate canary FAILED: the photo gate is "
+                       "misbehaving — fake reports may be getting through "
+                       "(or genuine ones are being bounced). Check /health's "
+                       "photo_classifier and the rejection panel. Detail: "
+                       + (note or '')[:300])
             pushed = []
             for uid in _admin_user_ids():
                 db.session.add(Notification(user_id=uid, message=message, link=marker))
@@ -1659,26 +1714,127 @@ def alert_photo_gate_breach(note=''):
             })
         except Exception as e:
             logger.warning("photo_gate_breach_webhook_error", error=str(e))
+        # Same per-UTC-day dedupe as the in-app alert: opted-in staff get at
+        # most one email + one SMS per day for a persistent breach (the daily
+        # re-alert still fires via the fresh Notification below).
+        _alert_photo_gate_channels(
+            message,
+            '🚨 SmartGarbage photo gate FAILED: the canary probe was not '
+            'handled correctly — fake reports may be getting through '
+            '(or genuine ones bounced). Check /health and '
+            '/admin/photo-rejections.')
     return created
+
+
+def _photo_gate_post_probe(s, base, timeout, jpeg, description):
+    """POST one canary probe photo to the anonymous /report-illegal surface.
+
+    Fetches a fresh CSRF token per POST (the form rotates it per session
+    GET). Returns (response, accepted, rejected): 'accepted' means the
+    redirect landed on ?submitted=1 with the success flash; 'rejected'
+    means it landed on ?photo=rejected with the refusal banner.
+    """
+    import io
+    import re as _re
+    r0 = s.get(f'{base}/report-illegal', params={'canary': int(time.time())},
+               timeout=timeout)
+    if r0.status_code != 200:
+        raise RuntimeError(f'canary GET /report-illegal -> HTTP {r0.status_code}')
+    m = _re.search(r'name="csrf_token"[^>]*value="([^"]+)"', r0.text)
+    if not m:
+        raise RuntimeError('canary GET /report-illegal: csrf token not found')
+    r = s.post(f'{base}/report-illegal',
+               data={'category': 'Other',
+                     'description': description,
+                     'latitude': '12.9716', 'longitude': '77.5946',
+                     'ward': 'Test', 'csrf_token': m.group(1)},
+               files={'photo': ('canary_probe.jpg', io.BytesIO(jpeg),
+                                'image/jpeg')},
+               headers={'Referer': f'{base}/report-illegal',
+                        'Origin': base},
+               allow_redirects=True, timeout=timeout)
+    accepted = ('submitted=1' in r.url) and \
+               ('Anonymous report submitted' in r.text)
+    rejected = ('photo=rejected' in r.url) and \
+               ('does not look like a waste photo' in r.text)
+    return r, accepted, rejected
+
+
+def _cleanup_canary_reports():
+    """Delete the accept-probe's self-identifying reports (+ storage objects).
+
+    The garbage probe is ACCEPTED, so it creates a real IllegalDumpReport
+    row (and, on the Supabase backend, an uploaded JPEG). Left alone, that
+    would add up to ~2 fake reports/day to ward analytics. Best-effort and
+    run on every canary outcome: a failed cleanup must never mask a clean
+    run. On the disk/ephemeral backend only the DB row is removed (the temp
+    file ages out with the instance).
+    """
+    try:
+        from .models import IllegalDumpReport
+        from app import db
+        rows = (IllegalDumpReport.query
+                .filter(IllegalDumpReport.description
+                        .like('PHOTO-GATE CANARY probe - garbage%'))
+                .order_by(IllegalDumpReport.id.desc()).limit(10).all())
+        if not rows:
+            return 0
+        for row in rows:
+            url = row.scrubbed_photo or ''
+            if 'supabase' in url and '/storage/v1/object/public/' in url:
+                try:
+                    tail = url.split('/storage/v1/object/public/')[1]
+                    tail = tail.split('?')[0].lstrip('/')
+                    bucket, _, object_path = tail.partition('/')
+                    surl = os.environ.get('SUPABASE_URL')
+                    skey = (os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+                            or os.environ.get('SUPABASE_ANON_KEY'))
+                    if surl and skey and bucket and object_path:
+                        from supabase import create_client
+                        (create_client(surl, skey).storage.from_(bucket)
+                         .remove([object_path]))
+                except Exception:
+                    pass  # storage removal is best-effort; row goes regardless
+            db.session.delete(row)
+        db.session.commit()
+        logger.info("photo_gate_canary_cleanup", removed=len(rows))
+        return len(rows)
+    except Exception as e:
+        logger.warning("photo_gate_canary_cleanup_error", error=str(e))
+        try:
+            from app import db
+            db.session.rollback()
+        except Exception:
+            pass
+        return 0
 
 
 @instrument
 def photo_gate_canary_job(base_url=None):
-    """Uptime canary for the anti-fake-report photo gate (end-to-end).
+    """Uptime canary for the anti-fake-report photo gate (end-to-end, dual).
 
-    Exercises the real user flow over HTTP: GET /report-illegal (fresh CSRF),
-    POST an embedded ~7 KB non-garbage probe photo (p(garbage)≈0.0002
-    locally, ~1500x under the 0.3 threshold), then verify the redirect lands
-    on ?photo=rejected. A canary failure means the gate stopped rejecting —
-    file an admin Notification, dispatch a PHOTO_GATE_BREACH webhook, and
-    raise so the RQ retry policy retries the probe before the next sweep.
+    Exercises the real user flow over HTTP twice per run, on both sides of
+    the classifier threshold:
+
+    1. non-garbage probe (p(garbage)≈0.0002) MUST be rejected → ?photo=rejected.
+       Catches a crashed classifier, a removed gate, or a too-loose
+       threshold letting fake reports through.
+    2. garbage probe (p(garbage)≈0.9999) MUST be accepted → ?submitted=1.
+       Catches the OPPOSITE failure: an over-strict threshold silently
+       bouncing EVERY genuine report while /health stays green (the 0.3
+       mis-set caught by hand on 2026-09-29 is the case study). The accept
+       probe's report row + storage object self-delete after the run.
+
+    Any probe failure files an admin Notification, dispatches a
+    PHOTO_GATE_BREACH webhook, fans out to the opted-in email/SMS alert
+    recipients, and raises so the RQ retry policy retries before the next
+    sweep.
 
     No-ops (returns False, no alert) outside a deployed RENDER environment
     so local dev / pytest / CI never probe production. Runs inside its own
     app context via _app_ctx() (RQ workers have none).
     """
     with _app_ctx():
-        import io
         import re as _re
         import base64 as _b64
         import requests as _requests
@@ -1692,36 +1848,48 @@ def photo_gate_canary_job(base_url=None):
 
         s = _requests.Session()
         s.headers['User-Agent'] = 'SmartGarbage-canary/1.0 (uptime probe)'
-        r0 = s.get(f'{base}/report-illegal', params={'canary': int(time.time())},
-                   timeout=timeout)
-        if r0.status_code != 200:
-            raise RuntimeError(f'canary GET /report-illegal -> HTTP {r0.status_code}')
-        m = _re.search(r'name="csrf_token"[^>]*value="([^"]+)"', r0.text)
-        if not m:
-            raise RuntimeError('canary GET /report-illegal: csrf token not found')
-        jpeg = _b64.b64decode(_PHOTO_GATE_PROBE_JPEG_B64)
-        r = s.post(f'{base}/report-illegal',
-                   data={'category': 'Other',
-                         'description': 'PHOTO-GATE CANARY probe - non-garbage '
-                                        'photo, self-verifying uptime check',
-                         'latitude': '12.9716', 'longitude': '77.5946',
-                         'ward': 'Test', 'csrf_token': m.group(1)},
-                   files={'photo': ('canary_probe.jpg', io.BytesIO(jpeg),
-                                    'image/jpeg')},
-                   headers={'Referer': f'{base}/report-illegal',
-                            'Origin': base},
-                   allow_redirects=True, timeout=timeout)
-        rejected = ('photo=rejected' in r.url) and \
-                   ('does not look like a waste photo' in r.text)
-        note = None
-        if not rejected:
-            rej = _re.search(r'Photo rejected[^<]{0,120}', r.text)
-            note = (f'final URL {r.url}; flash: {rej.group(0) if rej else "none"}')
+
+        failures = []
+
+        # ── Probe 1: non-garbage photo must be REJECTED (enforce path) ──
+        try:
+            r, accepted, rejected = _photo_gate_post_probe(
+                s, base, timeout, _b64.b64decode(_PHOTO_GATE_PROBE_JPEG_B64),
+                'PHOTO-GATE CANARY probe - non-garbage photo, self-verifying '
+                'uptime check')
+            if not rejected:
+                rej = _re.search(r'Photo rejected[^<]{0,120}', r.text)
+                failures.append(
+                    'non-garbage probe was NOT rejected '
+                    f'(final URL {r.url}; '
+                    f'flash: {rej.group(0) if rej else "none"})')
+        except Exception as e:
+            # Transport/CSRF/HTTP failures are breaches too: a gate that 500s
+            # or never renders the form is as broken as one that mislabels.
+            failures.append(f'non-garbage probe: {e}')
+
+        # ── Probe 2: garbage photo must be ACCEPTED (accept path) ──
+        try:
+            r, accepted, rejected = _photo_gate_post_probe(
+                s, base, timeout,
+                _b64.b64decode(_PHOTO_GATE_ACCEPT_PROBE_JPEG_B64),
+                'PHOTO-GATE CANARY probe - garbage photo (accept-path '
+                'check; this report self-deletes)')
+            if not accepted:
+                failures.append(
+                    f'garbage probe was NOT accepted (final URL {r.url})')
+        except Exception as e:
+            failures.append(f'garbage probe: {e}')
+
+        # The accept probe creates a real report row (+ storage object);
+        # clean up on EVERY outcome so canary traffic never accumulates.
+        _cleanup_canary_reports()
 
         # Outcome telemetry on /health jobs counters (success + failure both).
-        if not rejected:
+        if failures:
+            note = '; '.join(failures)[:2000]
             alert_photo_gate_breach(note)
-            raise RuntimeError(f'photo gate did NOT reject the probe photo ({note})')
+            raise RuntimeError(f'photo gate canary failure: {note}')
         logger.info("photo_gate_canary_ok")
         return True
 
