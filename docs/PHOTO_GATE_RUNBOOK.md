@@ -185,6 +185,49 @@ venv/Scripts/python.exe scripts/train_photo_classifier.py --hard-neg-oversample 
 - After any retrain, re-run the ROC sweep (§3) — the optimal threshold moves
   with the model.
 
+### Data-flow audit: retrain-batch.zip → next training run (verified 2026-09-30)
+
+The closed loop from a false positive to a better model, as actually wired:
+
+1. **Relabel:** admin presses ♻️ on the rejection panel →
+   `POST /admin/photo-rejections/<id>/relabel` sets `relabel_status='garbage'`
+   (`app/routes/admin.py::photo_rejection_relabel`).
+2. **Export exactly once:** `/admin/photo-rejections/retrain-batch.zip` zips
+   `garbage/rejection_<id>.jpg` (from the stored ~112 px panel thumbnails) +
+   `manifest.csv` (id, surface, stage, p_reject, relabel timestamp) and stamps
+   `batched_at` — already-batched rows are never exported again
+   (`test_retrain_batch_export_marks_rows_once` pins this).
+3. **Unzip into the training layout** (the step a human must not skip):
+   ```bash
+   unzip retrain_batch_YYYYMMDD_HHMMSS.zip -d _dataset/train
+   ```
+   The ZIP's `garbage/…` prefix lands the images in
+   `_dataset/train/garbage/`, which is exactly what
+   `scripts/train_photo_classifier.py` consumes via torchvision `ImageFolder`
+   (it asserts `class_to_idx == {'garbage': 0, 'non_garbage': 1}`).
+   **Never unzip into `val/`** — that would contaminate the evaluation set and
+   inflate val accuracy.
+4. **Rebuild + retrain + export:**
+   `fetch_photo_dataset.py` → `train_photo_classifier.py --hard-neg-oversample 1`
+   → commit `app/photo_classifier.onnx` + `.onnx.json` → deploy. Evaluate per
+   the checklist at the top of this section before committing.
+
+Audit findings (all verified against code, no fix required):
+
+- **`train_model.py` is a different pipeline.** It trains the fill-rate /
+  miss-prediction RandomForest pickles (`ml_model.pkl`, `ml_fill_model.pkl`)
+  from telemetry — the photo-gate retraining loop never touches it. The photo
+  retraining loop is: `retrain-batch.zip` → `_dataset/train/garbage/` →
+  `train_photo_classifier.py` → ONNX.
+- **Thumbnail resolution is adequate but modest.** Panel thumbnails are
+  ~112 px JPEGs (≤ ~32 KB); MobileNetV3-Small trains at 224 px, so exported
+  FPs are upscaled at train time. Fine for hard-negative FP correction; if a
+  relabel deserves the original photo, export soon and pull the original from
+  the report's storage URL while it is still identifiable.
+- **manifest.csv is provenance, not training input** — `ImageFolder` ignores
+  it; it exists so each exported image can be traced back to its rejection
+  row and p_reject.
+
 ## 7. Known-gotcha history (do not re-learn these the hard way)
 
 1. **Bundled-path bug**: the loader once looked in `app/routes/` instead of
