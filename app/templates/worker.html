@@ -15,7 +15,7 @@
             </div>
             <div class="d-flex gap-2 mt-3 pt-2 border-top justify-content-between small text-secondary">
                 <span>{{ _('Status:') }} <strong class="text-success">{{ _('Active Duty') }}</strong></span>
-                <span>{{ _('Rating:') }} <strong class="text-warning">★ {{ profile.performance_rating if profile else '4.9' }}</strong></span>
+                <span>{{ _('Rating:') }} <strong class="text-warning-emphasis">★ {{ profile.performance_rating if profile else '4.9' }}</strong></span>
             </div>
         </div>
         <div class="card p-3 border-0 shadow-sm bg-white mb-3 border-start border-4 border-danger">
@@ -75,8 +75,8 @@
             <form method="POST" action="/worker/report-issue" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">{{ _('Target Bin ID') }}</label>
-                    <select name="bin_id" class="form-select form-select-sm" required>
+                    <label class="form-label small fw-bold text-secondary" for="issueBinId">{{ _('Target Bin ID') }}</label>
+                    <select id="issueBinId" name="bin_id" class="form-select form-select-sm" required>
                         <option value="" disabled selected>-- {{ _('Select Bin') }} --</option>
                         {% for b in work_bins %}
                         <option value="{{ b.hardware_id }}">{{ b.hardware_id }} ({{ b.ward }})</option>
@@ -84,16 +84,16 @@
                     </select>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">{{ _('Flag Issue Type') }}</label>
-                    <select name="issue_type" class="form-select form-select-sm" required>
+                    <label class="form-label small fw-bold text-secondary" for="issueType">{{ _('Flag Issue Type') }}</label>
+                    <select id="issueType" name="issue_type" class="form-select form-select-sm" required>
                         <option value="Broken Lid">{{ _('Broken Lid') }}</option>
                         <option value="Broken Wheels/Vandalism">{{ _('Broken Wheels / Vandalism') }}</option>
                         <option value="Road Obstruction">{{ _('Road Obstruction') }}</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">{{ _('Description') }}</label>
-                    <textarea name="details" class="form-control form-control-sm" rows="2" placeholder="{{ _('Explain damage or blockage details...') }}" required></textarea>
+                    <label class="form-label small fw-bold text-secondary" for="issueDetails">{{ _('Description') }}</label>
+                    <textarea id="issueDetails" name="details" class="form-control form-control-sm" rows="2" placeholder="{{ _('Explain damage or blockage details...') }}" required></textarea>
                 </div>
                 <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold rounded-pill">
                     🚀 {{ _('Dispatch Issue Report') }}
@@ -106,8 +106,8 @@
             <form method="POST" action="/worker/offload" data-offline-queue>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-2">
-                    <label class="form-label small fw-bold text-secondary">{{ _('Select Dump Yard ID') }}</label>
-                    <select name="dump_yard_id" class="form-select form-select-sm" required>
+                    <label class="form-label small fw-bold text-secondary" for="dumpYardId">{{ _('Select Dump Yard ID') }}</label>
+                    <select id="dumpYardId" name="dump_yard_id" class="form-select form-select-sm" required>
                         <option value="" disabled selected>-- {{ _('Select Dump Yard') }} --</option>
                         {% for yard in dump_yards %}
                         <option value="{{ yard }}">{{ yard }}</option>
@@ -115,9 +115,9 @@
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">{{ _('Total Garbage Weight (kg)') }}</label>
+                    <label class="form-label small fw-bold text-secondary" for="offloadWeight">{{ _('Total Garbage Weight (kg)') }}</label>
                     <div class="input-group input-group-sm">
-                        <input type="number" name="weight_kg" class="form-control" placeholder="e.g. 420.5" step="0.1" min="1" required>
+                        <input id="offloadWeight" type="number" name="weight_kg" class="form-control" placeholder="e.g. 420.5" step="0.1" min="1" required>
                         <span class="input-group-text bg-light fw-bold">kg</span>
                     </div>
                 </div>
@@ -185,7 +185,7 @@
             <div class="modal-body p-4">
                 <p class="text-muted small mb-3">{{ _('Upload a live photo of the cleared bin to close this ticket') }}.</p>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">📍 {{ _('Device Coordinates') }}</label>
+                    <div class="form-label small fw-bold text-secondary">📍 {{ _('Device Coordinates') }}</div>
                     <div class="d-flex align-items-center gap-2">
                         <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="afterGpsBtn" onclick="captureClearGps()">🔄 {{ _('Sync GPS') }}</button>
                         <span id="afterGpsStatus" class="small text-muted">{{ _('GPS not synced — required') }}</span>
@@ -240,7 +240,14 @@
         className: 'driver-gps-icon',
         iconSize: [16, 16]
     });
-    const driverMarker = L.marker([18.0675, 83.4094], {icon: driverIcon}).bindPopup("<b>My Vehicle (CV-01)</b>").addTo(map);
+    const driverMarker = L.marker([18.0675, 83.4094], {
+        icon: driverIcon,
+        // Leaflet renders divIcon markers as role="button"; give the current-
+        // location pin an accessible name so screen readers announce it.
+        title: 'My Vehicle CV-01 — current location',
+        alt: 'My Vehicle CV-01 — current location'
+    }).bindPopup("<b>My Vehicle (CV-01)</b>").addTo(map);
+    driverMarker.getElement().setAttribute('aria-label', 'My Vehicle CV-01 — current location');
     // Color marker depending on status
     function getMarkerColor(status) {
         return status === 'Critical' ? '#E74C3C' : '#F1C40F';
@@ -486,7 +493,7 @@
             if (st) { st.textContent = '❌ {{ _('GPS required to file a report') }}'; st.className = 'small text-danger fw-bold'; }
             return;
         }
-        if (st) { st.textContent = '⏳ {{ _('Requesting GPS access...') }}'; st.className = 'small text-warning fw-bold'; }
+        if (st) { st.textContent = '⏳ {{ _('Requesting GPS access...') }}'; st.className = 'small text-warning-emphasis fw-bold'; }
         navigator.geolocation.getCurrentPosition((pos) => {
             document.getElementById('afterLat').value = pos.coords.latitude.toFixed(6);
             document.getElementById('afterLon').value = pos.coords.longitude.toFixed(6);

@@ -74,7 +74,7 @@
                         <span>🗂️</span> {{ _('Data-Deletion Requests') }}
                     </a>
                     {% if is_superadmin %}
-                    <a href="/admin/super" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2 text-warning">
+                    <a href="/admin/super" class="nav-link py-2 px-3 mb-1 rounded-3 text-start d-flex align-items-center gap-2 text-warning-emphasis">
                         <span>⭐</span> {{ _('Superadmin Panel') }}
                     </a>
                     {% endif %}
@@ -196,7 +196,7 @@
                                 </div>
                                 <span class="sg-icon bg-light p-2 rounded-circle">⚖️</span>
                             </div>
-                            <div class="mt-2 text-warning small">{{ _('Estimated disposal weight') }}</div>
+                            <div class="mt-2 text-warning-emphasis small">{{ _('Estimated disposal weight') }}</div>
                         </div>
                     </div>
                 </div>
@@ -206,7 +206,7 @@
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
                                     <span class="text-muted small fw-bold">{{ _('Sensor Faults') }}</span>
-                                    <h3 class="fw-extrabold mt-1 mb-0 {% if kpis.sensor_faults > 0 %}text-warning{% endif %}">{{ kpis.sensor_faults }}</h3>
+                                    <h3 class="fw-extrabold mt-1 mb-0 {% if kpis.sensor_faults > 0 %}text-warning-emphasis{% endif %}">{{ kpis.sensor_faults }}</h3>
                                 </div>
                                 <span class="sg-icon bg-light p-2 rounded-circle">🛠️</span>
                             </div>
@@ -298,7 +298,7 @@
             <div id="gisMap" style="height: 440px; border-radius: 12px; border: 1.5px solid #dee2e6;"></div>
             <div class="d-flex flex-wrap justify-content-center gap-4 mt-3 small">
                 <span><strong class="text-success">●</strong> {{ _('Safe (&lt; 50%)') }}</span>
-                <span><strong class="text-warning">●</strong> {{ _('Warning (50-79%)') }}</span>
+                <span><span class="sg-legend-dot" aria-hidden="true"></span> {{ _('Warning (50-79%)') }}</span>
                 <span><strong class="text-danger">●</strong> {{ _('Critical (≥ 80%)') }}</span>
             </div>
         </div>
@@ -458,8 +458,8 @@
             <p class="text-muted small mb-3">Register external webhook URLs to receive real-time event notifications (complaints, incidents, fleet updates).</p>
             <form method="POST" action="/api/webhooks" class="row g-3 align-items-end">
                 <div class="col-auto flex-grow-1">
-                    <label class="form-label small fw-bold">Webhook URL</label>
-                    <input type="url" name="webhook_url" class="form-control form-control-sm" placeholder="https://example.com/webhook" required>
+                    <label class="form-label small fw-bold" for="webhook_url">Webhook URL</label>
+                    <input id="webhook_url" type="url" name="webhook_url" class="form-control form-control-sm" placeholder="https://example.com/webhook" required>
                 </div>
                 <div class="col-auto">
                     <button type="submit" class="btn btn-primary rounded-pill fw-bold">➕ Register Webhook</button>
@@ -506,7 +506,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="card border-0 bg-light text-center p-3">
-                        <div class="fs-4 fw-bold text-warning" id="pushSent24h">-</div>
+                        <div class="fs-4 fw-bold text-warning-emphasis" id="pushSent24h">-</div>
                         <div class="small text-muted">{{ _('Sent (24h)') }}</div>
                     </div>
                 </div>
@@ -550,7 +550,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="card border-0 bg-light text-center p-3">
-                        <div class="fs-4 fw-bold text-warning" id="fb24h">-</div>
+                        <div class="fs-4 fw-bold text-warning-emphasis" id="fb24h">-</div>
                         <div class="small text-muted">{{ _('Votes (24h)') }}</div>
                     </div>
                 </div>
@@ -607,7 +607,7 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <div class="card border-0 bg-light text-center p-3">
-                        <div class="fs-4 fw-bold text-warning" id="svAvg">-</div>
+                        <div class="fs-4 fw-bold text-warning-emphasis" id="svAvg">-</div>
                         <div class="small text-muted">{{ _('Average Stars') }}</div>
                     </div>
                 </div>
@@ -681,33 +681,33 @@
                     <div class="border rounded-4 p-3 h-100">
                         <h6 class="fw-bold mb-3">🟢 Simulate WhatsApp Message</h6>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold">From (WhatsApp number)</label>
+                            <label class="form-label small fw-bold" for="wa_from">From (WhatsApp number)</label>
                             <input class="form-control form-control-sm" id="wa_from" value="whatsapp:+918985432107">
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold">Body (caption)</label>
+                            <label class="form-label small fw-bold" for="wa_body">Body (caption)</label>
                             <input class="form-control form-control-sm" id="wa_body" value="Suspected chemical barrels dumped behind MVGR college.">
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-6">
-                                <label class="form-label small fw-bold">Latitude</label>
+                                <label class="form-label small fw-bold" for="wa_lat">Latitude</label>
                                 <input class="form-control form-control-sm" id="wa_lat" value="18.0565">
                             </div>
                             <div class="col-6">
-                                <label class="form-label small fw-bold">Longitude</label>
+                                <label class="form-label small fw-bold" for="wa_lon">Longitude</label>
                                 <input class="form-control form-control-sm" id="wa_lon" value="83.4040">
                             </div>
                         </div>
                         <div class="row g-2 mb-3">
                             <div class="col-6">
-                                <label class="form-label small fw-bold">NumMedia</label>
+                                <label class="form-label small fw-bold" for="wa_num">NumMedia</label>
                                 <select class="form-select form-select-sm" id="wa_num">
                                     <option value="0">0 (no photo)</option>
                                     <option value="1">1 (photo URL)</option>
                                 </select>
                             </div>
                             <div class="col-6">
-                                <label class="form-label small fw-bold">MediaUrl0 (optional)</label>
+                                <label class="form-label small fw-bold" for="wa_media">MediaUrl0 (optional)</label>
                                 <input class="form-control form-control-sm" id="wa_media" placeholder="https://.../photo.jpg">
                             </div>
                         </div>
@@ -718,25 +718,25 @@
                     <div class="border rounded-4 p-3 h-100">
                         <h6 class="fw-bold mb-3">🔵 Simulate Telegram Message</h6>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold">chat_id</label>
+                            <label class="form-label small fw-bold" for="tg_chat">chat_id</label>
                             <input class="form-control form-control-sm" id="tg_chat" value="-1001234567890">
                         </div>
                         <div class="mb-2">
-                            <label class="form-label small fw-bold">caption</label>
+                            <label class="form-label small fw-bold" for="tg_caption">caption</label>
                             <input class="form-control form-control-sm" id="tg_caption" value="E-waste pile left in vacant RTC colony plot.">
                         </div>
                         <div class="row g-2 mb-2">
                             <div class="col-6">
-                                <label class="form-label small fw-bold">Latitude</label>
+                                <label class="form-label small fw-bold" for="tg_lat">Latitude</label>
                                 <input class="form-control form-control-sm" id="tg_lat" value="18.0725">
                             </div>
                             <div class="col-6">
-                                <label class="form-label small fw-bold">Longitude</label>
+                                <label class="form-label small fw-bold" for="tg_lon">Longitude</label>
                                 <input class="form-control form-control-sm" id="tg_lon" value="83.4180">
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small fw-bold">photo file_id (optional)</label>
+                            <label class="form-label small fw-bold" for="tg_file">photo file_id (optional)</label>
                             <input class="form-control form-control-sm" id="tg_file" placeholder="AgACAgUAAxkBAA...">
                         </div>
                         <button type="button" class="btn btn-primary w-100 rounded-pill fw-bold" onclick="sendTelegram()">📨 Send Telegram Report</button>
@@ -997,7 +997,7 @@
                         <tr>
                             <td class="text-nowrap">${r.created_at || ''}</td>
                             <td class="text-nowrap">#${r.complaint_id}</td>
-                            <td class="text-nowrap text-warning" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
+                            <td class="text-nowrap text-warning-emphasis" aria-label="${r.rating} of 5 stars">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</td>
                             <td class="text-nowrap">${r.ward}</td>
                         </tr>`).join('');
                 } else {

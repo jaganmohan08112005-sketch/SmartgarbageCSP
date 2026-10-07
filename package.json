@@ -3,8 +3,16 @@
     "@supabase/supabase-js": "^2.117.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.3"
+    "@types/node": "^26.6.3",
+    "axe-core": "^4.13.0",
+    "lighthouse": "^13.5.0"
   },
-  "scripts": {}
+  "scripts": {
+    "audit": "node audit/run-audit.mjs",
+    "audit:check": "node audit/check-audit.mjs",
+    "audit:auth": "node audit/run-auth-a11y.mjs",
+    "audit:contrast": "node audit/resolve-contrast-incompletes.mjs"
+  }
 }

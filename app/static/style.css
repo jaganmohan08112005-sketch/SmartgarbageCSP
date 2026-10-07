@@ -11,6 +11,12 @@
     --sg-green-500: #2ecc71;
     --sg-green-600: #27ae60;
     --sg-green-700: #166534;
+    /* AA-safe CTA pair: both stops keep ≥4.5:1 against white text. The old
+       #2ecc71→#27ae60 CTA gradient measured 1.9–2.9:1 behind every primary
+       button, pill and stat card — axe can't measure gradients, so it only
+       reported "incomplete" (see audit/resolve-contrast-incompletes.mjs). */
+    --sg-green-cta: #198754;      /* 4.5:1 vs #fff */
+    --sg-green-cta-deep: #146c43; /* 6.5:1 vs #fff */
     --sg-navy-700: #1f2d3a;
     --sg-navy-800: #16212b;
     --sg-navy-900: #0f1922;
@@ -21,7 +27,7 @@
     --sg-red-600:   #dc2626;
 
     --sg-ink:        #16212b;
-    --sg-muted:      #5b6b7a;
+    --sg-muted:      #495057;
     --sg-line:       #e7ecf1;
     --sg-bg:         #f5f8f7;
     --sg-surface:     #ffffff;
@@ -29,7 +35,7 @@
     --sg-primary:        var(--sg-green-600);
     --sg-primary-strong: var(--sg-green-700);
     --sg-primary-soft:  var(--sg-green-50);
-    --sg-danger:         var(--sg-red-600);
+    --sg-danger:         #b91c1c;
     --sg-warning:        var(--sg-amber-500);
     --sg-info:           #2563eb;
 
@@ -99,6 +105,10 @@ a:hover { color: var(--sg-green-700); text-decoration-color: var(--sg-green-700)
 
 .text-muted   { color: var(--sg-muted) !important; }
 .text-primary { color: var(--sg-primary) !important; }
+/* .text-secondary (#6c757d) is 4.32:1 on the #f3f6f8 form/label surface. */
+.text-secondary { color: #495057 !important; }
+/* Bootstrap's inline-code pink (#d63384) is 4.14:1 on #f3f6f8. */
+html:not([data-theme="dark"]) code { color: #b02a6b; }
 /* .text-primary -> --sg-primary (#27ae60) is only 2.87:1 on white (fails AA);
    on the dark surface it is 5.05:1 (fine). Darken the light-mode rendering only. */
 html:not([data-theme="dark"]) .text-primary { color: #166534 !important; }
@@ -118,13 +128,13 @@ html:not([data-theme="dark"]) .text-primary { color: #166534 !important; }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 3px solid rgba(46,204,113,.4); outline-offset: 2px; }
 
-.btn-success { background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); border: none; color: #fff; box-shadow: var(--sh-green); }
-.btn-success:hover, .btn-success:focus { background: linear-gradient(135deg, var(--sg-green-600), var(--sg-green-700)); color: #fff; transform: translateY(-1px); box-shadow: 0 14px 32px rgba(46,204,113,.36); }
+.btn-success { background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep)); border: none; color: #fff; box-shadow: var(--sh-green); }
+.btn-success:hover, .btn-success:focus { background: linear-gradient(135deg, #157347, #13653f); color: #fff; transform: translateY(-1px); box-shadow: 0 14px 32px rgba(46,204,113,.36); }
 
 .btn-outline-success { color: var(--sg-green-700); border: 1.5px solid var(--sg-green-500); background: #fff; }
 .btn-outline-success:hover { background: var(--sg-green-50); color: var(--sg-green-700); border-color: var(--sg-green-600); }
 
-.btn-danger { background: linear-gradient(135deg, #f87171, var(--sg-red-600)); border: none; color: #fff; }
+.btn-danger { background: linear-gradient(135deg, var(--sg-red-600), var(--sg-danger)); border: none; color: #fff; }
 .btn-danger:hover { background: var(--sg-red-600); color: #fff; transform: translateY(-1px); }
 
 .btn-outline-danger { color: var(--sg-red-600); border: 1.5px solid #fca5a5; background: #fff; }
@@ -132,6 +142,9 @@ html:not([data-theme="dark"]) .text-primary { color: #166534 !important; }
 
 .btn-outline-primary { color: var(--sg-info); border: 1.5px solid #bfdbfe; background: #fff; }
 .btn-outline-primary:hover { background: #eff6ff; color: var(--sg-info); }
+/* Bootstrap's .btn-outline-info uses cyan #0dcaf0 (1.67:1 on #cff4fc). */
+.btn-outline-info { color: #0e7490; border: 1.5px solid #67e8f9; background: #fff; }
+.btn-outline-info:hover { background: #ecfeff; color: #0e7490; }
 
 .btn-outline-secondary { color: var(--sg-muted); border: 1.5px solid var(--sg-line); background: #fff; }
 .btn-outline-secondary:hover { background: #f1f5f9; color: var(--sg-ink); }
@@ -142,7 +155,12 @@ html:not([data-theme="dark"]) .text-primary { color: #166534 !important; }
 .btn-light { background: #fff; border-color: var(--sg-line); color: var(--sg-ink); }
 .btn-light:hover { background: #f6f9fb; }
 
-.btn-primary { background: linear-gradient(135deg, #3b82f6, var(--sg-info)); border: none; color: #fff; }
+.btn-primary { background: linear-gradient(135deg, var(--sg-info), #1d4ed8); border: none; color: #fff; }
+
+/* Legend swatch: the ● glyph was live text (#ffc107 on white = 1.63:1). As a
+   non-text swatch the color key stays bright while the adjacent label carries
+   the meaning (WCAG 1.4.3 applies to text; this is decoration). */
+.sg-legend-dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; background: var(--sg-amber-400); }
 .btn-primary:hover { color: #fff; transform: translateY(-1px); }
 
 .btn-sm { padding: .4rem 1rem; font-size: .85rem; }
@@ -210,8 +228,14 @@ h3.sg-card-h { font-size: 1.25rem; }
 
 /* ---------- Badges ---------- */
 .badge { border-radius: 6px; padding: .4em .7em; font-weight: 600; letter-spacing: .2px; }
-.bg-success { background-color: var(--sg-green-600) !important; }
+.bg-success { background-color: #166534 !important; }
 .bg-danger  { background-color: var(--sg-red-600) !important; }
+/* Bootstrap's .bg-opacity-10 sets only --bs-bg-opacity; the solid !important
+   backgrounds above defeat it, leaving near-solid brand colour behind
+   .text-success/.text-muted (2.5:1). Restore a real ~12% tint. */
+.bg-success.bg-opacity-10 { background-color: rgba(25, 135, 84, .12) !important; }
+.bg-danger.bg-opacity-10  { background-color: rgba(220, 53, 69, .12) !important; }
+.bg-primary.bg-opacity-10 { background-color: rgba(13, 110, 253, .12) !important; }
 /* AA-safe badge shades: --sg-green-600 (#27ae60) + white is only 2.87:1 and
    --sg-red-600 (#dc2626) 4.83:1 — both fail axe color-contrast on the light
    cards; dark mode also lightens badge text (--e2e8f0), so these darker shades
@@ -246,10 +270,10 @@ h3.sg-card-h { font-size: 1.25rem; }
     transition: background-color .15s var(--ease), color .15s var(--ease);
 }
 #admin-pills .nav-link:hover:not(.active) { background-color: rgba(46,204,113,.1); }
-#admin-pills .nav-link.active { background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; box-shadow: var(--sh-green); }
+#admin-pills .nav-link.active { background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep)); color: #fff; box-shadow: var(--sh-green); }
 
 .nav-pills .nav-link { border-radius: var(--r-pill); font-weight: 600; color: var(--sg-ink); }
-.nav-pills .nav-link.active { background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; }
+.nav-pills .nav-link.active { background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep)); color: #fff; }
 
 /* ---------- Progress bars ---------- */
 .progress { background: #eef2f5; border-radius: var(--r-pill); overflow: hidden; }
@@ -464,7 +488,7 @@ h3.sg-card-h { font-size: 1.25rem; }
 .sg-a11y-btn:hover { background: rgba(255, 255, 255, .16); }
 .sg-a11y-btn-default { font-weight: 800; }
 .sg-lang-dropdown .dropdown-toggle::after { border-top-color: rgba(255, 255, 255, .8); margin-left: .15rem; }
-.sg-lang-dropdown .dropdown-item.active { background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); color: #fff; }
+.sg-lang-dropdown .dropdown-item.active { background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep)); color: #fff; }
 [data-theme="dark"] .sg-dept-sub { color: rgba(226, 232, 240, .8); }
 [data-theme="dark"] .sg-header-divider { background: rgba(226, 232, 240, .3); }
 
@@ -574,7 +598,7 @@ h3.sg-card-h { font-size: 1.25rem; }
 .sg-stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(16,185,129,.1); }
 .sg-stat-icon { font-size: 1.8rem; line-height: 1; }
 .sg-stat-value { font-size: 1.6rem; line-height: 1.1; color: var(--sg-navy-800); }
-.sg-stat-label { font-size: .78rem; color: #6c757d; margin-top: .25rem; }
+.sg-stat-label { font-size: .78rem; color: var(--sg-muted); margin-top: .25rem; }
 [data-theme="dark"] .sg-stat-card { background: rgba(16,185,129,.06); border-color: rgba(16,185,129,.15); }
 [data-theme="dark"] .sg-stat-value { color: #e2e8f0; }
 
@@ -623,7 +647,9 @@ h3.sg-card-h { font-size: 1.25rem; }
 }
 .sg-breadcrumb .breadcrumb-item a { color: var(--sg-green-700); text-decoration: none; }
 .sg-breadcrumb .breadcrumb-item a:hover { text-decoration: underline; }
-.sg-breadcrumb .breadcrumb-item.active { color: #6c757d; }
+/* Current-page crumb: Bootstrap's rgba(33,37,41,.75) lands at ~4.2:1 over the
+   body's corner tints — use the opaque muted ink instead (#495057 ≈ 5.1:1). */
+.sg-breadcrumb .breadcrumb-item.active { color: var(--sg-muted); }
 [data-theme="dark"] .sg-breadcrumb .breadcrumb-item a { color: var(--sg-green-400); }
 [data-theme="dark"] .sg-breadcrumb .breadcrumb-item.active { color: #94a3b8; }
 
@@ -1315,7 +1341,7 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 }
 .sg-navbar .nav-link.active {
     color: #fff;
-    background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600));
+    background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep));
 }
 .sg-navbar .nav-link.text-info {
     color: #38bdf8 !important;
@@ -1326,7 +1352,7 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
 }
 .sg-navbar .nav-link.text-info.active {
     color: #fff !important;
-    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    background: linear-gradient(135deg, var(--sg-info), #1d4ed8);
 }
 .sg-navbar .dropdown-menu {
     border-radius: var(--r-md);
@@ -1470,7 +1496,7 @@ a.sg-trust-pill:hover { background: rgba(46, 204, 113, .12); }
     --sg-green-400: #34d399;
     --sg-green-500: #2ecc71;
     --sg-green-600: #27ae60;
-    --sg-green-700: #1e8449;
+    --sg-green-700: #4ade80;
     --sg-navy-100: #f1f5f9;
     --sg-navy-700: #334155;
     --sg-navy-800: #1e293b;
@@ -1741,6 +1767,10 @@ textarea:focus-visible {
 [data-theme="dark"] .text-success { color: #4ade80 !important; }
 [data-theme="dark"] .text-danger { color: #f87171 !important; }
 [data-theme="dark"] .text-warning { color: #fbbf24 !important; }
+/* text-warning-emphasis is Bootstrap's accessible-on-light warning ink (#664d03).
+   The app themes with [data-theme="dark"] (not [data-bs-theme]), so Bootstrap
+   never swaps in its dark emphasis value — restore the bright amber there. */
+[data-theme="dark"] .text-warning-emphasis { color: #fbbf24 !important; }
 [data-theme="dark"] .text-info { color: #38bdf8 !important; }
 [data-theme="dark"] .text-muted { color: var(--sg-muted) !important; }
 
@@ -1781,7 +1811,7 @@ textarea:focus-visible {
 
 /* Nav pills */
 [data-theme="dark"] .nav-pills .nav-link { color: var(--sg-muted); }
-[data-theme="dark"] .nav-pills .nav-link.active { color: #fff; background: linear-gradient(135deg, var(--sg-green-500), var(--sg-green-600)); }
+[data-theme="dark"] .nav-pills .nav-link.active { color: #fff; background: linear-gradient(135deg, var(--sg-green-cta), var(--sg-green-cta-deep)); }
 
 /* Dropdowns */
 [data-theme="dark"] .dropdown-menu { background-color: var(--sg-surface); border-color: var(--sg-line); }
@@ -1863,7 +1893,7 @@ textarea:focus-visible,
 #sg-chatbot { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; font-family: system-ui, -apple-system, sans-serif; }
 #sg-chat-toggle {
     width: 56px; height: 56px; border-radius: 50%; border: none;
-    background: var(--sg-primary); color: #fff; font-size: 1.5rem;
+    background: var(--sg-green-cta); color: #fff; font-size: 1.5rem;
     cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2);
     transition: transform .2s, box-shadow .2s;
     display: flex; align-items: center; justify-content: center;
@@ -1876,7 +1906,7 @@ textarea:focus-visible,
     display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e2e8f0;
 }
 .sg-chat-header {
-    background: var(--sg-primary); color: #fff; padding: .75rem 1rem;
+    background: var(--sg-green-cta); color: #fff; padding: .75rem 1rem;
     display: flex; justify-content: space-between; align-items: center;
     font-weight: 600; font-size: .9rem;
 }
@@ -1888,7 +1918,7 @@ textarea:focus-visible,
     white-space: pre-line;
 }
 .sg-chat-bot { background: #f1f5f9; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 4px; }
-.sg-chat-user { background: var(--sg-primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.sg-chat-user { background: var(--sg-green-cta); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
 .sg-chat-input-row { display: flex; padding: .5rem; gap: .5rem; border-top: 1px solid #e2e8f0; }
 .sg-chat-input-row input {
     flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: .5rem .75rem;
@@ -1896,7 +1926,7 @@ textarea:focus-visible,
 }
 .sg-chat-input-row input:focus { border-color: var(--sg-primary); }
 .sg-chat-input-row button {
-    background: var(--sg-primary); color: #fff; border: none; border-radius: 8px;
+    background: var(--sg-green-cta); color: #fff; border: none; border-radius: 8px;
     width: 38px; cursor: pointer; font-size: 1rem; font-weight: bold;
 }
 @media (max-width: 575.98px) {
@@ -2029,4 +2059,82 @@ textarea:focus-visible,
         padding-bottom: 0.75rem;
     }
 }
+
+/* ============================================================
+   WCAG 2.2 AA remediation (accessibility audit 2026-10-02)
+   - 2.5.8 Target Size: navbar search submit
+   - 1.4.1 Use of Color: in-text links get a non-colour affordance
+   - 1.4.3 Contrast: muted token + dark-theme surface repairs
+   ============================================================ */
+
+/* 2.5.8 — the icon-only search submit collapses to ~18px wide inside
+   .input-group-sm; guarantee a >= 24px (here 44px) hit target. */
+.sg-nav-search .input-group > button.btn {
+    min-width: 44px;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 1.4.1 — links inside running text must not rely on colour alone.
+   Bootstrap's .text-decoration-none strips the underline from these
+   helpline/whatsapp links, leaving only a sub-3:1 colour difference. */
+p a.text-decoration-none,
+li a.text-decoration-none,
+.card p a.text-decoration-none {
+    text-decoration: underline !important;
+    text-underline-offset: 2px;
+}
+
+/* Navbar language button: the rendered button carries no data-lang, so no
+   colour/background rule matched it and it inherited the UA button-face
+   (#f0f0f0) with light ink (1.08:1). Style the attribute-less state. */
+.sg-lang-btn:not([data-lang]) {
+    background: rgba(255, 255, 255, .14);
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, .28);
+}
+
+/* 1.4.3 — dark theme contrast repairs. */
+[data-theme="dark"] .sg-stat-label { color: #cbd5e1; }
+
+/* Solid brand-green surfaces (bg-success cards, hero pills) are darkened so
+   the light stat values/labels and body text on them clear AA. */
+[data-theme="dark"] .bg-success { background-color: #166534 !important; }
+[data-theme="dark"] .bg-success .text-muted { color: #d1e7dd !important; }
+
+/* Chips that must keep DARK text on amber: the dark .text-dark remap turns
+   dark text into light ink, which fails on light/amber backgrounds. */
+[data-theme="dark"] .bg-warning .text-dark,
+[data-theme="dark"] .badge.text-dark,
+[data-theme="dark"] .badge.bg-warning,
+[data-theme="dark"] .bg-warning { color: #3b2f06 !important; }
+
+/* Inline code picks up Bootstrap pink (#d63384), too dim on dark surfaces. */
+[data-theme="dark"] code { color: #f9a8d4; }
+
+/* Outline buttons hard-code a white background in light mode; flip them so
+   their foreground has a matching (dark) surface in dark mode. */
+[data-theme="dark"] .btn-outline-success,
+[data-theme="dark"] .btn-outline-danger,
+[data-theme="dark"] .btn-outline-primary,
+[data-theme="dark"] .btn-outline-secondary { background: transparent; }
+[data-theme="dark"] .btn-outline-success { color: #4ade80; border-color: #4ade80; }
+[data-theme="dark"] .btn-outline-danger { color: #f87171; border-color: #f87171; }
+[data-theme="dark"] .btn-outline-primary { color: #93c5fd; border-color: #60a5fa; }
+[data-theme="dark"] .btn-outline-secondary { color: #cbd5e1; border-color: #64748b; }
+
+/* Report page "other ways to report" card uses an inline light background
+   (#f8fdf9) that does not flip with the theme. */
+[data-theme="dark"] #other-ways-to-report { background: #1e293b !important; border-color: #334155 !important; }
+[data-theme="dark"] #other-ways-to-report .text-muted { color: #cbd5e1 !important; }
+
+/* Keep the 10%-tint stat pills translucent in dark mode too (the solid
+   .bg-success override above would otherwise paint them brand-green). */
+[data-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(46, 204, 113, .15) !important; }
+[data-theme="dark"] .bg-danger.bg-opacity-10  { background-color: rgba(239, 68, 68, .15) !important; }
+[data-theme="dark"] .bg-primary.bg-opacity-10 { background-color: rgba(37, 99, 235, .18) !important; }
+[data-theme="dark"] .text-secondary { color: #cbd5e1 !important; }
+[data-theme="dark"] .text-primary { color: #6ee7a0 !important; }
 

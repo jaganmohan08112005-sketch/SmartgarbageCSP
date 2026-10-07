@@ -62,3 +62,4 @@ _pip_torch.log
 _dataset_fetch.log
 _train_photo.log
 _export.log
+audit/out/
