@@ -165,13 +165,13 @@ PRINCIPAL_NAME = "Dr. Y.M.C. Shekar"
 DEGREE = "BACHELOR OF TECHNOLOGY"
 BRANCH = "COMPUTER SCIENCE & ENGINEERING"
 SPECIALIZATION = "(Data Science)"
-SEMESTER_YEAR = "B.Tech V Sem CSE-DS, 2025-2026"
+SEMESTER_YEAR = "B.Tech V Sem CSE-DS, 2026-2027"
 
 DEPARTMENT_FULL = "DEPARTMENT OF DATA ENGINEERING"
 COLLEGE_FULL = "MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)"
 AFFILIATION_DETAILS = "(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram)\nListed u/s 2(f) & 12(B) of UGC Act 1956."
 CAMPUS_LOCATION = "Vijayaram Nagar Campus, Chintalavalasa, Vizianagaram-535005, Andhra Pradesh"
-SUBMISSION_DATE = "October, 2025"
+SUBMISSION_DATE = "October, 2026"
 
 
 # ════════════════════════════════════════════════════════════
@@ -224,7 +224,7 @@ h('CERTIFICATE', 1)
 names_str = ", ".join([f"{s['name']} ({s['reg_no']})" for s in STUDENTS])
 p(f'This is to certify that the project entitled "{PROJECT_TITLE}: {PROJECT_SUBTITLE}" '
   f'is the bonafide work carried out by {names_str} of {SEMESTER_YEAR}, M.V.G.R. College of Engineering '
-  f'(Autonomous), Vizianagaram, during the academic year 2025-2026, in partial fulfilment of the '
+  f'(Autonomous), Vizianagaram, during the academic year 2026-2027, in partial fulfilment of the '
   f'requirements for the award of the Degree of Bachelor of Technology and that the project '
   f'has not formed the basis for the award previously of any degree or any other similar title.')
 doc.add_paragraph(); doc.add_paragraph()
@@ -291,35 +291,6 @@ p('Waste management in Indian gram panchayats predominantly relies on phone call
 pb()
 
 # ════════════════════════════════════════════════════════════
-# TABLE OF CONTENTS
-# ════════════════════════════════════════════════════════════
-h('TABLE OF CONTENTS', 1)
-toc = [
-    'List of Abbreviations','List of Figures','List of Tables',
-    '1. Introduction','    1.1 Problem Statement','    1.2 Project Objective','    1.3 Scope',
-    '2. Literature Survey','    2.1 Existing Approaches','    2.2 Digital Solutions',
-    '    2.3 IoT and ML','    2.4 Research Gap',
-    '3. Data Gathering / Data Used','    3.1 Study Area','    3.2 Data Sources',
-    '    3.3 Ward Information','    3.4 Data Preparation','    3.5 Database Design',
-    '4. Methodology / System Design','    4.1 Requirement Analysis',
-    '    4.2 System Architecture','    4.3 System Workflow','    4.4 Technology Stack',
-    '    4.5 ML Methodology','    4.6 IoT Methodology','    4.7 Security',
-    '    4.8 PWA / Offline',
-    '5. Implementation / Modules','    5.1 Public Portal','    5.2 Citizen Portal',
-    '    5.3 Admin Portal','    5.4 Worker Portal','    5.5 IoT Module',
-    '    5.6 ML Module','    5.7 Background Jobs','    5.8 PWA Module',
-    '6. Results / Outputs','    6.1 Feature Status','    6.2 System Outputs',
-    '    6.3 Performance Metrics','    6.4 Security Evaluation','    6.5 Accessibility',
-    '7. Impact Assessment','8. Challenges Faced','9. Conclusion','10. Future Work',
-    'References','Appendix A: Tools and Packages','Appendix B: Source Code',
-]
-for item in toc:
-    pa = doc.add_paragraph()
-    pa.paragraph_format.line_spacing = Pt(18)
-    r = pa.add_run(item); r.font.name = 'Times New Roman'; r.font.size = Pt(12)
-pb()
-
-# ════════════════════════════════════════════════════════════
 # LIST OF ABBREVIATIONS
 # ════════════════════════════════════════════════════════════
 h('LIST OF ABBREVIATIONS', 1)
@@ -374,9 +345,40 @@ tbl(['Table No.', 'Title'], [
     ('Table 6.3', 'Security Headers Evaluation'),
     ('Table 6.4', 'Accessibility Evaluation'),
     ('Table 6.5', 'Citizen rescue channels and status'),
+    ('Table 6.6', 'Photo-Validation Classifier Evaluation'),
+    ('Table 6.7', 'Classifier Reliability Safeguards'),
     ('Table 7.1', 'Impact Assessment Summary'),
     ('Table 8.1', 'Challenges and Solutions'),
 ], 'Table: List of Tables')
+pb()
+
+# ════════════════════════════════════════════════════════════
+# TABLE OF CONTENTS
+# ════════════════════════════════════════════════════════════
+h('TABLE OF CONTENTS', 1)
+toc = [
+    'List of Abbreviations','List of Figures','List of Tables',
+    '1. Introduction','    1.1 Problem Statement','    1.2 Project Objective','    1.3 Scope',
+    '2. Literature Survey','    2.1 Existing Approaches','    2.2 Digital Solutions',
+    '    2.3 IoT and ML','    2.4 Research Gap',
+    '3. Data Gathering / Data Used','    3.1 Study Area','    3.2 Data Sources',
+    '    3.3 Ward Information','    3.4 Data Preparation','    3.5 Database Design',
+    '4. Methodology / System Design','    4.1 Requirement Analysis',
+    '    4.2 System Architecture','    4.3 System Workflow','    4.4 Technology Stack',
+    '    4.5 ML Methodology','    4.6 IoT Methodology','    4.7 Security',
+    '    4.8 PWA / Offline',
+    '5. Implementation / Modules','    5.1 Public Portal','    5.2 Citizen Portal',
+    '    5.3 Admin Portal','    5.4 Worker Portal','    5.5 IoT Module',
+    '    5.6 ML Module','    5.7 Background Jobs','    5.8 PWA Module',
+    '6. Results / Outputs','    6.1 Feature Status','    6.2 System Outputs',
+    '    6.3 Performance Metrics','    6.4 Security Evaluation','    6.5 Accessibility',
+    '7. Impact Assessment','8. Challenges Faced','9. Conclusion','10. Future Work',
+    'References','Appendix A: Tools and Packages','Appendix B: Source Code',
+]
+for item in toc:
+    pa = doc.add_paragraph()
+    pa.paragraph_format.line_spacing = Pt(18)
+    r = pa.add_run(item); r.font.name = 'Times New Roman'; r.font.size = Pt(12)
 pb()
 
 # ════════════════════════════════════════════════════════════
@@ -559,9 +561,10 @@ h('4.2 System Architecture', 2)
 p('The system follows a monolithic Flask architecture with blueprint-based modular '
   'routing. The client layer (Browser/PWA) communicates via HTTPS through Cloudflare '
   'CDN to the application layer (Gunicorn + gevent WSGI server). The application '
-  'consists of eight Flask blueprints: public, citizen, admin, worker, IoT, auth, '
-  'analytics, and webhook. The data layer uses Supabase PostgreSQL via SQLAlchemy '
-  'ORM with 23 models and 29 Alembic migrations.')
+  'consists of eight route modules (public, citizen, admin, worker, IoT, auth, '
+  'analytics, and webhook) mounted on a single Flask application blueprint. The data '
+  'layer uses Supabase PostgreSQL via SQLAlchemy ORM with 29 models and 30 Alembic '
+  'migrations.')
 add_figure(fig4_1, 'Figure 4.1: End-to-End System Architecture Diagram')
 
 h('4.3 System Workflow', 2)
@@ -623,6 +626,43 @@ h('4.8 PWA and Offline Methodology', 2)
 p('The PWA implements: service worker with cache-first strategy for static assets; '
   'IndexedDB offline report queue with background sync on reconnection; web app '
   'manifest for installability; and offline page with cached content.')
+
+h('4.9 Photo Validation Classifier and Reliability Automation', 2)
+p('Complaint photos are the primary evidence in the platform, but not every uploaded '
+  'image is useful: selfies, screenshots, indoor scenes and blank frames would '
+  'otherwise reach the worker queue as false dispatches. To protect that queue, '
+  'SmartGarbage runs a second, independent deep-learning model ahead of complaint '
+  'storage - a two-class photo-validation classifier (the "photo gate").')
+p('Runtime contract: the uploaded image is opened with Pillow, converted to RGB, '
+  'resized to 224x224 pixels, scaled to the [0,1] range, normalised with the ImageNet '
+  'mean (0.485, 0.456, 0.406) and standard deviation (0.229, 0.224, 0.225), and laid '
+  'out as an NCHW tensor. An ONNX Runtime session bundled with the application '
+  '(app/photo_classifier.onnx plus a photo_classifier.onnx.json sidecar that declares '
+  'the labels, the reject label, the input size and the preprocessing contract) returns '
+  'a two-class softmax; the reported score p_reject is the probability that the image '
+  'is non-garbage, and a photo is accepted only when p_reject < '
+  'PHOTO_CLASSIFIER_THRESHOLD (default 0.70). Every rejection is logged with a '
+  'thumbnail to the admin photo-rejection monitor and retained as a retraining '
+  'candidate, so the gate improves from its own mistakes.')
+p('Training and evaluation: scripts/train_photo_classifier.py transfer-learns a compact '
+  'convolutional network and exports it to ONNX, using the same 224x224 resize at '
+  'validation time as at runtime so the measured accuracy reflects the deployed '
+  'contract. The shipped model was retrained with domain hard negatives ("Streets in '
+  'India" / "Roads in India" clean scenes and dump-yard frames) and reached 96.6% top-1 '
+  'validation accuracy across approximately 4,300 images.')
+p('Reliability automation (MLOps): three safeguards keep the gate honest. (1) Two '
+  'canary probes embedded in app/jobs.py - a known non-garbage image that must be '
+  'rejected and a known garbage image that must be accepted - are scored on a schedule; '
+  'a breach raises day-deduplicated email/SMS alerts. (2) A weekly drift tracker '
+  'compares the live p_reject distribution against a signed baseline '
+  '(scripts/photo_classifier_baseline.json) and warns when the mean shifts by more than '
+  '0.01, when the floor drops by more than 0.005 below the baseline minimum, or when '
+  'any score falls below 0.90; a breach files a labelled GitHub issue. (3) A closed '
+  'retraining loop exports relabelled false positives as a batch archive, ingests them '
+  'exactly once through a SHA-256 ledger, enforces a validation-accuracy gate (default '
+  '0.90) before promoting a new model, and refreshes the drift baseline; the entire '
+  'loop is triggered from a manual GitHub Actions workflow that opens a review pull '
+  'request.')
 pb()
 
 # ════════════════════════════════════════════════════════════
@@ -666,6 +706,12 @@ modules = [
      'Service worker with cache-first strategy; IndexedDB offline queue; background '
      'sync on reconnection; web app manifest.',
      'Service Worker API, IndexedDB.'),
+    ('5.9 Photo Validation & Classifier Lifecycle', 'classify_garbage_photo + jobs.py',
+     'Validate complaint photos and keep the classifier trustworthy over time.',
+     'ONNX photo gate at p_reject < 0.70; admin photo-rejection monitor with '
+     'thumbnails; dual canary probes; weekly p_reject drift tracker; exactly-once '
+     'retrain-batch ingest with a validation-accuracy gate and auto-refreshed baseline.',
+     'ONNX Runtime, Pillow, GitHub Actions.'),
 ]
 
 for title, f, purpose, functions, tech in modules:
@@ -695,6 +741,7 @@ tbl(['Feature', 'Status', 'Evidence'], [
     ['Worker Dispatch', 'Implemented', 'ML-ranked queue'],
     ['IoT Telemetry', 'Implemented', 'HMAC-authenticated endpoint'],
     ['ML Prediction', 'Prototype', 'Synthetic data (600 rows)'],
+    ['Photo Validation Classifier', 'Implemented', 'ONNX gate, p_reject < 0.70'],
     ['Green Points', 'Implemented', 'Leaderboard + redemption'],
     ['PAYT Billing', 'Implemented', 'Invoices + UPI + PDF receipt'],
     ['Background Jobs', 'Implemented', 'RQ queue, 7+ job types'],
@@ -774,8 +821,36 @@ tbl(
 )
 
 # ════════════════════════════════════════════════════════════
-# 6.6 System Output Screenshots (live site)
-h('6.6 System Output Screenshots', 2)
+# 6.6 Photo-gate reliability & classifier results
+h('6.6 Photo-Gate Reliability and Classifier Results', 2)
+p('The photo-validation classifier was evaluated against the deployed runtime contract '
+  '(224x224 ImageNet-normalised input, ONNX Runtime inference) so the numbers below '
+  'describe the model actually serving traffic, not a training-time proxy.')
+tbl(['Metric', 'Value', 'Basis'], [
+    ['Validation top-1 accuracy', '96.6%', 'Hard-negative retrain, ~4,300 images'],
+    ['Canary p_reject (non-garbage probe)', '0.99983',
+     'Live scoring of the reject canary (range 0.9998-1.0000)'],
+    ['Validation-set p_reject (scored)', 'n=302, mean 0.9964, min 0.7693',
+     'Rejected validation images'],
+    ['Acceptance threshold', 'p_reject < 0.70', 'PHOTO_CLASSIFIER_THRESHOLD default'],
+], 'Table 6.6: Photo-Validation Classifier Evaluation')
+p('Reliability automation was exercised end to end: the canary probes run on schedule '
+  'with day-deduplicated alerting, the weekly drift tracker compares live p_reject '
+  'against the signed baseline, and the retrain-batch ingest was verified to be '
+  'exactly-once and idempotent.')
+tbl(['Safeguard', 'Mechanism', 'Status'], [
+    ['Reject canary', 'Non-garbage probe must score above threshold', 'Live'],
+    ['Accept canary', 'Garbage probe must be accepted', 'Live'],
+    ['Threshold-drift tracker', 'Weekly p_reject vs signed baseline; issue on breach', 'Live'],
+    ['Retrain-batch ingest', 'SHA-256 exactly-once ledger, >=48px validation', 'Live'],
+    ['Promotion gate', 'Validation accuracy >= 0.90 required to ship', 'Live'],
+    ['Baseline refresh', 'Auto-refreshed after each promoted retrain', 'Live'],
+], 'Table 6.7: Classifier Reliability Safeguards')
+pb()
+
+# ════════════════════════════════════════════════════════════
+# 6.7 System Output Screenshots (live site)
+h('6.7 System Output Screenshots', 2)
 p('The following screenshots were captured from the live deployment at '
   'https://smartgarbage.onrender.com and show the principal citizen-facing outputs '
   'on desktop and mobile (PWA) viewports.')
@@ -841,6 +916,8 @@ tbl(['Challenge', 'Category', 'Solution'], [
     ['Session security on public pages', 'Security', 'SecureCookieSessionInterface override'],
     ['IoT device authentication', 'Security', 'HMAC-SHA256 signed API keys'],
     ['Security headers configuration', 'Security', 'Flask-Talisman + after_request hooks'],
+    ['Keeping the photo gate trustworthy', 'MLOps',
+     'Canary probes + weekly drift tracker + gated retrain loop'],
 ], 'Table 8.1: Challenges and Solutions')
 pb()
 
@@ -852,8 +929,8 @@ p('This project developed SmartGarbage Chintalavalasa — an integrated, open-so
   'waste management portal for the five wards of Chintalavalasa Gram Panchayat. '
   'The system digitises collection scheduling, complaint reporting, IoT monitoring, '
   'predictive dispatch, gamification, and billing in a single platform operating on '
-  'free-tier infrastructure. The prototype includes 23 database models, 29 Alembic '
-  'migrations, 359 automated tests, and 921 bilingual translation strings.')
+  'free-tier infrastructure. The prototype includes 29 database models, 30 Alembic '
+  'migrations, 406 automated tests, and 921 bilingual translation strings.')
 p('All 10 project objectives were achieved at the prototype level: schedule digitisation, '
   'GPS+photo complaint reporting, real-time tracking, IoT telemetry pipeline, ML '
   'prediction pipeline (validated with synthetic data), Green Points gamification, '
@@ -889,6 +966,9 @@ for i, (title, desc) in enumerate([
      'validate the ML prediction pipeline with real data.'),
     ('Government API integration',
      'Connect with the AP State SBM portal for automated compliance reporting.'),
+    ('Continuous classifier improvement',
+     'Automate the review-and-merge step of the retrain pull requests and widen the '
+     'hard-negative corpus with live mislabelled complaints.'),
 ], 1):
     p(f'{i}. {title}: {desc}')
 pb()
@@ -945,7 +1025,8 @@ tbl(['Category', 'Tool / Component', 'Purpose'], [
     ['Backend', 'Flask 3.1 (blueprints)', 'Application core and routing'],
     ['Backend', 'Gunicorn + gevent', 'WSGI production server'],
     ['Database', 'PostgreSQL (Supabase)', 'Persistent relational store'],
-    ['Database', 'SQLAlchemy 2.0 + Alembic', 'ORM and 22 schema migrations'],
+    ['Database', 'SQLAlchemy 2.0 + Alembic', 'ORM and 30 schema migrations'],
+    ['ML (photo gate)', 'ONNX Runtime + Pillow', 'Complaint-photo validation classifier'],
     ['ML', 'scikit-learn RandomForestRegressor', 'Bin overflow prediction'],
     ['Jobs', 'Redis + RQ (worker.py)', 'Notifications, SLA escalation'],
     ['Security', 'Flask-Talisman + Flask-Limiter', '9 OWASP headers, rate limits'],
@@ -959,19 +1040,20 @@ p('1. Requirement identification: interviews with residents and sanitation worke
   'defined five ward workflows and the complaint lifecycle.')
 p('2. Interface design: public portal, citizen dashboard, admin control room and '
   'worker mobile views were wireframed mobile-first.')
-p('3. Backend setup: Flask application factory with seven route blueprints and '
-  'RBAC decorators.')
-p('4. Database schema: 23 SQLAlchemy models with 29 Alembic migrations on '
+p('3. Backend setup: Flask application factory with eight route modules mounted '
+  'on a single application blueprint, with RBAC decorators.')
+p('4. Database schema: 29 SQLAlchemy models with 30 Alembic migrations on '
   'PostgreSQL (Supabase).')
 p('5. IoT integration: HMAC-SHA256-signed /api/bin-telemetry ingestion with '
   'per-device keys and anomaly detection.')
 p('6. ML pipeline: 600-row synthetic training grid, RandomForestRegressor training, '
   'evaluation and dispatch-queue ranking.')
-p('7. PWA offline layer: service worker (v14) cache tiers, IndexedDB complaint '
-  'queue, background sync on reconnect.')
+p('7. PWA offline layer: service worker (v16) two-tier same-origin cache plus an '
+  'allowlisted CDN tier (web font + map tiles), IndexedDB complaint queue, '
+  'background sync on reconnect.')
 p('8. Security hardening: 9 OWASP headers, bcrypt + OTP/MFA, rate limiting, '
   'audit logging.')
-p('9. Testing: 359 automated tests run by pytest with Postgres parity '
+p('9. Testing: 406 automated tests run by pytest with Postgres parity '
   'via run_pg_suite.py; flake8 lint in CI.')
 p('10. Deployment: GitHub push triggers Render Docker build; Cloudflare serves '
   'the edge; GitHub Actions pings /health every 15 minutes.')
@@ -985,7 +1067,7 @@ p('Source: https://github.com/jaganmohan08112005-sketch/SmartgarbageCSP')
 p('Live site: https://smartgarbage.onrender.com')
 tbl(['File', 'Lines', 'Purpose'], [
     ['app/__init__.py', '853', 'App factory, security, middleware'],
-    ['app/models.py', '575', '23 database models'],
+    ['app/models.py', '575', '29 database models'],
     ['app/routes/public.py', '900+', 'Public pages, search, impact'],
     ['app/routes/citizen.py', '700+', 'Citizen portal, PAYT, Green Points'],
     ['app/routes/admin.py', '1000+', 'Admin control room, analytics'],
@@ -995,8 +1077,8 @@ tbl(['File', 'Lines', 'Purpose'], [
     ['app/jobs.py', '1400+', 'Background job definitions'],
     ['app/ml_model.py', '400+', 'Overflow prediction model'],
     ['app/i18n.py', '1000+', 'English and Telugu translations'],
-    ['tests/', '5 files', '359 test functions'],
-    ['migrations/versions/', '29', 'Alembic migrations'],
+    ['tests/', '7 files', '406 test functions'],
+    ['migrations/versions/', '30', 'Alembic migrations'],
 ])
 
 
@@ -1021,8 +1103,13 @@ code_block(_excerpt('app/ml_model.py', 57, 60))
 code_block(_excerpt('app/ml_model.py', 269, 292))
 
 p('B.4 Service Worker Cache Tiers (app/static/sw.js)', b=True)
-p('Three-tier caching with LRU eviction powers the offline-first PWA:')
-code_block(_excerpt('app/static/sw.js', 6, 17))
+p('Two-tier same-origin caching with LRU eviction powers the offline-first PWA: '
+  'immutable static assets (cache-first) and HTML pages '
+  '(stale-while-revalidate). A small allowlisted CDN tier additionally '
+  'cache-firsts the web font and OpenStreetMap tiles so they survive offline. '
+  'Every other cross-origin request is deliberately NOT intercepted, so '
+  'resources such as Google Tag Manager load straight from the network.')
+code_block(_excerpt('app/static/sw.js', 1, 14))
 
 # PAPER PUBLICATIONS
 h('PAPER PUBLICATIONS', 1)

@@ -19,18 +19,31 @@ TARGETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_toc_targets
 # chapters, tables and figures; a normal run then fills them into the
 # TABLE OF CONTENTS / LIST OF TABLES / LIST OF FIGURES pages.
 PAGE_MAP = {}
+ABBR_PAGE = None
 if os.path.exists(TARGETS) and '--record' not in sys.argv:
+    _raw = []
     try:
         with open(TARGETS, encoding='utf-8') as _tf:
-            PAGE_MAP = {k: p for (k, p) in json.load(_tf)}
+            _raw = json.load(_tf)
     except Exception:
-        PAGE_MAP = {}
+        _raw = []
+    # The --record pass stores the sentinel '__ABBR_PAGE__' = absolute page of
+    # LIST OF ABBREVIATIONS. Footers print re-based numbers (LoA = 1), so the
+    # TOC / List-of-Tables / List-of-Figures must print the same re-based ones.
+    for k, p in _raw:
+        if k == '__ABBR_PAGE__':
+            ABBR_PAGE = p
+    if ABBR_PAGE:
+        PAGE_MAP = {k: p - ABBR_PAGE + 1 for (k, p) in _raw if k != '__ABBR_PAGE__' and isinstance(p, int)}
+    else:
+        PAGE_MAP = {k: p for (k, p) in _raw}
 
 FONT_DIR = "C:/Windows/Fonts"
 
 class ReportPDF(FPDF):
     def __init__(self):
-        super().__init__('P', 'mm', 'A4')
+        # US Letter (215.9 x 279.4 mm) per the R24 BOOK template
+        super().__init__('P', 'mm', (215.9, 279.4))
         self.set_auto_page_break(auto=True, margin=25)
         # Register Times New Roman
         self.add_font('TNR', '', os.path.join(FONT_DIR, 'times.ttf'))
@@ -39,6 +52,9 @@ class ReportPDF(FPDF):
         self.add_font('TNR', 'BI', os.path.join(FONT_DIR, 'timesbi.ttf'))
         self.page_count = 0
         self.targets = []
+        # R24: page numbering starts at LIST OF ABBREVIATIONS (= 1);
+        # front matter (title/certificate/declaration/ack/abstract) is unnumbered.
+        self.abbr_page = None
 
     def header(self):
         if self.page_no() > 1:
@@ -47,21 +63,26 @@ class ReportPDF(FPDF):
             self.cell(0, 8, 'SmartGarbage Chintalavalasa — Community Project Report', 0, 0, 'C')
             self.ln(10)
             self.set_draw_color(200, 200, 200)
-            self.line(20, self.get_y(), 190, self.get_y())
+            self.line(25.4, self.get_y(), 190.5, self.get_y())
             self.ln(3)
             self.set_text_color(0, 0, 0)
 
     def footer(self):
+        if self.abbr_page is None or self.page_no() < self.abbr_page:
+            return  # front matter carries no page number
         self.set_y(-15)
         self.set_font('TNR', '', 9)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'{self.page_no()}', 0, 0, 'C')
+        # R24: numbering starts at 1 on the List of Abbreviations page.
+        self.cell(0, 10, f'{self.page_no() - self.abbr_page + 1}', 0, 0, 'C')
         self.set_text_color(0, 0, 0)
 
     # ── Content helpers ─────────────────────────────────────────────
     def chapter_heading(self, text):
         """16pt Bold ALL CAPS"""
         self.add_page()
+        if text.upper() == 'LIST OF ABBREVIATIONS' and self.abbr_page is None:
+            self.abbr_page = self.page_no()
         self.ln(8)
         self.set_font('TNR', 'B', 16)
         self.set_text_color(0, 0, 0)
@@ -129,9 +150,9 @@ class ReportPDF(FPDF):
         self.ln(2)
 
     def add_image_centered(self, path, w=160):
-        """Insert an image centered on the page."""
+        """Insert an image centered on the page (w in mm)."""
         if os.path.exists(path):
-            x = (210 - w) / 2
+            x = (215.9 - w) / 2
             self.image(path, x=x, w=w)
             self.ln(3)
 
@@ -139,7 +160,7 @@ class ReportPDF(FPDF):
         """Render a table with header row shading."""
         if col_widths is None:
             n = len(headers)
-            col_widths = [170 / n] * n
+            col_widths = [165 / n] * n  # letter content width minus 1in margins
         # Header
         self.set_font('TNR', 'B', 10)
         self.set_fill_color(217, 226, 243)
@@ -196,65 +217,70 @@ class ReportPDF(FPDF):
         self.ln(2)
 
     def dump_targets(self):
+        rows = list(self.targets)
+        if self.abbr_page is not None:
+            rows.append(('__ABBR_PAGE__', self.abbr_page))
         with open(TARGETS, 'w', encoding='utf-8') as f:
-            json.dump(self.targets, f)
+            json.dump(rows, f)
 
 
 # ════════════════════════════════════════════════════════════════════
 # BUILD THE PDF
 # ════════════════════════════════════════════════════════════════════
 pdf = ReportPDF()
-pdf.set_margins(20, 20, 20)
+pdf.set_margins(25.4, 25.4, 25.4)  # R24: 1-inch margins on all sides
 pdf.add_page()
 
 # ── TITLE PAGE ──────────────────────────────────────────────────────
-for _ in range(4): pdf.ln(12)
+# Spacing tuned so the full title block (incl. college address + date)
+# fits on ONE letter page with 1-inch margins, as the template requires.
+for _ in range(2): pdf.ln(8)
 pdf.centered_text('COMMUNITY PROJECT REPORT', 16, True)
-pdf.ln(12)
+pdf.ln(6)
 pdf.set_text_color(0, 100, 0)
 pdf.centered_text('SMARTGARBAGE CHINTALAVALASA', 18, True)
 pdf.set_text_color(0, 0, 0)
 pdf.ln(2)
 pdf.centered_text('Community-Based Smart Waste Management', 14)
 pdf.centered_text('and Digital Governance System', 14)
-pdf.ln(16)
+pdf.ln(8)
 pdf.centered_text('Submitted by', 12)
 pdf.ln(4)
 for name, reg in [
-    ('MOPADA JAGANMOHAN', '2433144441'),
+    ('MOPADA JAGANMOHAN', '24331A4441'),
     ('LATCHUPATULA RESHMA', '24331A4434'),
-    ('PATI NARASIMHA MURTHY', '2433144446'),
+    ('PATI NARASIMHA MURTHY', '24331A4446'),
     ('KADA AUGUSTTN PAUL KUMAR', '24331A4426'),
 ]:
     pdf.centered_text(f'{name}  ({reg})', 12)
-pdf.ln(8)
+pdf.ln(4)
 pdf.centered_text('In partial fulfillment for the award of the degree of', 12)
 pdf.ln(4)
 pdf.centered_text('BACHELOR OF TECHNOLOGY', 14, True)
 pdf.centered_text('IN', 12)
 pdf.centered_text('COMPUTER SCIENCE & ENGINEERING', 14, True)
 pdf.centered_text('(Data Science)', 12)
-pdf.ln(8)
+pdf.ln(4)
 pdf.centered_text('Under the esteemed Guidance of', 12)
 pdf.ln(2)
 pdf.centered_text('Mrs. S. Nikhila', 14, True)
 pdf.centered_text('Assistant Professor', 12)
-pdf.ln(8)
+pdf.ln(4)
 # MVGR College Logo (in the middle)
 logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_diagrams', 'mvgr_logo.png')
 if os.path.exists(logo_path):
-    pdf.add_image_centered(logo_path, 60)
-    pdf.ln(4)
+    pdf.add_image_centered(logo_path, 42)
+    pdf.ln(2)
 pdf.centered_text('DEPARTMENT OF DATA ENGINEERING', 12, True)
 pdf.centered_text('MAHARAJ VIJAYARAM GAJAPATHI RAJ COLLEGE OF ENGINEERING (Autonomous)', 11, True)
 pdf.centered_text('(Approved by AICTE, New Delhi, and permanently affiliated to JNTUGV, Vizianagaram)', 9)
 pdf.centered_text('Vijayaram Nagar Campus, Chintalavalasa, Vizianagaram-535005, Andhra Pradesh', 9)
 pdf.ln(4)
-pdf.centered_text('October, 2025', 12, True)
+pdf.centered_text('October, 2026', 12, True)
 
 # ── CERTIFICATE ─────────────────────────────────────────────────────
 pdf.chapter_heading('CERTIFICATE')
-pdf.body_text('This is to certify that the project entitled "SmartGarbage Chintalavalasa \u2014 Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (2433144441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (2433144446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2025-2026, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
+pdf.body_text('This is to certify that the project entitled "SmartGarbage Chintalavalasa \u2014 Community-Based Smart Waste Management and Digital Governance System" is the bonafide work carried out by Mopada Jaganmohan (24331A4441), Latchupatula Reshma (24331A4434), Pati Narasimha Murthy (24331A4446), and Kada Augusttn Paul Kumar (24331A4426), of B.Tech V Sem CSE-DS, M.V.G.R. College of Engineering (Autonomous), Vizianagaram, during the year 2026-2027, in partial fulfilment of the requirements for the award of the Degree of Bachelor of Technology and that the project has not formed the basis for the award previously of any degree or any other similar title.')
 pdf.ln(16)
 pdf.set_font('TNR', 'B', 12)
 pdf.cell(0, 7, 'Signature of Project Guide', 0, 1)
@@ -268,8 +294,8 @@ pdf.body_text('Dr. Jyothi\nHead of the Department\nDepartment: Data Engineering'
 pdf.chapter_heading('DECLARATION')
 pdf.body_text('We hereby declare that the work done on the dissertation entitled "SmartGarbage Chintalavalasa \u2014 Community-Based Smart Waste Management and Digital Governance System" has been carried out by us and submitted in partial fulfilment for the award of credits in Bachelor of Technology in Computer Science and Engineering (Data Science) of M.V.G.R College of Engineering (Autonomous) and affiliated to JNTUGV, Vizianagaram. The various contents incorporated in the dissertation have not been submitted for the award of any degree of any other institution or university.')
 pdf.ln(8)
-for n in ['MOPADA JAGANMOHAN (2433144441)', 'LATCHUPATULA RESHMA (24331A4434)',
-          'PATI NARASIMHA MURTHY (2433144446)', 'KADA AUGUSTTN PAUL KUMAR (24331A4426)']:
+for n in ['MOPADA JAGANMOHAN (24331A4441)', 'LATCHUPATULA RESHMA (24331A4434)',
+          'PATI NARASIMHA MURTHY (24331A4446)', 'KADA AUGUSTTN PAUL KUMAR (24331A4426)']:
     pdf.body_text(n)
 
 # ── ACKNOWLEDGEMENT ─────────────────────────────────────────────────
@@ -278,8 +304,8 @@ pdf.body_text('We express our sincere gratitude to our project guide for their i
 pdf.body_text('Additionally, we extend our thanks to Prof. P.S. Sitharama Raju (Director), Dr. Y.M.C. Shekar (Principal), and Dr. Jyothi (Head of the Department) for their unwavering support and assistance, which were instrumental in the successful completion of the project.')
 pdf.body_text('We also acknowledge the dedicated assistance provided by all the staff members in the Department of Data Engineering. Finally, we appreciate the contributions of all those who directly or indirectly contributed to the successful execution of this endeavor.')
 pdf.ln(4)
-for n in ['MOPADA JAGANMOHAN (2433144441)', 'LATCHUPATULA RESHMA (24331A4434)',
-          'PATI NARASIMHA MURTHY (2433144446)', 'KADA AUGUSTTN PAUL KUMAR (24331A4426)']:
+for n in ['MOPADA JAGANMOHAN (24331A4441)', 'LATCHUPATULA RESHMA (24331A4434)',
+          'PATI NARASIMHA MURTHY (24331A4446)', 'KADA AUGUSTTN PAUL KUMAR (24331A4426)']:
     pdf.right_text(n)
 
 # ── ABSTRACT ────────────────────────────────────────────────────────
@@ -313,8 +339,8 @@ pdf.simple_table(['Abbreviation', 'Full Form'], abbrevs, [35, 135])
 pdf.chapter_heading('TABLE OF CONTENTS')
 toc_rows = [
     ('List of Abbreviations', 'LIST OF ABBREVIATIONS'),
-    ('List of Tables', 'LIST OF TABLES'),
     ('List of Figures', 'LIST OF FIGURES'),
+    ('List of Tables', 'LIST OF TABLES'),
     ('1. INTRODUCTION', '1. INTRODUCTION'),
     ('2. LITERATURE SURVEY', '2. LITERATURE SURVEY'),
     ('3. DATA GATHERING / DATA USED', '3. DATA GATHERING / DATA USED'),
@@ -345,6 +371,8 @@ pdf.simple_table(['Table No.', 'Title', 'Page No.'], [
     ('Table 6.2', 'Performance Evaluation Metrics', str(PAGE_MAP.get('T6_2', '-'))),
     ('Table 6.3', 'Security Headers Evaluation', str(PAGE_MAP.get('T6_3', '-'))),
     ('Table 6.5', 'Citizen rescue channels and status', str(PAGE_MAP.get('T6_5', '-'))),
+    ('Table 6.6', 'Photo-Validation Classifier Evaluation', str(PAGE_MAP.get('T6_6', '-'))),
+    ('Table 6.7', 'Classifier Reliability Safeguards', str(PAGE_MAP.get('T6_7', '-'))),
     ('Table 7.1', 'Operational Impact Summary', str(PAGE_MAP.get('T7_1', '-'))),
     ('Table 8.1', 'Challenges and Solutions', str(PAGE_MAP.get('T8_1', '-'))),
 ], [30, 105, 35])
@@ -513,6 +541,7 @@ pdf.simple_table(['Component', 'Technology', 'Purpose'], [
     ('ORM', 'SQLAlchemy 2.0', 'Python ORM'),
     ('Frontend', 'Bootstrap 5 + CSS', 'Responsive UI'),
     ('ML', 'scikit-learn 1.9', 'RandomForest'),
+    ('ML (photo gate)', 'ONNX Runtime, Pillow', 'Photo validation classifier'),
     ('Task Queue', 'Redis + RQ 2.2', 'Background jobs'),
     ('WSGI', 'Gunicorn 26.0', 'Production server'),
     ('Push', 'pywebpush 2.0', 'Web push'),
@@ -545,6 +574,12 @@ pdf.body_text('\u2022  Authentication: Flask-Login with bcrypt + OTP/MFA.\n\u202
 
 pdf.section_heading('4.9 PWA and Offline Methodology')
 pdf.body_text('\u2022  Service Worker: Versioned precache manifest for offline support.\n\u2022  IndexedDB Queue: Complaints stored offline, synced on reconnection.\n\u2022  Background Sync: Automatic submission when connectivity returns.\n\u2022  Web App Manifest: Installable with shortcuts, screenshots, standalone mode.')
+
+pdf.section_heading('4.10 Photo Validation Classifier and Reliability Automation')
+pdf.body_text('Complaint photos are the primary evidence in the platform, but not every uploaded image is useful: selfies, screenshots, indoor scenes and blank frames would otherwise reach the worker queue as false dispatches. To protect that queue, SmartGarbage runs a second, independent deep-learning model ahead of complaint storage - a two-class photo-validation classifier (the "photo gate").')
+pdf.body_text('Runtime contract: the uploaded image is opened with Pillow, converted to RGB, resized to 224x224 pixels, scaled to [0,1], normalised with the ImageNet mean (0.485, 0.456, 0.406) and standard deviation (0.229, 0.224, 0.225), and laid out as an NCHW tensor. An ONNX Runtime session bundled with the application (app/photo_classifier.onnx plus a photo_classifier.onnx.json sidecar) returns a two-class softmax; the reported score p_reject is the probability that the image is non-garbage, and a photo is accepted only when p_reject < PHOTO_CLASSIFIER_THRESHOLD (default 0.70). Rejected photos are logged with a thumbnail to the admin photo-rejection monitor and retained as retraining candidates.')
+pdf.body_text('Training and evaluation: scripts/train_photo_classifier.py transfer-learns a compact convolutional network and exports it to ONNX, using the same 224x224 resize at validation time as at runtime. The shipped model was retrained with domain hard negatives ("Streets in India" / "Roads in India" clean scenes and dump-yard frames) and reached 96.6% top-1 validation accuracy across approximately 4,300 images.')
+pdf.body_text('Reliability automation (MLOps): (1) two canary probes embedded in app/jobs.py - a non-garbage image that must be rejected and a garbage image that must be accepted - are scored on a schedule with day-deduplicated email/SMS alerts; (2) a weekly drift tracker compares the live p_reject distribution against a signed baseline (scripts/photo_classifier_baseline.json) and warns on a mean shift above 0.01, a floor drop above 0.005 below the baseline minimum, or any score below 0.90, filing a GitHub issue on breach; (3) a closed retraining loop exports relabelled false positives, ingests them exactly once through a SHA-256 ledger, enforces a validation-accuracy gate (default 0.90) before promotion, refreshes the drift baseline, and runs from a manual GitHub Actions workflow that opens a review pull request.')
 
 # ════════════════════════════════════════════════════════════════════
 # CHAPTER 5 — IMPLEMENTATION
@@ -581,6 +616,10 @@ modules = [
     ('5.10 PWA and Offline', 'Offline capabilities.',
      'Service worker, IndexedDB queue, background sync, manifest, splash screen',
      'SW API + IndexedDB', 'Fully implemented'),
+    ('5.11 Photo Validation & Classifier Lifecycle', 'Classifier for complaint photos.',
+     'ONNX photo gate (p_reject < 0.70), admin photo-rejection monitor, dual canary '
+     'probes, weekly drift tracker, exactly-once retrain ingest with accuracy gate',
+     'ONNX Runtime, Pillow, GitHub Actions', 'Fully implemented'),
 ]
 for heading, purpose, functions, tech, status in modules:
     pdf.section_heading(heading)
@@ -616,6 +655,8 @@ pdf.simple_table(['Module', 'Features', 'Status', 'Verification'], [
     ('Worker Portal', 'Dispatch, GPS, evidence', 'Fully Implemented', '200 OK'),
     ('IoT Integration', 'Telemetry API, monitoring', 'Simulated', 'API functional'),
     ('ML Prediction', 'RandomForest prediction', 'Synthetic Data', 'Pipeline OK'),
+    ('Photo Validation Classifier', 'ONNX gate, p_reject < 0.70', 'Fully Implemented',
+     'Canary + drift tracked'),
     ('PAYT Billing', 'Invoice, payment', 'Test Mode', 'Invoice OK'),
     ('Push Notifications', 'Web push, preferences', 'Fully Implemented', 'API functional'),
     ('PWA / Offline', 'SW, IndexedDB, manifest', 'Fully Implemented', 'All 200'),
@@ -731,6 +772,26 @@ pdf.simple_table(['Channel', 'Address', 'Status', 'Notes'], [
      'Supersedes manual call routing'),
 ], [40, 45, 20, 65])
 pdf.table_caption(pdf.register('T6_5', 'Table 6.5: Citizen rescue channels and status'))
+
+pdf.section_heading('6.11 Photo-Gate Reliability and Classifier Results')
+pdf.body_text('The photo-validation classifier was evaluated against the deployed runtime contract (224x224 ImageNet-normalised input, ONNX Runtime inference), so the figures below describe the model actually serving traffic rather than a training-time proxy.')
+pdf.simple_table(['Metric', 'Value', 'Basis'], [
+    ('Validation top-1 accuracy', '96.6%', 'Hard-negative retrain, ~4,300 images'),
+    ('Canary p_reject (non-garbage probe)', '0.99983', 'Live reject canary (range 0.9998-1.0000)'),
+    ('Validation-set p_reject (scored)', 'n=302, mean 0.9964, min 0.7693', 'Rejected validation images'),
+    ('Acceptance threshold', 'p_reject < 0.70', 'PHOTO_CLASSIFIER_THRESHOLD default'),
+], [50, 55, 65])
+pdf.table_caption(pdf.register('T6_6', 'Table 6.6: Photo-Validation Classifier Evaluation'))
+pdf.body_text('Reliability automation was exercised end to end: the canary probes run on schedule with day-deduplicated alerting, the weekly drift tracker compares live p_reject against the signed baseline, and the retrain-batch ingest was verified to be exactly-once and idempotent.')
+pdf.simple_table(['Safeguard', 'Mechanism', 'Status'], [
+    ('Reject canary', 'Non-garbage probe must score above threshold', 'Live'),
+    ('Accept canary', 'Garbage probe must be accepted', 'Live'),
+    ('Threshold-drift tracker', 'Weekly p_reject vs signed baseline; issue on breach', 'Live'),
+    ('Retrain-batch ingest', 'SHA-256 exactly-once ledger, >=48px validation', 'Live'),
+    ('Promotion gate', 'Validation accuracy >= 0.90 required to ship', 'Live'),
+    ('Baseline refresh', 'Auto-refreshed after each promoted retrain', 'Live'),
+], [50, 85, 35])
+pdf.table_caption(pdf.register('T6_7', 'Table 6.7: Classifier Reliability Safeguards'))
 
 # CHAPTER 7
 # ════════════════════════════════════════════════════════════════════
@@ -867,8 +928,9 @@ pdf.simple_table(['Category', 'Tool / Component', 'Purpose'], [
     ('Backend', 'Flask 3.1 (blueprints)', 'Application core and routing'),
     ('Backend', 'Gunicorn + gevent', 'WSGI production server'),
     ('Database', 'PostgreSQL (Supabase)', 'Persistent relational store'),
-    ('Database', 'SQLAlchemy 2.0 + Alembic', 'ORM and 22 schema migrations'),
+    ('Database', 'SQLAlchemy 2.0 + Alembic', 'ORM and 30 schema migrations'),
     ('ML', 'scikit-learn RandomForest', 'Bin overflow prediction'),
+    ('ML', 'ONNX Runtime + Pillow', 'Complaint-photo validation classifier'),
     ('Jobs', 'Redis + RQ (worker.py)', 'Notifications, SLA escalation'),
     ('Security', 'Talisman + Flask-Limiter', '9 OWASP headers, rate limits'),
     ('Security', 'HMAC-SHA256 signatures', 'IoT telemetry authentication'),
@@ -881,13 +943,13 @@ pdf.section_heading('A.3 Working Process')
 pdf.body_text(
     "1. Requirement identification: interviews with residents and sanitation workers defined the five ward workflows.\n"
     "2. Interface design: public, citizen, admin and worker views wireframed mobile-first.\n"
-    "3. Backend setup: Flask application factory with seven route blueprints and RBAC decorators.\n"
-    "4. Database schema: 23 SQLAlchemy models, 29 Alembic migrations on PostgreSQL (Supabase).\n"
+    "3. Backend setup: Flask application factory with eight route modules on a single application blueprint, with RBAC decorators.\n"
+    "4. Database schema: 29 SQLAlchemy models, 30 Alembic migrations on PostgreSQL (Supabase).\n"
     "5. IoT integration: HMAC-SHA256-signed telemetry ingestion with per-device keys.\n"
     "6. ML pipeline: 600-row synthetic grid, RandomForestRegressor training and dispatch ranking.\n"
-    "7. PWA offline layer: service worker cache tiers, IndexedDB queue, background sync.\n"
+    "7. PWA offline layer: service worker (v16) two-tier same-origin cache plus an allowlisted CDN tier (web font + map tiles), IndexedDB queue, background sync.\n"
     "8. Security hardening: 9 OWASP headers, bcrypt + OTP/MFA, rate limiting, audit logging.\n"
-    "9. Testing: 359 automated tests with Postgres parity; flake8 lint in CI.\n"
+    "9. Testing: 406 automated tests with Postgres parity; flake8 lint in CI.\n"
     "10. Deployment: GitHub push triggers Render Docker build; Cloudflare edge; /health uptime probe.")
 
 # APPENDIX B
@@ -899,7 +961,7 @@ pdf.body_text('SQLAlchemy models: User, Complaint, SmartBin, WorkerProfile, Wast
 pdf.section_heading('B.3 ML Module (app/ml_model.py)')
 pdf.body_text('RandomForest regressor with synthetic data training and transparent heuristic fallback.')
 pdf.section_heading('B.4 Service Worker (app/static/sw.js)')
-pdf.body_text('Versioned precache manifest, stale-while-revalidate for HTML, cache-first for assets, push event handler.')
+pdf.body_text('Versioned precache manifest, stale-while-revalidate for HTML, cache-first for assets and an allowlisted CDN tier (web font + map tiles), push event handler.')
 
 def _excerpt(path, a, b):
     # Resolve against the repo root (script lives in report/).
@@ -915,11 +977,16 @@ pdf.body_text('ML overflow prediction (app/ml_model.py) - deterministic ward enc
               'the overflow ETA estimator used by the dispatch queue:')
 pdf.code_text(_excerpt('app/ml_model.py', 57, 60))
 pdf.code_text(_excerpt('app/ml_model.py', 269, 292))
-pdf.body_text('Service worker cache tiers (app/static/sw.js) - three-tier caching with LRU '
-              'eviction powering the offline-first PWA:')
-pdf.code_text(_excerpt('app/static/sw.js', 6, 17))
+pdf.body_text('Service worker cache tiers (app/static/sw.js) - two-tier same-origin caching '
+              'with LRU eviction powering the offline-first PWA (immutable static assets '
+              'cache-first; HTML pages stale-while-revalidate), plus an allowlisted CDN tier '
+              'for the web font and OpenStreetMap tiles. All other cross-origin requests are '
+              'not intercepted:')
+pdf.code_text(_excerpt('app/static/sw.js', 1, 14))
 pdf.section_heading('B.5 Push Module (app/push.py)')
 pdf.body_text('VAPID key management, preference-based filtering, delivery logging, complaint lifecycle integration.')
+pdf.section_heading('B.7 Photo Validation (app/routes/__init__.py, app/jobs.py)')
+pdf.body_text('The runtime photo gate (ONNX softmax, p_reject threshold) plus the dual canary probes and the weekly drift tracker that keep the classifier trustworthy over time.')
 
 # PAPER PUBLICATIONS
 pdf.chapter_heading('PAPER PUBLICATIONS')

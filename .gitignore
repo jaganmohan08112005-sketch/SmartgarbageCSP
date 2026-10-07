@@ -63,3 +63,7 @@ _dataset_fetch.log
 _train_photo.log
 _export.log
 audit/out/
+# 58 MB self-duplicate of the repo (source-code zip for the R24 submission);
+# regenerate instead of tracking:
+#   see submission/README.md — files from `git ls-files` → SmartGarbage_Source_Code.zip
+submission/code/*.zip
