@@ -19,5 +19,5 @@
         <p class="text-muted mt-3 mb-0 small" id="retry-hint">{{ _('Tap reload to retry connection.') }}</p>
     </div>
 </div>
-<script>window.addEventListener('online', () => location.reload());</script>
+<script nonce="{{ csp_nonce() }}">window.addEventListener('online', () => location.reload());</script>
 {% endblock %}

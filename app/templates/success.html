@@ -18,7 +18,7 @@
                 <div class="input-group">
                     <input type="text" class="form-control" readonly value="{{ track_url }}" id="trackUrlInput"
                            aria-label="{{ _('Tracking link') }}">
-                    <button class="btn btn-success rounded-end" type="button" onclick="copyTrackUrl()">
+                    <button class="btn btn-success rounded-end" type="button" data-sg-click="copyTrackUrl">
                         {% from '_icons.html' import icon %}{{ icon('copy') }} {{ _('Copy') }}
                     </button>
                 </div>
@@ -37,7 +37,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function copyTrackUrl() {
     const input = document.getElementById('trackUrlInput');
     if (!input) return;
@@ -45,7 +45,7 @@ function copyTrackUrl() {
     input.setSelectionRange(0, 99999);
     const done = () => {
         // Inline feedback — no dependency on page-specific toast helpers.
-        const btn = document.querySelector('[onclick="copyTrackUrl()"]');
+        const btn = document.querySelector('[data-sg-click="copyTrackUrl"]');
         if (!btn) return;
         const original = btn.innerHTML;
         btn.innerHTML = '✅ ' + (btn.dataset.copied || 'Copied');

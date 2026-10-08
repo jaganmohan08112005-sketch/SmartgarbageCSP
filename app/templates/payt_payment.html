@@ -63,7 +63,7 @@
 {% block scripts %}
 {% if razorpay_order_id %}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     const btn = document.getElementById('razorpayBtn');
     if (!btn || typeof Razorpay === 'undefined') return;

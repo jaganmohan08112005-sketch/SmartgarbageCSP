@@ -72,7 +72,7 @@
                             {{ icon('sms') }} {{ _('Send Login OTP') }}
                         </button>
                     </form>
-                    <script>
+                    <script nonce="{{ csp_nonce() }}">
                         document.getElementById('phoneLoginForm').addEventListener('submit', function(e) {
                             const raw = document.getElementById('otp_phone').value.replace(/[\s\-().]/g, '');
                             const match = raw.match(/^(?:\+91|91)?([6-9]\d{9})$/);

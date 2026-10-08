@@ -187,7 +187,7 @@
                 <div class="mb-3">
                     <div class="form-label small fw-bold text-secondary">📍 {{ _('Device Coordinates') }}</div>
                     <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="afterGpsBtn" onclick="captureClearGps()">🔄 {{ _('Sync GPS') }}</button>
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="afterGpsBtn" data-sg-click="captureClearGps">🔄 {{ _('Sync GPS') }}</button>
                         <span id="afterGpsStatus" class="small text-muted">{{ _('GPS not synced — required') }}</span>
                     </div>
                     <input type="hidden" id="afterLat">
@@ -205,18 +205,18 @@
             </div>
             <div class="modal-footer border-0 bg-light rounded-bottom-4">
                 <button type="button" class="btn btn-secondary py-1.5 px-4 rounded-pill" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success py-1.5 px-4 rounded-pill fw-bold" id="afterSubmitBtn" onclick="submitClearEvidence()">
+                <button type="button" class="btn btn-success py-1.5 px-4 rounded-pill fw-bold" id="afterSubmitBtn" data-sg-click="submitClearEvidence">
                     ✔ {{ _('Submit After-photo') }}
                 </button>
             </div>
         </div>
     </div>
 </div>
-<script type="application/json" id="task-bins-data">
+<script nonce="{{ csp_nonce() }}" type="application/json" id="task-bins-data">
 {{ task_bins_data|tojson }}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Bins telemetry data array
     const taskBins = JSON.parse(document.getElementById('task-bins-data').textContent);
     // Wire up pickup-queue action buttons (data kept in HTML, not inline JS)

@@ -46,7 +46,7 @@
                     </h2>
                     <div class="row g-2 align-items-end mb-3">
                         <div class="col-md-5 col-lg-4">
-                            <button type="button" class="btn btn-sm btn-success px-3 w-100 fw-semibold" onclick="captureGPSCoordinates()">
+                            <button type="button" class="btn btn-sm btn-success px-3 w-100 fw-semibold" data-sg-click="captureGPSCoordinates">
                                 🔄 {{ _('Capture GPS Location') }}
                             </button>
                         </div>
@@ -140,7 +140,7 @@
     </div>
 </div>
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Set current date/time on loading
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("repWard", "-- Choose Ward --");

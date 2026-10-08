@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('OTA Firmware Management Hub — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
   .bin-bg-fault { background:#fdedec; }
   .bin-bg-warn  { background:#fef9e7; }
   .bin-bg-ok    { background:#e8f8f5; }
@@ -147,14 +147,14 @@
       </div>
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
-        <button type="button" class="btn btn-primary rounded-pill fw-bold" onclick="executePush()">
+        <button type="button" class="btn btn-primary rounded-pill fw-bold" data-sg-click="executePush">
           🚀 {{ _('Push Now') }}
         </button>
       </div>
     </div>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 let activeReleaseId = null;
 function showPushModal(releaseId, version){
   activeReleaseId = releaseId;

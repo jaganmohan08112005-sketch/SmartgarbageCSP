@@ -113,8 +113,8 @@
     </div>
 </div>
 <script src="{{ url_for('static', filename='chintalavalasa_locations.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-<script type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
-<script>
+<script nonce="{{ csp_nonce() }}" type="application/json" id="selected-ward-data">{{ selected_ward|tojson }}</script>
+<script nonce="{{ csp_nonce() }}">
     document.addEventListener("DOMContentLoaded", () => {
         initializeWardDropdown("schedWard", "{{ _('-- Choose Ward --') }}");
         // Guarantee the ward <select> opens on click (all screen sizes),

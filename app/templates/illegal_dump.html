@@ -49,7 +49,7 @@
             <input type="text" class="form-control" name="longitude" id="lon_field" placeholder="e.g. 83.4094">
           </div>
           <div class="col-12">
-            <button type="button" class="btn btn-outline-success btn-sm" onclick="getLocation()">
+            <button type="button" class="btn btn-outline-success btn-sm" data-sg-click="getLocation">
               📡 {{ _('Auto-detect My Location') }}
             </button>
           </div>
@@ -78,7 +78,7 @@
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script>
+<script nonce="{{ csp_nonce() }}">
 const map = L.map('illegal-map').setView([18.0675, 83.4094], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
 let marker = null;

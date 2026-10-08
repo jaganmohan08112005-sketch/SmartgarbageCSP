@@ -531,18 +531,27 @@ def create_app(test_config=None):
     _csp = {
         'default-src': "'self'",
         'img-src': ["'self'", 'data:', 'https:'],
+        # Inline <script> blocks are authorised by a per-request nonce (added by
+        # Talisman below), never by 'unsafe-inline'. Inline *event handlers*
+        # cannot carry a nonce, so templates declare them as data-sg-* attributes
+        # wired up by static/js/csp-events.js instead of onclick="...".
         'script-src': [
-            "'self'", "'unsafe-inline'",
+            "'self'",
             'https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com',
             'https://unpkg.com', 'https://leaflet.github.io',
             'https://checkout.razorpay.com', 'https://www.googletagmanager.com',
             'https://www.google-analytics.com'
         ],
+        # Inline <style> blocks use the same per-request nonce. Inline style
+        # *attributes* cannot carry a nonce, so they remain permitted via
+        # style-src-attr — a far narrower surface than script execution, and
+        # required by Bootstrap's tooltips/modals and the templates' layout.
         'style-src': [
-            "'self'", "'unsafe-inline'",
+            "'self'",
             'https://fonts.googleapis.com', 'https://cdnjs.cloudflare.com',
             'https://cdn.jsdelivr.net', 'https://unpkg.com'
         ],
+        'style-src-attr': ["'unsafe-inline'"],
         'font-src': ["'self'", 'https://fonts.gstatic.com', 'https://cdnjs.cloudflare.com'],
         'frame-src': ["'self'", 'https://checkout.razorpay.com', 'https://api.razorpay.com'],
         'connect-src': [
@@ -553,9 +562,10 @@ def create_app(test_config=None):
         ]
     }
     # CSP report-uri: sends violation reports to the app's own endpoint so
-    # admins can monitor for injection attempts. 'unsafe-inline' in script-src
-    # is required for inline GA4 gtag initialization and Bootstrap JS events;
-    # removing it would break analytics and interactive components.
+    # admins can monitor for injection attempts. Inline <script>/<style> blocks
+    # (including the GA4 gtag init) are authorised per-request by a nonce via
+    # content_security_policy_nonce_in below; 'unsafe-inline' is intentionally
+    # absent from script-src and style-src.
     _csp['report-uri'] = ['/csp-report']
     talisman.init_app(app, force_https=_is_deployed(),
                       strict_transport_security=True,
@@ -568,7 +578,10 @@ def create_app(test_config=None):
                       # non-debug mode, silently overriding _is_deployed() and
                       # breaking plain-http local/LAN runs.
                       session_cookie_secure=_is_deployed(),
-                      content_security_policy=_csp)
+                      content_security_policy=_csp,
+                      # Per-request nonce for inline <script>/<style> blocks;
+                      # rendered in templates via {{ csp_nonce() }}.
+                      content_security_policy_nonce_in=['script-src', 'style-src'])
     # CSRFProtect is initialized AFTER Talisman deliberately: both register
     # before_request hooks, and Flask aborts the rest of the chain the moment
     # one raises. When CSRF validation rejects a request (400 CSRFError),

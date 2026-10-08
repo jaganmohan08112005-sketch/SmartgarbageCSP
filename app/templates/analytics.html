@@ -17,10 +17,10 @@
                 <a href="/analytics/state-portal-export?format=csv" class="btn btn-outline-primary rounded-pill px-4">
                     🏛️ {{ _('State Portal Compliance Return (CSV)') }}
                 </a>
-                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" onclick="exportCSRDReport()">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-sg-click="exportCSRDReport">
                     📂 {{ _('Export ESG/CSRD Report') }}
                 </button>
-                <button type="button" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm" onclick="exportPerformancePDF()">
+                <button type="button" class="btn btn-success fw-bold px-4 rounded-pill shadow-sm" data-sg-click="exportPerformancePDF">
                     📥 {{ _('Export Performance PDF') }}
                 </button>
             </div>
@@ -184,9 +184,9 @@
                     <p class="text-muted small mb-0 mt-1">{{ _('Stuck-sensor incidents over time — fault rate per ward, average time-to-clear, and self-heal vs manual-clear ratio, from the immutable audit ledger.') }}</p>
                 </div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="{{ _('Analytics window') }}">
-                    <button type="button" class="btn btn-outline-secondary rounded-start-pill sfa-window" data-days="30" onclick="setSfaWindow(30)">30d</button>
-                    <button type="button" class="btn btn-outline-secondary sfa-window active" data-days="90" onclick="setSfaWindow(90)">90d</button>
-                    <button type="button" class="btn btn-outline-secondary rounded-end-pill sfa-window" data-days="180" onclick="setSfaWindow(180)">180d</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-start-pill sfa-window" data-days="30" data-sg-click="setSfaWindow" data-sg-args="[30]">30d</button>
+                    <button type="button" class="btn btn-outline-secondary sfa-window active" data-days="90" data-sg-click="setSfaWindow" data-sg-args="[90]">90d</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-end-pill sfa-window" data-days="180" data-sg-click="setSfaWindow" data-sg-args="[180]">180d</button>
                 </div>
             </div>
             <div class="row g-3 mb-4" id="sfaKpis"></div>
@@ -220,7 +220,7 @@
         </div>
     </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Analytics data is loaded from the API at runtime (no server-injected
     // Jinja in the markup), so the template validates as plain JavaScript/HTML
     let ANALYTICS, circularData, carbonData, heatBins, trendData;

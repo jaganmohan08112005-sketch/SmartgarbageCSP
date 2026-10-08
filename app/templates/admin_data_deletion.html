@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Data-Deletion Requests — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
   .ddr-ref { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; font-weight: 600; }
   .ddr-note { white-space: pre-wrap; word-break: break-word; }
   .ddr-badge-pending  { background:#fff3cd; color:#664d03; }
@@ -78,7 +78,7 @@
 
       <form method="POST" action="{{ url_for('main.admin_data_deletion_complete', req_id=r.id) }}"
             class="row g-2 align-items-end"
-            onsubmit="return confirm('{{ _('Erase this person\u2019s personal data? This cannot be undone.') }}')">
+            data-sg-confirm="{{ _('Erase this person\u2019s personal data? This cannot be undone.') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="col-md-7">
           <label class="form-label small mb-1" for="note-{{ r.id }}">{{ _('Resolution note (optional)') }}</label>
@@ -89,7 +89,7 @@
           <button type="submit" class="btn btn-danger btn-sm flex-grow-1">🗑️ {{ _('Complete erasure') }}</button>
           <button type="submit" class="btn btn-outline-secondary btn-sm"
                   formaction="{{ url_for('main.admin_data_deletion_reject', req_id=r.id) }}"
-                  onclick="return confirm('{{ _('Reject this request? The requester must be told why.') }}')">
+                  data-sg-confirm="{{ _('Reject this request? The requester must be told why.') }}">
             {{ _('Reject') }}
           </button>
         </div>

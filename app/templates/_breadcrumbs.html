@@ -15,7 +15,7 @@
     '/impact': _('Impact Dashboard'),
 } %}
 {% set page_title = page_titles.get(request.path, _('Page')) %}
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce() }}" type="application/ld+json">
 {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"{{ request.url_root.rstrip('/') }}"},{"@type":"ListItem","position":2,"name":"{{ page_title }}","item":"{{ request.url }}"}]}
 </script>
 <nav class="sg-breadcrumb" aria-label="{{ _('Breadcrumb') }}">

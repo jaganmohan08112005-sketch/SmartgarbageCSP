@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Photo-Gate Rejections — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
   .rej-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: .5rem;
                border: 1px solid #dee2e6; background: #f8f9fa; }
   .badge-classifier { background:#fdf2f2; color:#842029; border:1px solid #f5c2c7; }

@@ -52,12 +52,12 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin
           href="{{ url_for('static', filename='fonts/outfit-v15.woff2') }}"
           fetchpriority="high">
-    <link rel="preload" as="style" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" as="style" data-sg-activate-style href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}">
     <noscript><link rel="stylesheet" href="{{ url_for('static', filename='css/critical.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}"></noscript>
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print" onload="this.onload=null;this.media='all'">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print" onload="this.onload=null;this.media='all'">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" media="print">
     <script src="{{ url_for('static', filename='js/offline.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
-    <script type="application/ld+json">
+    <script nonce="{{ csp_nonce() }}" type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "GovernmentOrganization",
@@ -108,7 +108,7 @@
         ]
     }
     </script>
-    <script type="application/ld+json">
+    <script nonce="{{ csp_nonce() }}" type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "WebSite",
@@ -126,7 +126,7 @@
         }
     }
     </script>
-    <script type="application/ld+json">
+    <script nonce="{{ csp_nonce() }}" type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "Organization",
@@ -158,7 +158,7 @@
         ]
     }
     </script>
-    <script type="application/ld+json">
+    <script nonce="{{ csp_nonce() }}" type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "WebPage",
@@ -168,14 +168,28 @@
     }
     </script>
     {% if config.get('ANALYTICS_ID') %}
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('consent','default',{analytics_storage:localStorage.getItem('sgAnalyticsConsent')==='accepted'?'granted':'denied'})</script>
+    <script nonce="{{ csp_nonce() }}">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('consent','default',{analytics_storage:localStorage.getItem('sgAnalyticsConsent')==='accepted'?'granted':'denied'})</script>
     <script async src="https://www.googletagmanager.com/gtag/js?id={{ config['ANALYTICS_ID'] }}"></script>
     {% endif %}
-    <script>
-    /* media="print" swap fallback: ensure deferred CSS loads even without onload support */
-    document.querySelectorAll('link[media="print"]').forEach(l=>{l.media='all'});
+    <script nonce="{{ csp_nonce() }}">
+    /* CSP-safe replacement for the removed onload= attributes on the deferred
+       stylesheets: activate critical.css's preload as a stylesheet and flip
+       media="print" links to all. A DOMContentLoaded + timeout fallback
+       guarantees CSS is applied even if a load event is missed. */
+    (function () {
+        function activate() {
+            document.querySelectorAll('link[data-sg-activate-style]').forEach(function (l) { l.rel = 'stylesheet'; });
+            document.querySelectorAll('link[media="print"]').forEach(function (l) { l.media = 'all'; });
+        }
+        document.querySelectorAll('link[data-sg-activate-style]').forEach(function (l) {
+            if (l.sheet) { activate(); return; }
+            l.addEventListener('load', activate, { once: true });
+        });
+        document.addEventListener('DOMContentLoaded', activate);
+        setTimeout(activate, 2500);
+    })();
     </script>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     if('serviceWorker' in navigator){
         window.addEventListener('load',()=>{
             navigator.serviceWorker.register('/sw.js').then(reg=>{
@@ -220,7 +234,7 @@
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* PWA Splash Screen: hides once page + critical resources are loaded.
        On PWA install, shows for 1.5s minimum for branding effect. */
     (function() {
@@ -257,7 +271,7 @@
     </script>
 
     {# ── Web Push Notification Manager ── #}
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* Push Notification Manager: requests permission, subscribes to push,
        and provides toggle UI. Only runs on HTTPS or localhost. */
     (function() {
@@ -528,7 +542,7 @@
                             {% if current_user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="/notifications/preferences">🔔 {{ _('Notification Preferences') }}</a></li>
-                            <li><button type="button" class="dropdown-item" id="pushToggle" onclick="window.SGPush && (window.SGPush.isEnabled() ? window.SGPush.unsubscribe().then(()=>{this.textContent='🔔 Enable notifications'}) : window.SGPush.subscribe().then(()=>{this.textContent='🔕 Disable notifications'}))">
+                            <li><button type="button" class="dropdown-item" id="pushToggle" data-sg-click="sgTogglePush">
                                 <span id="pushToggleIcon">🔔</span> {{ _('Notifications') }}
                             </button></li>
                             <li><hr class="dropdown-divider"></li>
@@ -621,7 +635,7 @@
                 </div>
             </div>
         </section>
-        <script>
+        <script nonce="{{ csp_nonce() }}">
         /* GOV.UK-style anonymous feedback widget */
         (function() {
             const root = document.getElementById('sgFeedbackRoot');
@@ -694,6 +708,7 @@
     <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script src="{{ url_for('static', filename='js/global.min.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     <script src="{{ url_for('static', filename='js/chatbot.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
+    <script src="{{ url_for('static', filename='js/csp-events.js', v=deploy_ts.strftime('%Y%m%d%H%M%S')) }}" defer></script>
     {% block scripts %}{% endblock %}
     {# ── WhatsApp fallback CTA (prominent, above the footer) ── #}
     {# WhatsApp Cloud (Meta) is parked as the future primary channel. Until the
@@ -845,16 +860,16 @@
                 <small class="d-block text-white-50">{{ _('Get alerted when your complaint status changes') }}</small>
             </div>
             <div class="d-flex gap-2 flex-shrink-0">
-                <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="window.SGPush && window.SGPush.subscribe().then(()=>document.getElementById('sgPushPrompt').classList.add('d-none'))">
+                <button type="button" class="btn btn-sm btn-success rounded-pill px-3" data-sg-click="sgPushPromptSubscribe">
                     {{ _('Enable') }}
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="localStorage.setItem('sgPushPromptDismissed','1');document.getElementById('sgPushPrompt').classList.add('d-none')">
+                <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" data-sg-click="sgPushPromptDismiss">
                     {{ _('No thanks') }}
                 </button>
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* Show push prompt once for logged-in users with no subscription */
     (function() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -893,7 +908,7 @@
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* PWA Install Banner — shows on mobile after 2nd visit, respects dismissal */
     (function() {
         const DISMISS_KEY = 'sgInstallDismissed';
@@ -986,12 +1001,12 @@
                 <p class="sg-govuk-consent-p">{{ _('We use only essential cookies to keep you signed in — we never sell or share your data, and no analytics cookies are set on this deployment.') }}</p>
             </div>
             <div class="sg-govuk-consent-actions">
-                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" onclick="sgDismissPrivacyNotice()">{{ _('Hide') }}</button>
+                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" data-sg-click="sgDismissPrivacyNotice">{{ _('Hide') }}</button>
                 <a class="sg-govuk-consent-link" href="/cookie-settings">{{ _('View cookies') }}</a>
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     // ── Search autocomplete (GOV.UK pattern with keyboard nav) ──
     (function() {
         const SEARCH_DATA = [
@@ -1053,7 +1068,7 @@
         initSearch('sgMobileSearchInput', 'sgMobileSearchDropdown');
     })();
     </script>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         function sgDismissPrivacyNotice() {
             localStorage.setItem('sgPrivacyNoticeDismissed', '1');
             document.getElementById('sgPrivacyNotice')?.classList.add('d-none');
@@ -1077,17 +1092,17 @@
                 <p class="sg-govuk-consent-p">{{ _('We also use cookies set by other sites to help us deliver content from their services.') }}</p>
             </div>
             <div class="sg-govuk-consent-actions">
-                <button type="button" class="sg-govuk-btn" onclick="sgSetConsent(true)">{{ _('Accept analytics cookies') }}</button>
-                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" onclick="sgSetConsent(false)">{{ _('Reject analytics cookies') }}</button>
+                <button type="button" class="sg-govuk-btn" data-sg-click="sgSetConsent" data-sg-args="[true]">{{ _('Accept analytics cookies') }}</button>
+                <button type="button" class="sg-govuk-btn sg-govuk-btn--secondary" data-sg-click="sgSetConsent" data-sg-args="[false]">{{ _('Reject analytics cookies') }}</button>
                 <a class="sg-govuk-consent-link" href="/cookie-settings">{{ _('View cookies') }}</a>
             </div>
         </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
 const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="/report"]',hotline_click:'a[href^="tel:"]',language_switch:'a[data-lang]',staff_login_click:'a[data-staff-login]',login_start:'a[href="/login"]',signup_start:'a[href="/register"]'};function sgTrack(n){if(localStorage.getItem('sgAnalyticsConsent')!=='accepted')return;if(typeof gtag==='function')gtag('event',n)}document.addEventListener('click',e=>{for(const[n,s]of Object.entries(SG_SVC_EVENTS)){if(e.target.closest(s)){sgTrack(n);break}}});document.addEventListener('submit',e=>{const f=e.target.closest('form');if(!f)return;if(f.getAttribute('action')==='/report')sgTrack('report_submit');if(f.getAttribute('action')==='/schedule')sgTrack('schedule_lookup')});let _lrve=0;document.addEventListener('invalid',e=>{const f=e.target.closest('form');if(f&&f.getAttribute('action')==='/report'){const n=Date.now();if(n-_lrve>500){_lrve=n;sgTrack('report_validation_error')}}},true);const SG_CONSENT_VERSION={{ config.get('CONSENT_VERSION', 'v1')|tojson }};function sgRecordConsent(c){try{fetch('/api/consent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]').content},body:JSON.stringify({choice:c,version:SG_CONSENT_VERSION,source:location.pathname})})}catch(e){}}function sgSetConsent(a){localStorage.setItem('sgAnalyticsConsent',a?'accepted':'declined');sgRecordConsent(a?'accept':'decline');gtag('consent','update',{analytics_storage:a?'granted':'denied'});if(a&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}const b=document.getElementById('sgConsentBanner');if(!b)return;const m=b.querySelector('.sg-govuk-consent-message'),ac=b.querySelector('.sg-govuk-consent-actions');if(!m||!ac)return;m.innerHTML='<p class="sg-govuk-consent-p">'+(a?'{{ _('You have accepted additional cookies. ') }}':'{{ _('You have rejected additional cookies. ') }}')+'<span class="sg-govuk-consent-confirmation">{{ _('You can ') }}<a class="sg-govuk-consent-link" href="/cookie-settings">{{ _('change your cookie settings') }}</a>{{ _(' at any time.') }}</span></p>';ac.hidden=true;const h=document.createElement('button');h.type='button';h.className='sg-govuk-btn';h.textContent='{{ _('Hide') }}';h.addEventListener('click',()=>b.classList.add('d-none'));b.appendChild(h);h.focus()}document.addEventListener('DOMContentLoaded',()=>{if(localStorage.getItem('sgAnalyticsConsent')){document.getElementById('sgConsentBanner')?.classList.add('d-none')}else if(sgConsent==='accepted'&&!window.__sgAnalyticsConfigured){gtag('config','{{ config["ANALYTICS_ID"] }}');window.__sgAnalyticsConfigured=true}});
     </script>
     {% endif %}
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* Lazy-load below-fold sections (GOV.UK pattern: defer until visible) */
     (function(){
         if(!('IntersectionObserver' in window))return;
@@ -1113,7 +1128,7 @@ const SG_SVC_EVENTS={schedule_check:'a[href="/schedule"]',report_start:'a[href="
         document.querySelectorAll('.sg-lazy-section').forEach(el=>io.observe(el));
     })();
     </script>
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     /* Mega menu with WCAG 2.1 AA compliance */
     (function(){
         const DELAY=200;

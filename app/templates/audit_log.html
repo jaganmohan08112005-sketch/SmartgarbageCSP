@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Security Audit Trail — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
   .audit-avatar.role-admin  { background:#2C3E50; }
   .audit-avatar.role-worker { background:#2980B9; }
   .audit-avatar.role-citizen,
@@ -36,8 +36,8 @@
       </div>
     </div>
     <div class="d-flex gap-2">
-      <input type="text" id="search_audit" class="form-control" placeholder="🔍 {{ _('Filter by user, action, target...') }}" style="width:280px;" oninput="filterTable()">
-      <select class="form-select" id="role_filter" onchange="filterTable()" style="width:130px;">
+      <input type="text" id="search_audit" class="form-control" placeholder="🔍 {{ _('Filter by user, action, target...') }}" style="width:280px;" data-sg-input="filterTable">
+      <select class="form-select" id="role_filter" data-sg-change="filterTable" style="width:130px;">
         <option value="">{{ _('All Roles') }}</option>
         <option value="admin">{{ _('Admin') }}</option>
         <option value="worker">{{ _('Worker') }}</option>
@@ -174,7 +174,7 @@
                 {% else %}
                   <span class="badge bg-warning text-dark">📋 {{ _('Scheduled') }}</span>
                 {% endif %}
-                <button type="button" class="btn btn-sm btn-outline-secondary no-print" onclick="printTimeline({{ tl.order.id }})">🖨️ {{ _('Print') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary no-print" data-sg-click="printTimeline" data-sg-args="[{{ tl.order.id }}]">🖨️ {{ _('Print') }}</button>
               </div>
             </div>
             <div class="small text-muted mb-2">
@@ -223,7 +223,7 @@
               <input type="date" id="due-{{ tl.order.id }}" class="form-control form-control-sm" style="width:160px;"
                      value="{{ tl.due_date.strftime('%Y-%m-%d') if tl.due_date }}">
               <button type="button" class="btn btn-sm btn-outline-primary" id="resched-{{ tl.order.id }}"
-                      onclick="rescheduleOrder({{ tl.order.id }})">{{ _('Save') }}</button>
+                      data-sg-click="rescheduleOrder" data-sg-args="[{{ tl.order.id }}]">{{ _('Save') }}</button>
             </div>
             {% endif %}
           </div>
@@ -301,7 +301,7 @@
     </div>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 function filterTable(){
   const q = document.getElementById('search_audit').value.toLowerCase();
   const role = document.getElementById('role_filter').value.toLowerCase();

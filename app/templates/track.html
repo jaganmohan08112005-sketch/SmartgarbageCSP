@@ -84,7 +84,7 @@
                 <p class="text-muted small mb-0">{{ _('If the site was not cleaned or the problem returned, you can reopen this complaint. Our team will re-inspect it within the SLA window. One reopen is allowed per complaint.') }}</p>
             </div>
             <form method="post" action="{{ url_for('main.reopen_complaint', token=token) }}"
-                  onsubmit="return confirm('{{ _('Reopen this complaint for re-inspection?') | e }}');">
+                  data-sg-confirm="{{ _('Reopen this complaint for re-inspection?') | e }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-outline-warning rounded-pill px-3">🔁 {{ _('Reopen complaint') }}</button>
             </form>
@@ -226,7 +226,7 @@
 {% block scripts %}
 {{ super() }}
 {% if survey_eligible %}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     'use strict';
     var form = document.getElementById('sgSurveyForm');

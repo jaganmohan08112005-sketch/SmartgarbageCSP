@@ -40,15 +40,15 @@
             <p class="fw-semibold small mb-2">📊 {{ _("Today's Waste Streams (kg)") }}</p>
             <div class="mb-3">
               <label class="form-label small">🌿 {{ _('On-site Composting') }}</label>
-              <input type="number" class="form-control" name="composting_kg" step="0.1" min="0" value="0" id="compost_input" oninput="updateTotal()">
+              <input type="number" class="form-control" name="composting_kg" step="0.1" min="0" value="0" id="compost_input" data-sg-input="updateTotal">
             </div>
             <div class="mb-3">
               <label class="form-label small">♻️ {{ _('Recyclables for Pickup') }}</label>
-              <input type="number" class="form-control" name="recyclable_kg" step="0.1" min="0" value="0" id="recycle_input" oninput="updateTotal()">
+              <input type="number" class="form-control" name="recyclable_kg" step="0.1" min="0" value="0" id="recycle_input" data-sg-input="updateTotal">
             </div>
             <div class="mb-3">
               <label class="form-label small">🗑️ {{ _('Residual Landfill Waste') }}</label>
-              <input type="number" class="form-control" name="landfill_kg" step="0.1" min="0" value="0" id="landfill_input" oninput="updateTotal()">
+              <input type="number" class="form-control" name="landfill_kg" step="0.1" min="0" value="0" id="landfill_input" data-sg-input="updateTotal">
             </div>
             <div class="rounded-3 p-3 mb-3 text-center" style="background:#e8f8f5;">
               <div class="small text-muted">{{ _('Total Declared') }}</div>
@@ -126,7 +126,7 @@
     </div>
   </div>
 </div>
-<script>
+<script nonce="{{ csp_nonce() }}">
 function updateTotal(){
   const c = parseFloat(document.getElementById('compost_input').value)||0;
   const r = parseFloat(document.getElementById('recycle_input').value)||0;

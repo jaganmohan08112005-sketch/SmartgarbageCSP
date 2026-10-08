@@ -114,10 +114,10 @@
                 <button type="submit" class="btn btn-success rounded-pill fw-bold px-4">
                     ✅ {{ _('Save Preferences') }}
                 </button>
-                <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="selectAll(true)">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-sg-click="selectAll" data-sg-args="[true]">
                     {{ _('Enable All') }}
                 </button>
-                <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="selectAll(false)">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-sg-click="selectAll" data-sg-args="[false]">
                     {{ _('Disable All') }}
                 </button>
             </div>
@@ -129,10 +129,10 @@
                 <h6 class="fw-bold mb-2">📱 {{ _('Push Subscription') }}</h6>
                 <div id="pushSubStatus" class="small text-muted mb-2">{{ _('Checking...') }}</div>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="pushEnableBtn" onclick="window.SGPush && window.SGPush.subscribe().then(updatePushStatus)">
+                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="pushEnableBtn" data-sg-click="sgPushSubscribe">
                         🔔 {{ _('Enable Push Notifications') }}
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" id="pushDisableBtn" onclick="window.SGPush && window.SGPush.unsubscribe().then(updatePushStatus)">
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" id="pushDisableBtn" data-sg-click="sgPushUnsubscribe">
                         🔕 {{ _('Disable Push Notifications') }}
                     </button>
                 </div>
@@ -143,7 +143,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function selectAll(enabled) {
     document.querySelectorAll('input[type="checkbox"][name]').forEach(cb => {
         if (cb.name !== 'csrf_token') cb.checked = enabled;

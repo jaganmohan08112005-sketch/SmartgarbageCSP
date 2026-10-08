@@ -2,7 +2,7 @@
 {% block title %}Waste Collection & Missed Pickup Reports | Chintalavalasa{% endblock %}
 {% block meta_description %}Chintalavalasa waste collection schedules, missed pickup reports, complaint tracking, and ward transparency — all 5 wards covered.{% endblock %}
 {% block content %}
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce() }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -13,7 +13,7 @@
     ]
 }
 </script>
-<script type="application/ld+json">
+<script nonce="{{ csp_nonce() }}" type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@graph": [
@@ -174,7 +174,7 @@
         <button type="button" id="sgAwarenessDismiss" class="btn-close" aria-label="{{ _('Dismiss awareness banner') }}"></button>
     </div>
 </aside>
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     'use strict';
     try {
@@ -620,7 +620,7 @@
 </div>
 
 {# ── Hero dark mode toggle sync ── #}
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function(){
     var heroBtn = document.getElementById('heroDarkToggle');
     var heroIcon = document.getElementById('heroDarkIcon');

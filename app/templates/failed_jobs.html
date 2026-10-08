@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _('Failed Jobs — SmartGarbage Admin') }}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
   .job-func { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
   .job-exc  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .75rem;
               background:#fdf2f2; color:#842029; border:1px solid #f5c2c7; border-radius:.5rem;
@@ -22,7 +22,7 @@
     <div class="d-flex gap-2">
       <a href="{{ url_for('main.admin') }}" class="btn btn-outline-secondary">← {{ _('Admin Home') }}</a>
       {% if job_count > 0 %}
-      <form method="POST" action="{{ url_for('main.failed_jobs_clear') }}" onsubmit="return confirm('{{ _('Purge ALL failed jobs? This cannot be undone.') }}')">
+      <form method="POST" action="{{ url_for('main.failed_jobs_clear') }}" data-sg-confirm="{{ _('Purge ALL failed jobs? This cannot be undone.') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-danger">🧹 {{ _('Purge All') }} ({{ job_count }})</button>
       </form>
@@ -76,7 +76,7 @@
                     <button type="submit" class="btn btn-sm btn-outline-success" title="{{ _('Requeue for another attempt') }}">↻ {{ _('Requeue') }}</button>
                   </form>
                   <form method="POST" action="{{ url_for('main.failed_job_delete', job_id=j.id) }}"
-                        onsubmit="return confirm('{{ _('Delete this failed job?') }}')">
+                        data-sg-confirm="{{ _('Delete this failed job?') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-danger">✕ {{ _('Delete') }}</button>
                   </form>
