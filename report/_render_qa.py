@@ -2,7 +2,8 @@ import os, sys
 sys.stdout = __import__('io').TextIOWrapper(sys.stdout.buffer, encoding='ascii', errors='replace')
 import win32com.client
 here = os.path.dirname(os.path.abspath(__file__))
-deck = os.path.join(here, "DOCUMENT_FINAL.pptx")
+deck = os.path.join(os.path.dirname(here), "submission", "ppt",
+                       "SmartGarbage_Presentation.pptx")
 out = os.path.join(here, "_deck_qa")
 os.makedirs(out, exist_ok=True)
 app = win32com.client.Dispatch("PowerPoint.Application")

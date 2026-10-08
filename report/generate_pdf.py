@@ -335,48 +335,6 @@ abbrevs = [
 ]
 pdf.simple_table(['Abbreviation', 'Full Form'], abbrevs, [35, 135])
 
-# TABLE OF CONTENTS (template requirement; two-pass page numbers)
-pdf.chapter_heading('TABLE OF CONTENTS')
-toc_rows = [
-    ('List of Abbreviations', 'LIST OF ABBREVIATIONS'),
-    ('List of Figures', 'LIST OF FIGURES'),
-    ('List of Tables', 'LIST OF TABLES'),
-    ('1. INTRODUCTION', '1. INTRODUCTION'),
-    ('2. LITERATURE SURVEY', '2. LITERATURE SURVEY'),
-    ('3. DATA GATHERING / DATA USED', '3. DATA GATHERING / DATA USED'),
-    ('4. METHODOLOGY / SYSTEM DESIGN', '4. METHODOLOGY / SYSTEM DESIGN'),
-    ('5. IMPLEMENTATION / MODULES', '5. IMPLEMENTATION / MODULES'),
-    ('6. RESULTS / OUTPUTS', '6. RESULTS / OUTPUTS'),
-    ('7. IMPACT ASSESSMENT', '7. IMPACT ASSESSMENT'),
-    ('8. CHALLENGES FACED', '8. CHALLENGES FACED'),
-    ('9. CONCLUSION', '9. CONCLUSION'),
-    ('10. FUTURE WORK', '10. FUTURE WORK'),
-    ('REFERENCES', 'REFERENCES'),
-    ('Appendix A: Packages, Tools Used & Working Process',
-     'APPENDIX A: PACKAGES, TOOLS USED & WORKING PROCESS'),
-    ('Appendix B: Source Code', 'APPENDIX B: IMPORTANT SOURCE CODE'),
-    ('Paper Publications', 'PAPER PUBLICATIONS'),
-]
-pdf.simple_table(['Section', 'Page No.'],
-                 [(t, str(PAGE_MAP.get(k, '-'))) for t, k in toc_rows],
-                 [135, 35])
-
-# LIST OF TABLES
-pdf.chapter_heading('LIST OF TABLES')
-pdf.simple_table(['Table No.', 'Title', 'Page No.'], [
-    ('Table 3.1', 'Data Sources Classification', str(PAGE_MAP.get('T3_1', '-'))),
-    ('Table 3.2', 'Ward Information', str(PAGE_MAP.get('T3_2', '-'))),
-    ('Table 4.1', 'Technology Stack', str(PAGE_MAP.get('T4_1', '-'))),
-    ('Table 6.1', 'Feature Implementation Status', str(PAGE_MAP.get('T6_1', '-'))),
-    ('Table 6.2', 'Performance Evaluation Metrics', str(PAGE_MAP.get('T6_2', '-'))),
-    ('Table 6.3', 'Security Headers Evaluation', str(PAGE_MAP.get('T6_3', '-'))),
-    ('Table 6.5', 'Citizen rescue channels and status', str(PAGE_MAP.get('T6_5', '-'))),
-    ('Table 6.6', 'Photo-Validation Classifier Evaluation', str(PAGE_MAP.get('T6_6', '-'))),
-    ('Table 6.7', 'Classifier Reliability Safeguards', str(PAGE_MAP.get('T6_7', '-'))),
-    ('Table 7.1', 'Operational Impact Summary', str(PAGE_MAP.get('T7_1', '-'))),
-    ('Table 8.1', 'Challenges and Solutions', str(PAGE_MAP.get('T8_1', '-'))),
-], [30, 105, 35])
-
 # LIST OF FIGURES
 pdf.chapter_heading('LIST OF FIGURES')
 pdf.simple_table(['Figure No.', 'Title', 'Page No.'], [
@@ -402,6 +360,48 @@ pdf.simple_table(['Figure No.', 'Title', 'Page No.'], [
     ('Figure 7.1', 'Pre-System vs Post-System Efficiency Analysis',
      str(PAGE_MAP.get('F7_1', '-'))),
 ], [30, 105, 35])
+
+# LIST OF TABLES
+pdf.chapter_heading('LIST OF TABLES')
+pdf.simple_table(['Table No.', 'Title', 'Page No.'], [
+    ('Table 3.1', 'Data Sources Classification', str(PAGE_MAP.get('T3_1', '-'))),
+    ('Table 3.2', 'Ward Information', str(PAGE_MAP.get('T3_2', '-'))),
+    ('Table 4.1', 'Technology Stack', str(PAGE_MAP.get('T4_1', '-'))),
+    ('Table 6.1', 'Feature Implementation Status', str(PAGE_MAP.get('T6_1', '-'))),
+    ('Table 6.2', 'Performance Evaluation Metrics', str(PAGE_MAP.get('T6_2', '-'))),
+    ('Table 6.3', 'Security Headers Evaluation', str(PAGE_MAP.get('T6_3', '-'))),
+    ('Table 6.5', 'Citizen rescue channels and status', str(PAGE_MAP.get('T6_5', '-'))),
+    ('Table 6.6', 'Photo-Validation Classifier Evaluation', str(PAGE_MAP.get('T6_6', '-'))),
+    ('Table 6.7', 'Classifier Reliability Safeguards', str(PAGE_MAP.get('T6_7', '-'))),
+    ('Table 7.1', 'Operational Impact Summary', str(PAGE_MAP.get('T7_1', '-'))),
+    ('Table 8.1', 'Challenges and Solutions', str(PAGE_MAP.get('T8_1', '-'))),
+], [30, 105, 35])
+
+# TABLE OF CONTENTS (template requirement; two-pass page numbers)
+pdf.chapter_heading('TABLE OF CONTENTS')
+toc_rows = [
+    ('List of Abbreviations', 'LIST OF ABBREVIATIONS'),
+    ('List of Figures', 'LIST OF FIGURES'),
+    ('List of Tables', 'LIST OF TABLES'),
+    ('1. INTRODUCTION', '1. INTRODUCTION'),
+    ('2. LITERATURE SURVEY', '2. LITERATURE SURVEY'),
+    ('3. DATA GATHERING / DATA USED', '3. DATA GATHERING / DATA USED'),
+    ('4. METHODOLOGY / SYSTEM DESIGN', '4. METHODOLOGY / SYSTEM DESIGN'),
+    ('5. IMPLEMENTATION / MODULES', '5. IMPLEMENTATION / MODULES'),
+    ('6. RESULTS / OUTPUTS', '6. RESULTS / OUTPUTS'),
+    ('7. IMPACT ASSESSMENT', '7. IMPACT ASSESSMENT'),
+    ('8. CHALLENGES FACED', '8. CHALLENGES FACED'),
+    ('9. CONCLUSION', '9. CONCLUSION'),
+    ('10. FUTURE WORK', '10. FUTURE WORK'),
+    ('REFERENCES', 'REFERENCES'),
+    ('Appendix A: Packages, Tools Used & Working Process',
+     'APPENDIX A: PACKAGES, TOOLS USED & WORKING PROCESS'),
+    ('Appendix B: Source Code', 'APPENDIX B: IMPORTANT SOURCE CODE'),
+    ('Paper Publications', 'PAPER PUBLICATIONS'),
+]
+pdf.simple_table(['Section', 'Page No.'],
+                 [(t, str(PAGE_MAP.get(k, '-'))) for t, k in toc_rows],
+                 [135, 35])
 
 # ════════════════════════════════════════════════════════════════════
 # CHAPTER 1 — INTRODUCTION

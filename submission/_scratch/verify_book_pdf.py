@@ -1,7 +1,7 @@
 """Verify the regenerated BOOK PDF against the R24 template requirements."""
 from pypdf import PdfReader
 
-PDF = r"report\DOCUMENTATION_UPDATED.pdf"
+PDF = r"submission\book\SmartGarbage_BOOK_R24.pdf"
 r = PdfReader(PDF)
 pages = [(p.extract_text() or "") for p in r.pages]
 n = len(pages)

@@ -94,7 +94,6 @@ _archive/doc-generators/generate_report_with_diagrams.py
 _archive/legacy-deploy/Procfile
 _archive/legacy-deploy/fly.toml
 _archive/logs/job_logs.zip
-_archive/old-reports/SmartGarbage_Community_Project_Report(M).pdf
 _archive/old-reports/SmartGarbage_Community_Project_Report.docx
 _archive/old-reports/SmartGarbage_Community_Project_Report.pdf
 _archive/old-reports/SmartGarbage_Project_Report.docx
@@ -285,12 +284,8 @@ docs/guides/PRIVACY_AUDIT.md
 docs/guides/STEP_BY_STEP_GUIDE.md
 docs/guides/STUDENT_ACTION_PLAN.md
 docs/guides/WWW_REDIRECT_SETUP.md
-docs/guides/cloudflare/CLOUDFLARE_CACHING_CONFIG.md
-docs/guides/cloudflare/CLOUDFLARE_QUICK_START.md
-docs/guides/cloudflare/CLOUDFLARE_SETUP_GUIDE.md
 docs/smartgarbage-gov-comparison.md
 docs/survey_responses.csv
-e2e/example.spec.js
 keepalive/README.md
 keepalive/supabase_keepalive.sql
 manage.py
@@ -334,9 +329,6 @@ package.json
 playwright.config.js
 pytest.ini
 render.yaml
-report/DOCUMENTATION_UPDATED.docx
-report/DOCUMENTATION_UPDATED.pdf
-report/DOCUMENT_FINAL.pptx
 report/PANEL_CHEATSHEET_CARDS.pdf
 report/_render_qa.py
 report/_toc_targets.json
@@ -397,8 +389,11 @@ tests/test_no_section_banners.py
 tests/test_walkthrough.py
 tests/test_weekly_report_script.py
 train_model.py
-wiki/CLOUDFLARE_CDN_SETUP.md
 wiki/PUBLISHING-GUIDE.md
 wiki/smartgarbage-stub.md
 worker.py
 wsgi.py
+.github/actions/boot-local-stack/action.yml
+report/video/_make_video_live.py
+report/video/DEMO_VIDEO_SCRIPT.md
+report/video/VIDEO_PRODUCTION_BLUEPRINT.md

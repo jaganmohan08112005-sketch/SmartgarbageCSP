@@ -55,17 +55,23 @@ SmartGarbage/
 ├── scripts/                Ops/maintenance scripts
 ├── docs/                   ← DOCUMENTATION (this file, DEPLOY, ARCHITECTURE, guides/, wiki refs)
 ├── report/                 ← STUDENT REPORT TOOLING & DELIVERABLES
-│   ├── generate_final_report.py  Builds DOCUMENTATION_UPDATED.docx
-│   ├── generate_pdf.py           Builds DOCUMENTATION_UPDATED.pdf (run --record, then plain)
+│   ├── generate_final_report.py  Builds DOCUMENTATION_UPDATED.docx (→ submission/documentation/)
+│   ├── generate_pdf.py           Builds DOCUMENTATION_UPDATED.pdf (--record, then plain; → submission/book/)
 │   ├── report_figures.py         Draws design diagrams (fig7_2 defence rings, fig7_3 rewards loop)
 │   ├── _diagrams/                Diagram PNGs + live-site screenshots used in the report
 │   ├── _inputs/                  Templates (doc_template.docx, ppt_template.pptx, prev_deck.pptx)
-│   ├── DOCUMENTATION_UPDATED.docx / .pdf   Final project report (Word + PDF)
-│   ├── DOCUMENT_FINAL.pptx                 Final 19-slide presentation (R24 template)
+│   ├── build_deck_v2.py          Builds DOCUMENT_FINAL.pptx (20 slides, IEEE refs)
+│   ├── _render_qa.py             Renders the delivered deck to QA images
 │   ├── smartgarbage-deployment.excalidraw  Editable deployment architecture diagram
 │   └── video/
-│       ├── _make_video_live.py   Demo-video builder (Playwright live-site capture + TTS + ffmpeg)
-│       └── Documentation_DEMO_VIDEO.mp4    Final ~3-min live-website walkthrough
+│       └── _make_video_live.py   Demo-video builder (Playwright live-site capture + TTS + ffmpeg)
+│
+├── submission/             ← R24 DELIVERY PACKAGE (one copy of each deliverable)
+│   ├── book/SmartGarbage_BOOK_R24.pdf              BOOK print master (89 pp, letter)
+│   ├── documentation/SmartGarbage_Documentation_Softcopy.docx
+│   ├── video/SmartGarbage_Demo_Video.mp4           4:35 live-website walkthrough (720p)
+│   ├── ppt/SmartGarbage_Presentation.pptx          20-slide deck (R24 chrome)
+│   └── code/SmartGarbage_Source_Code.zip           399-file source archive (git-ignored)
 │
 ├── wsgi.py                 Production entrypoint (gunicorn wsgi:app; starts in-process RQ worker)
 ├── worker.py               Standalone RQ worker entrypoint (optional, Render worker service)
@@ -167,6 +173,13 @@ python report/generate_final_report.py          # → report/DOCUMENTATION_UPDAT
 python report/generate_pdf.py --record && python report/generate_pdf.py
 # Presentation diagrams:
 python report/report_figures.py                 # → report/_diagrams/report/fig7_*.png
-# Demo video (records the LIVE site — needs internet):
-python report/video/_make_video_live.py         # → report/video/Documentation_DEMO_VIDEO.mp4
+# Deck:
+python report/build_deck_v2.py                  # → report/DOCUMENT_FINAL.pptx
+# Demo video (records the local stack on 127.0.0.1:5057):
+python report/video/_make_video_live.py         # → submission/video/SmartGarbage_Demo_Video.mp4
+# Source-code zip:
+python submission/_scratch/build_code_zip.py --write
 ```
+
+After regenerating, copy the build output over the matching file in `submission/`
+(one delivered copy of each artifact; see `submission/README.md`).

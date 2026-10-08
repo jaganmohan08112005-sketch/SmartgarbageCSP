@@ -245,11 +245,11 @@ _tf(t, ("SmartGarbage connects ~12,000 residents of Chintalavalasa Gram Panchaya
         "overflow ETA, anomaly alerts and route priority - with every action audit-logged."),
     14.5, INK, line=1.15)
 chip(s, 0.85, 5.25, 1.55, 0.5, "Flask 3 | PWA")
-chip(s, 2.55, 5.25, 2.0, 0.5, "PostgreSQL | 23 tables", fill=LEAF)
+chip(s, 2.55, 5.25, 2.0, 0.5, "PostgreSQL | 29 tables", fill=LEAF)
 chip(s, 4.70, 5.25, 1.75, 0.5, "scikit-learn ML")
 chip(s, 6.60, 5.25, 1.0, 0.5, "Docker", fill=AMBER, fg=INK)
 for i, (big, small) in enumerate([("5", "wards live"), ("3", "user roles"),
-                                  ("359", "tests green"), ("Rs 0", "running cost")]):
+                                  ("406", "tests green"), ("Rs 0", "running cost")]):
     stat(s, 8.0 + (i % 2) * 2.45, 1.35 + (i // 2) * 1.75, 2.25, 1.55,
          big, small, big_size=28)
 pic(s, os.path.join(SHOTS, "sg_home_1280.png"), 8.0, 4.95, 4.7, 1.85)
@@ -432,8 +432,8 @@ clear_body(s)
 pic(s, os.path.join(DIAG, "architecture.png"), 0.55, 1.55, 7.9, 5.35, crop=False)
 layers = [
     ("1 | Ingest", "Forms, WhatsApp bot, HMAC IoT pings"),
-    ("2 | API", "9 Flask route modules, CSRF + rate limits"),
-    ("3 | Data", "PostgreSQL | 23 tables | Alembic x29"),
+    ("2 | API", "8 Flask route modules, CSRF + rate limits"),
+    ("3 | Data", "PostgreSQL | 29 tables | Alembic x30"),
     ("4 | ML", "ETA | anomaly | miss prediction"),
     ("5 | Real-time", "Socket.IO dashboards | SSE alerts"),
     ("6 | Deliver", "Docker on Render | /health | PWA"),
@@ -451,7 +451,7 @@ for i, (h, d) in enumerate(layers):
 s = prs.slides[10]
 clear_body(s)
 pic(s, os.path.join(DIAG, "database_er_diagram.png"), 0.55, 1.6, 6.7, 4.45, crop=False)
-caption(s, 0.55, 6.15, 6.7, "23-table relational schema (Alembic-managed, 29 migrations)")
+caption(s, 0.55, 6.15, 6.7, "29-table relational schema (Alembic-managed, 30 migrations)")
 mods = [
     ("P", "Public portal", "Schedules, transparency, FAQ, search - no login"),
     ("C", "Citizen", "Complaints + tracking, declarations, PAYT, Green Points"),
@@ -475,7 +475,7 @@ for i, (g, h, d) in enumerate(mods):
 s = prs.slides[11]
 clear_body(s)
 pic(s, os.path.join(DIAG, "report", "deploy.png"), 1.35, 1.55, 10.6, 4.35, crop=False)
-caption(s, 1.35, 5.94, 10.6, "9 blueprints | 131 routes | 23 tables | 29 Alembic migrations | gunicorn + gevent x2")
+caption(s, 1.35, 5.94, 10.6, "8 route modules | 138 routes | 29 tables | 30 Alembic migrations | gunicorn + gevent x2")
 chevrons(s, 0.6, 6.2, 12.1, 0.62,
          ["git push", "Docker build", "flask db upgrade", "gunicorn + gevent x2", "/health OK"])
 
@@ -497,7 +497,7 @@ caption(s, 0.6, 6.85, 12.1, "Captured from the live deployment - desktop PWA (12
 s = prs.slides[13]
 clear_body(s)
 for i, (big, small) in enumerate([("~12k", "residents served"), ("5", "wards live"),
-                                  ("23 / 29", "tables / migrations"), ("359", "tests green")]):
+                                  ("29 / 30", "tables / migrations"), ("406", "tests green")]):
     stat(s, 0.6 + i * 3.08, 1.45, 2.85, 1.5, big, small, big_size=30)
 imp = [
     ("G", "Governance", "Audit trail on every privileged action; CSV/JSON state-compliance exports."),
@@ -599,12 +599,15 @@ refs = [r.replace("scikit-learn documentation - RandomForestRegressor, cross-val
          for r in refs]
 col1 = refs[: len(refs) // 2 + 1]
 col2 = refs[len(refs) // 2 + 1:]
+# R24 template mandates IEEE-style numbered references: "[1] Author(s), ..."
+_refno = 0
 for j, colr in enumerate([col1, col2]):
     x = 0.7 + j * 6.25
     y = 1.6
-    for i, r in enumerate(colr):
+    for r in colr:
+        _refno += 1
         t = s.shapes.add_textbox(Inches(x), Inches(y), Inches(5.9), Inches(0.9))
-        _tf(t, "-  " + r, 12, INK, line=1.05, space_after=8)
+        _tf(t, "[%d]  " % _refno + r, 12, INK, line=1.05, space_after=8)
         y += 0.95
 
 # --------------------------- slide 19 - Thank you ---------------------------
@@ -614,6 +617,56 @@ c = card(s, 2.2, 1.9, 8.9, 3.4, fill=DEEP)
 _tf(c, "Thank You\nOpen Floor for Discussion", 34, WHITE, bold=True,
     align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
 chip(s, 4.15, 5.7, 5.0, 0.6, "Live demo: smartgarbage.onrender.com", fill=AMBER, fg=INK, size=14)
+
+# --------------------------- new slide (inserted after Deployment) - ML Quality Assurance -----------
+def _duplicate_slide(prs, index):
+    src = prs.slides[index]
+    dest = prs.slides.add_slide(src.slide_layout)
+    for shp in list(dest.shapes):
+        shp._element.getparent().remove(shp._element)
+    for shp in src.shapes:
+        dest.shapes._spTree.append(copy.deepcopy(shp._element))
+    return dest
+
+
+qa = _duplicate_slide(prs, 14)
+clear_body(qa)
+set_title(qa, "ML Quality Assurance - The Photo Gate")
+qa_steps = [
+    ("1", "Classify", "ONNX photo gate: 224px ImageNet-normalised input; a photo ships "
+     "only when p_reject < 0.70."),
+    ("2", "Verify", "Dual canary probes (reject + accept) score the deployed model on "
+     "schedule; breaches raise day-deduplicated alerts."),
+    ("3", "Watch", "Weekly p_reject drift vs a signed baseline; mean shift > 0.01, "
+     "floor drop > 0.005 or any score < 0.90 files an issue."),
+    ("4", "Improve", "Relabelled false positives ingested exactly once, gated at "
+     ">= 0.90 validation accuracy, baseline auto-refreshed."),
+]
+for i, (g, h, d) in enumerate(qa_steps):
+    y = 1.45 + i * 1.3
+    card(qa, 0.6, y, 7.6, 1.15, fill=MIST if i % 2 == 0 else WHITE,
+         line=RGBColor(0xD8, 0xE4, 0xDC))
+    gsp = qa.shapes.add_shape(MSO_SHAPE.OVAL, Inches(0.8), Inches(y + 0.28),
+                              Inches(0.6), Inches(0.6))
+    gsp.fill.solid(); gsp.fill.fore_color.rgb = DEEP
+    gsp.line.fill.background(); gsp.shadow.inherit = False
+    _tf(gsp, g, 16, WHITE, bold=True, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    t = qa.shapes.add_textbox(Inches(1.6), Inches(y + 0.1), Inches(6.4), Inches(0.42))
+    _tf(t, h, 13.5, DEEP, bold=True)
+    t2 = qa.shapes.add_textbox(Inches(1.6), Inches(y + 0.48), Inches(6.4), Inches(0.6))
+    _tf(t2, d, 11.5, SLATE, line=1.08)
+for i, (big, small) in enumerate([("96.6%", "validation top-1 accuracy"),
+                                  ("0.9998", "canary p_reject (live)"),
+                                  ("406", "automated tests green")]):
+    stat(qa, 8.6, 1.55 + i * 1.62, 4.1, 1.35, big, small, big_size=26)
+chip(qa, 0.6, 6.4, 12.1, 0.55,
+     "A second ML model keeps non-garbage photos out of the worker queue - and monitors its own health.",
+     fill=AMBER, fg=INK, size=12.5)
+# move the new slide to sit right after Deployment (index 11)
+_sldIdLst = prs.slides._sldIdLst
+_sldIds = list(_sldIdLst)
+_sldIdLst.remove(_sldIds[-1])
+_sldIdLst.insert(12, _sldIds[-1])
 
 prs.save(DST)
 print("WROTE", DST, f"{os.path.getsize(DST)//1024} KB")

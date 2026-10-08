@@ -30,7 +30,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = "http://127.0.0.1:5057"
 VD = os.path.join(HERE, "_video_live")
 os.makedirs(VD, exist_ok=True)
-OUT = os.path.join(HERE, "Documentation_DEMO_VIDEO.mp4")
+# R24 deliverable: render straight into the submission package so the
+# finished video exists in exactly one place.
+ROOT = os.path.dirname(os.path.dirname(HERE))
+OUT = os.path.join(ROOT, "submission", "video", "SmartGarbage_Demo_Video.mp4")
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 FONT = "C\\:/Windows/Fonts/arialbd.ttf"
 
 WHITE_YAVG = 252.0   # >= this luma == blank white frame
