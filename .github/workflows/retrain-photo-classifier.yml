@@ -1,0 +1,242 @@
+name: Retrain photo classifier
+
+# Manual, on-demand retrain of the photo-gate classifier. Closes the loop from
+# an exported retrain batch to a reviewable pull request:
+#
+#   1. rebuild (or restore from cache) the labelled dataset
+#   2. download the retrain-batch ZIP whose URL you pass in
+#   3. scripts/ingest_retrain_batch.py — extract → train → val gate → promote,
+#      and auto-refresh scripts/photo_classifier_baseline.json
+#   4. open a PR carrying app/photo_classifier.onnx, its sidecar, the refreshed
+#      baseline, and a summary of the validation accuracy
+#
+# Human review is the point: the model is NEVER committed to main directly.
+#
+# Where does the ZIP URL come from? The admin panel export
+# (/admin/photo-rejections/retrain-batch.zip) is auth-gated, so host the file
+# somewhere the runner can fetch directly and paste that URL — e.g. a Supabase
+# Storage signed URL (the project already uses Supabase) or a GitHub release
+# asset. The URL must be a direct download (curl -fL).
+#
+# Note on dispatch: workflow_dispatch only appears once this file is on the
+# default branch, and the job checks out `base_branch` (main by default) — so
+# the run trains from the SAME code that is about to receive the PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_zip_url:
+        description: 'Direct-download URL of the retrain-batch ZIP (garbage/*.jpg + manifest.csv)'
+        required: true
+        type: string
+      epochs:
+        description: 'Training epochs (blank = trainer default, 3)'
+        required: false
+        default: ''
+        type: string
+      min_val_acc:
+        description: 'Promote only when best_val_acc clears this gate'
+        required: false
+        default: '0.90'
+        type: string
+      hard_neg_oversample:
+        description: 'Hard-negative oversample factor forwarded to the trainer'
+        required: false
+        default: '1'
+        type: string
+      dataset_hard_negatives:
+        description: 'Hard negatives per source when rebuilding the dataset (0 = skip)'
+        required: false
+        default: '250'
+        type: string
+      base_branch:
+        description: 'Branch to train from and target with the PR'
+        required: false
+        default: 'main'
+        type: string
+      open_pr:
+        description: 'Open a pull request with the retrained model'
+        required: false
+        default: true
+        type: boolean
+
+# Never let two retrains race (they both touch app/photo_classifier.onnx).
+concurrency:
+  group: retrain-photo-classifier
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # create the branch + commit the model
+  pull-requests: write   # open the PR
+
+env:
+  PYTHONUTF8: '1'        # the trainer prints glyphs that choke cp1252 consoles
+  PYTHONPATH: ${{ github.workspace }}
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    env:
+      # Optional: a Kaggle account makes TrashNet fetch fast/deterministic.
+      # Unset is fine — fetch_photo_dataset.py falls back to Wikimedia Commons.
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.base_branch }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The dataset is ~ (TrashNet + COCO val2017). Cache it so repeat retrains
+      # skip the ~778 MB COCO download entirely.
+      - name: Cache dataset
+        id: ds-cache
+        uses: actions/cache@v4
+        with:
+          path: _dataset
+          key: photo-dataset-v1-${{ inputs.dataset_hard_negatives }}-${{ hashFiles('scripts/fetch_photo_dataset.py') }}
+
+      - name: Install app + training dependencies (CPU torch)
+        run: |
+          python -m pip install --upgrade pip
+          # App/test stack (numpy, pillow, onnxruntime, ...).
+          pip install -r requirements.txt
+          # Training-only stack, not shipped in the production image. The CPU
+          # index keeps the runner from pulling multi-GB CUDA wheels.
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install onnx onnxscript kagglehub
+
+      - name: Build dataset (cache miss only)
+        if: steps.ds-cache.outputs.cache-hit != 'true'
+        run: |
+          python scripts/fetch_photo_dataset.py \
+            --hard-negatives "${{ inputs.dataset_hard_negatives }}"
+
+      - name: Download the retrain batch
+        run: |
+          curl -fL --retry 3 --retry-delay 5 \
+            -o retrain_batch.zip "${{ inputs.batch_zip_url }}"
+          ls -la retrain_batch.zip
+          python - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('retrain_batch.zip') as z:
+              names = z.namelist()
+          imgs = [n for n in names if n.startswith('garbage/') and n.lower().endswith('.jpg')]
+          print(f'batch members: {len(names)} total, {len(imgs)} garbage images')
+          if not imgs:
+              raise SystemExit('FATAL: ZIP has no garbage/*.jpg members')
+          PY
+
+      - name: Run the retrain loop (extract → train → gate → promote → refresh baseline)
+        id: retrain
+        run: |
+          set -o pipefail
+          ARGS=(--zip retrain_batch.zip --min-val-acc "${{ inputs.min_val_acc }}"
+                --hard-neg-oversample "${{ inputs.hard_neg_oversample }}")
+          # NOTE: `if` (not `[ -n ] && ...`) — GitHub runs step scripts with
+          # errexit, so a false test as a bare command would abort the step.
+          if [ -n "${{ inputs.epochs }}" ]; then
+            ARGS+=(--epochs "${{ inputs.epochs }}")
+          fi
+          python scripts/ingest_retrain_batch.py "${ARGS[@]}" 2>&1 | tee retrain.log
+
+      - name: Summarise the result
+        id: summary
+        if: always()
+        env:
+          GATE: ${{ inputs.min_val_acc }}
+        run: |
+          ACC=$(grep -oE 'best_val_acc=[0-9.]+' retrain.log 2>/dev/null | tail -1 | cut -d= -f2 || true)
+          echo "val_acc=${ACC:-unknown}" >> "$GITHUB_OUTPUT"
+          export ACC
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          print('## Photo-classifier retrain\n')
+          acc = os.environ.get('ACC') or 'unknown'
+          print(f'- **Validation accuracy:** `{acc}` (gate `{os.environ["GATE"]}`)')
+          try:
+              b = json.load(open('scripts/photo_classifier_baseline.json'))
+              cn = (b.get('canary_p_reject') or {})
+              # val_n/val_rejected_n appear only after an auto-refresh (the
+              # committed baseline is the historical first-24h reference).
+              if cn.get('mean') is not None:
+                  print(f"- **Baseline canary p_reject:** `{cn.get('mean')}`")
+              if b.get('val_n') is not None:
+                  print(f"- **Val rejection rate:** {b.get('val_rejected_n')}/{b.get('val_n')} images rejected")
+              if b.get('model_sha256'):
+                  print(f"- **Model sha256:** `{b['model_sha256'][:16]}…`")
+              if b.get('accept_probe_error'):
+                  print(f"- ⚠️ accept-probe note: `{b['accept_probe_error']}`")
+          except Exception as e:
+              print(f'- baseline summary unavailable: {e}')
+          PY
+
+      - name: Upload the run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrain-log
+          path: retrain.log
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Open a pull request with the retrained model
+        if: ${{ success() && inputs.open_pr }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ inputs.base_branch }}
+        run: |
+          set -euo pipefail
+          changed=$(git status --porcelain -- app/photo_classifier.onnx \
+                    app/photo_classifier.onnx.json scripts/photo_classifier_baseline.json)
+          if [ -z "$changed" ]; then
+            echo "No model change (identical retrain) — nothing to open a PR for."
+            exit 0
+          fi
+
+          # The batch URL may be a SIGNED url carrying a bearer token, so it must
+          # never reach git history or the PR body — only the host is recorded.
+          BATCH_HOST=$(python -c 'import sys,urllib.parse as u; print(u.urlparse(sys.argv[1]).hostname or "unknown")' "${{ inputs.batch_zip_url }}")
+          BRANCH="retrain/photo-classifier-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add app/photo_classifier.onnx app/photo_classifier.onnx.json \
+                  scripts/photo_classifier_baseline.json
+          git commit -m "chore(model): retrain photo classifier (run ${GITHUB_RUN_ID})"
+          git push -u origin "$BRANCH"
+
+          ACC="${{ steps.summary.outputs.val_acc }}"
+          {
+            echo "Automated retrain of the photo-gate classifier from an exported"
+            echo "retrain batch. **Review the accuracy and the diff, then merge to ship"
+            echo "the new model** (Render deploys it on merge)."
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Validation accuracy | \`${ACC:-unknown}\` |"
+            echo "| Gate (min-val-acc) | \`${{ inputs.min_val_acc }}\` |"
+            echo "| Hard-neg oversample | \`${{ inputs.hard_neg_oversample }}\` |"
+            echo "| Batch source host | \`${BATCH_HOST}\` |"
+            echo "| Batch sha256 | \`$(sha256sum retrain_batch.zip | cut -c1-16)…\` |"
+            echo
+            echo "### Files"
+            echo "\`\`\`"
+            git show --stat --oneline HEAD | tail -n +2
+            echo "\`\`\`"
+            echo
+            echo "### Refreshed training baseline"
+            echo "\`\`\`json"
+            python -c "import json;b=json.load(open('scripts/photo_classifier_baseline.json'));print(json.dumps({k:b.get(k) for k in ('threshold','canary_p_reject','classifier_p_reject','val_n','val_rejected_n','accept_probe_error')}, indent=2))"
+            echo "\`\`\`"
+            echo
+            echo "_Opened by \`.github/workflows/retrain-photo-classifier.yml\` (run [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}))._"
+          } > pr_body.md
+
+          gh pr create --base "$BASE" --head "$BRANCH" \
+            --title "Retrain photo classifier (val acc ${ACC:-unknown})" \
+            --body-file pr_body.md

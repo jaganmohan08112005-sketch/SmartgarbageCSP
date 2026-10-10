@@ -1,0 +1,16 @@
+{
+  "schema": "photo_classifier_baseline/1",
+  "model": "photo_classifier.onnx",
+  "architecture": "MobileNetV3-Small",
+  "recorded": "2026-10-02",
+  "threshold": 0.7,
+  "source": "docs/PHOTO_GATE_RUNBOOK.md §3 (501-image val ROC + P/R memo, 2026-09-29 retrain) and docs/PHOTO_GATE_RELIABILITY_REPORT.md §3 (first-24h canary baseline)",
+  "note": "p_reject is the classifier's non-garbage probability. The canary uploads the SAME byte-identical probe every sweep, so its logged p_reject is deterministic for a given model + preprocessing + threshold. A shift in the live canary distribution therefore means the shipped model, its preprocessing, or the operating threshold changed unexpectedly.",
+  "canary_p_reject": {"n": 20, "mean": 0.9999, "min": 0.9998, "max": 1.0},
+  "classifier_p_reject": {"n": 25, "mean": 0.9996, "min": 0.9998, "max": 1.0},
+  "tolerance": {
+    "mean_abs": 0.01,
+    "min_abs": 0.005,
+    "floor": 0.9
+  }
+}
