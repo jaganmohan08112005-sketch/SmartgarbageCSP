@@ -4,7 +4,7 @@ The web process enqueues jobs (SMS/WhatsApp, webhook dispatch, export
 generation, PAYT dunning) into the 'smartgarbage' queue on Redis; this worker
 process executes them so request handlers never block on external calls.
 
-Usage (when REDIS_URL is configured, e.g. in Docker/Fly):
+Usage (when REDIS_URL is configured, e.g. in Docker/Render):
     python worker.py
 """
 import os
