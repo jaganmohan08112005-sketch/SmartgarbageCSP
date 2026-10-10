@@ -115,6 +115,12 @@ jobs:
       - name: Check for monolith-era SECTION banners
         run: |
           python scripts/check_no_section_banners.py
+      # Guard against docs drifting out of sync: a broken relative link or a
+      # reference to a deleted/renamed guide must fail the build
+      # (see scripts/check_doc_links.py).
+      - name: Check docs for broken links / deleted-doc references
+        run: |
+          python scripts/check_doc_links.py
 
   # Deploy to a separate Render STAGING service so changes are tested
   # against a real deploy before going live. Trigger: push to `staging` branch.

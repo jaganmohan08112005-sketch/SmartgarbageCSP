@@ -44,7 +44,7 @@
 
 ## ✅ Step 2: Set Up Cloudflare CDN (20 min)
 
-**File:** `wiki/CLOUDFLARE_CDN_SETUP.md`
+**File:** `docs/CLOUDFLARE_CDN_SETUP.md`
 
 - [ ] Go to https://dash.cloudflare.com/sign-up
 - [ ] Sign up with email

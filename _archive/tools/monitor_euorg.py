@@ -233,7 +233,7 @@ def print_approved(domain, server, record):
   6. Add custom domain in Render dashboard
   7. TTFB will drop from ~0.7s to <0.1s!
 
-{C.DIM}Full setup guide: CLOUDFLARE_QUICK_START.md{C.RESET}
+{C.DIM}Full setup guide: docs/CLOUDFLARE_CDN_SETUP.md{C.RESET}
 """)
 
 

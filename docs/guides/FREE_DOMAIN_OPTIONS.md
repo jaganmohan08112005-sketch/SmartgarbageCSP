@@ -131,7 +131,7 @@
 1. Go to [cloudflare.com](https://cloudflare.com)
 2. Register domain: `smartgarbage.in` (~₹649/year)
 3. Cloudflare CDN included free
-4. Follow `wiki/CLOUDFLARE_CDN_SETUP.md`
+4. Follow `docs/CLOUDFLARE_CDN_SETUP.md`
 
 **Pros:**
 - ✅ Cheapest domain
