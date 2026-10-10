@@ -96,6 +96,37 @@ so treat ±2-photo differences as noise — the right instrument for further
 moves is the rejection panel's relabel data, and the harvest job's
 "needs review" queue makes that signal usable.
 
+### p_reject threshold-drift tracker
+
+The weekly report (`scripts/photo_rejection_weekly.py`) also compares the
+window's live `p_reject` scores against a committed training baseline
+(`scripts/photo_classifier_baseline.json`) and files a
+`[photo-gate] p_reject threshold drift detected` issue when they shift.
+
+The canary re-uploads one **byte-identical** probe every sweep, so its logged
+`p_reject` is deterministic for a given model + preprocessing + threshold. The
+tracker uses those canary rows as the primary basis (falling back to all
+classifier rows when the window has no canary rejection) and alerts when:
+
+- the mean `p_reject` moves by more than `tolerance.mean_abs` (default 0.01)
+  away from the baseline mean, or
+- the minimum score falls below `baseline_min − tolerance.min_abs`, or
+- any score drops under `tolerance.floor` (default 0.90) — a strong signal that
+  the model was swapped, the resize/preprocess path changed, or the operating
+  threshold moved (the 2026-09-29 over-strict slip would surface here).
+
+**After a retrain the baseline refreshes automatically.** The ingest step of
+the retrain loop (`scripts/ingest_retrain_batch.py`, §6) recomputes
+`canary_p_reject` (by scoring the embedded non-garbage probe with the new model)
+and `classifier_p_reject` (from the val images the new model rejects), then
+rewrites `scripts/photo_classifier_baseline.json` — so the weekly tracker does
+not flag the model you just shipped. Pass `--no-refresh-baseline` to skip it, or
+after a **deliberate threshold move** with no retrain, refresh by hand: score
+the probe under the new operating point and update the two blocks in
+`scripts/photo_classifier_baseline.json`, committing it alongside the change.
+The weekly run prints a `DRIFT:` line and writes the verdict to
+`weekly_stats.json` and the report.
+
 ## 4. Monitoring: the photo-gate canary
 
 Every 30 minutes (deployed Render environments only) `photo_gate_canary_job`
@@ -184,6 +215,31 @@ venv/Scripts/python.exe scripts/train_photo_classifier.py --hard-neg-oversample 
   alerting until the rollback lands).
 - After any retrain, re-run the ROC sweep (§3) — the optimal threshold moves
   with the model.
+- **Ingesting a retrain batch is automated** — see `scripts/ingest_retrain_batch.py`
+  in the audit below (extract → train → gate → promote in one command).
+
+### Retrain on a GitHub runner (manual workflow)
+
+`.github/workflows/retrain-photo-classifier.yml` (**Actions → Retrain photo
+classifier → Run workflow**) does the whole loop on a runner and opens a PR —
+no local machine or GPU needed:
+
+1. rebuilds the dataset (cached across runs; `KAGGLE_USERNAME`/`KAGGLE_KEY`
+   repo secrets make the TrashNet fetch fast, otherwise it falls back to
+   Wikimedia), installs CPU torch, downloads your batch ZIP,
+2. runs `scripts/ingest_retrain_batch.py` (extract → train → val gate →
+   promote → refresh the baseline),
+3. opens a PR with `app/photo_classifier.onnx`, its sidecar, and
+   `scripts/photo_classifier_baseline.json`, plus a val-accuracy summary.
+
+Inputs: `batch_zip_url` (**required** — a direct-download URL for the exported
+ZIP; the admin export is auth-gated, so host it as a Supabase Storage signed
+URL or a release asset), `epochs`, `min_val_acc` (default 0.90),
+`hard_neg_oversample`, `dataset_hard_negatives`, `base_branch`, `open_pr`.
+The model is **never** committed to main directly — review the accuracy and the
+diff, then merge to ship. Because a signed URL carries a token, the workflow
+records only its host (never the full URL) in the commit and PR; note that the
+URL still appears in the run's input history, so rotate/expire it after use.
 
 ### Data-flow audit: retrain-batch.zip → next training run (verified 2026-09-30)
 
@@ -197,22 +253,40 @@ The closed loop from a false positive to a better model, as actually wired:
    `manifest.csv` (id, surface, stage, p_reject, relabel timestamp) and stamps
    `batched_at` — already-batched rows are never exported again
    (`test_retrain_batch_export_marks_rows_once` pins this).
-3. **Unzip into the training layout** (the step a human must not skip):
+3. **Ingest + retrain automatically** (replaces the manual unzip):
    ```bash
-   unzip retrain_batch_YYYYMMDD_HHMMSS.zip -d _dataset/train
+   venv/Scripts/python.exe scripts/ingest_retrain_batch.py \
+       --zip retrain_batch_YYYYMMDD_HHMMSS.zip
    ```
-   The ZIP's `garbage/…` prefix lands the images in
-   `_dataset/train/garbage/`, which is exactly what
-   `scripts/train_photo_classifier.py` consumes via torchvision `ImageFolder`
-   (it asserts `class_to_idx == {'garbage': 0, 'non_garbage': 1}`).
-   **Never unzip into `val/`** — that would contaminate the evaluation set and
-   inflate val accuracy.
-4. **Rebuild + retrain + export:**
-   `fetch_photo_dataset.py` → `train_photo_classifier.py --hard-neg-oversample 1`
-   → commit `app/photo_classifier.onnx` + `.onnx.json` → deploy. Evaluate per
-   the checklist at the top of this section before committing.
+   `scripts/ingest_retrain_batch.py` extracts only `garbage/rejection_<id>.jpg`
+   into `_dataset/train/garbage/` — the ZIP's `garbage/` prefix is exactly the
+   training class directory (the trainer asserts
+   `class_to_idx == {'garbage': 0, 'non_garbage': 1}`). Members shaped
+   `val/…`, `non_garbage/…`, absolute paths, or `../` are rejected unread, so
+   the evaluation set can never be contaminated. Each ingested rejection id
+   is recorded in `_dataset/retrain_ingested.json`, so re-running the same ZIP
+   is a no-op (mirrors the server's `batched_at` exactly-once export).
+   The script then runs `scripts/train_photo_classifier.py` and **promotes the
+   model over `app/` only when `best_val_acc` clears `--min-val-acc` (default
+   0.90)** — the 0.825 retrain that was discarded by hand is now refused
+   automatically. Exit codes: `0` ok, `2` preflight (no ZIP / no dataset),
+   `3` the gate rejected the model, `4` training failed. On success it also
+   **auto-refreshes `scripts/photo_classifier_baseline.json`** from the new
+   model (disable with `--no-refresh-baseline`). Flags: `--no-train`
+   (ingest only), `--min-val-acc 0` (disable the gate deliberately),
+   `--epochs`, `--hard-neg-oversample`, `--baseline`, `--refresh-val-limit`,
+   `--dry-run`.
+   Manual fallback: `unzip retrain_batch_*.zip -d _dataset/train`
+   (never into `val/` — that inflates val accuracy).
+4. **Then ship it:** the script has already copied `app/photo_classifier.onnx`
+   + `.onnx.json` (+ the `.pt` checkpoint) and refreshed
+   `scripts/photo_classifier_baseline.json`. Re-run the ROC sweep (§3), then
+   commit all three files — the model, its sidecar, and the refreshed baseline.
+   A full from-scratch rebuild is still the loop at the top of this section:
+   `fetch_photo_dataset.py` → `train_photo_classifier.py` → commit → deploy.
 
-Audit findings (all verified against code, no fix required):
+Audit findings (verified against code; the manual-unzip gap is now closed by
+`scripts/ingest_retrain_batch.py`):
 
 - **`train_model.py` is a different pipeline.** It trains the fill-rate /
   miss-prediction RandomForest pickles (`ml_model.pkl`, `ml_fill_model.pkl`)

@@ -123,3 +123,95 @@ def test_md5_cluster_helper_matches_direct_count(weekly_env):
     """Sanity: the hashing approach is deterministic across runs."""
     mod, tmp_path, report, stats, probe = weekly_env
     assert len(hashlib.md5(probe).hexdigest()) == 32
+
+
+# --- p_reject threshold-drift tracker -------------------------------------
+
+def _write_baseline(path, mean, mn=None, mx=None, tol=None):
+    """Minimal training baseline with a controllable canary mean/min."""
+    mn = mean if mn is None else mn
+    mx = 1.0 if mx is None else mx
+    path.write_text(json.dumps({
+        'schema': 'photo_classifier_baseline/1',
+        'model': 'photo_classifier.onnx',
+        'threshold': 0.7,
+        'canary_p_reject': {'n': 20, 'mean': mean, 'min': mn, 'max': mx},
+        'classifier_p_reject': {'n': 25, 'mean': mean, 'min': mn, 'max': mx},
+        'tolerance': tol or {'mean_abs': 0.01, 'min_abs': 0.005, 'floor': 0.9},
+    }), encoding='utf-8')
+    return str(path)
+
+
+def _build_db(tmp_path, rows, name='panel2.db'):
+    db_path = (tmp_path / name).as_posix()
+    conn = sqlite3.connect(db_path)
+    conn.execute('''CREATE TABLE photo_rejection (
+      id INTEGER PRIMARY KEY, surface TEXT, stage TEXT, note TEXT, p_reject REAL,
+      relabel_status TEXT, relabeled_at TIMESTAMP, batched_at TIMESTAMP,
+      thumbnail BLOB, created_at TIMESTAMP)''')
+    conn.executemany('INSERT INTO photo_rejection VALUES (?,?,?,?,?,?,?,?,?,?)', rows)
+    conn.commit()
+    conn.close()
+    return 'sqlite:///' + db_path
+
+
+def test_drift_ok_when_canary_matches_baseline(weekly_env):
+    """A canary p_reject inside tolerance reports 'ok' with no alerts."""
+    mod, tmp_path, report, stats, probe = weekly_env
+    bpath = _write_baseline(tmp_path / 'base.json', mean=0.9999, mn=0.9998)
+    sys.argv += ['--baseline', bpath]
+    assert mod.main() == 0
+    d = json.loads(stats.read_text(encoding='utf-8'))['drift']
+    assert d['status'] == 'ok'
+    assert d['basis'] == 'canary'
+    assert d['alerts'] == []
+    assert abs(d['delta_mean']) <= d['tolerance']['mean_abs']
+
+
+def test_drift_detected_when_canary_mean_shifts(weekly_env):
+    """A baseline mean far from the live canary scores fires 'drift' and is
+    written into both the stats file and the appended report section."""
+    mod, tmp_path, report, stats, probe = weekly_env
+    bpath = _write_baseline(tmp_path / 'base.json', mean=0.5, mn=0.5)
+    sys.argv += ['--baseline', bpath]
+    mod.main()
+    d = json.loads(stats.read_text(encoding='utf-8'))['drift']
+    assert d['status'] == 'drift'
+    assert d['delta_mean'] is not None and d['delta_mean'] > 0
+    assert any('mean shifted' in a for a in d['alerts'])
+    body = report.read_text(encoding='utf-8')
+    assert 'p_reject drift alerts' in body
+    assert 'p_reject drift vs training baseline' in body
+
+
+def test_drift_insufficient_data_without_classifier_rows(tmp_path, monkeypatch):
+    """A panel with only decodability rows cannot be measured — the tracker
+    says 'insufficient-data' rather than inventing a verdict."""
+    mod = _load_module()
+    now = datetime.now()
+    db = _build_db(tmp_path, [
+        (1, 'report', 'decodability', 'Photo could not be decoded', None,
+         'auto', None, None, None, now),
+    ])
+    report = tmp_path / 'R2.md'
+    report.write_text('seed', encoding='utf-8')
+    stats = tmp_path / 's2.json'
+    monkeypatch.setenv('DATABASE_URL', db)
+    monkeypatch.setattr(sys, 'argv',
+                        ['x', '--report', str(report), '--stats-file', str(stats)])
+    assert mod.main() == 0
+    d = json.loads(stats.read_text(encoding='utf-8'))['drift']
+    assert d['status'] == 'insufficient-data'
+    assert d['basis'] == 'classifier'
+    assert d['alerts']
+
+
+def test_missing_baseline_falls_back_to_embedded(weekly_env):
+    """An unreadable baseline path degrades to the embedded reference so the
+    drift check still runs instead of crashing the weekly job."""
+    mod, tmp_path, report, stats, probe = weekly_env
+    sys.argv += ['--baseline', str(tmp_path / 'nope.json')]
+    assert mod.main() == 0
+    d = json.loads(stats.read_text(encoding='utf-8'))['drift']
+    assert d['baseline_source'] == 'embedded-default'
+    assert d['status'] == 'ok'

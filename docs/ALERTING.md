@@ -11,9 +11,10 @@ Three free layers, no paid service, no external accounts:
 |---|---|---|---|
 | **Uptime probe** | Site down, `/health` unhealthy, DB check failing, queue starvation | `.github/workflows/uptime.yml` (GitHub Actions, cron) | GitHub issue `[uptime] site is DOWN — <timestamp>` + email |
 | **Runtime errors (500s)** | Unhandled exceptions inside requests (invisible to any external probe) | `app/alerting.py`, wired into the 500 handler | GitHub issue `[500] <type> — <day>` + email |
+| **Service-worker drift** | A stale `sw.js` — the deployment serving an older worker than the repo | `.github/workflows/sw-drift.yml` (GitHub Actions, cron) + `scripts/check_sw_drift.mjs` | GitHub issue `[sw-drift] stale service worker — <timestamp>` + email |
 | **Sentry (optional)** | Same as above, plus perf/tracebacks with full context | `SENTRY_DSN` env var — already wired in `app/__init__.py` | Sentry dashboard/emails |
 
-Both GitHub-issue layers are **fail-soft**: an alerting outage can never take
+The GitHub-issue layers are **fail-soft**: an alerting outage can never take
 the site down or change what a visitor sees.
 
 ## 1. Uptime probe (GitHub Actions)
@@ -122,3 +123,44 @@ ALERT_ISSUES=1 ALERT_GITHUB_REPO=<you>/scratch python -c \
 
 CI never has `ALERT_ISSUES` set, so the full test suite proves the no-op path
 (see `tests/test_features.py` for the regression tests).
+
+## 5. Service-worker drift check
+
+A stale service worker is silent: production can keep serving an old `sw.js`
+(a failed/absent deploy, a build pinned to an older branch, or a CDN holding an
+old copy) while the repo has moved on — the site looks healthy while the old
+worker keeps doing the old (wrong) thing. That is exactly how the pre-fix
+worker kept blocking Google Tag Manager after the fix landed.
+
+`scripts/check_sw_drift.mjs` compares the `SW_VERSION` constant in
+`app/static/sw.js` (the repo) with the `SW_VERSION` the live deployment
+actually serves, and exits:
+
+| Exit | Meaning | Action |
+|---|---|---|
+| `0` | current — live === repo | nothing |
+| `1` | **DRIFT** — live < repo | the deployment is serving a stale worker |
+| `2` | inconclusive — `/sw.js` unreachable or unparseable | a warning, **not** drift |
+
+Run it locally:
+
+```bash
+npm run check:sw-drift
+# override the targets if needed:
+SW_PATH=app/static/sw.js LIVE_SW_URL=https://smartgarbage.onrender.com/sw.js npm run check:sw-drift
+```
+
+`.github/workflows/sw-drift.yml` runs it every 6 hours (and on
+`workflow_dispatch`). A **DRIFT** run opens — or comments on — a GitHub issue
+labelled `sw-drift-alert`; the first clean run comments and closes it. The unit
+tests for the pure helpers live in `tests/js/sw_drift.test.mjs` and run as part
+of `npm run test:js`.
+
+### Honest limitations
+
+- **GitHub's scheduler is loose.** Treat the cadence as "hours, not minutes".
+- **It compares the default branch with production.** A stale worker is only
+  flagged once the newer `SW_VERSION` is on the default branch — an unmerged
+  local fix is invisible to it by design.
+- **Green only proves the versions match.** It does not prove the worker
+  behaves correctly — that is `tests/js/service_worker_fetch.test.js`.
