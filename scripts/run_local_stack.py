@@ -5,8 +5,10 @@ All work happens in-process so that the pgserver postgres.exe stays alive
 (Windows Defender kills it the moment the parent process that started it exits
 or spawns a subprocess that outlives the pg_ctl invocation).
 
-Flow: pgserver boot → schema via db.create_all() [skips Alembic entirely for
-      local dev] → seed demo data → Flask on 127.0.0.1:5057
+Flow: pgserver boot → schema via flask-migrate/Alembic upgrade() — the same
+      revisions production runs, so a table that no revision creates is missing
+      here too (that is how the web-push tables went unnoticed) → seed demo
+      data → Flask on 127.0.0.1:5057
 """
 import os
 import sys
