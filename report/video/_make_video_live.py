@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Documentation_DEMO_VIDEO v4 - LIVE WEBSITE WALKTHROUGH (explains every feature).
 
-Playwright drives a real browser over https://smartgarbage.onrender.com and
-INTERACTS with it (ward selection, form fills, login fields, mobile PWA).
-Every scene carries an on-screen caption band that names the feature being
-explained; a branded title card opens the video and an outro card closes it.
+Playwright drives a real browser over the local reproduction stack set in BASE
+and INTERACTS with it (ward selection, form fills, logins, mobile PWA). Every
+scene carries an on-screen caption band that names the feature being explained.
 Narration via SAPI TTS per scene. Output: 1280x720 H.264 + AAC.
 
-v4 changes:
+v5 changes:
+- the cut is nothing but the website: the branded title/outro cards are gone, so
+  it opens on the homepage and closes on the last real page
+- citizen, worker and admin are entered by typing the seeded demo credentials
+  into the real login form on camera, MFA code included
 - drawtext caption band per scene (feature name + one-line explanation)
-- title/outro cards from report/video/card_*.png
-- real interactions: schedule ward picker, report form typing, login fields
+- real interactions: schedule ward picker, report form typing, mobile PWA
 - all segments re-encoded uniformly (concat-safe), mono AAC everywhere
 """
 import glob
 import os
+import re
 import subprocess
 import time
 import wave
@@ -133,7 +136,19 @@ SCENES = [
 
 # Scenes that should START on a specific page (record() otherwise opens "/",
 # whose load time would push the action past the narration cut).
-START_PAGES = {"track_auth": "/mfa-verify"}
+START_PAGES = {"track_auth": "/login", "citizen": "/login", "worker": "/login",
+               "admin": "/login", "schedule": "/schedule",
+               "report": "/report", "transparency": "/transparency",
+               "impact": "/impact", "about_faq": "/about"}
+
+# Seeded demo logins (password == username; see the defaults in app/__init__.py
+# and scripts/run_local_stack.py). They exist only locally or with
+# SEED_DEMO=true - a production deployment never creates them.
+DEMO_LOGINS = {
+    "citizen": ("24331A4441CITIZEN", "/dashboard"),
+    "worker": ("24331A4441WORKER", "/worker"),
+    "admin": ("24331A4441ADMIN", "/admin"),
+}
 
 # on-screen caption per scene (same order as SCENES)
 CAPTIONS = [
@@ -174,21 +189,37 @@ def dismiss_banner(pg):
     """Close the cookie-consent banner if present - it overlays the bottom of
     the page and can intercept clicks on the MFA 'Email me the code' button."""
     try:
-        pg.get_by_text("Hide", exact=True).first.click(timeout=2500)
-        time.sleep(0.3)
+        btn = pg.get_by_text("Hide", exact=True)
+        if btn.count():          # absent: skip instantly instead of timing out
+            btn.first.click(timeout=2500)
+            time.sleep(0.3)
     except Exception:
         pass
 
 
 def wait_content(pg):
-    """Wait until real page content is visible, then settle briefly."""
-    for sel in ("header", "h1", "nav a"):
-        try:
-            pg.wait_for_selector(sel, state="visible", timeout=15000)
-            break
-        except Exception:
-            continue
+    """Wait until real page content is visible, then settle briefly.
+
+    base.html has no <header> (it uses <nav> + <main id="main-content">), so the
+    old header-first chain burned its whole 15s timeout at the head of every
+    scene - longer than a narration window. Match on what actually exists.
+    """
+    try:
+        pg.wait_for_selector("main, h1, nav", state="visible", timeout=15000)
+    except Exception:
+        pass
     time.sleep(0.6)
+
+
+def ensure_page(page, path):
+    """Navigate to `path` unless the scene already opened there.
+
+    Scenes start on the page they explain (see START_PAGES), so the recorded
+    window opens on the feature itself instead of a homepage pre-roll.
+    """
+    if page.url.split("?")[0].rstrip("/") != (BASE + path).rstrip("/"):
+        goto_retry(page, BASE + path)
+        wait_content(page)
 
 
 def clear_webms(d):
@@ -200,59 +231,66 @@ def clear_webms(d):
             pass
 
 
-def auth_cookies(pw, username, password, complete_mfa=True):
-    """Authenticate in a THROWAWAY (unrecorded) browser and return the session
-    cookies. For staff roles the throwaway session stops with mfa_pending=True,
-    so the recording context can open straight on the MFA screen and finish
-    the login on camera - no dead login-typing time inside the recorded window."""
-    browser = pw.chromium.launch(headless=True)
-    ctx = browser.new_context(service_workers="block")
-    pg = ctx.new_page()
-    pg.set_default_timeout(30000)
-    goto_retry(pg, BASE + "/login")
-    pg.locator("#lg_username").fill(username)
-    pg.locator("#lg_password").fill(password)
-    pg.locator("#password-login button[type=submit]").first.click()
-    pg.wait_for_load_state("domcontentloaded")
-    import re as _re
-    # Poll for the flashed Dev OTP: under load the redirect + flash can take
-    # longer than any fixed sleep, and an empty capture silently breaks the
-    # on-camera MFA scene.
-    m = None
-    for _ in range(20):
-        m = _re.search(r"Dev OTP \(localhost\):\s*(\d{6})", pg.inner_text("body"))
+def role_login(page, role):
+    """Sign in ON CAMERA with the role's seeded demo credentials.
+
+    The old pipeline authenticated inside a throwaway browser and injected the
+    resulting session cookie, so no scene ever showed a password being typed
+    even though the narration describes exactly that ("watch the worker sign in
+    now"). The credentials go into the real form here, with typewriter pacing.
+
+    Staff logins land on the MFA screen, which flashes its dev code under the
+    form on localhost; the code is read from the page itself, so there is no
+    pre-harvested OTP that can expire before it is typed.
+    """
+    username, role_url = DEMO_LOGINS[role]
+    goto_retry(page, BASE + "/login")
+    wait_content(page)
+    dismiss_banner(page)
+    u_field = page.locator("#lg_username")
+    u_field.click()
+    page.keyboard.type(username, delay=35)
+    page.locator("#lg_password").click()
+    page.keyboard.type(username, delay=35)  # demo password == username
+    time.sleep(0.3)
+    page.locator("#password-login button[type=submit]").first.click()
+    page.wait_for_load_state("domcontentloaded")
+    otp = None
+    for _ in range(24):          # MFA screen can lag under load; citizens skip it
+        m = re.search(r"Dev OTP \(localhost\):\s*(\d{6})", page.inner_text("body"))
         if m:
+            otp = m.group(1)
             break
-        time.sleep(0.5)
-    # Complete MFA HERE (fresh OTP, no TTL race): the recording context then
-    # starts already authenticated on the role's portal.
-    role_url = "/dashboard"
-    if m and complete_mfa:
-        if "/worker" in pg.url or True:
-            role_url = "/worker" if "WORKER" in username.upper() else (
-                "/admin" if "ADMIN" in username.upper() else role_url)
-        pg.locator("input[name=otp]").fill(m.group(1))
-        pg.locator("input[name=otp]").press("Enter")
+        if role_url in page.url:
+            break
+        time.sleep(0.25)
+    if otp:
         try:
-            pg.wait_for_url("**" + role_url, timeout=15000)
-        except Exception:
-            pass
-        time.sleep(0.8)
-    cookies = ctx.cookies(BASE)
-    ctx.close()
-    browser.close()
-    # dev_otp: the code flashed at login - for complete_mfa=False sessions the
-    # recording scene types it on camera (fresh at harvest, 5-min TTL >> delay).
-    print("      harvest: otp_found=%s role_url=%s" % (bool(m), role_url))
-    return cookies, role_url, (m.group(1) if m else "")
+            page.locator("input[name=otp]").fill(otp)
+            time.sleep(0.3)
+            page.locator("button:has-text('Verify and Proceed')").first.click(timeout=6000)
+        except Exception as e:
+            print("      mfa fill skipped:", str(e)[:60])
+        for _ in range(16):
+            if role_url in page.url:
+                break
+            time.sleep(0.25)
+    if role_url not in page.url:
+        # The session is authenticated either way, so land on the portal rather
+        # than leaving the scene on a login form the narration does not cover.
+        print("      login fallback -> %s (was %s)" % (role_url, page.url))
+        goto_retry(page, BASE + role_url)
+    wait_content(page)
+    print("      logged in as %s -> %s" % (role, page.url))
 
 
-def record(pw, name, action, cookies=None, start="/", extra=None):
+def record(pw, name, action, start="/", extra=None):
     extra = extra or {}
     """Record one scene -> _video_live/raw_<name>/*.webm"""
     webm_dir = os.path.abspath(os.path.join(VD, "raw_" + name))
     os.makedirs(webm_dir, exist_ok=True)
     clear_webms(webm_dir)
+    t_video0 = time.monotonic()   # the take starts when the context is created
     browser = pw.chromium.launch(headless=True)
     # service_workers="block" is CRITICAL: sw.js is offline-first cache-first,
     # so it would serve the cached homepage for EVERY navigation and the video
@@ -262,12 +300,17 @@ def record(pw, name, action, cookies=None, start="/", extra=None):
                               service_workers="block",
                               record_video_dir=webm_dir,
                               record_video_size={"width": 1280, "height": 720})
+    # Recording cosmetics: #sgSplash (brand intro) and #sgPrivacyNotice (cookie
+    # notice) are loading/permission overlays, not page content, and they sat on
+    # top of the feature being narrated - the splash alone ate ~4s of every
+    # narration window. Hidden for the take via an init script so every
+    # navigation in this context is clean.
+    ctx.add_init_script(
+        "const _sgS=document.createElement('style');"
+        "_sgS.textContent='#sgSplash,#sgPrivacyNotice{display:none!important}';"
+        "(document.head||document.documentElement).appendChild(_sgS);")
     page = ctx.new_page()
     page.set_default_timeout(45000)
-    if cookies:
-        # Pre-authenticated session (throwaway browser harvest) so the scene
-        # opens directly on the role's page instead of the login round-trip.
-        ctx.add_cookies(cookies)
     goto_retry(page, BASE + start)
     wait_content(page)
     dismiss_banner(page)  # consent strip otherwise peeks above the caption band
@@ -285,30 +328,29 @@ def record(pw, name, action, cookies=None, start="/", extra=None):
         page.mouse.wheel(0, -4000)
         time.sleep(0.5)
     elif action == "schedule":
-        goto_retry(page, BASE + "/schedule")
-        wait_content(page)
+        ensure_page(page, "/schedule")
         time.sleep(1.0)
         # pick a real ward (by visible label) and submit the timetable search
         try:
-            page.eval_on_selector(
+            label = page.eval_on_selector(
                 "#schedWard",
                 r"""el => {
                   const opt = [...el.options].find(o => /ward\s*2/i.test(o.textContent));
-                  if (opt) { el.value = opt.value; }
-                  else { el.selectedIndex = Math.min(2, el.options.length - 1); }
+                  const chosen = opt || el.options[Math.min(2, el.options.length - 1)];
+                  el.value = chosen.value;
                   el.dispatchEvent(new Event('input', {bubbles: true}));
                   el.dispatchEvent(new Event('change', {bubbles: true}));
+                  return chosen.textContent.trim();
                 }""")
             time.sleep(0.6)
-            page.get_by_role("button", name="View Ward Schedule").click(timeout=8000)
+            submit_ward_search(page, label)
         except Exception as e:
-            print("      ward select skipped:", str(e)[:60])
+            print("      ward select skipped:", str(e)[:70])
         time.sleep(2.2)
         scroll_slow(900)
         time.sleep(0.8)
     elif action == "report":
-        goto_retry(page, BASE + "/report")
-        wait_content(page)
+        ensure_page(page, "/report")
         time.sleep(0.8)
         scroll_slow(600)  # bring the form fields into view first
         # fill() waits only for visibility - more reliable than typing here
@@ -335,88 +377,42 @@ def record(pw, name, action, cookies=None, start="/", extra=None):
             pass
         time.sleep(1.2)
     elif action == "transparency":
-        goto_retry(page, BASE + "/transparency")
-        wait_content(page)
+        ensure_page(page, "/transparency")
         scroll_slow(1400)
         time.sleep(0.8)
     elif action == "impact":
-        goto_retry(page, BASE + "/impact")
-        wait_content(page)
+        ensure_page(page, "/impact")
         scroll_slow(1000)
         goto_retry(page, BASE + "/contact")
         wait_content(page)
         scroll_slow(600)
         time.sleep(0.8)
     elif action == "track_auth":
-        # Starts ON /login (START_PAGES). Worker credentials -> submit ->
-        # MFA screen with the 'Email me the code' option lands inside the
-        # narration window. (An in-scene goto from /track proved flaky: the
-        # first navigation attempt occasionally stalled the full 30s.)
-        # Pending-session cookie -> the take opens ON the MFA screen. Type the
-        # fresh OTP IMMEDIATELY (record() already waited for content; the
-        # consent banner only overlays the bottom strip, below the submit
-        # button, so it cannot block the click) - the portal lands well inside
-        # the narration cut.
-        time.sleep(1.2)
-        otp = (extra.get("dev_otp") or "").strip()
-        # Tight timeline: fill -> CLICK the submit (Enter proved flaky under
-        # load) -> poll briefly -> hard-navigate, so the worker portal fills
-        # the scene well inside the narration cut (~24s).
-        if otp:
-            try:
-                page.locator("input[name=otp]").fill(otp)
-                print("      mfa typed, input_value_len=%s"
-                      % len(page.locator("input[name=otp]").input_value()))
-                time.sleep(0.4)
-                page.locator("button:has-text('Verify and Proceed')").first.click(
-                    timeout=5000)
-            except Exception as e:
-                print("      mfa fill skipped:", str(e)[:60])
-            for _ in range(10):  # up to ~5s for the verify redirect
-                if "/worker" in page.url:
-                    break
-                time.sleep(0.5)
-            if "/worker" not in page.url:
-                # Second attempt: Enter key (proved reliable in isolation)
-                try:
-                    page.locator("input[name=otp]").fill(otp)
-                    page.locator("input[name=otp]").press("Enter")
-                except Exception:
-                    pass
-                for _ in range(10):
-                    if "/worker" in page.url:
-                        break
-                    time.sleep(0.5)
-            print("      mfa verify url:", page.url)
-        if "/worker" not in page.url:
-            goto_retry(page, BASE + "/worker")  # portal fills the remainder
-        wait_content(page)
+        # The sign-in showcase: the worker's demo password is typed into the
+        # real form, the MFA screen appears, and the code the page flashes is
+        # typed in - then the worker portal fills the remainder of the scene.
+        role_login(page, "worker")
         time.sleep(2.0)
         scroll_slow(600)
         time.sleep(0.6)
     elif action == "citizen":
-        # Session cookie injected - the recording starts ON the dashboard.
-        time.sleep(1.8)  # dashboard widgets settle
+        # The citizen's demo password goes in on camera, then the dashboard.
+        role_login(page, "citizen")
+        time.sleep(1.4)  # dashboard widgets settle
         scroll_slow(900)
         time.sleep(0.8)
     elif action == "worker":
-        # Session injected mid-MFA (mfa_pending=True). Finish the REAL
-        # 'Email me the code' flow EARLY so the portal fills the narration
-        # window (the final cut keeps only the first ~19s of the take).
-        # Fully-authenticated session cookie -> the take starts ON the portal
-        # (MFA itself is showcased live in scene 09). No OTP-timing hazards.
-        time.sleep(2.2)  # dispatch queue + tiles settle
+        role_login(page, "worker")
+        time.sleep(1.6)  # dispatch queue + tiles settle
         scroll_slow(700)
         time.sleep(0.8)
     elif action == "admin":
-        # Same early MFA completion, then the control room fills the window.
-        # Fully-authenticated session cookie -> straight onto the control room.
-        time.sleep(2.4)  # live tiles settle
+        role_login(page, "admin")
+        time.sleep(1.8)  # live tiles settle
         scroll_slow(800)
         time.sleep(0.8)
     elif action == "about_faq":
-        goto_retry(page, BASE + "/about")
-        wait_content(page)
+        ensure_page(page, "/about")
         scroll_slow(800)
         goto_retry(page, BASE + "/faq")
         wait_content(page)
@@ -433,6 +429,10 @@ def record(pw, name, action, cookies=None, start="/", extra=None):
                                   user_agent=("Mozilla/5.0 (Linux; Android 13; "
                                   "Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) "
                                   "Chrome/120.0 Mobile Safari/537.36"))
+        mob.add_init_script(
+            "const _sgS=document.createElement('style');"
+            "_sgS.textContent='#sgSplash,#sgPrivacyNotice{display:none!important}';"
+            "(document.head||document.documentElement).appendChild(_sgS);")
         mp = mob.new_page()
         goto_retry(mp, BASE + "/")
         wait_content(mp)
@@ -454,11 +454,44 @@ def record(pw, name, action, cookies=None, start="/", extra=None):
     elif action == "final":
         time.sleep(1.6)
 
+    # Fill the narration window. The cut is "narration + 1s" (to_mp4), so a take
+    # shorter than its narration would freeze on its last frame; drift through
+    # the page instead, reversing at the ends so the motion stays in view.
+    target = float(extra.get("target") or 0.0)
+    direction = 1
+    while target and (time.monotonic() - t_video0) < target:
+        try:
+            edge = page.evaluate(
+                "(d) => {window.scrollBy(0, d*45);"
+                " const b = window.scrollY + window.innerHeight >= "
+                "document.documentElement.scrollHeight - 12;"
+                " const t = window.scrollY <= 2;"
+                " return b ? 1 : (t ? -1 : 0);}", direction)
+        except Exception:
+            break
+        if edge == 1:
+            direction = -1
+        elif edge == -1:
+            direction = 1
+        time.sleep(0.18)
+
     ctx.close()
     browser.close()
     files = glob.glob(os.path.join(webm_dir, "*.webm"))
     webm = files[0] if files else None
     return webm
+
+
+def narration_seconds():
+    """Narration length per scene, read back from the synthesized narr%02d.wav."""
+    durs = []
+    for i in range(len(SCENES)):
+        try:
+            with wave.open(os.path.join(VD, "narr%02d.wav" % i), "rb") as w:
+                durs.append(w.getnframes() / float(w.getframerate()))
+        except Exception:
+            durs.append(0.0)
+    return durs
 
 
 def sapi_wavs():
@@ -563,19 +596,30 @@ def to_mp4(webm, wav, out, fade_out=False, caption=None):
     return dur
 
 
-def card_mp4(png, seconds, out, fade_in=False, fade_out=False):
-    """Title/outro card: still PNG + silence, encoded to match scene segments."""
-    vf = "scale=1280:720,setsar=1,fps=30"
-    if fade_in:
-        vf += ",fade=t=in:st=0:d=0.6"
-    if fade_out:
-        vf += ",fade=t=out:st=%.1f:d=0.8" % (seconds - 0.8)
-    subprocess.run([FF, "-y", "-loop", "1", "-i", png, "-f", "lavfi",
-                    "-i", "anullsrc=r=44100:cl=mono", "-t", "%.2f" % seconds,
-                    "-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "1",
-                    "-pix_fmt", "yuv420p", out], check=True, capture_output=True)
-    print("      (card %s)" % os.path.basename(out))
+def submit_ward_search(page, label):
+    """Click 'View Ward Schedule' and wait for the ward results card.
+
+    The POST runs the ML missed-collection prediction, so one click can outlast
+    its timeout (first-request model warm-up, or the results card animating
+    under the cursor). Retry the click, then fall back to requestSubmit() so the
+    recorded scene always lands on the timetable + risk card.
+    """
+    btn = page.get_by_role("button", name="View Ward Schedule")
+    for attempt in range(3):
+        try:
+            btn.first.click(timeout=15000)
+            break
+        except Exception as e:
+            print("      ward submit attempt %d: %s" % (attempt + 1, str(e)[:70]))
+            time.sleep(1.5)
+    else:
+        # Direct DOM submit: same POST, no actionability dance.
+        page.eval_on_selector("#schedWard", "el => el.form.requestSubmit()")
+    try:
+        page.wait_for_selector("text=Missed Collection Risk", timeout=20000)
+    except Exception as e:
+        print("      ward results wait:", str(e)[:70])
+
 
 
 def warmup():
@@ -607,26 +651,15 @@ def main():
         files = glob.glob(os.path.join(raw_dir, "*.webm")) if os.path.isdir(raw_dir) else []
         return files[0] if files else None
 
+    print("0. synthesizing narration (paces each take to its scene)...")
+    sapi_wavs()
+    narr = narration_seconds()
+    print("   narration: %s" % ", ".join("%.1fs" % d for d in narr))
     print("1. warming up live site (avoid cold-start blanks)...")
     warmup()
     print("2. recording browser scenes...")
-    # Role scenes open with a pre-harvested session cookie (throwaway browser),
-    # so no login typing burns recorded time. Staff roles land mid-MFA.
-    role_sessions = {}
-    try:
-        with sync_playwright() as pw:
-            print("   harvesting citizen session...")
-            c, u, _ = auth_cookies(pw, "24331A4441CITIZEN", "24331A4441CITIZEN")
-            role_sessions["citizen"] = (c, "/dashboard", "")
-            print("   harvesting worker session (full MFA)...")
-            c, u, _ = auth_cookies(pw, "24331A4441WORKER", "24331A4441WORKER")
-            role_sessions["worker"] = (c, "/worker", "")
-            print("   harvesting admin session (full MFA)...")
-            c, u, _ = auth_cookies(pw, "24331A4441ADMIN", "24331A4441ADMIN")
-            role_sessions["admin"] = (c, "/admin", "")
-    except Exception as e:
-        print("   WARN cookie harvest failed, role scenes fall back to public pages:", str(e)[:80])
-        role_sessions = {}
+    # Every role scene signs in on camera with its demo credentials, so there is
+    # no cookie harvesting step and nothing pre-authenticated to hide.
     webms = []
     with sync_playwright() as pw:
         for i, (name, _, action) in enumerate(SCENES):
@@ -636,22 +669,11 @@ def main():
                 webms.append((name, raw))
                 print("   resume", name)
                 continue
-            cookies, start, dev_otp = role_sessions.get(
-                action, (None, START_PAGES.get(action, "/"), ""))
-            if action == "track_auth":
-                # Pending session + OTP harvested NOW: earlier scenes burn
-                # minutes and the OTP TTL is 5 min, so it must be seconds old
-                # when typed on camera.
-                c9, _, otp9 = auth_cookies(pw, "24331A4441WORKER",
-                                           "24331A4441WORKER", complete_mfa=False)
-                cookies, start, dev_otp = c9, START_PAGES["track_auth"], otp9
-            w = record(pw, name, action, cookies=cookies, start=start,
-                       extra={"dev_otp": dev_otp})
+            w = record(pw, name, action, start=START_PAGES.get(action, "/"),
+                       extra={"target": (narr[i] + 0.6) if i < len(narr) else 0.0})
             webms.append((name, w))
             print("   recorded", name)
-    print("3. synthesizing narration...")
-    sapi_wavs()
-    print("4. converting scenes (trim + frame-hold + captions)...")
+    print("3. converting scenes (trim + frame-hold + captions)...")
     segs = []
     for i, (name, webm) in enumerate(webms):
         seg = os.path.abspath(os.path.join(VD, "seg%02d.mp4" % i))
@@ -668,18 +690,13 @@ def main():
                fade_out=(i == len(webms) - 1))
         segs.append(seg)
         print("   seg", name)
-    print("5. title & outro cards...")
-    tcard = os.path.abspath(os.path.join(VD, "seg_title.mp4"))
-    ocard = os.path.abspath(os.path.join(VD, "seg_outro.mp4"))
-    card_mp4(os.path.join(HERE, "card_title.png"), 4.5, tcard, fade_in=True)
-    card_mp4(os.path.join(HERE, "card_outro.png"), 6.0, ocard, fade_out=True)
-    print("6. concatenating...")
+    print("5. concatenating...")
     lst = os.path.join(VD, "list.txt")
     with open(lst, "w") as f:
-        f.write("file '%s'\n" % tcard.replace("\\", "/"))
+        # Website footage only: no title/outro cards are spliced in, so the cut
+        # opens on the homepage and closes on the last real page.
         for s in segs:
             f.write("file '%s'\n" % s.replace("\\", "/"))
-        f.write("file '%s'\n" % ocard.replace("\\", "/"))
     subprocess.run([FF, "-y", "-f", "concat", "-safe", "0", "-i", lst,
                     "-c", "copy", OUT], check=True, capture_output=True)
     print("WROTE %s (%.1f MB)" % (OUT, os.path.getsize(OUT) / 1e6))

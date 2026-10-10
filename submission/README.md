@@ -13,7 +13,7 @@ kept as a second copy in the repository.
 |---|---|---|
 | `book/` | `SmartGarbage_BOOK_R24.pdf` | **The BOOK** (print master). 89 pages, US Letter 8.5×11 in, 1" margins, TNR 16/14/12, page numbering starts at List of Abbreviations = 1. |
 | `documentation/` | `SmartGarbage_Documentation_Softcopy.docx` | Softcopy of the same report (Times New Roman throughout, 19 tables, 20 figures/diagrams). |
-| `video/` | `SmartGarbage_Demo_Video.mp4` | 4:35 live walkthrough of every module, 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). |
+| `video/` | `SmartGarbage_Demo_Video.mp4` | 4:25 live walkthrough of every module, 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). |
 | `ppt/` | `SmartGarbage_Presentation.pptx` | Final deck: 20 slides, R24 title/footer chrome, IEEE-numbered references (`[1] Author(s), "Title," …`). |
 | `code/` | `SmartGarbage_Source_Code.zip` | Full project source: 399 files — Flask app, IoT + ML modules, tests, CI, docs. No venv/node_modules, no report binaries (the BOOK/softcopy/deck are delivered above, not inside the code archive). Git-ignored; rebuild with `build_code_zip.py`. |
 | `_scratch/` | — | Working scripts (manifest, verifiers, builders). Not part of the submission. |

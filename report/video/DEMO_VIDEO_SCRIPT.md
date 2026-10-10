@@ -17,8 +17,9 @@ On localhost the OTP is flashed on screen ("Dev OTP (localhost)"); on a real dep
 
 ---
 
-## Title card (0:00–0:05)
-`card_title.png` + fade-in.
+## Opening (0:00)
+The video opens straight on the live homepage — no title card is spliced in, so every
+frame is the website itself.
 
 ## 1. Home (`01_home`)
 **Caption:** Homepage - SmartGarbage Chintalavalasa Portal
@@ -115,11 +116,13 @@ bilingual in English and Telugu, running at zero cost for the panchayat. Thank y
 
 ---
 
-## Outro card
-`card_outro.png` + fade-out.
+## Closing
+Scene 14's last page holds to a fade-out. There is no outro card — the video ends on the
+website.
 
 ## Recording checklist
 - [ ] `python scripts/run_local_stack.py` up (or live URL in `BASE`), `/` returns 200
 - [ ] Demo accounts work: citizen direct, worker/admin via OTP (dev OTP or Email-me-the-code)
+- [ ] `python report/video/_probe_logins.py` — the three demo logins reach their portals
 - [ ] `python report/video/_make_video_live.py` — record, narrate, caption, concat (one command)
 - [ ] No other tabs; browser zoom 100%; mic level checked (TTS path needs no mic)

@@ -69,7 +69,7 @@ SmartGarbage/
 ├── submission/             ← R24 DELIVERY PACKAGE (one copy of each deliverable)
 │   ├── book/SmartGarbage_BOOK_R24.pdf              BOOK print master (89 pp, letter)
 │   ├── documentation/SmartGarbage_Documentation_Softcopy.docx
-│   ├── video/SmartGarbage_Demo_Video.mp4           4:35 live-website walkthrough (720p)
+│   ├── video/SmartGarbage_Demo_Video.mp4           4:25 live-website walkthrough (720p)
 │   ├── ppt/SmartGarbage_Presentation.pptx          20-slide deck (R24 chrome)
 │   └── code/SmartGarbage_Source_Code.zip           399-file source archive (git-ignored)
 │
