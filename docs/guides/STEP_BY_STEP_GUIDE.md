@@ -363,7 +363,7 @@ Built a Flask-based waste management portal for a local municipality. Key featur
 
 - GPS-enabled complaint reporting with EXIF photo verification
 - ML-powered overflow prediction with scikit-learn
-- Service worker with 3-tier caching for offline support
+- Service worker with two-tier caching for offline support
 - Bilingual (English + Telugu)
 - Full PWA with IndexedDB offline queue
 - WCAG 2.1 AA accessibility
@@ -394,7 +394,7 @@ Flask waste management portal — looking for code review
 Built a Flask app for municipal waste management. Key features:
 
 - JWT-like OTP auth for admin/worker roles
-- Service worker with 3-tier caching
+- Service worker with two-tier caching
 - IoT sensor integration with emergency detection
 - ML predictions with scikit-learn
 - Full test suite with pytest
@@ -462,10 +462,12 @@ I built **SmartGarbage** — an open-source portal that lets citizens:
 When a citizen reports a missed pickup, the app extracts EXIF GPS data from the photo and cross-checks it against the submitted device location. This prevents fake reports from internet photos.
 
 ### 2. Service Worker for Offline Support
-The app uses a service worker with 3-tier caching:
+The app uses a service worker with two-tier same-origin caching plus an allowlisted CDN tier:
 - Static assets: cache-first (never revalidates)
 - HTML pages: stale-while-revalidate (instant repeat visits)
-- CDN resources: stale-while-revalidate (longer TTL)
+- Allowlisted external assets (web font, OpenStreetMap tiles): cache-first, so they survive offline
+
+All other cross-origin requests are deliberately not intercepted, so external resources such as Google Tag Manager load straight from the network.
 
 ### 3. Bilingual Interface
 Supports English and Telugu using Flask-Babel. Citizens can switch languages with one click.

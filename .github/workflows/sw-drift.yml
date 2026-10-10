@@ -1,0 +1,138 @@
+name: Service worker drift check
+
+# Detects a STALE service worker: the /sw.js actually served by the live
+# deployment lagging the version committed in the repo's default branch.
+#
+# A stale worker is silent — the site looks healthy while, for example, the
+# pre-fix worker keeps blocking Google Tag Manager (the v12/v14 -> v16 case
+# this was written for). scripts/check_sw_drift.mjs compares the SW_VERSION
+# constant in app/static/sw.js with the deployed /sw.js and exits:
+#   0  current        (live === repo)
+#   1  DRIFT          (live <  repo — stale deploy)
+#   2  inconclusive   (unreachable / unparseable — a warning, not drift)
+#
+# Alert lifecycle mirrors the uptime monitor (no external service, no
+# secrets): a DRIFT run opens — or comments on — a GitHub issue labelled
+# `sw-drift-alert`, which emails the owner via GitHub notifications; the first
+# clean run closes it.
+#
+# HONEST LIMITS
+#   - GitHub's free scheduler delays `schedule` events on low-activity repos;
+#     treat the cadence as "hours, not minutes".
+#   - This compares the DEFAULT-branch checkout with production. A stale worker
+#     is only flagged once the newer SW_VERSION is on the default branch — an
+#     unmerged local fix is invisible to it by design.
+#   - A green run only proves the deployed /sw.js matches the repo; it does not
+#     prove the worker behaves correctly (that is tests/js/service_worker_fetch).
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sw-drift-check
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Compare repo and live service worker versions
+        run: |
+          set +e
+          npm run --silent check:sw-drift
+          code=$?
+          set -e
+          case "$code" in
+            0) state=ok ;;
+            1) state=drift ;;
+            *) state=inconclusive ;;
+          esac
+          echo "STATE=$state" >> "$GITHUB_ENV"
+          echo "check exit code ${code} -> ${state}"
+
+      - name: Auto-resolve open drift alert (worker is current)
+        if: env.STATE == 'ok'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          STAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+          NUMS=$(curl -sS -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/issues?state=open&labels=sw-drift-alert" \
+            | jq -r '.[].number')
+          if [ -z "$NUMS" ]; then
+            echo "no open drift alerts; nothing to resolve"
+            exit 0
+          fi
+          for num in $NUMS; do
+            curl -sS -X POST -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$num/comments" \
+              -d "$(jq -n --arg body "✅ Resolved at $STAMP — the deployed /sw.js now matches the repo's SW_VERSION (${{ github.ref_name }})." '{body: $body}')" >/dev/null
+            curl -sS -X PATCH -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$num" \
+              -d '{"state":"closed"}' >/dev/null
+            echo "auto-resolved #$num"
+          done
+
+      - name: Open or update the drift alert issue
+        if: env.STATE == 'drift'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          STAMP=$(date -u +'%Y-%m-%d %H:%M UTC')
+          MATCH=$(curl -sS -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/search/issues?q=repo:${{ github.repository }}+is:issue+is:open+in:title+%22%5Bsw-drift%5D%22" \
+            | jq -r '.items[0].number // empty')
+          if [ -n "$MATCH" ]; then
+            curl -sS -X POST -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$MATCH/comments" \
+              -d "$(jq -n --arg body "⏳ Still drifting at $STAMP — the deployed /sw.js still lags the repo." '{body: $body}')" >/dev/null
+            echo "updated existing drift alert #$MATCH"
+            exit 0
+          fi
+          BODY=$(cat <<'EOF'
+          ## Service worker drift — the deployment is serving a stale worker
+
+          The live `GET /sw.js` reports a lower `SW_VERSION` than
+          `app/static/sw.js` on the default branch. The site can look perfectly
+          healthy while the old worker keeps doing the old (wrong) thing — e.g.
+          blocking Google Tag Manager.
+
+          **Triage:**
+          1. Confirm the mismatch: `curl -s https://smartgarbage.onrender.com/sw.js | grep SW_VERSION`
+          2. Repo version: `grep SW_VERSION app/static/sw.js`
+          3. Render dashboard → web service → Events: did the last deploy
+             succeed, and is it building the default branch? (A failed build
+             leaves the previous worker live.)
+          4. If the fix isn't on the default branch yet, merge it (Render
+             auto-deploys on push to `main`).
+
+          This issue was opened automatically by the **Service worker drift
+          check** workflow and will be closed by the first clean run.
+          EOF
+          )
+          curl -sS -X POST -H "Authorization: token $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues" \
+            -d "$(jq -n --arg title "[sw-drift] stale service worker — $STAMP" \
+                       --arg body "$BODY" \
+                       '{title: $title, body: $body, labels: ["sw-drift-alert"]}')" >/dev/null
+          echo "opened drift alert issue"
+
+      - name: Note an inconclusive run
+        if: env.STATE == 'inconclusive'
+        run: echo "::warning::could not determine the live service worker version this run (site unreachable or /sw.js unparseable) — not treated as drift"

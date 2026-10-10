@@ -88,7 +88,7 @@ SmartGarbage is a comprehensive waste management platform built for compliance w
 
 | Feature | Description |
 |---------|-------------|
-| **Service Worker** | 3-tier caching for instant repeat visits |
+| **Service Worker** | Tiered caching (static assets, HTML pages, allowlisted CDN font/tiles) for instant repeat visits and offline use |
 | **Dark Mode** | User-selectable theme with system preference detection |
 | **Font Scaling** | Adjustable text size (A- A A+) for accessibility |
 | **High Contrast** | Enhanced visibility mode for low-vision users |

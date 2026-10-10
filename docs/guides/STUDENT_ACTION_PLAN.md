@@ -185,7 +185,7 @@ Title: Flask waste management portal — looking for code review
 Body:
 Built a Flask app for municipal waste management. Key features:
 - JWT-like OTP auth for admin/worker roles
-- Service worker with 3-tier caching
+- Service worker with two-tier caching
 - IoT sensor integration
 - ML predictions with scikit-learn
 - Full test suite with pytest

@@ -1,20 +1,37 @@
 /* ================================================================
-   SmartGarbage Service Worker v12
-   Three-tier caching: Static assets, HTML pages, CDN resources
+   SmartGarbage Service Worker v16
+   Two-tier same-origin caching (static assets + HTML pages) plus a small
+   cache-first tier for an explicit allowlist of external assets (web font,
+   OpenStreetMap tiles) so they survive offline.
+
+   Only that allowlist is intercepted. Everything else cross-origin — notably
+   Google Tag Manager / Analytics and third-party scripts — is left to the
+   browser: routing those through this worker's own fetch() subjected them to
+   the worker's CSP policy container (which inherited a narrow connect-src and
+   blocked hosts such as www.googletagmanager.com with net::ERR_FAILED).
    ================================================================ */
 
-const SW_VERSION = 'v14';
+const SW_VERSION = 'v16';
 const CACHE_PREFIX = 'smartgarbage';
 
 // ── Cache tiers ──────────────────────────────────────────────────
 const STATIC_CACHE  = `${CACHE_PREFIX}-static-${SW_VERSION}`;   // Immutable assets
 const PAGES_CACHE   = `${CACHE_PREFIX}-pages-${SW_VERSION}`;    // HTML pages
-const CDN_CACHE     = `${CACHE_PREFIX}-cdn-${SW_VERSION}`;      // External CDN
+const CDN_CACHE     = `${CACHE_PREFIX}-cdn-${SW_VERSION}`;      // Allowlisted external assets
 
 // ── Cache size limits (LRU eviction) ────────────────────────────
 const MAX_STATIC_ENTRIES = 80;
 const MAX_PAGES_ENTRIES  = 30;
-const MAX_CDN_ENTRIES    = 20;
+const MAX_CDN_ENTRIES    = 60;    // web font + a bounded ring of recent tiles
+
+// ── Allowlisted external hosts (cache-first; everything else passes through) ──
+// Keep this list minimal: each entry is a host this worker fetches on the
+// page's behalf, which the worker's own CSP must permit (CDN_CACHE CSP is
+// `connect-src *` on /sw.js) and which must be safe to serve stale offline.
+const CACHEABLE_EXTERNAL_HOSTS = [
+    'fonts.gstatic.com',           // Outfit web font referenced by critical.css
+    'tile.openstreetmap.org',      // Map tiles (also matches a/b/c. subdomains)
+];
 
 // ── Immutable assets (cache-first, never revalidate) ─────────────
 const IMMUTABLE_ASSETS = [
@@ -138,13 +155,23 @@ self.addEventListener('fetch', evt => {
         return;
     }
 
-    // ── Cross-origin CDN resources (stale-while-revalidate) ──────
+    // ── Allowlisted external assets (cache-first) ────────────────
+    // Only the small CACHEABLE_EXTERNAL_HOSTS allowlist (web font + map
+    // tiles) is intercepted. Everything else cross-origin passes straight to
+    // the browser: routing arbitrary third-party scripts through this worker's
+    // own fetch() subjected them to the worker's CSP policy container (which
+    // inherited a narrow connect-src and blocked hosts such as
+    // www.googletagmanager.com with net::ERR_FAILED), and a failed fetch with
+    // nothing cached resolved respondWith() to undefined — the same
+    // net::ERR_FAILED, for the page. GTM/Analytics therefore stay untouched.
     if (!isSameOrigin) {
-        evt.respondWith(staleWhileRevalidateCDN(req));
+        if (isCacheableExternal(url)) {
+            evt.respondWith(cacheFirstExternal(req));
+        }
         return;
     }
 
-    // ── Sensitive routes — network only ──────────────────────────
+    // ── Remaining same-origin (sensitive) routes — network only ──
     evt.respondWith(fetch(req));
 });
 
@@ -182,20 +209,38 @@ async function networkFirstPages(req, isSensitive) {
 async function staleWhileRevalidatePages(req) {
     const cached = await caches.match(req);
 
-    // Fetch in background to update cache
+    // Fetch in background to update cache. Clone SYNCHRONOUSLY, here: the
+    // caller consumes `res` the instant it is returned, and cloning a Response
+    // whose body is already used throws — silently skipping the cache write.
+    // That race is why a freshly-visited page (the homepage) never landed in
+    // PAGES_CACHE and could not be served offline.
     const fetchPromise = fetch(req).then(res => {
         if (res.ok && res.status === 200 && !res.redirected) {
-            const cache = caches.open(PAGES_CACHE);
-            cache.then(c => {
-                c.put(req, res.clone());
+            const copy = res.clone();
+            caches.open(PAGES_CACHE).then(c => {
+                c.put(req, copy);
                 trimCache(PAGES_CACHE, MAX_PAGES_ENTRIES);
-            });
+            }).catch(() => {});
         }
         return res;
-    }).catch(() => cached); // Network failed, return cached
+    });
 
-    // Return cached immediately if available, otherwise wait for network
-    return cached || fetchPromise;
+    // Serve cached instantly and refresh in the background. Attach the catch
+    // here so a failed background refresh can never reject this promise.
+    if (cached) {
+        fetchPromise.catch(() => {});
+        return cached;
+    }
+
+    // Nothing cached — wait for the network, and on failure return a real
+    // Response. Resolving to undefined makes respondWith() throw and the
+    // navigation fail with net::ERR_FAILED.
+    try {
+        return await fetchPromise;
+    } catch (e) {
+        return (await caches.match('/offline')) ||
+            new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+    }
 }
 
 // ── Strategy: Cache-first for immutable static assets ────────────
@@ -217,45 +262,68 @@ async function cacheFirstStatic(req) {
     }
 }
 
+// ── Strategy: Cache-first for allowlisted external assets ────────
+// Web font + map tiles: serve from cache instantly, populate on first use.
+// Never resolves to undefined — a failed fetch returns a real Response, and
+// an offline cache miss degrades to a plain error rather than net::ERR_FAILED.
+async function cacheFirstExternal(req) {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+
+    try {
+        const res = await fetch(req);
+        // Opaque (no-cors) responses report status 0 / ok === false but are
+        // still storable and replayable — that is exactly the tile case.
+        if (res.ok || res.type === 'opaque') {
+            const cache = await caches.open(CDN_CACHE);
+            cache.put(req, res.clone());
+            trimCache(CDN_CACHE, MAX_CDN_ENTRIES);
+        }
+        return res;
+    } catch (e) {
+        return new Response('', { status: 504, statusText: 'Gateway Timeout' });
+    }
+}
+
 // ── Strategy: Stale-while-revalidate for same-origin ─────────────
 // Serve cached instantly, update cache in background.
 async function staleWhileRevalidate(req) {
     const cached = await caches.match(req);
 
-    // Fetch in background to update cache
+    // Fetch in background to update cache (clone before the body is consumed;
+    // see staleWhileRevalidatePages for why the deferred clone silently failed).
     const fetchPromise = fetch(req).then(res => {
         if (res.ok && res.status === 200) {
-            const cache = caches.open(PAGES_CACHE);
-            cache.then(c => c.put(req, res.clone()));
+            const copy = res.clone();
+            caches.open(PAGES_CACHE).then(c => c.put(req, copy)).catch(() => {});
         }
         return res;
-    }).catch(() => cached);
+    });
 
-    return cached || fetchPromise;
-}
+    if (cached) {
+        fetchPromise.catch(() => {});
+        return cached;
+    }
 
-// ── Strategy: Stale-while-revalidate for CDN ─────────────────────
-// Serve cached instantly, refresh in background (longer TTL).
-async function staleWhileRevalidateCDN(req) {
-    const cached = await caches.match(req);
-
-    const fetchPromise = fetch(req).then(res => {
-        if (res.ok && res.status === 200) {
-            const cache = caches.open(CDN_CACHE);
-            cache.then(c => {
-                c.put(req, res.clone());
-                trimCache(CDN_CACHE, MAX_CDN_ENTRIES);
-            });
-        }
-        return res;
-    }).catch(() => cached);
-
-    return cached || fetchPromise;
+    // Never resolve to undefined (see staleWhileRevalidatePages) — return a
+    // real error Response the page can consume.
+    try {
+        return await fetchPromise;
+    } catch (e) {
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
+    }
 }
 
 /* ================================================================
    HELPERS
    ================================================================ */
+
+// Check if a cross-origin URL belongs to the cacheable allowlist
+function isCacheableExternal(url) {
+    return CACHEABLE_EXTERNAL_HOSTS.some(
+        host => url.hostname === host || url.hostname.endsWith('.' + host)
+    );
+}
 
 // Check if a pathname is a static asset
 function isStaticAsset(pathname) {

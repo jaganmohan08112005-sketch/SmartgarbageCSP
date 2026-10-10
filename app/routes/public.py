@@ -15,7 +15,7 @@ from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, DataDeletion
 
 from ..ml_model import predict_miss
 
-from .. import db, limiter
+from .. import db, limiter, talisman
 
 from . import (DEFAULT_LAT, DEFAULT_LON, WARD_COORDINATES, _notify_admins, _notify_status_change,
                _redis_client, _ward_sla_hours, cache_get, cache_set, get_wmo_phrase,
@@ -655,7 +655,24 @@ def grievance_officer():
     )
 
 
+# The service worker proxies subresources through its OWN fetch(), and a
+# worker's fetches are governed by the CSP policy container of the script that
+# registered it — i.e. THIS response. The app-wide policy (create_app) keeps
+# connect-src deliberately narrow and does not list every script/style host, so
+# inheriting it made the worker block cross-origin subresources such as
+# www.googletagmanager.com/gtag/js with net::ERR_FAILED. Give the worker its
+# own policy: same-origin scripts, but an open connect-src so it can fetch
+# whatever a page is allowed to reference. A worker's policy container is
+# separate from its clients', so this does NOT relax the page CSP.
+_SW_CSP = {
+    'default-src': "'self'",
+    'script-src': "'self'",
+    'connect-src': ['*'],
+}
+
+
 @main.route('/sw.js')
+@talisman(content_security_policy=_SW_CSP)
 def serve_sw():
     import pathlib
     from flask import Response

@@ -13,6 +13,8 @@
     "audit": "node audit/run-audit.mjs",
     "audit:check": "node audit/check-audit.mjs",
     "audit:auth": "node audit/run-auth-a11y.mjs",
-    "audit:contrast": "node audit/resolve-contrast-incompletes.mjs"
+    "audit:contrast": "node audit/resolve-contrast-incompletes.mjs",
+    "check:sw-drift": "node scripts/check_sw_drift.mjs",
+    "test:js": "node tests/js/service_worker_fetch.test.js && node tests/js/offline_queue.test.js && node tests/js/sw_drift.test.mjs && node tests/js/audit_gate.test.mjs"
   }
 }
