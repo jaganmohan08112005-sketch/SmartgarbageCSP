@@ -10,14 +10,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - name: Boot the local stack (pgserver + Flask on :5057)
+      # Composite action shared with the a11y-audit workflow: installs
+      # Python/Node deps + Playwright browsers and boots the seeded local
+      # stack, so the suite runs against the app under test instead of the
+      # cold-starting production deployment.
+      id: stack
+      uses: ./.github/actions/boot-local-stack
       with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
+        # The Playwright suite runs chromium, firefox and webkit projects
+        # (see playwright.config.js); the a11y audit only needs chromium.
+        browsers: chromium firefox webkit
+    - name: Run JS unit tests (service worker + offline queue)
+      # Pure-Node tests: notably sw.js must NOT intercept cross-origin requests
+      # (a re-added CDN interception path re-breaks Google Tag Manager with
+      # net::ERR_FAILED via the worker's own CSP). See
+      # tests/js/service_worker_fetch.test.js.
+      run: npm run test:js
+    - name: Run Playwright smoke tests
+      # Smoke-tests the local stack booted above (seeded fixtures, no cold
+      # start). Set SMARTGARBAGE_BASE_URL to smoke-test another environment
+      # (e.g. a preview deployment) instead.
+      env:
+        SMARTGARBAGE_BASE_URL: ${{ steps.stack.outputs.stack-url }}
       run: npx playwright test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
@@ -25,3 +40,9 @@ jobs:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
+    - name: Stop the local stack
+      if: always()
+      run: |
+        if [ -n "${{ steps.stack.outputs.stack-pid }}" ]; then
+          kill "${{ steps.stack.outputs.stack-pid }}" 2>/dev/null || true
+        fi

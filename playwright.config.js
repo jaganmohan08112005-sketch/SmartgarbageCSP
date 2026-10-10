@@ -9,11 +9,27 @@ import { defineConfig, devices } from '@playwright/test';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+// Target environment for the smoke tests. Defaults to the production
+// deployment (the same default as `npm run audit`), because the workflow boots
+// no local server. Point it anywhere else to smoke-test that environment:
+//
+//   SMARTGARBAGE_BASE_URL=http://127.0.0.1:5057 npx playwright test
+//
+// (A local stack can be started with `python scripts/run_local_stack.py`.)
+const BASE_URL = (
+  process.env.SMARTGARBAGE_BASE_URL || 'https://smartgarbage.onrender.com'
+).replace(/\/+$/, '');
+
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: './e2e',
+  /* A cold production instance can take ~50s to wake; give every test room. */
+  timeout: 90000,
+  expect: {
+    timeout: 15000,
+  },
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -26,8 +42,11 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
+    /* Base URL to use in actions like `await page.goto('/')`. */
+    baseURL: BASE_URL,
+    /* Cold-start tolerant navigation; keep actions snappy. */
+    navigationTimeout: 60000,
+    actionTimeout: 15000,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

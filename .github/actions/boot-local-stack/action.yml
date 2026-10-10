@@ -1,0 +1,97 @@
+name: 'Boot the SmartGarbage local stack'
+description: >-
+  Installs Python + Node dependencies and Playwright browsers, then boots the
+  full local stack (pgserver + Flask, seeded fixtures) via
+  scripts/run_local_stack.py and waits for readiness. Shared by the a11y-audit
+  and Playwright workflows so stack-boot logic lives in exactly one place.
+
+inputs:
+  python-version:
+    description: 'Python version used to run the stack'
+    required: false
+    default: '3.11'
+  node-version:
+    description: 'Node version used for npm/Playwright tooling'
+    required: false
+    default: 'lts/*'
+  browsers:
+    description: 'Playwright browsers to install (space-separated, forwarded to `npx playwright install --with-deps`). The a11y audit only scans Chromium; the Playwright suite also runs Firefox and WebKit.'
+    required: false
+    default: 'chromium'
+  export-chrome-path:
+    description: >-
+      When 'true', export CHROME_PATH pointing at the Playwright Chromium
+      binary so Lighthouse scans the same browser axe uses instead of a host
+      Chrome.
+    required: false
+    default: 'false'
+  port:
+    description: 'Port the local stack listens on'
+    required: false
+    default: '5057'
+
+outputs:
+  stack-url:
+    description: 'Base URL of the booted stack'
+    value: 'http://127.0.0.1:${{ inputs.port }}'
+  stack-pid:
+    description: 'PID of the stack process; kill it in a cleanup step'
+    value: ${{ steps.boot.outputs.stack-pid }}
+  stack-log:
+    description: 'Path of the stack log file (tail it on failure)'
+    value: ${{ steps.boot.outputs.stack-log }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Install Python dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Install Node dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Install Playwright browsers
+      shell: bash
+      run: npx playwright install --with-deps ${{ inputs.browsers }}
+
+    - name: Locate Chromium for Lighthouse
+      if: inputs.export-chrome-path == 'true'
+      # axe runs through Playwright's Chromium; point Lighthouse at the same
+      # binary so both tools use one pinned browser instead of a host Chrome.
+      shell: bash
+      run: |
+        CHROME=$(node -e 'process.stdout.write(require("playwright").chromium.executablePath())')
+        echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+        echo "Lighthouse will use CHROME_PATH=$CHROME"
+
+    - name: Boot the local stack (pgserver + Flask on :${{ inputs.port }})
+      id: boot
+      shell: bash
+      run: |
+        set -euo pipefail
+        nohup python scripts/run_local_stack.py > /tmp/sg_stack.log 2>&1 &
+        echo "stack-pid=$!" >> "$GITHUB_OUTPUT"
+        echo "stack-log=/tmp/sg_stack.log" >> "$GITHUB_OUTPUT"
+        for i in $(seq 1 60); do
+          if curl -sf -o /dev/null "http://127.0.0.1:${{ inputs.port }}/"; then
+            echo "Local stack ready after ~$((i * 3))s"
+            exit 0
+          fi
+          sleep 3
+        done
+        echo "::error::local stack did not become ready within 180s"
+        tail -n 80 /tmp/sg_stack.log
+        exit 1
