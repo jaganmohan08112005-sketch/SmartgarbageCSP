@@ -596,8 +596,6 @@ def survey_stats():
 @admin_required
 def push_analytics():
     """Push notification delivery analytics for admin dashboard."""
-    from sqlalchemy import func
-
     # Overall stats
     total_sent = PushNotificationLog.query.filter_by(status='sent').count()
     total_failed = PushNotificationLog.query.filter_by(status='failed').count()

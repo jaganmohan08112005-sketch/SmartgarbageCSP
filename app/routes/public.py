@@ -7,7 +7,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 
 from flask import (abort, current_app, flash, jsonify, render_template, request,
-                   send_from_directory, redirect, url_for, session)
+                   redirect, url_for, session)
 
 from ..models import (Complaint, ComplaintStatusLog, ConsentRecord, DataDeletionRequest,
                       PageFeedback, Schedule, SmartBin, SurveyResponse, WasteDeclaration,
@@ -907,7 +907,6 @@ def open_data():
     journalists, and researchers can download and analyse the data.
     """
     try:
-        from sqlalchemy import func
         ward_stats = []
         for ward_name in WARD_COORDINATES:
             resolved = Complaint.query.filter_by(
@@ -1095,8 +1094,7 @@ def _build_impact_dashboard():
         return cached['value']
 
     from sqlalchemy import func
-    from ..models import (WorkerProfile, User, PAYTInvoice,
-                          WasteDeclaration, SmartBin)
+    from ..models import (User, WasteDeclaration)
     from datetime import date as _date
 
     data = {

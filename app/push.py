@@ -126,7 +126,7 @@ def send_push_notification(user_id, title, body, url="/dashboard"):
 
     for sub in subs:
         try:
-            from pywebpush import webpush, WebPushException
+            from pywebpush import webpush
             webpush(
                 subscription_info={
                     "endpoint": sub.endpoint,
@@ -196,7 +196,6 @@ def send_complaint_status_push(complaint):
     Called from _notify_status_change() after in-app notification is created.
     Respects user's NotificationPreference settings.
     """
-    from flask import url_for
     from .models import NotificationPreference
 
     if not complaint.user_id:
@@ -234,10 +233,6 @@ def send_complaint_status_push(complaint):
     title = f"🗑️ Complaint #{complaint.id}"
     body = f"{msg} Ward: {complaint.ward or 'N/A'}"
 
-    try:
-        track_url = url_for('main.track_complaint', token='', _external=True).rstrip('/')
-        url = f"/dashboard"
-    except Exception:
-        url = "/dashboard"
+    url = "/dashboard"
 
     send_push_notification(complaint.user_id, title, body, url=url)

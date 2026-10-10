@@ -209,9 +209,9 @@ def _alert_admins_storage_down(prefix):
     try:
         from .. import db
         from ..models import Notification, User
-        for admin in User.query.filter_by(role='admin').all():
+        for admin_user in User.query.filter_by(role='admin').all():
             db.session.add(Notification(
-                user_id=admin.id,
+                user_id=admin_user.id,
                 message=('Photo storage is misconfigured: an uploaded photo was rejected '
                          'because it would only have reached the container\'s ephemeral '
                          'disk. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or '

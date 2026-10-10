@@ -485,7 +485,6 @@ def _otp_email_recipient(recipient):
     """
     if recipient and '@' in recipient:
         return recipient
-    from flask import current_app
     from .models import User
     from .routes import _otp_recipient_fallback, validate_indian_phone
     with _app_ctx():
@@ -2059,7 +2058,7 @@ def photo_gate_relabel_harvest_job(uncertain_band=0.15, limit=25):
     """
     with _app_ctx():
         from app import db
-        from .models import PhotoRejection, Notification, utcnow
+        from .models import PhotoRejection, Notification
 
         try:
             threshold = float(os.getenv('PHOTO_CLASSIFIER_THRESHOLD', '0.7'))

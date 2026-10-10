@@ -1,7 +1,6 @@
 import os
 import hashlib
 import hmac
-import json as _json
 import requests
 
 from flask import (jsonify, request)

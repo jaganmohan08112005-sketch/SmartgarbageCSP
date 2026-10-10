@@ -21,9 +21,9 @@ DAILY_REPORT_POINT_CAP = 4
 
 from . import (DUMP_YARDS, WARD_COORDINATES, GPS_VERIFY_RADIUS_M, _ai_verify_photo,
                _create_razorpay_order, _payt_receipt_pdf_bytes, _photo_gps_from_upload,
-               _publish_user_event, _razorpay_enabled, _record_offline_delivery,
+               _razorpay_enabled, _record_offline_delivery,
                _redis_client, _send_tracking_link, _verify_razorpay_payment_signature,
-               cache_get, cache_set, find_duplicate_complaint, fit_length, haversine_m,
+               cache_get, cache_set, fit_length, haversine_m,
                logger, main, make_complaint_token, record_complaint_event,
                save_compressed_photo, write_audit)
 
@@ -274,7 +274,6 @@ def payt_receipt(inv_id):
 @login_required
 def notifications_stream():
     from flask import Response, stream_with_context
-    import time as _time
     MAX_EVENTS = 50
 
     def event_stream():
@@ -375,7 +374,6 @@ def notifications_mark_read():
 
 # ── Web Push Notification Endpoints ──────────────────────────────
 
-import hashlib, base64, json as _json
 from ..models import PushSubscription
 
 
