@@ -31,8 +31,8 @@
           </div>
         </div>
         <div class="mb-4">
-          <label class="form-label fw-semibold">📍 {{ _('Nearest Ward / Area') }}</label>
-          <select class="form-select" name="ward">
+          <label class="form-label fw-semibold" for="dumpWard">📍 {{ _('Nearest Ward / Area') }}</label>
+          <select class="form-select" id="dumpWard" name="ward">
             <option value="">— {{ _('Select approximate location') }} —</option>
             {% for ward in ['Ward 1 - MVGR College Area','Ward 2 - Chintalavalasa Junction','Ward 3 - RTC Colony','Ward 4 - Ramalayam Street','Ward 5 - Sai Nagar'] %}
             <option value="{{ ward }}">{{ ward }}</option>
@@ -41,11 +41,11 @@
         </div>
         <div class="row g-3 mb-4">
           <div class="col-6">
-            <label class="form-label fw-semibold">🌐 {{ _('Latitude') }}</label>
+            <label class="form-label fw-semibold" for="lat_field">🌐 {{ _('Latitude') }}</label>
             <input type="text" class="form-control" name="latitude" id="lat_field" placeholder="e.g. 18.0675">
           </div>
           <div class="col-6">
-            <label class="form-label fw-semibold">🌐 {{ _('Longitude') }}</label>
+            <label class="form-label fw-semibold" for="lon_field">🌐 {{ _('Longitude') }}</label>
             <input type="text" class="form-control" name="longitude" id="lon_field" placeholder="e.g. 83.4094">
           </div>
           <div class="col-12">
@@ -55,12 +55,12 @@
           </div>
         </div>
         <div class="mb-4">
-          <label class="form-label fw-semibold">📝 {{ _('Description') }}</label>
-          <textarea class="form-control" name="description" rows="3" placeholder="{{ _('Describe what you observed — type of materials, quantity, any vehicle details (optional)...') }}"></textarea>
+          <label class="form-label fw-semibold" for="dumpDescription">📝 {{ _('Description') }}</label>
+          <textarea class="form-control" id="dumpDescription" name="description" rows="3" placeholder="{{ _('Describe what you observed — type of materials, quantity, any vehicle details (optional)...') }}"></textarea>
         </div>
         <div class="mb-4">
-          <label class="form-label fw-semibold">📷 {{ _('Upload Evidence Photo') }} <span class="text-muted fw-normal">{{ _('(optional)') }}</span></label>
-          <input type="file" class="form-control" name="photo" accept="image/*">
+          <label class="form-label fw-semibold" for="dumpPhoto">📷 {{ _('Upload Evidence Photo') }} <span class="text-muted fw-normal">{{ _('(optional)') }}</span></label>
+          <input type="file" class="form-control" id="dumpPhoto" name="photo" accept="image/*">
           <div class="form-text">🔒 {{ _('EXIF metadata (camera model, GPS tag, timestamp) is automatically removed before saving.') }}</div>
         </div>
         <button type="submit" class="btn btn-danger w-100 py-3 fw-bold">

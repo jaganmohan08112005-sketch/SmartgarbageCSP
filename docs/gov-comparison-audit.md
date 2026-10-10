@@ -2,6 +2,8 @@
 
 **Date:** 9 Sep 2026 · **Site:** https://smartgarbage.onrender.com · **Benchmarks:** GOV.UK, VA.gov, gov.sg, GDS Service Standard
 
+> **Update — 3 Oct 2026:** The error-summary gap is **closed**. The GOV.UK-style `sg-error-summary` (`role="alert"` + `aria-labelledby`, linked field list) now renders on **every** form — report, track, login, register, contact and schedule — not just report/track. Covered by `tests/test_error_summaries.py`.
+
 ---
 
 ## Executive Summary
@@ -78,7 +80,7 @@ Authentication & abuse defense (verified in code):
 | Deep numbered heading structure | ✅ 41 headings, numbered 1–8 with n.n subsections |
 | "Is this page useful?" feedback | ✅ on every page + admin trend chart |
 | Cookie banner + settings + register | ✅ GOV.UK-style bottom bar, settings page with active-choice highlight |
-| Error summary at top of forms | ⚠️ Bootstrap alerts only — no GOV.UK-style error-summary component |
+| Error summary at top of forms | ✅ GOV.UK-style `sg-error-summary` on **all forms** (report, track, login, register, contact, schedule) — closed 3 Oct 2026 |
 | One thing per page philosophy | ⚠️ Homepage denser than GOV.UK's minimalism (richer than most councils') |
 | Breadcrumbs / phase banners | ❌ none |
 | Focus states, dark mode | ✅ focus-visible styles, dark mode support |
@@ -98,7 +100,7 @@ Authentication & abuse defense (verified in code):
 ## 6. Challenges (Honest Gaps vs. Best-in-Class)
 
 1. **TTFB 0.5–5.5s** (Render free tier, cold starts) vs. GOV.UK's ~0.1s CDN edge. **Fix queued:** custom domain → Cloudflare edge caching (waiting on eu.org approval).
-2. **No error-summary component** on forms (GOV.UK's signature a11y pattern).
+2. ~~**No error-summary component** on forms (GOV.UK's signature a11y pattern).~~ ✅ **Closed 3 Oct 2026** — the GOV.UK-style `sg-error-summary` now renders on every form (report, track, login, register, contact, schedule).
 3. **i18n depth**: en + Telugu dictionary exists but no compiled catalog — GOV.UK standard is 40+ languages.
 4. **No breadcrumbs/phase banner**; homepage density exceeds GOV.UK minimalism.
 5. **Single-region hosting**, no public status page (status.cloud.gov-style) — `/health` JSON only.
@@ -111,7 +113,7 @@ Authentication & abuse defense (verified in code):
 | Feature completeness | 9.5/10 | IoT + ML + PAYT + PWA exceeds all benchmarked gov sites |
 | Security headers & auth | 9.5/10 | 9/9 headers live; lockout, hashed OTP, rate limits, CSRF |
 | Accessibility | 9/10 | 41-heading structure, 0 alt failures, AA intent; i18n shallow |
-| Design & content | 8.5/10 | Task-based, GOV.UK patterns; missing error-summary/breadcrumbs |
+| Design & content | 8.5/10 | Task-based, GOV.UK patterns; error summary now on all forms; still missing breadcrumbs/phase banner |
 | Performance | 6.5/10 | Cold-start TTFB; blocked on custom domain + CDN |
 | Transparency/accountability | 9.5/10 | Ward dashboards, audit logs, consent register, CSP reporting |
 | **Overall** | **9.1/10** | **Top-tier; outperforms most real government portals** |
@@ -119,7 +121,7 @@ Authentication & abuse defense (verified in code):
 ## 8. Recommended Next Steps (priority order)
 
 1. **Cloudflare edge caching** once eu.org approves — sub-200ms TTFB (largest gap).
-2. Add **GOV.UK error-summary** component to report/track forms.
+2. ~~Add **GOV.UK error-summary** component to report/track forms.~~ ✅ **Done 3 Oct 2026** — extended to all six forms (report, track, login, register, contact, schedule).
 3. Wire **Babel** to compile the en/te catalog; add a language switcher.
 4. Add **breadcrumbs** on ward/analytics pages.
 5. Nonce-based CSP to drop `unsafe-inline` (long-term).

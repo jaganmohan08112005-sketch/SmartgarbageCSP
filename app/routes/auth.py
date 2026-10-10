@@ -70,43 +70,38 @@ def register():
             role = 'citizen'
         raw_phone = request.form.get('phone', '').strip()
         email = request.form.get('email', '').strip().lower()
-        # ── Phone Validation ──────────────────────────────────────────
+        # ── Field validation: collect every problem, then render the form
+        #    ONCE with a GOV.UK-style error summary (matches report/track). ──
+        errors = []
+        phone = validate_indian_phone(raw_phone) if raw_phone else None
         if not raw_phone:
-            flash('Phone number is required.', 'error')
-            return redirect(url_for('main.register'))
-        phone = validate_indian_phone(raw_phone)
-        if not phone:
-            flash('Enter a valid Indian mobile number (10 digits starting with 6–9, e.g. +91 98765 43210). Fake or sequential numbers are not accepted.', 'error')
-            return redirect(url_for('main.register'))
+            errors.append(('reg_phone', 'Phone number is required.'))
+        elif not phone:
+            errors.append(('reg_phone', 'Enter a valid Indian mobile number (10 digits starting with 6–9, e.g. +91 98765 43210). Fake or sequential numbers are not accepted.'))
         if not is_valid_email(email):
-            flash('A valid email address is required (e.g. name@example.com).', 'error')
-            return redirect(url_for('main.register'))
-        # ─────────────────────────────────────────────────────────────
-        if not username or not password:
-            flash('Username and password are required.', 'error')
-            return redirect(url_for('main.register'))
+            errors.append(('reg_email', 'A valid email address is required (e.g. name@example.com).'))
+        if not username:
+            errors.append(('reg_username', 'Username is required.'))
+        if not password:
+            errors.append(('reg_password', 'Password is required.'))
         # VARCHAR(100) on Postgres — reject overlong instead of truncating identity fields.
-        if len(username) > 100:
-            flash('Username must be 100 characters or fewer.', 'error')
-            return redirect(url_for('main.register'))
+        if username and len(username) > 100:
+            errors.append(('reg_username', 'Username must be 100 characters or fewer.'))
         if len(email) > 120:
-            flash('Email must be 120 characters or fewer.', 'error')
-            return redirect(url_for('main.register'))
-        if len(password) < MIN_PASSWORD_LENGTH:
-            flash(f'Password must be at least {MIN_PASSWORD_LENGTH} characters.', 'error')
-            return redirect(url_for('main.register'))
-        if password.lower() == username.lower():
-            flash('Password must be different from your username.', 'error')
-            return redirect(url_for('main.register'))
-        if User.query.filter_by(username=username).first():
-            flash('Username already exists.', 'error')
-            return redirect(url_for('main.register'))
-        if User.query.filter_by(phone=phone).first():
-            flash('This phone number is already registered with another account.', 'error')
-            return redirect(url_for('main.register'))
-        if User.query.filter_by(email=email).first():
-            flash('This email address is already registered.', 'error')
-            return redirect(url_for('main.register'))
+            errors.append(('reg_email', 'Email must be 120 characters or fewer.'))
+        if password and len(password) < MIN_PASSWORD_LENGTH:
+            errors.append(('reg_password', f'Password must be at least {MIN_PASSWORD_LENGTH} characters.'))
+        if username and password and password.lower() == username.lower():
+            errors.append(('reg_password', 'Password must be different from your username.'))
+        if username and User.query.filter_by(username=username).first():
+            errors.append(('reg_username', 'Username already exists.'))
+        if phone and User.query.filter_by(phone=phone).first():
+            errors.append(('reg_phone', 'This phone number is already registered with another account.'))
+        if email and User.query.filter_by(email=email).first():
+            errors.append(('reg_email', 'This email address is already registered.'))
+        if errors:
+            flash('Please complete the highlighted fields.', 'error')
+            return render_template('register.html', errors=errors)
         new_user = User(username=username, email=email, password_hash=generate_password_hash(password),
                         role=role, phone=phone, is_approved=(role != 'admin'))
         db.session.add(new_user)
@@ -121,12 +116,13 @@ def register():
         except IntegrityError:
             db.session.rollback()
             if User.query.filter_by(username=username).first():
-                flash('Username already exists.', 'error')
+                _err = ('reg_username', 'Username already exists.')
             elif User.query.filter_by(phone=phone).first():
-                flash('This phone number is already registered with another account.', 'error')
+                _err = ('reg_phone', 'This phone number is already registered with another account.')
             else:
-                flash('This email address is already registered.', 'error')
-            return redirect(url_for('main.register'))
+                _err = ('reg_email', 'This email address is already registered.')
+            flash('Please complete the highlighted fields.', 'error')
+            return render_template('register.html', errors=[_err])
         if role == 'worker':
             wp = WorkerProfile(user_id=new_user.id, vehicle_id=f"CV-{random.randint(10, 99)}",
                                status="Idle", performance_rating=5.0)
@@ -224,20 +220,17 @@ def login():
         if _is_account_locked(user):
             mins_left = max(1, int((_locked_until_utc(user) - datetime.now(timezone.utc)).total_seconds() // 60))
             logger.warning("login_locked", username=username, ip=request.remote_addr)
-            flash(f'Account temporarily locked after repeated failed attempts. Try again in ~{mins_left} min.', 'error')
-            return redirect(url_for('main.login'))
+            return render_template('login.html', errors=[('lg_username', f'Account temporarily locked after repeated failed attempts. Try again in ~{mins_left} min.')])
 
         if not user or not check_password_hash(user.password_hash, password):
             if user:
                 _record_failed_login(user)
             logger.warning("login_failed", username=username, ip=request.remote_addr)
-            flash('Invalid username or password.', 'error')
-            return redirect(url_for('main.login'))
+            return render_template('login.html', errors=[('lg_username', 'Invalid username or password.')])
         # Successful login — clear any previous lockout state.
         _clear_login_failures(user)
         if user.role == 'admin' and not user.is_approved:
-            flash('Your admin account is pending super-admin approval. You cannot log in until approved.', 'error')
-            return redirect(url_for('main.login'))
+            return render_template('login.html', errors=[('lg_username', 'Your admin account is pending super-admin approval. You cannot log in until approved.')])
         # Email verification gate: citizens with an email must verify before
         # first login — but only when a mail gateway is actually configured.
         # Without SMTP credentials the verification link can never be
@@ -247,8 +240,7 @@ def login():
         if (user.role == 'citizen' and user.email
                 and not getattr(user, 'email_verified', False)
                 and _routes._mail_gateway_configured()):
-            flash('Please verify your email address before logging in. Check your inbox for the verification link.', 'error')
-            return redirect(url_for('main.login'))
+            return render_template('login.html', errors=[('lg_username', 'Please verify your email address before logging in. Check your inbox for the verification link.')])
         # Session-fixation defense: start each login with a fresh session
         # (preserving the user's language preference).
         _lang = session.get('lang')
@@ -361,13 +353,13 @@ def mfa_resend():
 def auth_phone_login():
     raw_phone = request.form.get('phone_number', '').strip()
     if not raw_phone:
-        flash("Phone number is required.", "error")
-        return redirect(url_for('main.login'))
+        return render_template('login.html', active_tab='phone',
+                               errors=[('otp_phone', 'Phone number is required.')])
     # ── Validate real Indian mobile format ────────────────────────────
     phone_number = validate_indian_phone(raw_phone)
     if not phone_number:
-        flash("Enter a valid Indian mobile number (10 digits starting with 6–9). Fake or sequential numbers like 1234567890 are not accepted.", "error")
-        return redirect(url_for('main.login'))
+        return render_template('login.html', active_tab='phone',
+                               errors=[('otp_phone', 'Enter a valid Indian mobile number (10 digits starting with 6–9). Fake or sequential numbers like 1234567890 are not accepted.')])
     # ─────────────────────────────────────────────────────────────────
     user = User.query.filter_by(phone=phone_number).first()
     if not user:
@@ -397,14 +389,14 @@ def auth_phone_login():
             db.session.rollback()
             user = User.query.filter_by(phone=phone_number).first()
             if user is None:
-                flash("Could not start phone login. Please try again.", "error")
-                return redirect(url_for('main.login'))
+                return render_template('login.html', active_tab='phone',
+                                       errors=[('otp_phone', 'Could not start phone login. Please try again.')])
     # Lockout applies to phone-login too: an attacker with the victim's number
     # must not be able to spam OTP generation while the account is cooling down.
     if _is_account_locked(user):
         mins_left = max(1, int((_locked_until_utc(user) - datetime.now(timezone.utc)).total_seconds() // 60))
-        flash(f'Account temporarily locked after repeated failed attempts. Try again in ~{mins_left} min.', 'error')
-        return redirect(url_for('main.login'))
+        return render_template('login.html', active_tab='phone',
+                               errors=[('otp_phone', f'Account temporarily locked after repeated failed attempts. Try again in ~{mins_left} min.')])
     otp_val = _generate_otp()
     # Store only a one-way hash of the OTP at rest, never plaintext.
     user.otp = _hash_otp(otp_val)

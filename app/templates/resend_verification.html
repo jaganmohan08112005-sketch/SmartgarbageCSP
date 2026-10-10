@@ -14,10 +14,10 @@
             <form method="POST" action="{{ url_for('main.resend_verification') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label class="form-label fw-bold text-secondary">{{ _('Email Address') }}</label>
+                    <label class="form-label fw-bold text-secondary" for="resend-email">{{ _('Email Address') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">📧</span>
-                        <input type="email" name="email" class="form-control" placeholder="{{ _('you@example.com') }}" required autofocus>
+                        <input id="resend-email" type="email" name="email" class="form-control" placeholder="{{ _('you@example.com') }}" required autofocus>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm mb-3">

@@ -560,8 +560,8 @@
                     </div>
                     <div class="sg-lang-dropdown dropdown">
                         <button class="sg-lang-btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                                aria-expanded="false" title="{{ _('Language') }}" aria-label="{{ _('Language') }}">
-                            {% if lang == 'en' %}EN{% else %}తె{% endif %}
+                                aria-expanded="false" title="{{ _('Language') }}">
+                            {% if lang == 'en' %}EN<span class="visually-hidden"> {{ _('Language') }}</span>{% else %}తె<span class="visually-hidden"> {{ _('Language') }}</span>{% endif %}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end shadow rounded-3">
                             <li><a class="dropdown-item {% if lang == 'en' %}active{% endif %}" href="{{ enc_path }}" data-lang="en" data-lang-href="/set-lang/en?next={{ enc_path }}">🇬🇧 English</a></li>

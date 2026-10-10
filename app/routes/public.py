@@ -330,6 +330,10 @@ def schedule():
     selected_ward = None
     if request.method == 'POST':
         selected_ward = request.form.get('ward')
+        if not selected_ward:
+            return render_template('schedule.html', schedules=[], prediction=None,
+                                   selected_ward=None,
+                                   errors=[('schedWard', 'Select a ward / area to view its schedule.')])
         schedules = Schedule.query.filter_by(ward=selected_ward).all()
         try:
             prediction = predict_miss(selected_ward)
@@ -725,12 +729,20 @@ def contact():
         email = request.form.get('email', '').strip()
         subject = request.form.get('subject', '').strip()
         message = request.form.get('message', '').strip()
-        if name and email and message:
-            from flask import flash
-            flash('Thank you for your message. We will respond within 2 business days.', 'success')
-        else:
-            from flask import flash
-            flash('Please fill in all required fields.', 'danger')
+        from flask import flash
+        errors = []
+        if not name:
+            errors.append(('contactName', 'Enter your name.'))
+        if not email:
+            errors.append(('contactEmail', 'Enter your email address.'))
+        if not subject:
+            errors.append(('contactSubject', 'Select a topic for your message.'))
+        if not message:
+            errors.append(('contactMessage', 'Enter your message.'))
+        if errors:
+            flash('Please complete the highlighted fields.', 'error')
+            return render_template('contact.html', errors=errors)
+        flash('Thank you for your message. We will respond within 2 business days.', 'success')
     return render_template('contact.html')
 
 

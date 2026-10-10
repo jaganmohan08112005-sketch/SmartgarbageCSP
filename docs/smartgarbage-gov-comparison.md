@@ -2,6 +2,7 @@
 
 **Benchmark sites**: GOV.UK (UK), VA.gov (US), gov.sg (Singapore)
 **Date**: September 13, 2026
+**Last updated**: October 3, 2026 — error-summary gap closed (now on all forms)
 **SmartGarbage instance**: http://127.0.0.1:5000 (local preview, live-verified)
 
 ---
@@ -23,7 +24,7 @@
 | **Transparency** | Live dashboards, bin telemetry, complaints, PAYT billing | Performance data, spending | Health records, benefits | Budget, services | **SG ahead on operational transparency** |
 | **TTFB / performance** | ~30-50ms local; ~0.5-5s on Render cold start | ~100-200ms (CDN) | ~200-500ms | ~150-300ms | **SG behind on edge caching** |
 | **Breadcrumbs** | Yes — `_breadcrumbs.html` partial on all content pages | Yes — phase banners + breadcrumbs | Yes | Yes | **At parity** |
-| **Error summary pattern** | GOV.UK-style `sg-error-summary` on report + track forms | Yes — GOV.UK error summary | Partial | Partial | **At parity** |
+| **Error summary pattern** | GOV.UK-style `sg-error-summary` on **all forms** (report, track, login, register, contact, schedule) | Yes — GOV.UK error summary | Partial | Partial | **At parity** |
 | **Language switcher** | Header lang toggle (English/Telugu) | Yes — in header | No | Yes | **At parity** |
 | **Dark mode** | Yes — toggle in header | No | No | No | **SG Ahead** |
 | **Chat assistant** | Yes — GPT-powered, available on every page | No (text content only) | No | No | **SG Ahead** |
@@ -114,7 +115,7 @@
 | Language toggle | ✅ | Header shows English/Telugu toggle |
 | Dark mode toggle | ✅ | `uid=2_72 button "Toggle dark mode"` |
 | Breadcrumbs | ✅ | `_breadcrumbs.html` partial included in about, faq, contact, accessibility, cookie_settings |
-| Error summary (GOV.UK-style) | ✅ | `sg-error-summary` div on report.html and track.html with `aria-labelledby` |
+| Error summary (GOV.UK-style) | ✅ | `sg-error-summary` (`role="alert"` + `aria-labelledby`, linked field list) on **all forms** — report.html, track.html, login.html, register.html, contact.html, schedule.html (closed 3 Oct 2026) |
 | Footer with SERVICES/ABOUT/LEGAL/CONTACT sections | ✅ | Matches GOV.UK footer structure |
 | "How to get help" section | ✅ | 3.1 Urgent, 3.2 If you can't use this service, 3.3 Contact — matches GOV.UK pattern |
 | Compliance badges | ✅ | "Solid Waste Management Rules, 2026" + "Swachh Bharat Mission (Grameen) Phase II" |
@@ -507,7 +508,7 @@ This is a **waste management portal for Chintalavalasa Gram Panchayat** — a ru
 | **Cloudflare CDN** | TTFB on Render is 0.5-5s cold start; GOV.UK is ~100-200ms. Waiting on eu.org domain approval for Cloudflare setup | High |
 | **Babel i18n catalog** | English+Telugu dictionary exists but catalog isn't compiled. Language switcher works via `?lang=` but no compiled `.po`/`.mo` files | Medium |
 | **Breadcrumbs on all pages** | `_breadcrumbs.html` exists and is included on about/faq/contact/accessibility/cookie_settings, but ward, analytics, and transparency pages don't include it | Low |
-| **Error summary on all forms** | Report and track forms have `sg-error-summary`, but other forms (login, register, contact, schedule) don't have the GOV.UK error-summary pattern | Low |
+| ~~**Error summary on all forms**~~ ✅ **Closed 3 Oct 2026** | All six forms — report, track, login, register, contact and schedule — now render the GOV.UK-style `sg-error-summary` (`role="alert"`, `aria-labelledby`, linked field list). Covered by `tests/test_error_summaries.py` | — |
 | **Live IoT data** | The preview uses SQLite with seeded demo data. Real deployment needs Supabase + actual ESP32 bin sensors | Deployment |
 | **Razorpay live keys** | Payment flow uses demo keys. Production needs live Razorpay credentials | Deployment |
 | **SMS gateway** | OTP and tracking link SMS need a live SMS provider (Twilio, Gupshup, etc.) | Deployment |
@@ -545,7 +546,7 @@ This is a **waste management portal for Chintalavalasa Gram Panchayat** — a ru
 - **Performance**: Render cold start TTFB (0.5-5s) vs GOV.UK (~100-200ms). Fix: Cloudflare CDN (blocked on eu.org domain approval)
 - **Language breadth**: 2 languages (English + Telugu) vs GOV.UK's 40+. Appropriate for the context but not equivalent
 - **Breadcrumb coverage**: Not all pages include `_breadcrumbs.html` (ward, analytics, transparency missing)
-- **Error summary on all forms**: Only report + track forms have the GOV.UK error-summary component
+- ~~**Error summary on all forms**~~: ✅ **Closed 3 Oct 2026** — now on every form (report, track, login, register, contact, schedule), not just report + track
 - **Phase banners**: No prototype/development phase banner (GOV.UK uses these for non-production environments)
 
 ---
@@ -628,11 +629,11 @@ From the GOV.UK Design System:
 | Confirmation password | Yes | No | **SG** (fewer fields) |
 | Email | Required | Optional | **SG** (not all residents have email) |
 | Verification method | Email link | SMS OTP | **SG** (SMS works on feature phones) |
-| Error summary | ✅ GOV.UK error-summary | ❌ Not on registration form | **GOV.UK** (gap to fix) |
+| Error summary | ✅ GOV.UK error-summary | ✅ `sg-error-summary` on all forms (incl. registration) | Tie (gap closed 3 Oct 2026) |
 | Autocomplete | ✅ Full | ✅ 4 attributes | Tie |
 | CSRF | ✅ | ✅ | Tie |
 
-**Verdict**: SmartGarbage's registration form is **more accessible for its target audience** than GOV.UK's — phone OTP eliminates the password problem entirely. The one gap is the missing error-summary component on the registration form (and login form).
+**Verdict**: SmartGarbage's registration form is **more accessible for its target audience** than GOV.UK's — phone OTP eliminates the password problem entirely. The former gap — a missing error-summary component on the registration and login forms — was **closed on 3 Oct 2026**: every form now renders the GOV.UK-style `sg-error-summary`.
 
 ---
 
@@ -851,7 +852,7 @@ India's Digital Personal Data Protection Act 2023 requires:
 | Text quality | Plain English, specific | Gold standard | **At parity** (minor: 1-2 long sentences) |
 | Block structure | Every GOV.UK block + 3 additions | Complete | **At parity or ahead** |
 | Mobile responsiveness | Full Bootstrap 5 responsive | Full responsive | **At parity** |
-| Form design | Good, minor gaps | Gold standard | **Near parity** (missing error-summary on reg form) |
+| Form design | Good, minor gaps | Gold standard | **At parity** (error summary on all forms) |
 | PWA + offline | ✅ | ❌ | **SG Ahead** |
 | Web Push | ✅ | ❌ | **SG Ahead** |
 | IoT + ML | ✅ | ❌ | **SG Ahead** |
@@ -863,7 +864,7 @@ India's Digital Personal Data Protection Act 2023 requires:
 | Language breadth | 2 (EN + TE) | 40+ | **Behind in count, ahead in relevance** |
 | Performance (TTFB) | 0.5-5s cold (Render) | ~100-200ms (CDN) | **Behind** (fixable with Cloudflare) |
 | Breadcrumb coverage | Most pages | All pages | **Minor gap** (ward/analytics/transparency) |
-| Error summary coverage | Report + track forms | All forms | **Minor gap** (reg/login/contact/schedule) |
+| Error summary coverage | All forms | All forms | **At parity** |
 
 ### 17.2 One-Line Summary
 
@@ -874,6 +875,6 @@ The only blockers for real-world deployment are: (1) eu.org domain approval → 
 
 **SmartGarbage is the most functionally complete local-government waste management portal among all sites compared.** It matches GOV.UK on content design and accessibility, exceeds it on security and operational features, and adds IoT/ML/PWA/Web Push capabilities that no benchmarked government website has.
 
-For its real-world purpose — a rural Gram Panchayat waste management system serving 12,000 residents — SmartGarbage is **well-suited and comprehensive**. Every section, block, and feature serves the project's goal. The gaps are in hosting-tier performance (fixable with Cloudflare) and minor accessibility polish (breadcrumbs on a few pages, error summary on all forms).
+For its real-world purpose — a rural Gram Panchayat waste management system serving 12,000 residents — SmartGarbage is **well-suited and comprehensive**. Every section, block, and feature serves the project's goal. The gaps are in hosting-tier performance (fixable with Cloudflare) and minor accessibility polish (breadcrumbs on a few pages). The error-summary gap that previously affected the login/register/contact/schedule forms is now closed — every form renders the GOV.UK-style `sg-error-summary`.
 
 **The project is suitable for real-world deployment.** The auth model (phone OTP, no email), offline PWA support, multi-channel intake (SMS/Telegram/WhatsApp), and IoT integration are all specifically appropriate for a rural Indian panchayat context — more so than GOV.UK's email-dependent auth or VA.gov's US-centric Login.gov.

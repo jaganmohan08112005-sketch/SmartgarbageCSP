@@ -16,13 +16,13 @@
             <input type="hidden" name="action" value="create_admin">
             <div class="row g-2">
                 <div class="col-md-4">
-                    <input name="username" class="form-control" placeholder="{{ _('Username') }}" required>
+                    <input name="username" class="form-control" placeholder="{{ _('Username') }}" aria-label="{{ _('Username') }}" required>
                 </div>
                 <div class="col-md-4">
-                    <input name="password" type="password" class="form-control" placeholder="{{ _('Password (min 6)') }}" minlength="6" required>
+                    <input name="password" type="password" class="form-control" placeholder="{{ _('Password (min 6)') }}" aria-label="{{ _('Password (min 6)') }}" minlength="6" required>
                 </div>
                 <div class="col-md-4">
-                    <input name="phone" class="form-control" placeholder="{{ _('Admin mobile (+91...)') }}" required>
+                    <input name="phone" class="form-control" placeholder="{{ _('Admin mobile (+91...)') }}" aria-label="{{ _('Admin mobile (+91...)') }}" required>
                 </div>
             </div>
             <button type="submit" class="btn btn-success mt-3 fw-bold rounded-pill px-4">{{ _('Create Admin') }}</button>

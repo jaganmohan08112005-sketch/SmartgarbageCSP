@@ -23,12 +23,12 @@
           <form action="/bwg-ledger" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
-              <label class="form-label fw-semibold">🏢 {{ _('Entity Name') }}</label>
-              <input type="text" class="form-control" name="entity_name" placeholder="e.g. Sunrise Apartments Block-C" required>
+              <label class="form-label fw-semibold" for="bwg-entity-name">🏢 {{ _('Entity Name') }}</label>
+              <input id="bwg-entity-name" type="text" class="form-control" name="entity_name" placeholder="e.g. Sunrise Apartments Block-C" required>
             </div>
             <div class="mb-3">
-              <label class="form-label fw-semibold">{{ _('Type') }}</label>
-              <select class="form-select" name="entity_type">
+              <label class="form-label fw-semibold" for="bwg-entity-type">{{ _('Type') }}</label>
+              <select class="form-select" id="bwg-entity-type" name="entity_type">
                 <option value="residential">🏠 {{ _('Residential Complex') }}</option>
                 <option value="commercial">🏪 {{ _('Commercial / Retail') }}</option>
                 <option value="institution">🏫 {{ _('Educational Institution') }}</option>
@@ -39,15 +39,15 @@
             <hr class="my-3">
             <p class="fw-semibold small mb-2">📊 {{ _("Today's Waste Streams (kg)") }}</p>
             <div class="mb-3">
-              <label class="form-label small">🌿 {{ _('On-site Composting') }}</label>
+              <label class="form-label small" for="compost_input">🌿 {{ _('On-site Composting') }}</label>
               <input type="number" class="form-control" name="composting_kg" step="0.1" min="0" value="0" id="compost_input" data-sg-input="updateTotal">
             </div>
             <div class="mb-3">
-              <label class="form-label small">♻️ {{ _('Recyclables for Pickup') }}</label>
+              <label class="form-label small" for="recycle_input">♻️ {{ _('Recyclables for Pickup') }}</label>
               <input type="number" class="form-control" name="recyclable_kg" step="0.1" min="0" value="0" id="recycle_input" data-sg-input="updateTotal">
             </div>
             <div class="mb-3">
-              <label class="form-label small">🗑️ {{ _('Residual Landfill Waste') }}</label>
+              <label class="form-label small" for="landfill_input">🗑️ {{ _('Residual Landfill Waste') }}</label>
               <input type="number" class="form-control" name="landfill_kg" step="0.1" min="0" value="0" id="landfill_input" data-sg-input="updateTotal">
             </div>
             <div class="rounded-3 p-3 mb-3 text-center" style="background:#e8f8f5;">

@@ -11,13 +11,25 @@
                 <h2 class="h6 fw-bold text-dark mb-0">{{ _('Join SmartGarbage to track complaints and earn Green Points') }}</h2>
                 <p class="text-muted small">{{ _('Register to track and report sanitation issues in Chintalavalasa') }}</p>
             </div>
+            {% if errors %}
+            <div class="sg-error-summary card border-0 shadow-sm mb-4" role="alert" aria-labelledby="register-error-summary-title">
+                <div class="card-body p-3">
+                    <h2 class="sg-error-summary-title h6 fw-bold text-danger mb-3" id="register-error-summary-title">{{ _('There is a problem') }}</h2>
+                    <ul class="sg-error-summary-list list-unstyled mb-0">
+                        {% for err_field, err_msg in errors %}
+                        <li><a href="#{{ err_field }}" class="text-danger fw-semibold text-decoration-none">{{ err_msg }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
             <form method="POST" action="/register" novalidate>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label class="form-label fw-bold text-secondary" for="reg_username">{{ _('Username') }}</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted">👤</span>
-                        <input name="username" id="reg_username" class="form-control" placeholder="{{ _('Choose a username') }}" required autofocus minlength="3" maxlength="50">
+                        <input name="username" id="reg_username" class="form-control" placeholder="{{ _('Choose a username') }}" value="{{ request.form.get('username', '') }}" required autofocus minlength="3" maxlength="50">
                     </div>
                     <small class="text-muted">{{ _('At least 3 characters, no spaces.') }}</small>
                 </div>
@@ -35,6 +47,7 @@
                         <span class="input-group-text bg-light text-muted">📞</span>
                         <input name="phone" id="reg_phone" type="tel" class="form-control"
                                placeholder="{{ _('e.g. +91 98765 43210') }}"
+                               value="{{ request.form.get('phone', '') }}"
                                pattern="^(\+91|91)?[6-9]\d{9}$"
                                title="Enter a valid Indian mobile: 10 digits starting with 6, 7, 8, or 9 (with or without +91 prefix)"
                                required>
@@ -47,6 +60,7 @@
                         <span class="input-group-text bg-light text-muted">✉️</span>
                         <input name="email" id="reg_email" type="email" class="form-control"
                                placeholder="{{ _('e.g. user@example.com') }}"
+                               value="{{ request.form.get('email', '') }}"
                                required>
                     </div>
                     <small class="text-muted">{{ _('Required for password reset and notifications.') }}</small>

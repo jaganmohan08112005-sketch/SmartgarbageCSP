@@ -26,21 +26,21 @@
           <form action="/admin/firmware/upload" method="POST" enctype="multipart/form-data">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <div class="mb-3">
-              <label class="form-label fw-semibold">{{ _('Version Number') }}</label>
-              <input type="text" class="form-control" name="version" placeholder="e.g. 2.1.4" required>
+              <label class="form-label fw-semibold" for="fw-version">{{ _('Version Number') }}</label>
+              <input id="fw-version" type="text" class="form-control" name="version" placeholder="e.g. 2.1.4" required>
             </div>
             <div class="mb-3">
-              <label class="form-label fw-semibold">{{ _('Release Notes') }}</label>
-              <textarea class="form-control" name="description" rows="3" placeholder="{{ _('Describe changes in this release...') }}"></textarea>
+              <label class="form-label fw-semibold" for="fw-description">{{ _('Release Notes') }}</label>
+              <textarea class="form-control" id="fw-description" name="description" rows="3" placeholder="{{ _('Describe changes in this release...') }}"></textarea>
             </div>
             <div class="mb-3">
-              <label class="form-label fw-semibold">{{ _('Target Bins') }}</label>
-              <input type="text" class="form-control" name="target_bins" placeholder="{{ _('ALL or BIN-101,BIN-201,...') }}" value="ALL">
+              <label class="form-label fw-semibold" for="fw-target-bins">{{ _('Target Bins') }}</label>
+              <input id="fw-target-bins" type="text" class="form-control" name="target_bins" placeholder="{{ _('ALL or BIN-101,BIN-201,...') }}" value="ALL">
               <div class="form-text">{{ _('Enter') }} <code>ALL</code> {{ _('for all bins or comma-separated hardware IDs.') }}</div>
             </div>
             <div class="mb-4">
-              <label class="form-label fw-semibold">{{ _('Firmware Binary (.bin)') }}</label>
-              <input type="file" class="form-control" name="firmware_file" accept=".bin,.hex,.ino" required>
+              <label class="form-label fw-semibold" for="fw-file">{{ _('Firmware Binary (.bin)') }}</label>
+              <input id="fw-file" type="file" class="form-control" name="firmware_file" accept=".bin,.hex,.ino" required>
             </div>
             <button type="submit" class="btn btn-success w-100 fw-bold">
               📤 {{ _('Upload Release') }}
@@ -135,7 +135,7 @@
       <div class="modal-body px-4">
         <p>{{ _('Select a specific bin to push firmware') }} <strong id="modal_version_label">v0.0</strong>, {{ _('or push to all target bins.') }}</p>
         <div class="mb-3">
-          <label class="form-label fw-semibold">{{ _('Target Bin Hardware ID') }}</label>
+          <label class="form-label fw-semibold" for="ota_bin_select">{{ _('Target Bin Hardware ID') }}</label>
           <select class="form-select" id="ota_bin_select">
             <option value="ALL">— {{ _('ALL Target Bins') }} —</option>
             {% for b in bins %}
