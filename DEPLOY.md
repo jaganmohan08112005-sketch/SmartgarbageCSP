@@ -1,4 +1,4 @@
-# SmartGarbage — Deployment Guide (Supabase + Fly.io)
+# SmartGarbage — Deployment Guide (Supabase + Render)
 
 ## 1. Create Supabase Project
 
@@ -22,40 +22,49 @@
 
 ## 3. Run Migrations
 
-Locally (or in a one-off Fly.io shell):
+Locally (or in a one-off Render shell):
 
 ```bash
 export DATABASE_URL="postgresql://postgres.[ref]:[pw]@...pooler.supabase.com:5432/postgres"
 flask db upgrade
 ```
 
-## 4. Deploy on Fly.io (recommended)
+## 4. Deploy on Render (recommended)
+
+Render builds this repo from `render.yaml` (Docker image, branch `main`,
+health check `/health`) and auto-deploys on every push to `main`.
+
+1. Render dashboard → **New → Web Service** → connect this repo; Render reads
+   `render.yaml`. Choose the **free** plan (Rs 0) or **starter** (~$7/mo, no
+   cold starts) — see §5.
+2. Add the environment variables below in **Environment**.
+3. Deploy: push to `main` (auto-deploy) or **Manual Deploy → Deploy latest commit**.
 
 ```bash
-# Install flyctl
-curl -L https://fly.io/install.sh | sh
+# Generate the secrets locally, then paste them into the Render dashboard:
+openssl rand -hex 32   # SECRET_KEY
+openssl rand -hex 32   # IOT_TELEMETRY_SECRET
+openssl rand -hex 32   # RAZORPAY_WEBHOOK_SECRET
+openssl rand -hex 16   # WHATSAPP_WEBHOOK_VERIFY_TOKEN
+```
 
-# Login
-fly auth login
+Environment variables to set on the service:
 
-# Launch (first time)
-fly launch --no-deploy
-
-# Set secrets
-fly secrets set \
-  SECRET_KEY="$(openssl rand -hex 32)" \
-  DATABASE_URL="postgresql://postgres.[ref]:[pw]@...pooler.supabase.com:5432/postgres" \
-  SUPABASE_URL="https://xyz.supabase.co" \
-  SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
-  IOT_TELEMETRY_SECRET="$(openssl rand -hex 32)" \
-  REDIS_URL="redis://:your-redis-password@your-region.upstash.io:6379" \
-  WHATSAPP_CLOUD_TOKEN="EAAG..." \
-  WHATSAPP_CLOUD_PHONE_NUMBER_ID="123456789" \
-  WHATSAPP_WEBHOOK_VERIFY_TOKEN="$(openssl rand -hex 16)" \
-  WHATSAPP_APP_SECRET="..." \
-  RAZORPAY_KEY_ID="rzp_live_..." \
-  RAZORPAY_KEY_SECRET="..." \
-  RAZORPAY_WEBHOOK_SECRET="$(openssl rand -hex 32)"
+| Variable | Value |
+|---|---|
+| `SECRET_KEY` | `$(openssl rand -hex 32)` |
+| `DATABASE_URL` | Supabase pooler URL (§1) |
+| `SUPABASE_URL` | `https://xyz.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | service-role key (secret, server-side only) |
+| `IOT_TELEMETRY_SECRET` | `$(openssl rand -hex 32)` |
+| `REDIS_URL` | Render Key Value / Upstash URL (optional; see §5) |
+| `WHATSAPP_CLOUD_TOKEN` | `EAAG...` (parked until set) |
+| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | `123456789` |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | `$(openssl rand -hex 16)` |
+| `WHATSAPP_APP_SECRET` | app secret |
+| `RAZORPAY_KEY_ID` | `rzp_live_...` |
+| `RAZORPAY_KEY_SECRET` | `...` |
+| `RAZORPAY_WEBHOOK_SECRET` | `$(openssl rand -hex 32)` |
 
 > `REDIS_URL` is recommended when running more than one machine/worker — it
 > makes rate-limit counters shared across instances (the app falls back to
@@ -122,21 +131,14 @@ through an RQ worker over the same `REDIS_URL` (the Dockerfile starts
 `python worker.py` alongside gunicorn). Without `REDIS_URL` every job executes
 inline, so local dev and the test-suite need no extra process.
 
-# Deploy
-fly deploy
-```
 
-## 5. Alternative: Render Starter + Supabase
+## 5. Render plan, background workers & start command
 
-Update `render.yaml` (already configured for starter plan + Supabase env vars):
-
-1. In Render dashboard → New Web Service → connect repo
-2. Set `plan: free` — Rs 0. The instance sleeps when idle (a free uptime
-   pinger keeps it warm; see §8.5). Choose `starter` (~$7/mo) only if you
-   need zero cold starts.
-3. Add env vars: `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SECRET_KEY`, `IOT_TELEMETRY_SECRET`, `REDIS_URL` (Upstash free tier)
-4. Remove the Render managed Postgres database (Supabase is your DB now)
-5. Deploy
+`render.yaml` is already configured (Supabase env vars, health check). Pick the
+**free** plan (Rs 0 — the instance sleeps when idle and a free uptime pinger
+keeps it warm) or **starter** (~$7/mo) for zero cold starts. Do **not** add a
+Render managed Postgres database — Supabase is the database (remove one if it
+exists). The rest of this section covers the job queue and the start command.
 
 ### Background jobs on Render (important)
 
@@ -199,10 +201,10 @@ python seed_db.py
 
 ```bash
 # Health
-curl https://your-app.fly.dev/health
+curl https://smartgarbage.onrender.com/health
 
 # DB connection
-curl https://your-app.fly.dev/api/analytics-data
+curl https://smartgarbage.onrender.com/api/analytics-data
 
 # Storage
 # Submit a complaint with photo → verify image URL starts with your Supabase project URL
@@ -415,7 +417,6 @@ If you have data on Render's old Postgres:
 
 ## 10. Rollback Plan
 
-- **Fly.io**: `fly deploy --image flyio/smartgarbage:previous-tag` or use the Fly dashboard
 - **Render**: Previous deploy is available in the dashboard; just click Rollback
 - **Supabase**: Database branching lets you snapshot before migrations; restore from backup if needed
 

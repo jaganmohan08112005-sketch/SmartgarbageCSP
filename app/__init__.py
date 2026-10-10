@@ -100,13 +100,13 @@ DEPLOY_TIMESTAMP = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _is_deployed():
-    """True when running on a managed platform (Render or Fly.io).
+    """True when running on the managed production platform (Render).
 
     Drives HTTPS enforcement, secure-cookie / HSTS headers and the demo-seed
-    guard. Both platforms terminate TLS at the edge, so anything behind their
-    proxies is production.
+    guard. Render terminates TLS at the edge, so anything behind its
+    proxy is production.
     """
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def _rate_limit_key():
@@ -140,8 +140,8 @@ login_manager = LoginManager()
 def create_app(test_config=None):
     app = Flask(__name__)
 
-    # Trust one layer of proxy headers (Fly.io / Render terminate TLS at the
-    # edge and rewrite remote_addr). Without this, request.remote_addr is the
+    # Trust one layer of proxy headers (Render terminates TLS at the
+    # edge and rewrites remote_addr). Without this, request.remote_addr is the
     # proxy IP — silently breaking per-IP rate limiting and audit-IP forensics.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
@@ -284,7 +284,7 @@ def create_app(test_config=None):
                 app.logger.warning(
                     "SECRET_KEY not set in env and could not be persisted; "
                     "using an ephemeral key (sessions will reset on restart)")
-    # Secure cookies on both Render AND Fly.io (edge TLS terminates on both).
+    # Secure cookies on Render (edge TLS terminates there).
     app.config['SESSION_COOKIE_SECURE'] = _is_deployed()
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -1076,7 +1076,7 @@ def create_app(test_config=None):
     #
     # SECURITY: these demo accounts have publicly-known credentials, so they are
     # NEVER auto-created in production. They only exist when SEED_DEMO=true or
-    # when running locally (no RENDER/FLY_APP_NAME env). Deployments must create
+    # when running locally (no RENDER env). Deployments must create
     # real accounts through registration + admin approval.
     if (os.environ.get('SEED_DEMO', 'false').lower() in ('true', '1', 'yes')
             or not _is_deployed()):

@@ -88,7 +88,7 @@ undefined `queue_posture`. Fixed in `app/routes/public.py` to call
 
 ### Known local-mode notes (not bugs)
 - Local dev accepts unsigned telemetry **by design** (no secret configured); the HMAC gate
-  was proven in production mode (test 16) and is mandatory on Render/Fly (`503` if unset).
+  was proven in production mode (test 16) and is mandatory on Render (`503` if unset).
 - `/api/devices/register` requires a CSRF token (it is not exempt like bin-telemetry);
   provisioning is done from the admin UI in normal use.
 - Demo login test earlier hit the **header search** form because its button is the first

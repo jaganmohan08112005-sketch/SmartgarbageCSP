@@ -209,7 +209,7 @@ def trend_segregation():
     """Monthly segregation % per ward — aggregated in SQL.
 
     Previously pulled EVERY WasteDeclaration row into Python (a full-table
-    scan that would OOM the 1 GB Fly VM once declarations grow). Now the
+    scan that would OOM a 1 GB production VM once declarations grow). Now the
     database does the bucketing: group by (month, ward) with per-group sums.
     PostgreSQL (Supabase) is the only supported backend, so the month
     expression is to_char directly.

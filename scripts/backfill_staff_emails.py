@@ -43,7 +43,7 @@ GMAIL_DOMAINS = ('gmail.com', 'googlemail.com')
 
 
 def _is_deployed():
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def build_address(base, username):
@@ -106,7 +106,7 @@ def main():
     args = parser.parse_args()
 
     if _is_deployed():
-        print('Refusing to run on a deployed platform (RENDER/FLY_APP_NAME set).',
+        print('Refusing to run on a deployed platform (RENDER set).',
               file=sys.stderr)
         return 2
 

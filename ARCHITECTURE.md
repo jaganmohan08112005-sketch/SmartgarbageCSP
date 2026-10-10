@@ -163,7 +163,7 @@ erDiagram
 - ✅ **Real-time push notifications** — `Notification` model + SSE stream + resolve pushes status-change alerts to citizens.
 - ✅ **Per-user rate limiting (Redis-backed)** — Flask-Limiter now keys authenticated requests by `user:<id>` (IP fallback for anonymous); `REDIS_URL` storage shares counters across workers/instances.
 - ✅ **WhatsApp/SMS status-change delivery** — complaint resolution pushes in-app Notification + Twilio SMS/WhatsApp (with email fallback) to the reporter via `_notify_status_change()`.
-- ✅ **Fly.io deployment parity** — HTTPS enforcement, secure cookies, HSTS and the demo-seed guard now key off `_is_deployed()` (Render OR Fly), so Fly.io gets production-grade cookies and no demo accounts.
+- ✅ **Production deployment parity** — HTTPS enforcement, secure cookies, HSTS and the demo-seed guard key off `_is_deployed()` (Render), so production gets production-grade cookies and no demo accounts.
 - ✅ **PWA offline queue hardened** — offline.js replays queued forms as `application/x-www-form-urlencoded` (JSON was silently unparseable by `request.form`), adds a page-agnostic toast, precaches offline.js, and adds manifest shortcuts + apple-touch icons.
 
 ## 🚀 Future Roadmap

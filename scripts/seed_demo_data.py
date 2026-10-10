@@ -10,7 +10,7 @@ Populates the dev database with:
     demo geo-fence violation flagging.
 
 Safe to re-run: existing hardware_ids / vehicle_ids are skipped. NEVER runs on
-a deployed platform (guarded by the same RENDER/FLY_APP_NAME check used by
+a deployed platform (guarded by the same RENDER check used by
 the app itself).
 """
 import os
@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def _is_deployed():
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def main():

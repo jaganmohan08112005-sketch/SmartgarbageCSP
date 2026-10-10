@@ -201,7 +201,6 @@ SmartGarbage/
 ├── .github/workflows/       # CI/CD pipelines
 ├── Dockerfile               # Container build
 ├── render.yaml              # Render deployment config
-├── fly.toml                 # Fly.io deployment config
 └── requirements.txt         # Python dependencies
 ```
 
@@ -227,7 +226,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 feat: add email notification for complaint resolution
 fix: prevent duplicate complaint submissions
-docs: update deployment guide for Fly.io
+docs: update deployment guide for Render
 test: add tests for MFA verification flow
 refactor: extract phone validation to utils module
 chore: update dependencies

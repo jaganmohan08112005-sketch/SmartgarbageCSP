@@ -27,13 +27,13 @@ def _hash_device_key(api_key: str) -> str:
 
 
 def _is_deployed():
-    """True when running on a production platform (Render or Fly.io).
+    """True when running on a production platform (Render).
 
-    The OLD check only enforced the HMAC secret on Render — a Fly.io
-    deployment without IOT_TELEMETRY_SECRET silently accepted unsigned
-    telemetry from the public internet. Both platforms are production.
+    A deployment without IOT_TELEMETRY_SECRET would silently accept
+    unsigned telemetry from the public internet — the HMAC gate must
+    therefore stay mandatory on every production deployment.
     """
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def _authenticate_device(hardware_id: str):
@@ -87,7 +87,7 @@ def bin_telemetry():
     # ── IoT auth: require a valid HMAC-SHA256 signature when a telemetry
     # secret is configured (production). Skipped in dev when no secret set. ──
     secret = current_app.config.get('IOT_TELEMETRY_SECRET')
-    # On ANY production platform (Render OR Fly.io) the HMAC secret is
+    # On any production deployment the HMAC secret is
     # mandatory — never accept unsigned telemetry from a public endpoint.
     if not secret and _is_deployed():
         logger.error("iot_telemetry_secret_missing", ip=request.remote_addr)

@@ -60,13 +60,13 @@ logger = structlog.get_logger("smartgarbage.routes")
 
 
 def _is_deployed():
-    """True when running on a managed platform (Render or Fly.io).
+    """True when running on the managed production platform (Render).
 
     Used by webhook verifiers to fail-closed: when credentials are not
     configured on a production deployment, reject the request instead of
     silently accepting unsigned payloads.
     """
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 # ──────────────────────────────────────────────
@@ -156,7 +156,7 @@ def _upload_to_supabase(data, filename, prefix):
 # ──────────────────────────────────────────────
 def _on_managed_platform():
     """True when running on a host whose container filesystem is ephemeral."""
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def _uploads_ephemeral(folder=None):
@@ -1510,7 +1510,7 @@ def _compute_analytics():
 
     All aggregates run in SQL (COALESCE over SUM) instead of pulling every
     WasteDeclaration row into Python — the previous full-table scan would OOM
-    the 1 GB Fly VM once declarations grow to tens of thousands of rows.
+    a 1 GB production VM once declarations grow to tens of thousands of rows.
 
     Cached in Redis with a 60s TTL: the analytics page + JSON API are read
     frequently but the underlying data changes slowly, so a 60s cache removes

@@ -117,7 +117,7 @@ SmartGarbage is a comprehensive waste management platform built for compliance w
 | **SMS/WhatsApp** | Twilio (fallback) + Meta WhatsApp Cloud (planned primary) | Citizen helpline 1800-119-9111; WhatsApp Cloud wired but parked until credentials are provided |
 | **Storage** | Supabase Storage | Photo uploads |
 | **Monitoring** | Sentry | Error tracking |
-| **Deployment** | Docker, Render/Fly.io | Containerised deployment |
+| **Deployment** | Docker, Render | Containerised deployment |
 
 ---
 
@@ -226,21 +226,11 @@ docker run -p 10000:10000 \
 3. Set environment variables in dashboard
 4. Deploy
 
-### Fly.io
-
-```bash
-fly auth login
-fly launch --no-deploy
-fly secrets set DATABASE_URL="postgresql://..." SECRET_KEY="..."
-fly deploy
-```
-
 ### Environment-Specific Notes
 
 | Platform | Notes |
 |----------|-------|
-| **Render** | Free tier has cold starts (~1-2s). Use Cloudflare CDN for instant repeat visits. |
-| **Fly.io** | Recommended for production. Supports multiple regions. |
+| **Render** | Production target. Free tier has cold starts (~1-2s); use Cloudflare CDN for instant repeat visits. |
 | **Railway** | Alternative PaaS. Good for hobby projects. |
 
 See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.

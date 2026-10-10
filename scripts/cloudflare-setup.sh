@@ -6,7 +6,7 @@
 #
 # PREREQUISITES:
 #   1. A Cloudflare account (free) → https://dash.cloudflare.com/sign-up
-#   2. A domain added to Cloudflare (see wiki/CLOUDFLARE_CDN_SETUP.md)
+#   2. A domain added to Cloudflare (see docs/CLOUDFLARE_CDN_SETUP.md)
 #   3. Cloudflare API token → https://dash.cloudflare.com/profile/api-tokens
 #
 # USAGE:
@@ -197,109 +197,71 @@ log "WebSockets: ON"
 echo ""
 
 # ============================================================
-# 5. Create Page Rules (Free plan: 3 max)
+# 5. Cache Rules (ordered: bypass -> static -> public HTML)
 # ============================================================
-echo "── Step 4: Creating Page Rules ──"
+# Cache Rules are evaluated in order and the FIRST match wins, so the bypass
+# rule is listed first: authenticated/private routes are never edge-cached,
+# even though a later rule might otherwise match them. Page Rules were dropped
+# deliberately -- the old "Cache Everything" Page Rule cached the entire zone
+# (citizen and admin pages included) for two hours, the exact failure mode the
+# guide warns about. The origin also sends `Cache-Control: no-store` on
+# authenticated pages, as a second layer.
+echo "-- Step 4: Creating Cache Rules --"
 
-# Rule 1: Cache everything on the domain
-info "Creating Page Rule 1: Cache Everything..."
-curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/pagerules" \
+info "Writing ordered Cache Rules (bypass -> static -> public HTML)..."
+
+CACHE_RULES=$(cat <<'JSON'
+{
+  "rules": [
+    {
+      "description": "Bypass dynamic, authenticated and always-fresh routes",
+      "expression": "(starts_with(http.request.uri.path, \"/admin\") or starts_with(http.request.uri.path, \"/login\") or starts_with(http.request.uri.path, \"/logout\") or starts_with(http.request.uri.path, \"/register\") or starts_with(http.request.uri.path, \"/dashboard\") or starts_with(http.request.uri.path, \"/report\") or starts_with(http.request.uri.path, \"/api/\") or starts_with(http.request.uri.path, \"/webhook/\") or starts_with(http.request.uri.path, \"/set-lang\") or starts_with(http.request.uri.path, \"/payt\") or starts_with(http.request.uri.path, \"/track\") or starts_with(http.request.uri.path, \"/mfa\") or starts_with(http.request.uri.path, \"/notifications\") or http.request.uri.path eq \"/robots.txt\" or http.request.uri.path eq \"/sitemap.xml\" or http.request.uri.path eq \"/feed.xml\")",
+      "action": "set_cache_settings",
+      "action_parameters": { "cache": false },
+      "enabled": true
+    },
+    {
+      "description": "Cache static assets (content-hashed, immutable)",
+      "expression": "starts_with(http.request.uri.path, \"/static/\")",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": { "mode": "override", "default": 2592000 },
+        "browser_ttl": { "mode": "override", "default": 31536000 }
+      },
+      "enabled": true
+    },
+    {
+      "description": "Cache public HTML pages (5 min edge / 1 min browser)",
+      "expression": "(http.request.uri.path eq \"/\" or http.request.uri.path eq \"/schedule\" or http.request.uri.path eq \"/about\" or http.request.uri.path eq \"/faq\" or http.request.uri.path eq \"/transparency\" or http.request.uri.path eq \"/privacy\" or http.request.uri.path eq \"/terms\")",
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": { "mode": "override", "default": 300 },
+        "browser_ttl": { "mode": "override", "default": 60 }
+      },
+      "enabled": true
+    }
+  ]
+}
+JSON
+)
+
+CACHE_RESULT=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/rulesets/phases/http_request_cache_settings/entrypoint" \
     -H "Authorization: Bearer $CF_API_TOKEN" \
     -H "Content-Type: application/json" \
-    --data "{
-        \"targets\": [{
-            \"target\": \"url\",
-            \"constraint\": {
-                \"operator\": \"matches\",
-                \"value\": \"*$ZONE_NAME/*\"
-            }
-        }],
-        \"actions\": [
-            { \"id\": \"cache_level\", \"value\": \"cache_everything\" },
-            { \"id\": \"edge_cache_ttl\", \"value\": 7200 },
-            { \"id\": \"browser_cache_ttl\", \"value\": 14400 }
-        ],
-        \"priority\": 1,
-        \"status\": \"active\"
-    }" > /dev/null 2>&1
-log "Page Rule 1: Cache Everything (Edge TTL: 2h)"
+    --data "$CACHE_RULES")
 
-# Rule 2: Bypass cache for dynamic routes
-info "Creating Page Rule 2: Bypass Dynamic Routes..."
-curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/pagerules" \
-    -H "Authorization: Bearer $CF_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    --data "{
-        \"targets\": [{
-            \"target\": \"url\",
-            \"constraint\": {
-                \"operator\": \"matches\",
-                \"value\": \"*$ZONE_NAME/(admin|login|register|report|api/*|contact|webhook/*|dashboard|set-lang/*)\"
-            }
-        }],
-        \"actions\": [
-            { \"id\": \"cache_level\", \"value\": \"bypass\" }
-        ],
-        \"priority\": 2,
-        \"status\": \"active\"
-    }" > /dev/null 2>&1
-log "Page Rule 2: Bypass Dynamic Routes"
+if echo "$CACHE_RESULT" | grep -q '"success":true'; then
+    log "Cache Rules set: bypass dynamic -> static (30d/1y) -> public HTML (5min/1min)"
+else
+    warn "Could not set Cache Rules: $(echo "$CACHE_RESULT" | head -c 300)"
+fi
 
 echo ""
 
 # ============================================================
-# 6. Create Cache Rules (newer, more powerful)
-# ============================================================
-echo "── Step 5: Creating Cache Rules ──"
-
-# Rule: Cache static assets for 30 days
-info "Creating Cache Rule: Static Assets..."
-curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/rulesets" \
-    -H "Authorization: Bearer $CF_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    --data '{
-        "name": "Cache static assets",
-        "kind": "zone",
-        "phase": "http_request_cache_settings",
-        "rules": [{
-            "expression": "(http.request.uri.path matches \"^/static/\")",
-            "action": "set_cache_settings",
-            "action_parameters": {
-                "cache": true,
-                "edge_ttl": { "mode": "override", "default": 2592000 },
-                "browser_ttl": { "mode": "override", "default": 31536000 }
-            },
-            "enabled": true
-        }]
-    }' > /dev/null 2>&1
-log "Cache Rule: Static assets → Edge 30 days, Browser 1 year"
-
-# Rule: Cache HTML pages for 5 minutes
-info "Creating Cache Rule: HTML Pages..."
-curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/rulesets" \
-    -H "Authorization: Bearer $CF_API_TOKEN" \
-    -H "Content-Type: application/json" \
-    --data "{
-        \"name\": \"Cache HTML pages\",
-        \"kind\": \"zone\",
-        \"phase\": \"http_request_cache_settings\",
-        \"rules\": [{
-            \"expression\": \"(http.request.uri.path eq \\\"/\\\") or (http.request.uri.path in {\\\"/schedule\\\" \\\"/about\\\" \\\"/terms\\\" \\\"/privacy\\\" \\\"/faq\\\" \\\"/transparency\\\" \\\"/report-illegal\\\"})\",
-            \"action\": \"set_cache_settings\",
-            \"action_parameters\": {
-                \"cache\": true,
-                \"edge_ttl\": { \"mode\": \"override\", \"default\": 300 },
-                \"browser_ttl\": { \"mode\": \"override\", \"default\": 300 }
-            },
-            \"enabled\": true
-        }]
-    }" > /dev/null 2>&1
-log "Cache Rule: HTML pages → Edge 5 min, Browser 5 min"
-
-echo ""
-
-# ============================================================
-# 7. Verify Setup
+# 6. Verify Setup
 # ============================================================
 echo "── Step 6: Verifying setup ──"
 
@@ -333,7 +295,7 @@ fi
 echo ""
 
 # ============================================================
-# 8. Print Summary
+# 7. Print Summary
 # ============================================================
 echo "═══════════════════════════════════════════════════════════"
 echo "  Setup Complete! 🎉"
@@ -344,10 +306,10 @@ echo "  Origin:     https://$ORIGIN"
 echo "  SSL:        Full (Strict)"
 echo "  Proxy:      ON (orange cloud)"
 echo ""
-echo "  Cache Rules:"
+echo "  Cache Rules (ordered, first match wins):"
+echo "    Bypass:         /admin /login /dashboard /report /api/ /webhook/ ..."
 echo "    Static assets:  Edge 30 days, Browser 1 year"
-echo "    HTML pages:     Edge 5 min, Browser 5 min"
-echo "    Dynamic routes: Bypass cache"
+echo "    Public HTML:    Edge 5 min, Browser 1 min"
 echo ""
 echo "  Features:"
 echo "    ✅ Brotli compression"
@@ -361,10 +323,10 @@ echo "    Cold start:    <100ms (from edge)"
 echo "    Repeat visit:  <10ms (from edge cache)"
 echo ""
 echo "  Next steps:"
-echo "    1. Wait 24-48h for DNS propagation"
-echo "    2. Add custom domain to Render dashboard"
-echo "    3. Update RENDER_EXTERNAL_URL env var"
-echo "    4. Test: curl -sI https://$ZONE_NAME/ | grep cf-ray"
+echo "    1. Wait for DNS to propagate (Cloudflare nameservers)"
+echo "    2. Add the custom domain (apex + www) in the Render dashboard"
+echo "    3. Verify edge caching + TTFB:"
+echo "         bash scripts/verify_edge_caching.sh $ZONE_NAME"
 echo ""
 echo "  Dashboard: https://dash.cloudflare.com"
 echo "═══════════════════════════════════════════════════════════"

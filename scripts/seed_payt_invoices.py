@@ -18,7 +18,7 @@ For local development / demoing only. Populates:
 Safe to re-run: citizens and (user, period) invoice pairs that already exist are
 skipped. `--force` wipes ALL PAYT invoices and the extra seed citizens first so
 the demo can be reset cleanly. NEVER runs on a deployed platform (guarded by the
-same RENDER/FLY_APP_NAME check used by the app itself).
+same RENDER check used by the app itself).
 
 Usage:
     python scripts/seed_payt_invoices.py            # default: 5 months
@@ -61,7 +61,7 @@ _WEIGHT_BANDS = [
 
 
 def _is_deployed():
-    return bool(os.environ.get('RENDER') or os.environ.get('FLY_APP_NAME'))
+    return bool(os.environ.get('RENDER'))
 
 
 def _status_for(month_idx, citizen_idx):
