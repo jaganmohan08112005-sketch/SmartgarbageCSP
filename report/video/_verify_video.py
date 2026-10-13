@@ -58,12 +58,16 @@ def duration(path):
     return probe(path)["duration"]
 
 
-def frame(path, t, dest):
+def frame(path, t, dest, crop=None):
     """Accurate seek: -ss AFTER -i decodes forward to the exact frame (an input
     seek can land on an earlier keyframe, which would compare two different
-    moments of a moving page and fake a mismatch)."""
-    code, _, err = run([FF, "-v", "error", "-i", path, "-ss", "%.3f" % t,
-                        "-frames:v", "1", "-y", dest])
+    moments of a moving page and fake a mismatch). An optional `crop` filter
+    isolates a region (the caption band) instead of the whole page."""
+    args = [FF, "-v", "error", "-i", path, "-ss", "%.3f" % t, "-frames:v", "1"]
+    if crop:
+        args += ["-vf", crop]
+    args += ["-y", dest]
+    code, _, err = run(args)
     if code != 0:
         raise RuntimeError("frame extract failed: " + err[:200])
     return dest
@@ -96,6 +100,21 @@ def diff(a, b):
     print("      (diff pipeline produced no stats: %s)"
           % (err.strip().splitlines()[-1][:120] if err.strip() else "no stderr"))
     return None
+
+
+# The caption band burnt into the last 120px of every segment names that segment's
+# feature, so it identifies a scene even when a frame lands a few tenths of a
+# second off during a fast scroll. It is the tie-breaker for section 2: sampling a
+# single mid-frame can miss by a frame or two (each segment carries its own audio
+# priming, so the concat offsets drift by a fraction of a second), and a screen
+# full of moving pixels turns that into a large mean difference. A reordered
+# segment would be seconds away, which no band comparison can confuse.
+BAND = "crop=iw:120:0:ih-120"
+
+
+def band_diff(out_frame, seg_path, t, tag):
+    src = frame(seg_path, t, os.path.join(SHOTS, "band_%s.png" % tag), BAND)
+    return diff(out_frame, src)
 
 
 print("=== 1. container / streams ===")
@@ -141,12 +160,26 @@ for i, seg in enumerate(entries):
                                         os.path.join(SHOTS, "rival_%02d.png" % j))))
     worst_rival = min([r for r in rivals if r is not None], default=None)
     ok = own is not None and worst_rival is not None and own < worst_rival
+    verdict = "BEST MATCH" if ok else "DOUBTFUL"
     if not ok:
-        mismatches += 1
+        # Tie-break on the caption band, which is text and moves with nothing.
+        a_band = frame(OUT, mid, os.path.join(SHOTS, "out_band_%02d.png" % i), BAND)
+        mine = band_diff(a_band, seg, mids[i][1], "own_%02d" % i)
+        theirs = []
+        for j in (i - 1, i + 1):
+            if 0 <= j < len(entries):
+                theirs.append(band_diff(a_band, entries[j], mids[j][1], "rival_%02d" % j))
+        theirs = [t for t in theirs if t is not None]
+        if mine is not None and theirs and mine < min(theirs):
+            ok = True
+            verdict = "caption band confirms"
+            print("      band: own=%.3f vs neighbours=%s"
+                  % (mine, ",".join("%.3f" % t for t in theirs)))
+        else:
+            mismatches += 1
     print("  %02d %-20s %.1fs @%6.1fs  own=%.2f neighbours=%s  %s"
           % (i, os.path.basename(seg), d, mid, own if own is not None else -1,
-             ",".join("%.2f" % r for r in rivals if r is not None),
-             "BEST MATCH" if ok else "DOUBTFUL"))
+             ",".join("%.2f" % r for r in rivals if r is not None), verdict))
     cursor += d
 print("segment durations sum: %.2fs vs container %.2fs (delta %.2fs)"
       % (cursor, total, abs(cursor - total)))

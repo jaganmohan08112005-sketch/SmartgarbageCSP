@@ -1,5 +1,14 @@
-# SmartGarbage Chintalavalasa — Demo Video Script (v5, matches `_make_video_live.py`)
-**Full walkthrough: every public page + all three roles (Citizen / Worker / Admin) — no idle scenes.**
+# SmartGarbage Chintalavalasa — Demo Video Script (v6, matches `_make_video_live.py`)
+**Full walkthrough: every page the route table serves as a page — public, Citizen, Worker and
+Admin — 31 scenes, no idle scenes.** Of the 41 routes that render a page, 39 are visited
+directly, `/mfa-verify` is filmed as part of the worker/admin sign-in, and the only page left out is
+`/reset-password/<token>`, whose token arrives by email (the form that sends it is filmed, and so is
+its sibling `/resend-verification`). Machine endpoints (`/api/*`, `/sitemap.xml`, `/health`, the
+service worker, the manifest) are not demo surfaces.
+**That ledger is checked, not asserted:** `python report/video/_probe_route_coverage.py` reads the
+Flask url_map, classifies each GET route by what its handler returns (41 pages, 5 downloads, 6
+redirects, 6 utility actions) and exits non-zero if any *page* route is neither filmed nor listed as
+a documented exception — re-run it after adding a route.
 Renderer: `report/video/_make_video_live.py` (Playwright drives the real site at `http://127.0.0.1:5057`
 via `scripts/run_local_stack.py`; swap `BASE` to the live URL after redeploy). Output: 1280×720 H.264.
 Every scene = one on-screen caption band naming the feature + verbatim narration (SAPI TTS Zira).
@@ -97,19 +106,131 @@ a live after-photo as proof. Offload logs close the loop at the dump yard."
 and tilt alerts, SLA-escalating complaints, worker monitoring, OTA firmware pushes, audit trail,
 failed-job alerts, and one-click state compliance exports."
 
-## 13. Mobile PWA (`15_pwa`)
+## 13. Citizen — waste declaration (`20_citizen_declare`)
+**Caption:** Citizen - four-stream waste declaration feeding Green Points
+**Say:** "Back in the citizen portal - still signed in. The dashboard carries a bin status search,
+one-tap issue reporting, the cleanliness leaderboard, and the daily segregation declaration: wet,
+dry, sanitary and hazardous waste in kilograms. Watch me declare today's waste and submit it - the
+weights feed the household's Green Points and the ward's pay-as-you-throw billing."
+**On camera:** ward picked, four stream weights typed, **Declare Segregated Waste** submitted →
+"Waste declaration submitted (flagged for weight verification). Earned +14 Green Points".
+
+## 14. Citizen — notification preferences (`21_citizen_prefs`)
+**Caption:** Notification Preferences - per-event push switches
+**Say:** "Notification preferences: the citizen chooses which events trigger a push notification -
+complaint submitted, assigned, in progress, resolved or escalated, schedule reminders, Green
+Points earned, and a weekly summary. I'll switch the weekly summary on and save."
+**On camera:** Weekly Summary checked → **Save Preferences** → "Notification preferences updated."
+
+## 15. Citizen — PAYT billing (`22_citizen_payt`)
+**Caption:** PAYT billing - invoice, UPI / Razorpay payment, PDF receipt
+**Say:** "Pay-as-you-throw billing. This is the outstanding August invoice - 363 rupees, billed on
+62.9 percent segregation compliance with the penalty multiplier shown openly. The citizen pays by
+UPI or card through Razorpay right here, and every settled invoice has a downloadable PDF receipt."
+
+## 16. Citizen — tracking & data deletion (`23_citizen_track_delete`)
+**Caption:** Signed tracking links & DPDP right-to-erasure request
+**Say:** "Every complaint gets a signed tracking link - the tracking page explains how to use it,
+how to reopen a resolved complaint, and how to rate the resolution. Under the Digital Personal Data
+Protection Act a citizen can also file a right-to-erasure request here, which lands in the admin
+queue."
+
+## 17. Worker — issue report & offload (`24_worker_actions`)
+**Caption:** Worker - raise a bin issue, log the dump-yard offload
+**Say:** "The worker's side of the loop. A driver can raise a bin issue - damage or blockage -
+straight from the portal instead of by phone, and at the end of the round logs the offload at the
+dump yard, which closes the collection record for that truck."
+**On camera:** bin + issue type picked, details typed → **Dispatch Issue Report**; then the offload
+weight → **Log & Verify Digital Manifest**.
+
+## 18. Admin — firmware & queues (`25_admin_firmware_ops`)
+**Caption:** Admin - OTA firmware, offline deliveries, dead-letter queue
+**Say:** "Admin operations, continued. OTA firmware management pushes ESP32 and Arduino updates to
+the bins over Wi-Fi, with a release history and a per-bin connectivity report - no physical access
+needed. The offline deliveries view audits complaints and photos that arrived through the PWA
+queue, and the dead-letter queue exposes background jobs that exhausted their retry budget."
+
+## 19. Admin — photo gate & audit trail (`26_admin_photogate_audit`)
+**Caption:** Admin - photo-gate relabelling & the immutable audit trail
+**Say:** "This is the photo gate's feedback loop: uploads the anti-fake-report model refused land
+here so an admin can relabel a false positive, and the relabelled set downloads as the next
+retraining batch. Behind everything sits the immutable audit trail - tamper-proof, with every
+action from all three roles recorded."
+
+## 20. Admin — analytics & compliance (`27_admin_analytics`)
+**Caption:** Analytics & Compliance - ESG, carbon, state portal exports
+**Say:** "The analytics and compliance hub: predictive collection heatmaps, an ESG compliance
+audit, the carbon-footprint tracker and circular-economy reports - plus one-click exports, the
+state portal compliance file, the CSRD export and a performance PDF."
+
+## 21. Admin — privacy & super-admin (`28_admin_privacy_super`)
+**Caption:** Admin - DPDP deletion queue & super-admin console
+**Say:** "Governance. The deletion queue lists right-to-erasure requests with their acknowledge and
+completion deadlines, and the super-admin console is the only place a new administrator account can
+be created - public registration never grants a staff role."
+
+## 22. Public — registration & waste pickers (`29_public_picker_register`)
+**Caption:** Public - account registration & the informal waste picker register
+**Say:** "Registration is open to citizens, and the informal waste picker register is a flow of its
+own: recognition under Swachh Bharat Mission Phase Two for the people who already keep the ward
+clean."
+
+## 23. Public — BWG ledger & search (`30_public_bwg_search`)
+**Caption:** BWG ledger - bulk generators declare, panchayat approves
+**Say:** "Bulk waste generators - hotels, shops, institutions - declare their waste in the BWG
+ledger, which drives the panchayat's bulk collection approvals. And site-wide search jumps straight
+to any of these services."
+
+## 24. Public — offline, consent & satisfaction (`31_public_offline_satisfaction`)
+**Caption:** Offline PWA, cookie consent & ward satisfaction rankings
+**Say:** "Rural connectivity is the default, so the offline page states exactly what still works -
+draft a report now, it syncs when the signal returns. Cookie settings give granular consent, and
+the ward satisfaction report ranks all five wards by the ratings citizens give after a resolution."
+
+## 25. Public — anonymous dump channel & grievance (`32_public_illegal_grievance`)
+**Caption:** Anonymous illegal-dumping report & grievance redressal officer
+**Say:** "Illegal dumping has its own anonymous channel: an eyewitness files a dump report with a
+photo and the location, and the system strips EXIF and never stores who reported it. If a complaint
+is mishandled, the grievance page names the redressal officer and the order in which a grievance
+escalates."
+
+## 26. Citizen — file a complaint & track it (`33_citizen_file_track`)
+**Caption:** File a complaint & track it - signed link, live timeline, SLA, reopen
+**Say:** "Filing and tracking, end to end. The report form takes the ward, the address and the
+description, and tags the exact device coordinates - GPS is mandatory, so a report cannot be filed
+from nowhere. On submit the citizen lands on the signed tracking page: the live status timeline,
+the ward's SLA window, the one-tap reopen if a resolution does not hold, and the satisfaction
+rating once it closes. Back on the dashboard the complaint is listed with its tracking link."
+**On camera:** ward + address + description → **Submit Report to Panchayat Sanitation Team** →
+success panel with the tracking link → the link followed to `/track/<token>` → the dashboard row.
+
+## 27. Public — legal & accessibility (`34_public_legal_a11y`)
+**Caption:** Privacy policy, terms of service & accessibility statement
+**Say:** "The legal and inclusion layer. The privacy policy sets out what the portal collects and
+why under the data-protection framework, the terms of service state the rules of use, and the
+accessibility statement publishes the WCAG commitments - keyboard support, heading structure and
+contrast."
+
+## 28. Public — account recovery (`35_password_recovery`)
+**Caption:** Account recovery - password reset & a fresh verification link
+**Say:** "Account recovery, for the moment a password or the verification mail goes missing: a
+citizen enters the username and the portal mails a single-use reset link, or, if the verification
+email never arrived, asks for a fresh verification link against the address on the account. Both
+links are for one use only."
+
+## 29. Mobile PWA (`15_pwa`)
 **Caption:** Installable PWA - works offline, syncs when back online
 **Say:** "SmartGarbage is an installable Progressive Web App. On a phone, the browser offers an
 install button; after that the app opens full-screen and keeps working without internet — pages
 are cached and complaints filed offline sync automatically when connectivity returns."
 
-## 14. Under the hood (`16_deploy`)
+## 30. Under the hood (`16_deploy`)
 **Caption:** Powered by Render + Supabase + Cloudflare - 100% free tier
 **Say:** "Under the hood: GitHub pushes auto-deploy to Render, PostgreSQL runs on Supabase,
 Cloudflare serves the edge, and GitHub Actions pings the health endpoint every fifteen minutes.
 The entire stack is free-tier."
 
-## 15. Close (`17_close`)
+## 31. Close (`17_close`)
 **Caption:** Schedules, complaints, ML dispatch, gamification - bilingual, zero cost
 **Say:** "That is SmartGarbage — schedules, complaints, ML dispatch, gamification and billing, all
 bilingual in English and Telugu, running at zero cost for the panchayat. Thank you."
@@ -117,12 +238,35 @@ bilingual in English and Telugu, running at zero cost for the panchayat. Thank y
 ---
 
 ## Closing
-Scene 14's last page holds to a fade-out. There is no outro card — the video ends on the
+Scene 30's last page holds to a fade-out. There is no outro card — the video ends on the
 website.
 
 ## Recording checklist
 - [ ] `python scripts/run_local_stack.py` up (or live URL in `BASE`), `/` returns 200
+- [ ] `flask db upgrade` applied — the tour films `/notifications/preferences`, which 500s on a
+      database missing the web-push tables (revision `p3q4r5s6t7u8` creates them)
+- [ ] `python scripts/seed_payt_invoices.py` — the PAYT scene needs a real invoice (`/payt/pay/3`)
 - [ ] Demo accounts work: citizen direct, worker/admin via OTP (dev OTP or Email-me-the-code)
-- [ ] `python report/video/_probe_logins.py` — the three demo logins reach their portals
+- [ ] `python report/video/_probe_pages.py` — every tour page returns 200 as its role
+- [ ] `python report/video/_probe_new_scenes.py` — the write flow (report → tracking page →
+      dashboard row) still submits, so scene 26 is never filmed as a form that never leaves itself
 - [ ] `python report/video/_make_video_live.py` — record, narrate, caption, concat (one command)
+- [ ] `python report/video/_probe_route_coverage.py` — exits 0 only while every page route the
+      url_map serves is filmed (or is a documented exception), so a new page cannot be missed
+- [ ] `python report/video/_verify_video.py` — segments, order, frozen tails, blank frames, captions
 - [ ] No other tabs; browser zoom 100%; mic level checked (TTS path needs no mic)
+
+## How the tour scenes work (v6)
+The 16 scenes after `14_admin` are data, not code: each is a
+`("tour", auth_role, steps)` tuple, and `record()` plays the steps in order — `go`, `scroll`,
+`pick` (select a real option in a `<select>`), `fill`, `check`, `submit`, `click`, `wait`. Every step
+is guarded individually, so a selector that moved costs one beat instead of the take. Tour scenes
+that need a role harvest that role's session in an unrecorded browser (the sign-in itself is filmed
+once per role), so no password is typed twice. Scenes that write — the waste declaration, the
+preference change, the complaint filing, the issue report and the offload — submit the real forms,
+which is why the admin views later in the cut show activity from this session.
+
+The recording context also gets a live device position (geolocation granted and pinned to Ward 2):
+`/report` refuses a filing without a GPS fix, so without it the filing scene would film a form that
+never submits. `click` follows a link the page renders — the success panel's tracking link carries
+`target="_blank"`, so the take drops the attribute and follows it in the same tab.

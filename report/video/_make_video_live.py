@@ -6,6 +6,24 @@ and INTERACTS with it (ward selection, form fills, logins, mobile PWA). Every
 scene carries an on-screen caption band that names the feature being explained.
 Narration via SAPI TTS per scene. Output: 1280x720 H.264 + AAC.
 
+v6 changes:
+- coverage is closed: every page the route table serves as a *page* is filmed -
+  the anonymous illegal-dumping channel, the grievance redressal officer, the
+  privacy / terms / accessibility statements, and a real filing that walks
+  report -> success panel -> signed tracking page -> dashboard entry
+- the recording context is given a live device position (geolocations are
+  granted and pinned to Ward 2), because /report refuses a filing without a
+  GPS fix and would otherwise block the submit on camera
+- a "click" tour step, so a scene can follow a link the page renders (the
+  success panel's tracking link opens in a new tab; the take follows it in place)
+- the account-recovery forms close the last two pages the route table serves
+  (/reset-password-request and /resend-verification), leaving only the two
+  token-in-email links unfilmed
+- segments encode at CRF 25 / 96k mono rather than 21/128k: the 31-scene cut is
+  ~82 MB, under GitHub's 100 MB per-file push limit. At the old settings the
+  same cut is ~117 MB and a push is rejected outright (measured per scene in
+  _probe_encode_size.py)
+
 v5 changes:
 - the cut is nothing but the website: the branded title/outro cards are gone, so
   it opens on the homepage and closes on the last real page
@@ -116,6 +134,247 @@ SCENES = [
      "monitoring, OTA firmware pushes, audit trail, failed-job alerts, and "
      "one-click state compliance exports.",
      "admin"),
+    # ── The rest of each portal, feature by feature. These scenes open already
+    # signed in (the login is shown once per role above) and are driven by the
+    # generic "tour" action: an ordered list of (step, args) tuples. Scenes that
+    # write - a waste declaration, a preference change, an offload log - submit
+    # the real form, so the admin views later in the cut show data this session
+    # created.
+    ("20_citizen_declare",
+     "Back in the citizen portal - still signed in. The dashboard carries a bin "
+     "status search, one-tap issue reporting, the cleanliness leaderboard, and "
+     "the daily segregation declaration: wet, dry, sanitary and hazardous waste "
+     "in kilograms. Watch me declare today's waste and submit it - the weights "
+     "feed the household's Green Points and the ward's pay-as-you-throw billing.",
+     ("tour", "citizen", (
+         ("go", "/dashboard"),
+         ("scroll", 500),
+         ("pick", "#segWard", 2),
+         ("fill", "#wet_kg", "4.5"),
+         ("fill", "#dry_kg", "2.0"),
+         ("fill", "#sanitary_kg", "0.3"),
+         ("fill", "#hazardous_kg", "0.2"),
+         ("wait", 0.6),
+         ("submit", "text=Declare Segregated Waste"),
+         ("wait", 1.6),
+         ("scroll", 400),
+     ))),
+    ("21_citizen_prefs",
+     "Notification preferences: the citizen chooses which events trigger a "
+     "push notification - complaint submitted, assigned, in progress, resolved "
+     "or escalated, schedule reminders, Green Points earned, and a weekly "
+     "summary. I'll switch the weekly summary on and save.",
+     ("tour", "citizen", (
+         ("go", "/notifications/preferences"),
+         ("wait", 0.8),
+         ("check", "#weekly_summary"),
+         ("wait", 0.5),
+         ("submit", "text=Save Preferences"),
+         ("wait", 1.4),
+         ("scroll", 400),
+     ))),
+    ("22_citizen_payt",
+     "Pay-as-you-throw billing. This is the outstanding August invoice - 363 "
+     "rupees, billed on 62.9 percent segregation compliance with the penalty "
+     "multiplier shown openly. The citizen pays by UPI or card through Razorpay "
+     "right here, and every settled invoice has a downloadable PDF receipt.",
+     ("tour", "citizen", (
+         ("go", "/payt/pay/3"),
+         ("wait", 1.2),
+         ("scroll", 700),
+     ))),
+    ("23_citizen_track_delete",
+     "Every complaint gets a signed tracking link - the tracking page explains "
+     "how to use it, how to reopen a resolved complaint, and how to rate the "
+     "resolution. Under the Digital Personal Data Protection Act a citizen can "
+     "also file a right-to-erasure request here, which lands in the admin queue.",
+     ("tour", "citizen", (
+         ("go", "/track"),
+         ("scroll", 700),
+         ("go", "/data-deletion"),
+         ("scroll", 700),
+     ))),
+    ("24_worker_actions",
+     "The worker's side of the loop. A driver can raise a bin issue - damage or "
+     "blockage - straight from the portal instead of by phone, and at the end of "
+     "the round logs the offload at the dump yard, which closes the collection "
+     "record for that truck.",
+     ("tour", "worker", (
+         ("go", "/worker"),
+         ("scroll", 900),
+         ("pick", "#issueBinId", 1),
+         ("pick", "#issueType", 1),
+         ("fill", "#issueDetails",
+          "Lid hinge broken - bin cannot be closed after emptying."),
+         ("wait", 0.6),
+         ("submit", "text=Dispatch Issue Report"),
+         ("wait", 1.4),
+         ("scroll", 700),
+         # The dump yard is a required field: without it the browser blocks the
+         # submit and no request ever reaches the app.
+         ("pick", "#dumpYardId", 1),
+         ("fill", "#offloadWeight", "420.5"),
+         ("wait", 0.6),
+         ("submit", "text=Log & Verify Digital Manifest"),
+         ("wait", 1.8),
+         ("scroll", 500),
+     ))),
+    ("25_admin_firmware_ops",
+     "Admin operations, continued. OTA firmware management pushes ESP32 and "
+     "Arduino updates to the bins over Wi-Fi, with a release history and a "
+     "per-bin connectivity report - no physical access needed. The offline "
+     "deliveries view audits complaints and photos that arrived through the PWA "
+     "queue, and the dead-letter queue exposes background jobs that exhausted "
+     "their retry budget.",
+     ("tour", "admin", (
+         ("go", "/admin/firmware"),
+         ("scroll", 700),
+         ("go", "/admin/offline-deliveries"),
+         ("scroll", 600),
+         ("go", "/admin/failed-jobs"),
+         ("scroll", 500),
+     ))),
+    ("26_admin_photogate_audit",
+     "This is the photo gate's feedback loop: uploads the anti-fake-report model "
+     "refused land here so an admin can relabel a false positive, and the "
+     "relabelled set downloads as the next retraining batch. Behind everything "
+     "sits the immutable audit trail - tamper-proof, with every action from all "
+     "three roles recorded.",
+     ("tour", "admin", (
+         ("go", "/admin/photo-rejections"),
+         ("scroll", 600),
+         ("go", "/admin/audit"),
+         ("scroll", 800),
+     ))),
+    ("27_admin_analytics",
+     "The analytics and compliance hub: predictive collection heatmaps, an ESG "
+     "compliance audit, the carbon-footprint tracker and circular-economy "
+     "reports - plus one-click exports, the state portal compliance file, the "
+     "CSRD export and a performance PDF.",
+     ("tour", "admin", (
+         ("go", "/analytics"),
+         ("wait", 1.2),
+         ("scroll", 1000),
+     ))),
+    ("28_admin_privacy_super",
+     "Governance. The deletion queue lists right-to-erasure requests with their "
+     "acknowledge and completion deadlines, and the super-admin console is the "
+     "only place a new administrator account can be created - public "
+     "registration never grants a staff role.",
+     ("tour", "admin", (
+         ("go", "/admin/data-deletion"),
+         ("scroll", 600),
+         ("go", "/admin/super"),
+         ("scroll", 700),
+     ))),
+    ("29_public_picker_register",
+     "Registration is open to citizens, and the informal waste picker register "
+     "is a flow of its own: recognition under Swachh Bharat Mission Phase Two "
+     "for the people who already keep the ward clean.",
+     ("tour", "public", (
+         ("go", "/register/picker"),
+         ("scroll", 800),
+         ("go", "/register"),
+         ("scroll", 600),
+     ))),
+    ("30_public_bwg_search",
+     "Bulk waste generators - hotels, shops, institutions - declare their waste "
+     "in the BWG ledger, which drives the panchayat's bulk collection approvals. "
+     "And site-wide search jumps straight to any of these services.",
+     ("tour", "citizen", (
+         ("go", "/bwg-ledger"),
+         ("wait", 1.0),
+         ("scroll", 800),
+         ("go", "/search"),
+         ("scroll", 600),
+     ))),
+    ("31_public_offline_satisfaction",
+     "Rural connectivity is the default, so the offline page states exactly what "
+     "still works - draft a report now, it syncs when the signal returns. Cookie "
+     "settings give granular consent, and the ward satisfaction report ranks all "
+     "five wards by the ratings citizens give after a resolution.",
+     ("tour", "public", (
+         ("go", "/offline"),
+         ("scroll", 500),
+         ("go", "/cookie-settings"),
+         ("scroll", 600),
+         ("go", "/reports/ward-satisfaction"),
+         ("scroll", 700),
+     ))),
+    # ── The remaining surfaces of the site. Everything the route table serves
+    # as a page is filmed: these three close the gaps left by the grouped scenes
+    # above (the anonymous dump channel, the grievance officer, the legal /
+    # accessibility statements) and, in 33, walk the report -> signed tracking
+    # page -> dashboard loop end to end with a real submission.
+    ("32_public_illegal_grievance",
+     "Illegal dumping has its own anonymous channel: an eyewitness files a dump "
+     "report with a photo and the location, and the system strips EXIF and never "
+     "stores who reported it. If a complaint is mishandled, the grievance page "
+     "names the redressal officer and the order in which a grievance escalates.",
+     ("tour", "public", (
+         ("go", "/report-illegal"),
+         ("scroll", 900),
+         ("go", "/grievance"),
+         ("scroll", 900),
+     ))),
+    ("33_citizen_file_track",
+     "Filing and tracking, end to end. The report form takes the ward, the "
+     "address and the description, and tags the exact device coordinates - GPS "
+     "is mandatory, so a report cannot be filed from nowhere. On submit the "
+     "citizen lands on the signed tracking page: the live status timeline, the "
+     "ward's SLA window, the one-tap reopen if a resolution does not hold, and "
+     "the satisfaction rating once it closes. Back on the dashboard the "
+     "complaint is listed with its tracking link.",
+     ("tour", "citizen", (
+         ("go", "/dashboard"),
+         ("wait", 0.8),
+         ("scroll", 500),
+         ("go", "/report"),
+         ("pick", "#repWard", 1),
+         ("fill", "#repAddress",
+          "Door No 7-14, Gandhi Road, opposite the ward office"),
+         ("fill", "#repDescription",
+          "Garbage collection skipped twice this week - dustbin overflowing "
+          "near the school gate."),
+         ("wait", 0.6),
+         ("submit", "text=Submit Report to Panchayat Sanitation Team"),
+         ("wait", 2.0),
+         ("scroll", 400),
+         # The filing confirms in place and hands the reporter the signed
+         # tracking link (absolute, target=_blank); follow it to the live
+         # status page in this tab.
+         ("click", 'a[href*="/track/"]'),
+         ("wait", 1.6),
+         ("scroll", 800),
+         ("go", "/dashboard"),
+         ("wait", 1.2),
+         ("scroll", 700),
+     ))),
+    ("34_public_legal_a11y",
+     "The legal and inclusion layer. The privacy policy sets out what the "
+     "portal collects and why under the data-protection framework, the terms of "
+     "service state the rules of use, and the accessibility statement publishes "
+     "the WCAG commitments - keyboard support, heading structure and contrast.",
+     ("tour", "public", (
+         ("go", "/privacy"),
+         ("scroll", 900),
+         ("go", "/terms"),
+         ("scroll", 800),
+         ("go", "/accessibility"),
+         ("scroll", 900),
+     ))),
+    ("35_password_recovery",
+     "Account recovery, for the moment a password or the verification mail goes "
+     "missing: a citizen enters the username and the portal mails a single-use "
+     "reset link, or, if the verification email never arrived, asks for a fresh "
+     "verification link against the address on the account. Both links are for "
+     "one use only.",
+     ("tour", "public", (
+         ("go", "/reset-password-request"),
+         ("scroll", 600),
+         ("go", "/resend-verification"),
+         ("scroll", 600),
+     ))),
     ("15_pwa",
      "SmartGarbage is an installable Progressive Web App. On a phone, the "
      "browser offers an install button; after that the app opens full-screen "
@@ -139,7 +398,26 @@ SCENES = [
 START_PAGES = {"track_auth": "/login", "citizen": "/login", "worker": "/login",
                "admin": "/login", "schedule": "/schedule",
                "report": "/report", "transparency": "/transparency",
-               "impact": "/impact", "about_faq": "/about"}
+               "impact": "/impact", "about_faq": "/about",
+               # Tour scenes: the starts below are the page the scene's first
+               # step would navigate to anyway, so no homepage pre-roll.
+               "20_citizen_declare": "/dashboard",
+               "21_citizen_prefs": "/notifications/preferences",
+               "22_citizen_payt": "/payt/pay/3",
+               "23_citizen_track_delete": "/track",
+               "24_worker_actions": "/worker",
+               "25_admin_firmware_ops": "/admin/firmware",
+               "26_admin_photogate_audit": "/admin/photo-rejections",
+               "27_admin_analytics": "/analytics",
+               "28_admin_privacy_super": "/admin/data-deletion",
+               "29_public_picker_register": "/register/picker",
+               "30_public_bwg_search": "/bwg-ledger",
+               "31_public_offline_satisfaction": "/offline",
+               "32_public_illegal_grievance": "/report-illegal",
+               "33_citizen_file_track": "/dashboard",
+               "34_public_legal_a11y": "/privacy",
+               "35_password_recovery": "/reset-password-request"}
+
 
 # Seeded demo logins (password == username; see the defaults in app/__init__.py
 # and scripts/run_local_stack.py). They exist only locally or with
@@ -164,6 +442,22 @@ CAPTIONS = [
     "Citizen Dashboard - Green Points, declarations, PAYT billing",
     "Worker Portal - MFA entry, ML-ranked dispatch, geofenced proof",
     "Admin Control Room - live telemetry, SLA, exports, audit",
+    "Citizen - four-stream waste declaration feeding Green Points",
+    "Notification Preferences - per-event push switches",
+    "PAYT billing - invoice, UPI / Razorpay payment, PDF receipt",
+    "Signed tracking links & DPDP right-to-erasure request",
+    "Worker - raise a bin issue, log the dump-yard offload",
+    "Admin - OTA firmware, offline deliveries, dead-letter queue",
+    "Admin - photo-gate relabelling & the immutable audit trail",
+    "Analytics & Compliance - ESG, carbon, state portal exports",
+    "Admin - DPDP deletion queue & super-admin console",
+    "Public - account registration & the informal waste picker register",
+    "BWG ledger - bulk generators declare, panchayat approves",
+    "Offline PWA, cookie consent & ward satisfaction rankings",
+    "Anonymous illegal-dumping report & grievance redressal officer",
+    "File a complaint & track it - signed link, live timeline, SLA, reopen",
+    "Privacy policy, terms of service & accessibility statement",
+    "Account recovery - password reset & a fresh verification link",
     "Installable PWA - works offline, syncs when back online",
     "Powered by Render + Supabase + Cloudflare - 100% free tier",
     "Schedules, complaints, ML dispatch, gamification - bilingual, zero cost",
@@ -220,6 +514,16 @@ def ensure_page(page, path):
     if page.url.split("?")[0].rstrip("/") != (BASE + path).rstrip("/"):
         goto_retry(page, BASE + path)
         wait_content(page)
+
+
+def grant_location(ctx):
+    """Give the recording context a live device position (see /report's GPS gate)."""
+    try:
+        ctx.grant_permissions(["geolocation"], origin=BASE)
+        ctx.set_geolocation({"latitude": 18.0675, "longitude": 83.4094,
+                             "accuracy": 12})
+    except Exception as e:
+        print("      geolocation grant skipped:", str(e)[:70])
 
 
 def clear_webms(d):
@@ -284,9 +588,41 @@ def role_login(page, role):
     print("      logged in as %s -> %s" % (role, page.url))
 
 
+def harvest_session(pw, role):
+    """Sign in as `role` in a THROWAWAY (unrecorded) browser; return its cookies.
+
+    The sign-in is filmed once per role (12_citizen / 13_worker / 14_admin), so
+    the feature-by-feature tour scenes that follow open already signed in rather
+    than repeating the password and MFA beats - the same demo credentials and
+    the same MFA path, just not recorded.
+    """
+    browser = pw.chromium.launch(headless=True)
+    ctx = browser.new_context(service_workers="block")
+    page = ctx.new_page()
+    page.set_default_timeout(30000)
+    cookies = []
+    try:
+        role_login(page, role)
+        cookies = ctx.cookies(BASE)
+    except Exception as e:
+        print("      harvest failed for %s: %s" % (role, str(e)[:70]))
+    ctx.close()
+    browser.close()
+    return cookies
+
+
 def record(pw, name, action, start="/", extra=None):
     extra = extra or {}
-    """Record one scene -> _video_live/raw_<name>/*.webm"""
+    """Record one scene -> _video_live/raw_<name>/*.webm
+
+    `action` is either a named action (see the dispatch below) or a tour tuple
+    ("tour", auth_role_or_None, steps) - an ordered list of page steps. Tours
+    exist so the feature-by-feature pass over each portal is data, not code.
+    """
+    tour = ()
+    if isinstance(action, tuple) and action and action[0] == "tour":
+        tour = tuple(action[2])
+        action = "tour"
     webm_dir = os.path.abspath(os.path.join(VD, "raw_" + name))
     os.makedirs(webm_dir, exist_ok=True)
     clear_webms(webm_dir)
@@ -309,8 +645,24 @@ def record(pw, name, action, start="/", extra=None):
         "const _sgS=document.createElement('style');"
         "_sgS.textContent='#sgSplash,#sgPrivacyNotice{display:none!important}';"
         "(document.head||document.documentElement).appendChild(_sgS);")
+    # Emulate a real device location: /report refuses to file without a live
+    # GPS fix (and blocks the submit client-side), so a headless browser that
+    # denies geolocation could never film the filing flow. The coordinates are
+    # the panchayat office in Ward 2 - the same locality the demo data uses.
+    grant_location(ctx)
     page = ctx.new_page()
     page.set_default_timeout(45000)
+    # Portal tour scenes open signed in: the sign-in is filmed once per role
+    # (12_citizen / 13_worker / 14_admin), so repeating it would cost the
+    # feature time and show nothing new. The session is harvested in an
+    # unrecorded browser; the role's login uses the same demo credentials the
+    # filmed sign-ins type.
+    auth = extra.get("auth")
+    if auth and auth in DEMO_LOGINS:
+        cookies = harvest_session(pw, auth)
+        if cookies:
+            ctx.add_cookies(cookies)
+            print("      %s session injected for %s" % (auth, name))
     goto_retry(page, BASE + start)
     wait_content(page)
     dismiss_banner(page)  # consent strip otherwise peeks above the caption band
@@ -409,8 +761,60 @@ def record(pw, name, action, start="/", extra=None):
     elif action == "admin":
         role_login(page, "admin")
         time.sleep(1.8)  # live tiles settle
-        scroll_slow(800)
+        # The control room is one long page (metrics, GIS telemetry map, fleet
+        # geofencing, route optimisation, dispatch queue, sensor health, bot
+        # feed, exports): walk most of it, not just the first screen.
+        scroll_slow(2800)
         time.sleep(0.8)
+    elif action == "tour":
+        # A tour is an ordered list of steps. Every step is individually
+        # guarded: a selector that moved costs that one beat, never the take.
+        for step in tour:
+            try:
+                kind = step[0]
+                if kind == "go":
+                    ensure_page(page, step[1])
+                    time.sleep(0.9)
+                elif kind == "scroll":
+                    scroll_slow(step[1])
+                    time.sleep(0.5)
+                elif kind == "end":
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    time.sleep(1.0)
+                elif kind == "pick":
+                    # choose a real <select> option the way the page's own JS does
+                    picked = page.eval_on_selector(
+                        step[1],
+                        "(el, n) => {const o = el.options[Math.min(n, "
+                        "el.options.length - 1)]; el.value = o.value;"
+                        "el.dispatchEvent(new Event('input', {bubbles: true}));"
+                        "el.dispatchEvent(new Event('change', {bubbles: true}));"
+                        "return o.textContent.trim();}", step[2])
+                    print("      picked %s = %s" % (step[1], picked))
+                    time.sleep(0.5)
+                elif kind == "fill":
+                    page.locator(step[1]).fill(step[2])
+                    time.sleep(0.4)
+                elif kind == "check":
+                    page.locator(step[1]).check()
+                    time.sleep(0.5)
+                elif kind == "submit":
+                    page.locator(step[1]).first.click(timeout=8000)
+                    print("      submitted via %s" % step[1])
+                    time.sleep(1.2)
+                elif kind == "click":
+                    # The success panel's tracking link opens in a new tab; the
+                    # take has one tab, so follow it in place.
+                    page.eval_on_selector(
+                        step[1], "el => el.removeAttribute('target')")
+                    page.locator(step[1]).first.click(timeout=8000)
+                    page.wait_for_load_state("domcontentloaded")
+                    print("      clicked %s -> %s" % (step[1], page.url))
+                    time.sleep(1.0)
+                elif kind == "wait":
+                    time.sleep(step[1])
+            except Exception as e:
+                print("      tour step %s skipped: %s" % (step[0], str(e)[:80]))
     elif action == "about_faq":
         ensure_page(page, "/about")
         scroll_slow(800)
@@ -429,6 +833,7 @@ def record(pw, name, action, start="/", extra=None):
                                   user_agent=("Mozilla/5.0 (Linux; Android 13; "
                                   "Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) "
                                   "Chrome/120.0 Mobile Safari/537.36"))
+        grant_location(mob)
         mob.add_init_script(
             "const _sgS=document.createElement('style');"
             "_sgS.textContent='#sgSplash,#sgPrivacyNotice{display:none!important}';"
@@ -585,10 +990,15 @@ def to_mp4(webm, wav, out, fade_out=False, caption=None):
         vf += "," + caption_filter(caption, total)
     if fade_out:
         vf += ",fade=t=out:st=%.1f:d=0.8" % (total - 0.8)
+    # CRF 25 / 96k mono keeps the finished cut (~82 MB for ~10 min) under
+    # GitHub's 100 MB per-file push limit, which the deliverable is committed
+    # with. At 21/128k the same cut is ~117 MB and a push is rejected outright;
+    # 720p screen footage is flat and compresses well, so the text stays sharp.
+    # Measured per-scene ratios are in _probe_encode_size.py's output.
     cmd = ([FF, "-y"] + ins + ["-i", webm, "-i", wav,
            "-t", "%.2f" % total, "-vf", vf,
-           "-c:v", "libx264", "-preset", "medium", "-crf", "21",
-           "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "1",
+           "-c:v", "libx264", "-preset", "medium", "-crf", "25",
+           "-c:a", "aac", "-b:a", "96k", "-ar", "44100", "-ac", "1",
            "-pix_fmt", "yuv420p", out])
     subprocess.run(cmd, check=True, capture_output=True)
     tag = " trim=%.1f+%.1fs" % (leading, cut) if cut else ""
@@ -658,8 +1068,9 @@ def main():
     print("1. warming up live site (avoid cold-start blanks)...")
     warmup()
     print("2. recording browser scenes...")
-    # Every role scene signs in on camera with its demo credentials, so there is
-    # no cookie harvesting step and nothing pre-authenticated to hide.
+    # The three role scenes sign in on camera with their demo credentials; the
+    # tour scenes that follow re-enter through a harvested session so they open
+    # on the feature instead of on a second login.
     webms = []
     with sync_playwright() as pw:
         for i, (name, _, action) in enumerate(SCENES):
@@ -669,8 +1080,11 @@ def main():
                 webms.append((name, raw))
                 print("   resume", name)
                 continue
-            w = record(pw, name, action, start=START_PAGES.get(action, "/"),
-                       extra={"target": (narr[i] + 0.6) if i < len(narr) else 0.0})
+            start = START_PAGES.get(name, START_PAGES.get(action, "/"))
+            w = record(pw, name, action, start=start,
+                       extra={"target": (narr[i] + 0.6) if i < len(narr) else 0.0,
+                              "auth": (action[1] if isinstance(action, tuple)
+                                       and action[0] == "tour" else None)})
             webms.append((name, w))
             print("   recorded", name)
     print("3. converting scenes (trim + frame-hold + captions)...")
