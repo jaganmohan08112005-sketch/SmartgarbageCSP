@@ -1,7 +1,9 @@
 name: tests
 
-# Gate EVERY feature-branch push with the full 359-test suite so a red
-# branch is visible before a PR is opened. (main and PRs against main are
+# Gate EVERY feature-branch push with the full test suite so a red
+# branch is visible before a PR is opened. (The suite collects tests/ —
+# including tests/test_template_csp.py, the CSP gate on inline handlers and
+# un-nonced inline blocks — and ci.yml re-runs that gate by name.) (main and PRs against main are
 # covered by ci.yml; this workflow intentionally ignores main to avoid
 # running the suite twice per merged change.)
 on:

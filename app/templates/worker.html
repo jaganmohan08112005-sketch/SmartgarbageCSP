@@ -229,60 +229,82 @@
     document.querySelectorAll('.clear-btn').forEach(btn => {
         btn.addEventListener('click', () => openClearModal(btn.dataset.hwId));
     });
-    // Initialize Leaflet Map focused on Chintalavalasa Junction
-    let map = L.map('workerNavMap').setView([18.0675, 83.4094], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-    // Current driver location marker
-    const driverIcon = L.divIcon({
-        html: '<div style="background:#4285F4; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>',
-        className: 'driver-gps-icon',
-        iconSize: [16, 16]
-    });
-    const driverMarker = L.marker([18.0675, 83.4094], {
-        icon: driverIcon,
-        // Leaflet renders divIcon markers as role="button"; give the current-
-        // location pin an accessible name so screen readers announce it.
-        title: 'My Vehicle CV-01 — current location',
-        alt: 'My Vehicle CV-01 — current location'
-    }).bindPopup("<b>My Vehicle (CV-01)</b>").addTo(map);
-    driverMarker.getElement().setAttribute('aria-label', 'My Vehicle CV-01 — current location');
-    // Color marker depending on status
+    // Initialize Leaflet Map focused on Chintalavalasa Junction (guarded if CDN fails)
+    let map = null;
+    let markersList = {};
     function getMarkerColor(status) {
         return status === 'Critical' ? '#E74C3C' : '#F1C40F';
     }
-    // Place active pickup markers
-    let markersList = {};
-    taskBins.forEach(bin => {
-        const marker = L.circleMarker([bin.latitude, bin.longitude], {
-            radius: 8,
-            fillColor: getMarkerColor(bin.status),
-            color: '#FFFFFF',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-        }).bindPopup(`<b>${bin.hardware_id}</b><br>Ward: ${bin.ward}<br>Level: ${bin.level}%`).addTo(map);
-        markersList[bin.hardware_id] = marker;
-    });
+    if (typeof window.L !== 'undefined') {
+        try {
+            map = L.map('workerNavMap').setView([18.0675, 83.4094], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+            // Current driver location marker
+            const driverIcon = L.divIcon({
+                html: '<div style="background:#4285F4; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>',
+                className: 'driver-gps-icon',
+                iconSize: [16, 16]
+            });
+            const driverMarker = L.marker([18.0675, 83.4094], {
+                icon: driverIcon,
+                // Leaflet renders divIcon markers as role="button"; give the current-
+                // location pin an accessible name so screen readers announce it.
+                title: 'My Vehicle CV-01 — current location',
+                alt: 'My Vehicle CV-01 — current location'
+            }).bindPopup("<b>My Vehicle (CV-01)</b>").addTo(map);
+            try {
+                driverMarker.getElement().setAttribute('aria-label', 'My Vehicle CV-01 — current location');
+            } catch (e) {}
+            // Place active pickup markers
+            taskBins.forEach(bin => {
+                const marker = L.circleMarker([bin.latitude, bin.longitude], {
+                    radius: 8,
+                    fillColor: getMarkerColor(bin.status),
+                    color: '#FFFFFF',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).bindPopup(`<b>${bin.hardware_id}</b><br>Ward: ${bin.ward}<br>Level: ${bin.level}%`).addTo(map);
+                markersList[bin.hardware_id] = marker;
+            });
+        } catch (e) {
+            console.warn('Leaflet map initialization failed:', e);
+            map = null;
+            markersList = {};
+        }
+    } else {
+        console.warn('Leaflet library (window.L) failed to load from CDN; map features are disabled.');
+    }
     // Locate Bin map helper
     let currentNavLine = null;
     function locateBin(hwId, lat, lon) {
-        map.setView([lat, lon], 16);
-        markersList[hwId].openPopup();
-        // Draw dynamic navigation vector from driver location
-        if (currentNavLine) {
-            map.removeLayer(currentNavLine);
+        if (typeof window.L === 'undefined' || !map) {
+            console.warn('Map unavailable; cannot locate bin', hwId);
+            return;
         }
-        currentNavLine = L.polyline([
-            [18.0675, 83.4094], // Driver start point
-            [lat, lon]          // Target bin point
-        ], {
-            color: '#2ECC71',
-            weight: 4,
-            opacity: 0.8,
-            dashArray: '5, 5'
-        }).addTo(map);
+        try {
+            map.setView([lat, lon], 16);
+            if (markersList && markersList[hwId]) {
+                markersList[hwId].openPopup();
+            }
+            // Draw dynamic navigation vector from driver location
+            if (currentNavLine) {
+                map.removeLayer(currentNavLine);
+            }
+            currentNavLine = L.polyline([
+                [18.0675, 83.4094], // Driver start point
+                [lat, lon]          // Target bin point
+            ], {
+                color: '#2ECC71',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '5, 5'
+            }).addTo(map);
+        } catch (e) {
+            console.warn('Failed to locate bin on map:', e);
+        }
     }
     // ── Proactive dispatch queue ──
     const dispatchList = document.getElementById('dispatchQueueList');

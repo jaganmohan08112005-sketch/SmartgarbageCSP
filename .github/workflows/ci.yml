@@ -93,6 +93,22 @@ jobs:
           # (asserts h1+h2+h3 >= 41 on the anonymous homepage render)
           python -m pytest tests/test_features.py -n 0 --timeout=180 -v -k "heading_count"
 
+      - name: Verify templates ship no inline handlers and every inline block is nonced
+        run: |
+          # Named coverage for the CSP contract the templates must keep:
+          # an inline event handler can never be authorised (no nonce applies
+          # to on*= attributes) and an inline <script>/<style> without the
+          # per-request nonce is silently refused by the browser. Neither
+          # breaks a test client, so make a regression fail loudly BY NAME:
+          #   test_no_inline_event_handlers
+          #   test_inline_scripts_and_styles_carry_the_nonce
+          #   test_nonce_always_comes_from_the_per_request_helper
+          #   test_no_javascript_urls
+          #   test_rendered_page_nonce_matches_its_csp_header
+          # (the last one renders a real page and asserts the nonce in the
+          # Content-Security-Policy header is the nonce in the markup)
+          python -m pytest tests/test_template_csp.py -n 0 --timeout=180 -v
+
   lint:
     runs-on: ubuntu-latest
     steps:

@@ -155,10 +155,10 @@ function updatePushStatus() {
         .then(data => {
             const el = document.getElementById('pushSubStatus');
             if (data.subscribed) {
-                el.innerHTML = '✅ ' + {{ _('Enabled on') }}.replace('{n}', data.deviceCount) + ' <strong>' + data.deviceCount + '</strong> ' + (data.deviceCount === 1 ? 'device' : 'devices');
+                el.innerHTML = '✅ ' + {{ _('Enabled on')|tojson }}.replace('{n}', data.deviceCount) + ' <strong>' + data.deviceCount + '</strong> ' + (data.deviceCount === 1 ? 'device' : 'devices');
                 el.className = 'small text-success mb-2';
             } else {
-                el.innerHTML = '❌ ' + {{ _('Not enabled on any device') }};
+                el.innerHTML = '❌ ' + {{ _('Not enabled on any device')|tojson }};
                 el.className = 'small text-danger mb-2';
             }
         })
