@@ -52,7 +52,9 @@ SmartGarbage/
 │
 ├── migrations/             Alembic DB migrations (flask db upgrade on deploy)
 ├── tests/                  Pytest suite (run_pg_suite.py mirrors CI against local Postgres)
-├── scripts/                Ops/maintenance scripts
+├── scripts/                Ops/maintenance scripts (local_pg.py: the one embedded-Postgres
+│                           boot / retry / wipe helper, shared by run_pg_suite.py and
+│                           run_local_stack.py — and via it, the CI Playwright/a11y jobs)
 ├── docs/                   ← DOCUMENTATION (this file, DEPLOY, ARCHITECTURE, guides/, wiki refs)
 ├── report/                 ← STUDENT REPORT TOOLING & DELIVERABLES
 │   ├── generate_final_report.py  Builds DOCUMENTATION_UPDATED.docx (→ submission/documentation/)
@@ -69,9 +71,11 @@ SmartGarbage/
 ├── submission/             ← R24 DELIVERY PACKAGE (one copy of each deliverable)
 │   ├── book/SmartGarbage_BOOK_R24.pdf              BOOK print master (89 pp, letter)
 │   ├── documentation/SmartGarbage_Documentation_Softcopy.docx
-│   ├── video/SmartGarbage_Demo_Video.mp4           4:25 live-website walkthrough (720p)
+│   ├── video/SmartGarbage_Demo_Video.mp4           9:50 live-website walkthrough (720p)
 │   ├── ppt/SmartGarbage_Presentation.pptx          20-slide deck (R24 chrome)
-│   └── code/SmartGarbage_Source_Code.zip           399-file source archive (git-ignored)
+│   ├── code/SmartGarbage_Source_Code.zip           409-file source archive (git-ignored)
+│   ├── RUNBOOK.md                                  Submission-day runbook (print/bind, hand-in set, post-submission)
+│   └── _scratch/verify_submission.py               One gate for all five deliverables (see below)
 │
 ├── wsgi.py                 Production entrypoint (gunicorn wsgi:app; starts in-process RQ worker)
 ├── worker.py               Standalone RQ worker entrypoint (optional, Render worker service)
@@ -179,7 +183,11 @@ python report/build_deck_v2.py                  # → report/DOCUMENT_FINAL.pptx
 python report/video/_make_video_live.py         # → submission/video/SmartGarbage_Demo_Video.mp4
 # Source-code zip:
 python submission/_scratch/build_code_zip.py --write
+# Verify all five deliverables (geometry/numbering, DOCX+PPTX integrity,
+# video streams, zip manifest+hashes, and drift from the committed source):
+python submission/_scratch/verify_submission.py
 ```
 
 After regenerating, copy the build output over the matching file in `submission/`
-(one delivered copy of each artifact; see `submission/README.md`).
+(one delivered copy of each artifact; see `submission/README.md`), then run
+`verify_submission.py` — it exits non-zero when an artifact drifted.

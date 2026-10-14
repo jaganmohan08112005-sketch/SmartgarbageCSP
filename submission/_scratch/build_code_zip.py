@@ -33,6 +33,25 @@ ADD = [
     "report/video/_make_video_live.py",
     "report/video/DEMO_VIDEO_SCRIPT.md",
     "report/video/VIDEO_PRODUCTION_BLUEPRINT.md",
+    # Added with the web-push migration fix and the full-coverage tour recorder.
+    "migrations/versions/p3q4r5s6t7u8_add_missing_notification_preference_.py",
+    "tests/test_migration_coverage.py",
+    "tests/test_template_csp.py",
+    "report/video/_probe_pages.py",
+    "report/video/_probe_new_scenes.py",
+    # Added with the bounded doc-link scan and the tour verifier the recording
+    # checklist tells a reviewer to run, plus the encode-size measurement that
+    # justifies the cut's CRF/preset choice.
+    "tests/test_doc_link_scan_bounded.py",
+    "report/video/_verify_video.py",
+    "report/video/_probe_encode_size.py",
+    "report/video/_probe_route_coverage.py",
+    # The narration generator: the committed SAPI/Zira TTS script (31 scene
+    # voices) that regenerates the walkthrough audio on any Windows box,
+    # without needing the Playwright recorder. It was tracked in 1bc9dba but
+    # missing from the manifest, so the shipped audio pipeline was not fully
+    # reproducible from the zip.
+    "report/video/_video_live/tts.ps1",
 ]
 FORBIDDEN = ("venv/", "node_modules/", "audit/out/", "submission/")
 

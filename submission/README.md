@@ -7,23 +7,32 @@ This folder is the **single copy** of every deliverable. The generators in
 `report/` are build tooling; their outputs are regenerated on demand and are not
 kept as a second copy in the repository.
 
+**On submission day, follow [RUNBOOK.md](RUNBOOK.md)** — it sequences the gate,
+the print/bind checklist, the exact hand-in file set, and the post-submission
+commit / zip-refresh / workflow-secret steps.
+
 ## Contents
 
 | Folder | File | What it is |
 |---|---|---|
 | `book/` | `SmartGarbage_BOOK_R24.pdf` | **The BOOK** (print master). 89 pages, US Letter 8.5×11 in, 1" margins, TNR 16/14/12, page numbering starts at List of Abbreviations = 1. |
 | `documentation/` | `SmartGarbage_Documentation_Softcopy.docx` | Softcopy of the same report (Times New Roman throughout, 19 tables, 20 figures/diagrams). |
-| `video/` | `SmartGarbage_Demo_Video.mp4` | 4:25 live walkthrough of every module, 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). |
+| `video/` | `SmartGarbage_Demo_Video.mp4` | 9:50 live walkthrough — 31 scenes covering every page the app serves: the public site, all three portals page by page (citizen, worker, admin), and the writes performed on camera (waste declaration, preference change, complaint filing with its signed tracking page, issue report, offload). 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). |
 | `ppt/` | `SmartGarbage_Presentation.pptx` | Final deck: 20 slides, R24 title/footer chrome, IEEE-numbered references (`[1] Author(s), "Title," …`). |
-| `code/` | `SmartGarbage_Source_Code.zip` | Full project source: 399 files — Flask app, IoT + ML modules, tests, CI, docs. No venv/node_modules, no report binaries (the BOOK/softcopy/deck are delivered above, not inside the code archive). Git-ignored; rebuild with `build_code_zip.py`. |
-| `_scratch/` | — | Working scripts (manifest, verifiers, builders). Not part of the submission. |
+| `code/` | `SmartGarbage_Source_Code.zip` | Full project source: 409 files — Flask app, IoT + ML modules, tests, CI, docs, and the committed narration generator (`report/video/_video_live/tts.ps1`). No venv/node_modules, no report binaries (the BOOK/softcopy/deck are delivered above, not inside the code archive). Git-ignored; rebuild with `build_code_zip.py`. |
+| `_scratch/` | — | Working scripts (manifest, the verifier, builders). Not part of the submission. |
+| — | `RUNBOOK.md` | Submission-day runbook: gate, print/bind checklist, hand-in set, post-submission steps. |
 
 ## Before you print (Executive Bond, colour, one-side)
 
-1. Print `book/SmartGarbage_BOOK_R24.pdf` — 89 pages, one side only, colour.
-2. Print **2 copies of the CERTIFICATE** page (one goes to the Project Coordinator
-   per the R24 note).
-3. Bind as ONE BOOK per batch.
+1. Run the verifier below and get exit 0 — do not print a BOOK the gate has not
+   passed.
+2. Print `book/SmartGarbage_BOOK_R24.pdf` — 89 pages, one side only, colour.
+3. Print **2 copies of the CERTIFICATE** page — absolute page 2 of the PDF (one
+   goes to the Project Coordinator per the R24 note).
+4. Bind as ONE BOOK per batch.
+
+[RUNBOOK.md](RUNBOOK.md) has the full checklist plus the post-submission steps.
 
 ## What was verified against the R24 template
 
@@ -42,11 +51,28 @@ kept as a second copy in the repository.
 - Deck follows the R24 slide order (Title → Abstract → … → References → Q&A) with two
   extra honest additions (Deployment, ML photo-gate QA) before the results slides.
 
-Run the verifier after any regeneration:
+## Verify before you print
+
+One command re-checks all five deliverables and exits non-zero if any of them
+drifted from the source it was built from:
 
 ```bash
-venv/Scripts/python.exe submission/_scratch/verify_book_pdf.py   # checks the delivered BOOK
+venv/Scripts/python.exe submission/_scratch/verify_submission.py
 ```
+
+| # | Deliverable | Re-checked against |
+|---|---|---|
+| 1 | `book/SmartGarbage_BOOK_R24.pdf` | page size (Letter, ±0.5pt), 1-inch text margins, front-matter order, re-based numbering (LoA = 1, no numbers in front matter), current date/year/register facts |
+| 2 | `documentation/…Softcopy.docx` | OOXML container + XML parses, 19 tables, 20 figures, Times New Roman dominant, front-matter order, current facts |
+| 3 | `ppt/SmartGarbage_Presentation.pptx` | OOXML container + XML parses, 20 slides, 16:9, IEEE references `[1]…[n]` with author/year entries, closing Q&A slide |
+| 4 | `video/SmartGarbage_Demo_Video.mp4` | container readable, 9:50 ±5s, h264 1280×720, AAC audio |
+| 5 | `code/SmartGarbage_Source_Code.zip` | entry set/order == `code_list.txt`, no forbidden paths, no duplicates, and every entry's SHA-256 equals the source tree (byte-for-byte drift) |
+
+Two failure kinds are both fatal: **CONTRACT** (the artifact no longer meets the
+R24 requirement it was reviewed against) and **DRIFT** (a code file changed after
+the zip was written, or a generator was committed after the artifact).
+`--selftest` proves the gate is not vacuous: it doctors a throwaway copy of each
+artifact and asserts the matching check fails on it.
 
 ## Regenerating any artifact
 
@@ -83,5 +109,7 @@ cd report
   build outputs and the delivered copies live in this folder.
 - `submission/code/*.zip` is git-ignored on purpose (size); rebuild it with
   `build_code_zip.py --write` after code changes so the archive matches HEAD.
+- Run `verify_submission.py` after any regeneration (and before printing) — it is
+  the single gate for all five deliverables.
 - `_archive/` keeps historical report versions; it is an archive by design and is
   not part of the submission.

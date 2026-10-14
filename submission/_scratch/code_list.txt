@@ -397,3 +397,13 @@ wsgi.py
 report/video/_make_video_live.py
 report/video/DEMO_VIDEO_SCRIPT.md
 report/video/VIDEO_PRODUCTION_BLUEPRINT.md
+migrations/versions/p3q4r5s6t7u8_add_missing_notification_preference_.py
+tests/test_migration_coverage.py
+report/video/_probe_pages.py
+tests/test_template_csp.py
+report/video/_probe_new_scenes.py
+tests/test_doc_link_scan_bounded.py
+report/video/_verify_video.py
+report/video/_probe_encode_size.py
+report/video/_probe_route_coverage.py
+report/video/_video_live/tts.ps1
