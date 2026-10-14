@@ -245,19 +245,32 @@ chore: update dependencies
 
 ### Running Tests
 
+The app is Postgres-only (no SQLite fallback), and `tests/conftest.py` refuses
+to run without `TEST_DATABASE_URL`. Don't create a Supabase account just to run
+tests — `run_pg_suite.py` boots a bundled local Postgres with `pgserver`, exports
+its URI, runs pytest, and stops it again. It is the identical harness the `tests`
+workflow uses, so a green local run means the same as a green CI run.
+
 ```bash
-# Run all tests (parallel by default)
-pytest tests/ -v
+# Run the whole suite against a bundled local Postgres (zero setup)
+python run_pg_suite.py -q
 
 # Run specific test file
-pytest tests/test_auth.py -v
+python run_pg_suite.py tests/test_auth.py -q
 
 # Run with coverage report
-pytest tests/ --cov=app --cov-report=html
+python run_pg_suite.py -q --cov=app --cov-report=html
 
 # Open coverage report
 open htmlcov/index.html
+
+# Discard the cached temp cluster (e.g. after a hard-killed run)
+python run_pg_suite.py --fresh
 ```
+
+> The suite must stay **sequential** — every test shares one database and
+drops/recreates the schema — so the runner forces `-n 0`. `pytest tests/ -v` is
+fine when you already have `TEST_DATABASE_URL` pointing at a Postgres instance.
 
 ### Writing Tests
 
@@ -300,7 +313,7 @@ def test_my_feature(client):
 
 All PRs run these checks automatically:
 
-- `pytest tests/ -v` — all tests must pass
+- `python run_pg_suite.py` — all tests must pass against embedded Postgres
 - `flake8 app/` — no lint errors
 - `python -c "from app import create_app"` — app imports correctly
 
@@ -318,7 +331,7 @@ All PRs run these checks automatically:
 
 2. **Run tests:**
    ```bash
-   pytest tests/ -v
+   python run_pg_suite.py -q
    ```
 
 3. **Check linting:**

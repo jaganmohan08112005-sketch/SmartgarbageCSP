@@ -328,15 +328,24 @@ curl https://your-domain.com/api/v1/open-data
 # Install test dependencies
 pip install -r requirements-dev.txt
 
-# Run all tests (parallel)
-pytest tests/ -v
+# Run the full suite against a bundled local Postgres — the same harness CI
+# uses. No Supabase account and no TEST_DATABASE_URL to set: the runner boots
+# an embedded pgserver cluster, exports its URI, and shuts it down afterwards.
+python run_pg_suite.py -q
 
 # Run with coverage
-pytest tests/ --cov=app --cov-report=html
+python run_pg_suite.py -q --cov=app --cov-report=html
 
 # Run specific test file
-pytest tests/test_auth.py -v
+python run_pg_suite.py tests/test_auth.py -q
 ```
+
+The suite runs against **real Postgres** — there is no SQLite fallback anywhere
+in the app — so it needs a database. `pytest tests/ -v` works too when you point
+`TEST_DATABASE_URL` at any Postgres/Supabase instance; `run_pg_suite.py` is the
+zero-setup path and the one CI mirrors. If a killed run left the cached temp
+cluster unusable, `python run_pg_suite.py --fresh` discards it and starts over
+(the runner also recovers from that automatically).
 
 ### Test Structure
 

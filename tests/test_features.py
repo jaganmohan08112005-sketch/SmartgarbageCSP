@@ -1130,7 +1130,7 @@ SCHEMA_ANON_PAGES = ['/', '/about', '/schedule', '/report', '/transparency',
 def _jsonld_objects(html):
     """Decode every JSON-LD block in a page, including @graph children."""
     import re
-    for match in re.findall(r'<script type="application/ld\+json">(.*?)</script>',
+    for match in re.findall(r'<script[^>]*\stype="application/ld\+json"[^>]*>(.*?)</script\s*>',
                             html, re.S):
         try:
             data = _json.loads(match)
@@ -4784,11 +4784,18 @@ def test_write_audit_uses_naive_utc(client, app):
 # ── Postgres parity: VARCHAR(n) is ENFORCED on Postgres ──────
 def test_register_rejects_overlong_username(client, app):
     """VARCHAR(100) username: Postgres raises DataError past the limit, so the
-    route must reject (not silently store) overlong identity fields."""
+    route must reject (not silently store) overlong identity fields.
+
+    GOV.UK pattern: the POST re-renders the form (200) with an error
+    summary linking the offending field — no redirect."""
     r = client.post('/register', data={
         'username': 'u' * 150, 'password': 'testpass123',
         'phone': '+919876543201', 'email': 'long@example.com'}, follow_redirects=False)
-    assert r.status_code == 302  # bounced back to register with a flash
+    assert r.status_code == 200  # form re-rendered with the error summary
+    body = r.get_data(as_text=True)
+    assert 'sg-error-summary' in body
+    assert 'Username must be 100 characters or fewer.' in body
+    assert 'href="#reg_username"' in body
     with app.app_context():
         assert User.query.filter_by(username='u' * 150).first() is None
 

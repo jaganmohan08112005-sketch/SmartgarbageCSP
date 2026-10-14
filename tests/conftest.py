@@ -1,6 +1,5 @@
 import os
 import sys
-import tempfile
 import socket
 from contextlib import closing
 
@@ -138,8 +137,14 @@ def app():
     test_db_url = os.environ.get('TEST_DATABASE_URL')
     if not test_db_url:
         raise RuntimeError(
-            "TEST_DATABASE_URL must be set to a Supabase/PostgreSQL connection string.\n"
-            "Example: export TEST_DATABASE_URL='postgresql://user:pass@host:5432/test_db?sslmode=require'"
+            "TEST_DATABASE_URL is not set.\n"
+            "Run the suite through the bundled local Postgres harness instead - it\n"
+            "boots an embedded pgserver cluster and exports the URL for you, so no\n"
+            "Supabase account is needed:\n"
+            "    python run_pg_suite.py -q\n"
+            "To use your own database, point TEST_DATABASE_URL at any PostgreSQL\n"
+            "instance (Supabase pooler URL works too):\n"
+            "    export TEST_DATABASE_URL='postgresql://user:pass@host:5432/test_db?sslmode=require'"
         )
     # Postgres mode: the service-container database is shared across tests,
     # so drop/recreate the schema per test to keep each test isolated.

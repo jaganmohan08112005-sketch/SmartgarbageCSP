@@ -9,46 +9,25 @@ Flow: pgserver boot → schema via flask-migrate/Alembic upgrade() — the same
       revisions production runs, so a table that no revision creates is missing
       here too (that is how the web-push tables went unnoticed) → seed demo
       data → Flask on 127.0.0.1:5057
+
+The cluster itself is handled by scripts/local_pg.py, shared with
+run_pg_suite.py so the boot/retry/wipe rules live in one place; this file owns
+only what the stack puts *on* the database.
 """
 import os
 import sys
-import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 os.chdir(ROOT)
 sys.path.insert(0, ROOT)
 
-# ── 1. Boot pgserver (persistent PGDATA — survives restarts with cached port)
-PGDATA = os.path.join(tempfile.gettempdir(), "sg_pgdata_v3")
-os.makedirs(PGDATA, exist_ok=True)
+from scripts import local_pg  # noqa: E402
 
-import pgserver  # noqa: E402
-
-# pgserver hardcodes a 10s pg_ctl timeout; Windows Defender can cause the
-# freshly-spawned postgres.exe to exceed it. Widen + retry.
-import subprocess as _sp  # noqa: E402
-_orig_run = _sp.run
-def _patched_run(*a, **kw):
-    if kw.get('timeout') == 10:
-        kw['timeout'] = 120
-    return _orig_run(*a, **kw)
-_sp.run = _patched_run
-
-pg = None
-for attempt in (1, 2, 3):
-    try:
-        pg = pgserver.get_server(pgdata=PGDATA)
-        pg.ensure_postgres_running()
-        print(f"[stack] pgserver running on attempt {attempt}")
-        break
-    except Exception as exc:
-        print(f"[stack] pgserver attempt {attempt} failed: {exc}")
-        import shutil
-        shutil.rmtree(PGDATA, ignore_errors=True)
-        os.makedirs(PGDATA, exist_ok=True)
-        if attempt == 3:
-            raise
+# ── 1. Boot pgserver (persistent PGDATA — survives restarts with cached port,
+#       and holds the seeded demo rows the recorded walkthrough depends on, so
+#       it is never wiped implicitly)
+pg, PGDATA = local_pg.boot_cluster("sg_pgdata_v3", label="stack")
 
 DB_URL = pg.get_uri()
 os.environ["DATABASE_URL"] = DB_URL
@@ -56,19 +35,7 @@ os.environ["SENTRY_DSN"] = ""
 print(f"[stack] Postgres: {DB_URL}")
 
 # ── 2. Verify connectivity with a raw psycopg2 ping before going further
-import time  # noqa: E402
-import psycopg2  # noqa: E402
-for ping_attempt in range(20):
-    try:
-        conn = psycopg2.connect(DB_URL, connect_timeout=5)
-        conn.close()
-        print("[stack] DB ping OK")
-        break
-    except psycopg2.OperationalError as e:
-        print(f"[stack] DB ping attempt {ping_attempt + 1}/20 failed: {e}")
-        time.sleep(2)
-else:
-    raise RuntimeError("Could not connect to pgserver after 40 seconds")
+local_pg.wait_until_connectable(DB_URL, label="stack")
 
 # ── 3. Create schema + run migrations in-process (single process = pgserver lives)
 print("[stack] creating app and running migrations in-process...")
