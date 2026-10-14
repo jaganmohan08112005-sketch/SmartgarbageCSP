@@ -30,6 +30,7 @@ Exit codes:
     1  one or more broken links / deleted-doc references found
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -43,7 +44,17 @@ SKIP_DIR_NAMES = {
     '.git', 'node_modules', 'venv', '.venv', '__pycache__',
     '_archive', '_qa', '_imgqa', 'test-results', 'playwright-report',
     '.freebuff', 'report', '.kilo',
+    # Generated Lighthouse/axe reports (git-ignored). They are the largest text
+    # files on a developer's machine, they cannot carry a doc reference that
+    # exists in the repo, and reading them line by line blew the 180s test
+    # timeout on 2026-10-11.
+    'audit',
 }
+
+# Never hand an unbounded file to a line-by-line reader. A tool can leave a
+# multi-megabyte text file in the tree; scanning it serves no purpose and the
+# suite pays for it with a timeout.
+MAX_SCAN_BYTES = 1_000_000
 # Vendored agent-skill definitions (they reference reference-files shipped by
 # the tooling, not by this repo).
 SKIP_SUBTREES = {'.github/skills'}
@@ -93,19 +104,36 @@ EXTERNAL_PREFIXES = ('http://', 'https://', 'mailto:', 'tel:', 'data:', 'ftp://'
 
 
 def _iter_files(root: Path, suffixes):
-    """Yield every scannable file under root, skipping generated/vendored dirs."""
-    for path in sorted(root.rglob('*')):
-        if not path.is_file() or path.suffix.lower() not in suffixes:
-            continue
-        rel = path.relative_to(root)
-        if any(part in SKIP_DIR_NAMES for part in rel.parts):
-            continue
-        posix = rel.as_posix()
-        if any(posix == sub or posix.startswith(sub + '/') for sub in SKIP_SUBTREES):
-            continue
-        if path.resolve() in SELF_FILES:
-            continue
-        yield path
+    """Yield every scannable file under root, skipping generated/vendored dirs.
+
+    Traversal is pruned, not just its results: `root.rglob('*')` descended into
+    `.git/` and the `.kilo/` worktrees (a second full checkout) only to discard
+    every path it found, and that walk — not the reading — dominated the run
+    time (~14s of the lint job, and a per-name re-walk in the guard test).
+    Walking with `os.walk` and cutting the skipped directories out of
+    `dirnames` yields the identical file set in ~2s.
+    """
+    found = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIR_NAMES)
+        rel_dir = Path(dirpath).relative_to(root)
+        for name in filenames:
+            if Path(name).suffix.lower() not in suffixes:
+                continue
+            path = Path(dirpath) / name
+            posix = (rel_dir / name).as_posix()
+            if any(posix == sub or posix.startswith(sub + '/')
+                   for sub in SKIP_SUBTREES):
+                continue
+            if path.resolve() in SELF_FILES:
+                continue
+            try:
+                if path.stat().st_size > MAX_SCAN_BYTES:
+                    continue
+            except OSError:
+                continue
+            found.append(path)
+    yield from sorted(found)
 
 
 def _strip_code(text: str) -> str:
