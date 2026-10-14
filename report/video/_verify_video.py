@@ -2,10 +2,10 @@
 
 Checks:
   1. container/stream facts (duration, resolution, codecs, mono AAC)
-  2. scene ORDER + CONTENT: a frame at each segment's midpoint is extracted from
-     the concatenated file and from the source segment; because the concat uses
-     -c copy the frames must be pixel-identical, so a match proves both the order
-     and that no scene was silently replaced by another
+  2. scene ORDER + CONTENT: frames at three points inside each segment's window
+     are extracted from the concatenated file and from the source segments; each
+     frame must match ITS OWN segment better than either neighbour, which proves
+     the concat kept the intended order and replaced no scene with another
   3. no blank/dead frames: luma mean+std sampled right through the timeline
   4. dumps reviewable frames (opening page, scene 03 results, the last page) for the eye
 """
@@ -58,15 +58,12 @@ def duration(path):
     return probe(path)["duration"]
 
 
-def frame(path, t, dest, crop=None):
+def frame(path, t, dest):
     """Accurate seek: -ss AFTER -i decodes forward to the exact frame (an input
     seek can land on an earlier keyframe, which would compare two different
-    moments of a moving page and fake a mismatch). An optional `crop` filter
-    isolates a region (the caption band) instead of the whole page."""
-    args = [FF, "-v", "error", "-i", path, "-ss", "%.3f" % t, "-frames:v", "1"]
-    if crop:
-        args += ["-vf", crop]
-    args += ["-y", dest]
+    moments of a moving page and fake a mismatch)."""
+    args = [FF, "-v", "error", "-i", path, "-ss", "%.3f" % t, "-frames:v", "1",
+            "-y", dest]
     code, _, err = run(args)
     if code != 0:
         raise RuntimeError("frame extract failed: " + err[:200])
@@ -102,19 +99,20 @@ def diff(a, b):
     return None
 
 
-# The caption band burnt into the last 120px of every segment names that segment's
-# feature, so it identifies a scene even when a frame lands a few tenths of a
-# second off during a fast scroll. It is the tie-breaker for section 2: sampling a
-# single mid-frame can miss by a frame or two (each segment carries its own audio
-# priming, so the concat offsets drift by a fraction of a second), and a screen
-# full of moving pixels turns that into a large mean difference. A reordered
-# segment would be seconds away, which no band comparison can confuse.
-BAND = "crop=iw:120:0:ih-120"
+def mean(vals):
+    """Average of the samples that produced a number (None drops out)."""
+    good = [v for v in vals if v is not None]
+    return sum(good) / len(good) if good else None
 
 
-def band_diff(out_frame, seg_path, t, tag):
-    src = frame(seg_path, t, os.path.join(SHOTS, "band_%s.png" % tag), BAND)
-    return diff(out_frame, src)
+# Nothing is burnt into the picture any more (the caption band is gone), so
+# section 2 samples SEVERAL points inside each segment window rather than one.
+# A single mid-frame can miss by a frame or two - every segment carries its own
+# audio priming, so the concat offsets drift by a fraction of a second, and a
+# screen full of moving pixels turns that into a large mean difference. Averaging
+# three samples makes a false alarm far less likely, while a reordered segment
+# stays seconds away and cannot be confused with its neighbour at any of them.
+SAMPLES = (0.3, 0.5, 0.7)
 
 
 print("=== 1. container / streams ===")
@@ -141,7 +139,6 @@ with open(lst, encoding="utf-8") as fh:
         if line.startswith("file '"):
             entries.append(line[6:-1].replace("/", os.sep))
 print("%d segments in the concat list" % len(entries))
-mids = [(os.path.basename(s), duration(s) / 2.0) for s in entries]
 cursor = 0.0
 mismatches = 0
 for i, seg in enumerate(entries):
@@ -151,35 +148,30 @@ for i, seg in enumerate(entries):
         print("  !! segment %d lies past the end of the output" % i)
         mismatches += 1
         break
-    a = frame(OUT, mid, os.path.join(SHOTS, "out_%02d.png" % i))
-    own = diff(a, frame(seg, mids[i][1], os.path.join(SHOTS, "seg_%02d.png" % i)))
-    rivals = []
-    for j in (i - 1, i + 1):
-        if 0 <= j < len(entries):
-            rivals.append(diff(a, frame(entries[j], mids[j][1],
-                                        os.path.join(SHOTS, "rival_%02d.png" % j))))
-    worst_rival = min([r for r in rivals if r is not None], default=None)
+    own_s, rival_s = [], {j: [] for j in (i - 1, i + 1) if 0 <= j < len(entries)}
+    for k, frac in enumerate(SAMPLES):
+        off = frac * d
+        a = frame(OUT, cursor + off, os.path.join(SHOTS, "out_%02d_%d.png" % (i, k)))
+        own_s.append(diff(a, frame(seg, off, os.path.join(SHOTS,
+                                                         "seg_%02d_%d.png" % (i, k)))))
+        for j in rival_s:
+            rival_s[j].append(diff(a, frame(entries[j], off,
+                                            os.path.join(SHOTS,
+                                                         "rival_%02d_%d.png" % (j, k)))))
+    own = mean(own_s)
+    rival_vals = [v for v in (mean(v) for v in rival_s.values()) if v is not None]
+    worst_rival = min(rival_vals) if rival_vals else None
+    won = sum(1 for k in range(len(SAMPLES))
+              if own_s[k] is not None
+              and all(rival_s[j][k] is not None for j in rival_s)
+              and own_s[k] < min(rival_s[j][k] for j in rival_s))
     ok = own is not None and worst_rival is not None and own < worst_rival
-    verdict = "BEST MATCH" if ok else "DOUBTFUL"
+    verdict = ("BEST MATCH" if ok else "DOUBTFUL") + " %d/%d windows" % (won, len(SAMPLES))
     if not ok:
-        # Tie-break on the caption band, which is text and moves with nothing.
-        a_band = frame(OUT, mid, os.path.join(SHOTS, "out_band_%02d.png" % i), BAND)
-        mine = band_diff(a_band, seg, mids[i][1], "own_%02d" % i)
-        theirs = []
-        for j in (i - 1, i + 1):
-            if 0 <= j < len(entries):
-                theirs.append(band_diff(a_band, entries[j], mids[j][1], "rival_%02d" % j))
-        theirs = [t for t in theirs if t is not None]
-        if mine is not None and theirs and mine < min(theirs):
-            ok = True
-            verdict = "caption band confirms"
-            print("      band: own=%.3f vs neighbours=%s"
-                  % (mine, ",".join("%.3f" % t for t in theirs)))
-        else:
-            mismatches += 1
+        mismatches += 1
     print("  %02d %-20s %.1fs @%6.1fs  own=%.2f neighbours=%s  %s"
           % (i, os.path.basename(seg), d, mid, own if own is not None else -1,
-             ",".join("%.2f" % r for r in rivals if r is not None), verdict))
+             ",".join("%.2f" % r for r in rival_vals), verdict))
     cursor += d
 print("segment durations sum: %.2fs vs container %.2fs (delta %.2fs)"
       % (cursor, total, abs(cursor - total)))

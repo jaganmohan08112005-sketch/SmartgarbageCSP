@@ -70,4 +70,6 @@ Scene 5 states the simulation openly. Figures 4.3 / 7.1 come from the report's
 - 5 scenes, ~19 s average; cut on action, never mid-sentence.
 - `[PAUSE]` ≈ 0.5 s of silence — honor them; they separate civic problem from technical answer.
 - Background music: none under voiceover sections; soft track allowed only under Scene 5.
-- Captions in English burned in; optional Telugu subtitle track for community screening.
+- Captions: none burned in. The delivered cut is the bare capture — no caption band, no title
+  card — so the narration carries the explanation; a sidecar Telugu subtitle track remains an
+  option for community screening.

@@ -2,9 +2,16 @@
 """Documentation_DEMO_VIDEO v4 - LIVE WEBSITE WALKTHROUGH (explains every feature).
 
 Playwright drives a real browser over the local reproduction stack set in BASE
-and INTERACTS with it (ward selection, form fills, logins, mobile PWA). Every
-scene carries an on-screen caption band that names the feature being explained.
-Narration via SAPI TTS per scene. Output: 1280x720 H.264 + AAC.
+and INTERACTS with it (ward selection, form fills, logins, mobile PWA). There is
+no burnt-in text of any kind - no caption band, no title card - so every frame is
+the bare website and a scene is identified by its narration alone. Narration via
+SAPI TTS per scene. Output: 1280x720 H.264 + AAC.
+
+v7 changes:
+- the per-scene caption band is gone: nothing is drawn over the capture, so what
+  is on screen is only ever the page the tour is visiting. _verify_video.py no
+  longer keys off a caption band either, and the finished cut is a little
+  smaller than the banded one
 
 v6 changes:
 - coverage is closed: every page the route table serves as a *page* is filmed -
@@ -30,6 +37,7 @@ v5 changes:
 - citizen, worker and admin are entered by typing the seeded demo credentials
   into the real login form on camera, MFA code included
 - drawtext caption band per scene (feature name + one-line explanation)
+  (removed again in v7 - the client wants the bare website)
 - real interactions: schedule ward picker, report form typing, mobile PWA
 - all segments re-encoded uniformly (concat-safe), mono AAC everywhere
 """
@@ -56,7 +64,6 @@ os.makedirs(VD, exist_ok=True)
 ROOT = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(ROOT, "submission", "video", "SmartGarbage_Demo_Video.mp4")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
-FONT = "C\\:/Windows/Fonts/arialbd.ttf"
 
 WHITE_YAVG = 252.0   # >= this luma == blank white frame
 PAGES = ["/", "/schedule", "/report", "/transparency", "/impact", "/contact",
@@ -428,41 +435,6 @@ DEMO_LOGINS = {
     "admin": ("24331A4441ADMIN", "/admin"),
 }
 
-# on-screen caption per scene (same order as SCENES)
-CAPTIONS = [
-    "Homepage - SmartGarbage Chintalavalasa Portal",
-    "Live ward data, collection days & helpline 1800 119 9111",
-    "Collection Schedule - pick your ward: pickup days + AI overflow risk",
-    "Report a Missed Pickup - GPS location, photo proof, tracking token",
-    "WhatsApp fallback & toll-free helpline - always reachable",
-    "Transparency Dashboard - open complaint & collection data",
-    "Impact & Contact - community results and every contact channel",
-    "About & FAQ - segregation, Green Points and PAYT explained",
-    "Track Complaints & Secure Login - token tracking, staff MFA",
-    "Citizen Dashboard - Green Points, declarations, PAYT billing",
-    "Worker Portal - MFA entry, ML-ranked dispatch, geofenced proof",
-    "Admin Control Room - live telemetry, SLA, exports, audit",
-    "Citizen - four-stream waste declaration feeding Green Points",
-    "Notification Preferences - per-event push switches",
-    "PAYT billing - invoice, UPI / Razorpay payment, PDF receipt",
-    "Signed tracking links & DPDP right-to-erasure request",
-    "Worker - raise a bin issue, log the dump-yard offload",
-    "Admin - OTA firmware, offline deliveries, dead-letter queue",
-    "Admin - photo-gate relabelling & the immutable audit trail",
-    "Analytics & Compliance - ESG, carbon, state portal exports",
-    "Admin - DPDP deletion queue & super-admin console",
-    "Public - account registration & the informal waste picker register",
-    "BWG ledger - bulk generators declare, panchayat approves",
-    "Offline PWA, cookie consent & ward satisfaction rankings",
-    "Anonymous illegal-dumping report & grievance redressal officer",
-    "File a complaint & track it - signed link, live timeline, SLA, reopen",
-    "Privacy policy, terms of service & accessibility statement",
-    "Account recovery - password reset & a fresh verification link",
-    "Installable PWA - works offline, syncs when back online",
-    "Powered by Render + Supabase + Cloudflare - 100% free tier",
-    "Schedules, complaints, ML dispatch, gamification - bilingual, zero cost",
-]
-
 
 def goto_retry(pg, url, attempts=4):
     """goto with retries. The app runs Socket.IO, whose persistent websocket
@@ -611,6 +583,16 @@ def harvest_session(pw, role):
     return cookies
 
 
+def newest_webm(folder):
+    """The newest *.webm in a take folder.
+
+    A re-record leaves the older take sitting beside its replacement, so
+    'the first file in the folder' would silently keep the old capture.
+    """
+    files = glob.glob(os.path.join(folder, "*.webm"))
+    return max(files, key=os.path.getmtime) if files else None
+
+
 def record(pw, name, action, start="/", extra=None):
     extra = extra or {}
     """Record one scene -> _video_live/raw_<name>/*.webm
@@ -665,7 +647,7 @@ def record(pw, name, action, start="/", extra=None):
             print("      %s session injected for %s" % (auth, name))
     goto_retry(page, BASE + start)
     wait_content(page)
-    dismiss_banner(page)  # consent strip otherwise peeks above the caption band
+    dismiss_banner(page)  # consent strip otherwise sits over the page top
 
     def scroll_slow(px, step=140, pause=0.12):
         for _ in range(0, px, step):
@@ -882,9 +864,7 @@ def record(pw, name, action, start="/", extra=None):
 
     ctx.close()
     browser.close()
-    files = glob.glob(os.path.join(webm_dir, "*.webm"))
-    webm = files[0] if files else None
-    return webm
+    return newest_webm(webm_dir)
 
 
 def narration_seconds():
@@ -958,20 +938,7 @@ def trim_window(webm):
     return leading, cut
 
 
-def esc(text):
-    """Escape a string for ffmpeg drawtext."""
-    return (text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\u2019")
-                .replace("%", "\\%"))
-
-
-def caption_filter(text, total):
-    """drawtext caption band shown from 0.4s to the end of the segment."""
-    return ("drawtext=fontfile='%s':text='%s':fontsize=32:fontcolor=white"
-            ":x=(w-text_w)/2:y=h-74:box=1:boxcolor=0x124630D9:boxborderw=18"
-            ":enable='gte(t,0.4)'" % (FONT, esc(text)))
-
-
-def to_mp4(webm, wav, out, fade_out=False, caption=None):
+def to_mp4(webm, wav, out, fade_out=False):
     with wave.open(wav, "rb") as w:
         dur = w.getnframes() / float(w.getframerate())
     total = dur + 1.0
@@ -986,8 +953,6 @@ def to_mp4(webm, wav, out, fade_out=False, caption=None):
           "pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30")
     if cut:
         vf += ",tpad=stop_mode=clone:stop_duration=%.2f" % max(0.0, total - cut + 2.0)
-    if caption:
-        vf += "," + caption_filter(caption, total)
     if fade_out:
         vf += ",fade=t=out:st=%.1f:d=0.8" % (total - 0.8)
     # CRF 25 / 96k mono keeps the finished cut (~82 MB for ~10 min) under
@@ -1031,7 +996,6 @@ def submit_ward_search(page, label):
         print("      ward results wait:", str(e)[:70])
 
 
-
 def warmup():
     """Hit every URL once so Render is awake and CDN/SW caches are warm."""
     with sync_playwright() as pw:
@@ -1056,10 +1020,11 @@ def main():
     def existing_raw(name):
         done = os.path.join(VD, name + "_m.webm.done")
         if os.path.exists(done):
-            return open(done).read().strip()
+            target = open(done).read().strip()
+            if os.path.exists(target):   # stale marker -> fall through to the folder
+                return target
         raw_dir = os.path.join(VD, "raw_" + name)
-        files = glob.glob(os.path.join(raw_dir, "*.webm")) if os.path.isdir(raw_dir) else []
-        return files[0] if files else None
+        return newest_webm(raw_dir) if os.path.isdir(raw_dir) else None
 
     print("0. synthesizing narration (paces each take to its scene)...")
     sapi_wavs()
@@ -1087,7 +1052,7 @@ def main():
                                        and action[0] == "tour" else None)})
             webms.append((name, w))
             print("   recorded", name)
-    print("3. converting scenes (trim + frame-hold + captions)...")
+    print("3. converting scenes (trim + frame-hold)...")
     segs = []
     for i, (name, webm) in enumerate(webms):
         seg = os.path.abspath(os.path.join(VD, "seg%02d.mp4" % i))
@@ -1100,15 +1065,15 @@ def main():
         if os.path.exists(done):
             w = open(done).read().strip()
         wav = os.path.join(VD, "narr%02d.wav" % i)
-        to_mp4(w, wav, seg, caption=CAPTIONS[i] if i < len(CAPTIONS) else None,
-               fade_out=(i == len(webms) - 1))
+        to_mp4(w, wav, seg, fade_out=(i == len(webms) - 1))
         segs.append(seg)
         print("   seg", name)
     print("5. concatenating...")
     lst = os.path.join(VD, "list.txt")
     with open(lst, "w") as f:
-        # Website footage only: no title/outro cards are spliced in, so the cut
-        # opens on the homepage and closes on the last real page.
+        # Website footage only: no title/outro cards are spliced in and nothing
+        # is drawn over the picture, so the cut opens on the homepage and closes
+        # on the last real page with no text anywhere.
         for s in segs:
             f.write("file '%s'\n" % s.replace("\\", "/"))
     subprocess.run([FF, "-y", "-f", "concat", "-safe", "0", "-i", lst,

@@ -51,6 +51,12 @@ report/video/_video_live/*.webm
 report/video/_video_live/*.webm.done
 report/video/_video_live/seg*.mp4
 report/video/_video_live/list.txt
+# verifier frame dumps (_verify_video.py) and pre-refresh deliverables kept as a
+# rollback (_prev/): review material, not sources.
+report/video/_video_live/_shots/
+report/video/_video_live/_prev/
+# CRF/preset sample clips re-encoded by _probe_encode_size.py (generated media).
+report/video/_video_live/_measure/
 report/video/_qa_frames/
 report/_qa_check/
 

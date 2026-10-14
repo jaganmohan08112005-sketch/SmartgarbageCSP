@@ -1,7 +1,7 @@
 """Measure the encode settings that fit the cut under GitHub's 100 MB push limit.
 
 Re-encodes a sample of scenes through exactly the pipeline to_mp4 uses (same
-crop/scale/tpad/caption chain, same preset/audio) at two candidate CRFs and
+crop/scale/tpad chain, same preset/audio) at two candidate CRFs and
 extrapolates the whole-cut size from the sample's compression ratio. The
 existing segments are the CRF 21 baseline.
 """
@@ -44,9 +44,6 @@ def encode(i, crf, dest):
           "pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30")
     if cut:
         vf += ",tpad=stop_mode=clone:stop_duration=%.2f" % max(0.0, total - cut + 2.0)
-    caption = mvl.CAPTIONS[i]
-    if caption:
-        vf += "," + mvl.caption_filter(caption, total)
     cmd = ([mvl.FF, "-y"] + ins + ["-i", webm, "-i", wav, "-t", "%.2f" % total,
            "-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", str(crf),
            "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "1",
