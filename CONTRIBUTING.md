@@ -258,6 +258,12 @@ python run_pg_suite.py -q
 # Run specific test file
 python run_pg_suite.py tests/test_auth.py -q
 
+# Fast lane for pre-commit iteration: auth/MFA + end-to-end walkthrough +
+# security headers + migration/error/doc/harness guards — a curated subset
+# measured under 2 minutes end to end. For iteration only; the full run above
+# remains the gate before a PR.
+python run_pg_suite.py --fast -q
+
 # Run with coverage report
 python run_pg_suite.py -q --cov=app --cov-report=html
 
@@ -268,9 +274,19 @@ open htmlcov/index.html
 python run_pg_suite.py --fresh
 ```
 
-> The suite must stay **sequential** — every test shares one database and
-drops/recreates the schema — so the runner forces `-n 0`. `pytest tests/ -v` is
-fine when you already have `TEST_DATABASE_URL` pointing at a Postgres instance.
+> The suite runs **in parallel by default**: each pytest-xdist worker is
+> pointed at its own PostgreSQL database (`sg_test_<worker>`, re-created by
+> `tests/conftest.py` in the cluster `TEST_DATABASE_URL` names), so the
+> per-test schema drop/recreate is safe across workers. Pass `-n 0`
+> explicitly if you want a single shared database. `pytest tests/ -v` is fine
+> when you already have `TEST_DATABASE_URL` pointing at a Postgres instance
+> with database-creation rights (the local pgserver cluster and the CI
+> service container both connect as a superuser).
+>
+> **Pre-commit vs pre-PR:** `python run_pg_suite.py --fast` is the quick
+> iteration loop (curated high-value subset, measured < 2 min end to end).
+> It never replaces the full run: **the complete suite must pass before a
+> PR** — that is the gate CI mirrors.
 
 ### Writing Tests
 
@@ -306,7 +322,8 @@ def test_my_feature(client):
 
 - **Every new feature** must include tests
 - **Bug fixes** must include a regression test
-- **Tests must pass** before submitting a PR
+- **Tests must pass** before submitting a PR — the *full* run
+  (`python run_pg_suite.py -q`); `--fast` is for iterating, not for the gate
 - **Maintain or improve coverage** — check with `--cov-report=html`
 
 ### CI Checks
@@ -333,6 +350,11 @@ All PRs run these checks automatically:
    ```bash
    python run_pg_suite.py -q
    ```
+   This full run is the pre-PR gate: the default runs the whole suite in
+   parallel (exactly what CI runs); add `-n 0` for the full **sequential**
+   pass — the same suite on one shared database, the traditional strict
+   form of the gate. The `--fast` lane is for pre-commit iteration and is
+   **not** sufficient here.
 
 3. **Check linting:**
    ```bash

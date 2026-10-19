@@ -338,6 +338,12 @@ python run_pg_suite.py -q --cov=app --cov-report=html
 
 # Run specific test file
 python run_pg_suite.py tests/test_auth.py -q
+
+# Fast lane for pre-commit iteration — curated high-value subset (auth/MFA,
+# end-to-end walkthrough, security headers, migration/error/doc/harness
+# guards), measured under 2 minutes end to end. Iteration only: the FULL run
+# above stays the pre-PR gate, because it is what CI runs.
+python run_pg_suite.py --fast -q
 ```
 
 The suite runs against **real Postgres** — there is no SQLite fallback anywhere

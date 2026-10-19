@@ -85,13 +85,22 @@ runs:
         nohup python scripts/run_local_stack.py > /tmp/sg_stack.log 2>&1 &
         echo "stack-pid=$!" >> "$GITHUB_OUTPUT"
         echo "stack-log=/tmp/sg_stack.log" >> "$GITHUB_OUTPUT"
+        # Readiness contract (ONE place: scripts/stack_readiness.py): "up" =
+        # GET /health → 200 with checks.database.status == 'pass' — a real
+        # SELECT 1 the app itself runs against the Postgres it serves from.
+        # The previous curl-GET-/ poll could disagree with the recorder's
+        # own DB ping about what "ready" meant (a 200 said nothing about the
+        # database); scripts/run_local_stack.py now takes its ratchet
+        # prerequisite and this filter from the same module.
         for i in $(seq 1 60); do
-          if curl -sf -o /dev/null "http://127.0.0.1:${{ inputs.port }}/"; then
+          if python scripts/stack_readiness.py \
+              --base-url "http://127.0.0.1:${{ inputs.port }}" \
+              --attempts 1 --timeout 5; then
             echo "Local stack ready after ~$((i * 3))s"
             exit 0
           fi
           sleep 3
         done
-        echo "::error::local stack did not become ready within 180s"
+        echo "::error::local stack did not become ready within 180s (contract: scripts/stack_readiness.py — see /tmp/sg_stack.log for the last probe detail)"
         tail -n 80 /tmp/sg_stack.log
         exit 1

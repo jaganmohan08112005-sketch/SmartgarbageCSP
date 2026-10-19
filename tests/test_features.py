@@ -4,6 +4,7 @@ from app import db, create_app, socketio
 import json as _json
 import os
 import socket
+import hashlib
 import threading
 
 
@@ -46,8 +47,34 @@ def test_lang_query_param_serves_localized_page_without_redirect(client):
 
 
 def _make_user(app, username, role='citizen', phone=None, password='testpass123', green_points=0):
+    # Last-4 digits of every phone number hardcoded in the test suite (form
+    # registrations, qa_* seeds, etc.). A generated phone starting on one of
+    # these would die on the explicit registration some tests perform AFTER
+    # creating the user, so the scan below never starts there.
+    _RESERVED_SUFFIXES = frozenset(
+        ('3201', '3202', '3203', '3204', '3206', '3208', '3209', '3210', '3211',
+         '3212', '3213', '3214', '3215', '3216', '3217', '3218', '3219', '3220',
+         '3221', '3222', '3223', '3231', '3232', '3299', '3311', '3321', '3399',
+         '3901', '3902', '9999'))
     if phone is None:
-        phone = f'+91987654{hash(username) % 10000:04d}'
+        # python's built-in hash() is salted per process (PYTHONHASHSEED), so
+        # the derived phone used to differ between xdist workers — sometimes
+        # (~3/10000 per generated user: the three qa_* phones below) landing
+        # on a phone a conftest seed or an earlier _make_user in the SAME
+        # test already used, dying on the user_phone_key UNIQUE constraint.
+        # sha256 is deterministic across processes; scanning outward from
+        # that base for the first free candidate also covers explicit-phone
+        # collisions within one test.
+        with app.app_context():
+            base = int(hashlib.sha256(username.encode('utf-8')).hexdigest(), 16) % 10000
+            for i in range(10000):
+                suffix = (base + i) % 10000
+                if f'{suffix:04d}' in _RESERVED_SUFFIXES:
+                    continue
+                candidate = f'+91987654{suffix:04d}'
+                if not User.query.filter_by(phone=candidate).first():
+                    phone = candidate
+                    break
     with app.app_context():
         u = User(username=username, password_hash=generate_password_hash(password),
                  role=role, phone=phone, is_approved=True, green_points=green_points)

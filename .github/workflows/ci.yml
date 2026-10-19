@@ -31,6 +31,11 @@ jobs:
           --health-retries 5
     env:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Mirror pytest.ini's filterwarnings promotion: the deprecated sqlite3
+      # implicit datetime/date adapters (Python 3.12+) must surface as errors
+      # even if a step ever bypasses pytest.ini. Message-anchored so unrelated
+      # DeprecationWarnings from third-party deps don't fail the build.
+      PYTHONWARNINGS: "error:The default datetime adapter is deprecated:DeprecationWarning,error:The default date adapter is deprecated:DeprecationWarning"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -44,15 +49,18 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Run tests against Postgres
         run: |
-          # Shared single database: MUST run sequentially (-n 0); the per-test
-          # timeout still applies so a hang fails fast instead of blocking.
+          # Parallel against the service-container Postgres: each pytest-xdist
+          # worker gets its OWN database (tests/conftest.py re-creates
+          # sg_test_<worker> in this cluster), so the per-test schema
+          # drop/recreate is safe across workers; the per-test timeout still
+          # applies so a hang fails fast instead of blocking.
           # NOTE: the repo root must be on sys.path for the app package and its
           # tests (the runner's checkout dir is $GITHUB_WORKSPACE, not the
           # local repo root where the previous run happened to be), so add it
           # explicitly. This is why the earlier alerting tests failed with
           # ModuleNotFoundError in CI but passed locally.
           export PYTHONPATH="$GITHUB_WORKSPACE"
-          python -m pytest tests/ -n 0 --timeout=180 -v
+          python -m pytest tests/ --timeout=180 -v
       - name: Verify stateless CSRF path (anonymous consent + feedback)
         run: |
           # Named coverage for the stateless, time-windowed HMAC CSRF path that
@@ -137,6 +145,12 @@ jobs:
       - name: Check docs for broken links / deleted-doc references
         run: |
           python scripts/check_doc_links.py
+      # Guard against new sqlite3 datetime bindings without the documented
+      # adapter recipe (Python 3.12 deprecation; recipe lives in
+      # tests/conftest.py — see scripts/check_sqlite_adapters.py).
+      - name: Check for unadapted sqlite3 datetime bindings
+        run: |
+          python scripts/check_sqlite_adapters.py
 
   # Deploy to a separate Render STAGING service so changes are tested
   # against a real deploy before going live. Trigger: push to `staging` branch.

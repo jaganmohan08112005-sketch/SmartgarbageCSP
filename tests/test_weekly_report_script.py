@@ -12,7 +12,7 @@ import os
 import sqlite3
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -24,26 +24,12 @@ SCRIPT = HERE.parent / 'scripts' / 'photo_rejection_weekly.py'
 # binds raw datetime objects twice: the fixtures below insert them straight
 # into TIMESTAMP columns via plain sqlite3, and the weekly script's trailing
 # 7-day cutoff reaches the same sqlite3 layer the run-against-sqlite path even
-# when it is bound through SQLAlchemy. Registering the replacement recipe from
-# the sqlite3 documentation clears the whole warning class. The recipe writes
-# byte-identical text to the deprecated default adapter (ISO 8601 + " ",
-# verified) so the WHERE {time_col} >= :since window comparison sees exactly
-# what it always saw:
+# when it is bound through SQLAlchemy. The replacement recipe from the sqlite3
+# documentation is registered once in tests/conftest.py at import time — every
+# test module inherits it; this module stays out of the registration business
+# and keeps only the recwarn pin below as the regression tripwire for its two
+# binding surfaces:
 #   https://docs.python.org/3/library/sqlite3.html#sqlite3-adapters
-
-
-def _adapt_sqlite_date(val):
-    return val.isoformat()
-
-
-def _adapt_sqlite_datetime(val):
-    return val.isoformat(" ")
-
-
-sqlite3.register_adapter(date, _adapt_sqlite_date)
-sqlite3.register_adapter(datetime, _adapt_sqlite_datetime)
-# No converters: the fixtures never open a connection with detect_types, so
-# nothing reads the stored text back as an implicit datetime object.
 
 
 def _load_module():
@@ -151,14 +137,15 @@ def test_md5_cluster_helper_matches_direct_count(weekly_env):
 
 
 def test_no_sqlite_datetime_adapter_deprecations(weekly_env, recwarn):
-    """Datetimes must be bound through the registered docs recipe, never the
-    deprecated default sqlite3 adapter.
+    """Datetimes must be bound through the registered docs recipe (registered
+    once in tests/conftest.py), never the deprecated default sqlite3 adapter.
 
-    This is the pin behind the recipe above: recwarn catches everything this
-    test raises — including its fixtures — so it sees BOTH binding surfaces at
+    This is the pin behind that recipe: recwarn catches everything this test
+    raises — including its fixtures — so it sees BOTH binding surfaces at
     once (the fixture's plain-sqlite3 row inserts and the script's
-    SQLAlchemy-bound window cutoff). Deleting the register_adapter block makes
-    this fail loudly by name instead of re-adding 64+ warnings to the run.
+    SQLAlchemy-bound window cutoff). Removing the register_adapter block from
+    tests/conftest.py makes this fail loudly by name instead of re-adding 64+
+    warnings to the run.
     """
     mod, tmp_path, report, stats, probe = weekly_env
     assert mod.main() == 0
@@ -167,7 +154,7 @@ def test_no_sqlite_datetime_adapter_deprecations(weekly_env, recwarn):
              and 'datetime adapter' in str(w.message)]
     assert not stale, (
         "%d sqlite3 default-datetime-adapter DeprecationWarning(s) were emitted "
-        "— the docs adapter recipe (register_adapter) at the top of this module "
+        "— the docs adapter recipe (register_adapter) in tests/conftest.py "
         "has regressed:\n  %s" % (
             len(stale),
             '\n  '.join('%s:%s  %s' % (w.filename, w.lineno, w.message)

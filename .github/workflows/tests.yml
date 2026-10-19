@@ -18,9 +18,17 @@ jobs:
   pg-suite:
     # Same harness as the local run: `python run_pg_suite.py` boots an
     # embedded pgserver Postgres, sets TEST_DATABASE_URL, and invokes pytest
-    # sequentially (-n 0) — the fixtures drop/recreate the schema per test.
+    # in parallel — each xdist worker gets its own database (see
+    # tests/conftest.py), so the per-test schema drop/recreate is safe.
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # Mirror pytest.ini's filterwarnings promotion: the deprecated sqlite3
+    # implicit datetime/date adapters (Python 3.12+) must surface as errors
+    # even if the runner ever bypasses pytest.ini. Message-anchored so
+    # unrelated DeprecationWarnings from third-party deps don't fail the
+    # build.
+    env:
+      PYTHONWARNINGS: "error:The default datetime adapter is deprecated:DeprecationWarning,error:The default date adapter is deprecated:DeprecationWarning"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python

@@ -34,8 +34,16 @@ os.environ["DATABASE_URL"] = DB_URL
 os.environ["SENTRY_DSN"] = ""
 print(f"[stack] Postgres: {DB_URL}")
 
-# ── 2. Verify connectivity with a raw psycopg2 ping before going further
-local_pg.wait_until_connectable(DB_URL, label="stack")
+# ── 2. Verify connectivity with a raw psycopg2 ping before going further.
+# NOTE this is a boot prerequisite, not the readiness verdict: "the stack is
+# up" is defined in ONE place — scripts/stack_readiness.app_ready() (GET
+# /health → 200 with checks.database.status == 'pass', a real SELECT 1 by the
+# app itself). The boot-local-stack composite action polls exactly that
+# definition, so CI's poll and this ping cannot disagree about what "up"
+# means.
+from scripts.stack_readiness import wait_postgres  # noqa: E402
+
+wait_postgres(DB_URL, label="stack")
 
 # ── 3. Create schema + run migrations in-process (single process = pgserver lives)
 print("[stack] creating app and running migrations in-process...")
