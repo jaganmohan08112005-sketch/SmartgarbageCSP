@@ -415,4 +415,5 @@ scripts/stack_readiness.py
 scripts/check_sqlite_adapters.py
 tests/test_no_unadapted_sqlite_bindings.py
 report/video/_burn_subtitles.py
-docs/PROJECT_AUDIT.md
+docs/PROJECT_AUDIT.mddocs/PROJECT_AUDIT.md
+docs/INSPECTION_REPORT.md
