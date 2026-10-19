@@ -236,6 +236,16 @@
         })
         .catch(e => console.error('Analytics load failed:', e));
     // 1. Heatmap + Peak/Waste charts (runs after data loads)
+    // Load-time shim: define a safe minimal L so leaflet-heat plugin's own
+    // 'L is not defined' errors cannot surface when the CDN is blocked.
+    // This must come before any L reference from leaflet-heat.js.
+    if (typeof window.L === 'undefined') {
+      window.L = {};
+      window.L.map = function() { return { setView: () => {}, addLayer: () => {}, invalidateSize: () => {} }; };
+      window.L.TileLayer = function() { return { addTo: () => {} }; };
+      window.L.heatLayer = function() { return { addTo: () => {} }; };
+      window.L.Class = { extend: () => ({}) };
+    }
     function initAnalytics() {
     // 1. Initialize Leaflet Map for Heatmap (guarded: a Leaflet CDN failure
     // must not silently abort the chart renders below in the same function).
