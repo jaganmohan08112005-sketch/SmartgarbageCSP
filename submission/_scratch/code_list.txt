@@ -407,3 +407,12 @@ report/video/_verify_video.py
 report/video/_probe_encode_size.py
 report/video/_probe_route_coverage.py
 report/video/_video_live/tts.ps1
+report/video/_make_subtitles.py
+tests/test_make_subtitles.py
+scripts/local_pg.py
+tests/test_local_pg_helper.py
+scripts/stack_readiness.py
+scripts/check_sqlite_adapters.py
+tests/test_no_unadapted_sqlite_bindings.py
+report/video/_burn_subtitles.py
+docs/PROJECT_AUDIT.md

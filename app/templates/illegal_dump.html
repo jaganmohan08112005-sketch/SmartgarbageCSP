@@ -79,17 +79,29 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script nonce="{{ csp_nonce() }}">
-const map = L.map('illegal-map').setView([18.0675, 83.4094], 14);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+// Map pin picker (guarded: a Leaflet CDN failure must not kill this script —
+// the anonymous report form above must stay fully functional).
+let map = null;
 let marker = null;
-map.on('click', function(e){
-  document.getElementById('lat_field').value = e.latlng.lat.toFixed(6);
-  document.getElementById('lon_field').value = e.latlng.lng.toFixed(6);
-  if(marker) map.removeLayer(marker);
-  marker = L.marker(e.latlng, {
-    icon: L.divIcon({className:'', html:'<div style="background:#E74C3C;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>'})
-  }).addTo(map).bindPopup('📍 Report location').openPopup();
-});
+if (typeof window.L !== 'undefined') {
+  try {
+    map = L.map('illegal-map').setView([18.0675, 83.4094], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+    map.on('click', function(e){
+      document.getElementById('lat_field').value = e.latlng.lat.toFixed(6);
+      document.getElementById('lon_field').value = e.latlng.lng.toFixed(6);
+      if(marker) map.removeLayer(marker);
+      marker = L.marker(e.latlng, {
+        icon: L.divIcon({className:'', html:'<div style="background:#E74C3C;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>'})
+      }).addTo(map).bindPopup('📍 Report location').openPopup();
+    });
+  } catch (e) {
+    map = null;
+    console.warn('Map init failed (no Leaflet?):', e);
+  }
+} else {
+  console.warn('Leaflet CDN unavailable — map pin picker disabled; type coordinates instead');
+}
 function getLocation(){
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(function(pos){
@@ -97,6 +109,7 @@ function getLocation(){
       const lon = pos.coords.longitude.toFixed(6);
       document.getElementById('lat_field').value = lat;
       document.getElementById('lon_field').value = lon;
+      if (!map || typeof window.L === 'undefined') return;
       const latlng = L.latLng(lat, lon);
       map.setView(latlng, 16);
       if(marker) map.removeLayer(marker);

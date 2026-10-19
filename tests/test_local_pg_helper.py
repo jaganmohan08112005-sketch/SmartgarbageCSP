@@ -12,6 +12,7 @@ substituted through ``sys.modules`` so the retry/wipe logic is exercised
 without a cluster, and the *real* cluster boot is covered by the suite runner
 that runs this very file.
 """
+import os
 import subprocess
 import sys
 import time
@@ -227,14 +228,55 @@ def test_wait_until_connectable_gives_up_loudly(monkeypatch):
         local_pg.wait_until_connectable("postgresql://x", attempts=2, delay=2.0)
 
 
+def test_boot_and_export_publishes_the_uri_under_the_declared_var(monkeypatch, capsys):
+    """The cluster head: boot + export happen in one call, no drift surface."""
+    seen = []
+    _install_fake_pgserver(
+        monkeypatch,
+        ["postgresql://postgres:@127.0.0.1:53001/postgres"], seen)
+    monkeypatch.setenv("SG_UNIT_TEST_DB_URL", "sentinel-not-yet-booted")
+
+    server, pgdata, uri = local_pg.boot_and_export(
+        "sg_pgdata_unit_export", "SG_UNIT_TEST_DB_URL", label="unit")
+
+    try:
+        assert uri == "postgresql://postgres:@127.0.0.1:53001/postgres"
+        assert os.environ["SG_UNIT_TEST_DB_URL"] == uri, (
+            "the runner-visible environment must carry exactly the booted URI")
+        assert server.get_uri() == uri, (
+            "the returned server and the exported URI cannot disagree")
+        assert uri in capsys.readouterr().out, (
+            "the boot line must log the same URI that was exported")
+    finally:
+        _cleanup(*set(seen), pgdata)
+
+
+def test_boot_and_export_exports_nothing_when_boot_fails(monkeypatch):
+    """A failed boot must not leave a half-booted URI in the environment."""
+    seen = []
+    _install_fake_pgserver(monkeypatch, [RuntimeError("nope")], seen)
+    monkeypatch.setenv("SG_UNIT_TEST_DB_URL", "sentinel-survives")
+
+    with pytest.raises(RuntimeError, match="nope"):
+        local_pg.boot_and_export(
+            "sg_pgdata_unit_export_fail", "SG_UNIT_TEST_DB_URL", label="unit")
+
+    assert os.environ["SG_UNIT_TEST_DB_URL"] == "sentinel-survives", (
+        "a failed boot must propagate BEFORE exporting anything")
+    _cleanup(*set(seen))
+
+
 def test_cluster_handling_is_not_duplicated_in_the_entry_points():
-    """The boot blocks must stay merged.
+    """The boot blocks must stay merged — including the env-export head.
 
     The regression this guards is duplication itself — a second copy of the
     retry/wipe rules silently drifts (that is how the two copies disagreed
-    about re-using a failed data directory). Both entry points must go through
-    local_pg, and the CI composite action must keep delegating to the stack
-    script instead of growing cluster code of its own.
+    about re-using a failed data directory), and the three-line cluster head
+    (boot → get_uri → os.environ export) is the same trap one level up: the
+    runners already differed in label and echo lines before they were merged.
+    Both entry points must go through local_pg, and the CI composite action
+    must keep delegating to the stack script instead of growing cluster code
+    of its own.
     """
     suite_runner = (ROOT / "run_pg_suite.py").read_text(encoding="utf-8")
     stack = (ROOT / "scripts" / "run_local_stack.py").read_text(encoding="utf-8")
@@ -244,15 +286,21 @@ def test_cluster_handling_is_not_duplicated_in_the_entry_points():
     for name, text in (("run_pg_suite.py", suite_runner),
                        ("scripts/run_local_stack.py", stack)):
         assert "from scripts import local_pg" in text, f"{name} must use the shared helper"
-        assert "local_pg.boot_cluster(" in text, f"{name} must boot through local_pg"
+        assert "local_pg.boot_and_export(" in text, (
+            f"{name} must boot AND publish the URI through local_pg.boot_and_export "
+            "— the hand-written boot_cluster() + os.environ export head is the "
+            "boilerplate this helper absorbed")
         # Match code, not prose: the comments and docstrings may (and should)
         # still explain subprocess/pg_ctl behaviour.
         for duplicate in ("pgserver.get_server", "ensure_postgres_running",
                           "import subprocess", "shutil.rmtree", "mkdtemp",
-                          "psutil"):
+                          "psutil", "local_pg.boot_cluster(", ".get_uri()",
+                          'os.environ["TEST_DATABASE_URL"] =',
+                          'os.environ["DATABASE_URL"] ='):
             assert duplicate not in text, (
                 f"{name} has its own copy of cluster handling ({duplicate}); "
-                "move it into scripts/local_pg.py")
+                "move it into scripts/local_pg.py (the env-export head into "
+                "local_pg.boot_and_export)")
 
     assert "scripts/run_local_stack.py" in action, (
         "the composite action must boot through the stack script")

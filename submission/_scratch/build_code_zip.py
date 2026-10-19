@@ -52,6 +52,27 @@ ADD = [
     # missing from the manifest, so the shipped audio pipeline was not fully
     # reproducible from the zip.
     "report/video/_video_live/tts.ps1",
+    # Sidecar captions: the SRT/WebVTT generator that captions the shipped
+    # demo video's narration in English and Telugu without burning any text
+    # into the picture, plus its timing-model test suite.
+    "report/video/_make_subtitles.py",
+    "tests/test_make_subtitles.py",
+    # The local-Postgres harness family (audit §2.1/§5.3): the archive ships
+    # run_pg_suite.py and scripts/run_local_stack.py, and both import these —
+    # without them the delivered suite runner and stack are unrunnable.
+    "scripts/local_pg.py",
+    "tests/test_local_pg_helper.py",
+    # The stack-readiness contract the stack script and the CI composite
+    # action both consume, and the sqlite3-binding guard the CI lint job runs.
+    "scripts/stack_readiness.py",
+    "scripts/check_sqlite_adapters.py",
+    "tests/test_no_unadapted_sqlite_bindings.py",
+    # The subtitle burner (audit §2.2) and the audit itself (audit docs ship
+    # by precedent: SITE_AUDIT_2026-10-03.md is already in the manifest).
+    "report/video/_burn_subtitles.py",
+    "docs/PROJECT_AUDIT.md",
+    # DECISION (audit §2.3): docs/INSPECTION_REPORT.md stays EXCLUDED — it is
+    # untracked and superseded by docs/PROJECT_AUDIT.md.
 ]
 FORBIDDEN = ("venv/", "node_modules/", "audit/out/", "submission/")
 

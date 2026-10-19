@@ -79,8 +79,8 @@ argv = [a for a in argv if a not in ("--fresh", "--fast")]
 if fast:
     argv = argv + list(FAST_LANE)
 
-db, _pgdata = local_pg.boot_cluster(PGDATA_NAME, label="runner", fresh=fresh)
-os.environ["TEST_DATABASE_URL"] = db.get_uri()
+db, _pgdata, _uri = local_pg.boot_and_export(
+    PGDATA_NAME, "TEST_DATABASE_URL", label="runner", fresh=fresh)
 
 # Overwritten by pytest.main; kept nonzero so a pytest-import failure inside
 # the try cannot make the finally-print/sys.exit report a misleading zero.

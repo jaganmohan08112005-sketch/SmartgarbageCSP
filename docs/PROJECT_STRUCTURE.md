@@ -66,14 +66,16 @@ SmartGarbage/
 │   ├── _render_qa.py             Renders the delivered deck to QA images
 │   ├── smartgarbage-deployment.excalidraw  Editable deployment architecture diagram
 │   └── video/
-│       └── _make_video_live.py   Demo-video builder (Playwright live-site capture + TTS + ffmpeg)
+│       ├── _make_video_live.py   Demo-video builder (Playwright live-site capture + TTS + ffmpeg)
+│       └── _make_subtitles.py    Sidecar caption generator (SRT/WebVTT, English + Telugu)
 │
 ├── submission/             ← R24 DELIVERY PACKAGE (one copy of each deliverable)
 │   ├── book/SmartGarbage_BOOK_R24.pdf              BOOK print master (89 pp, letter)
 │   ├── documentation/SmartGarbage_Documentation_Softcopy.docx
 │   ├── video/SmartGarbage_Demo_Video.mp4           9:50 live-website walkthrough (720p)
+│   │   └── SmartGarbage_Demo_Video.{en,te}.{srt,vtt}  Sidecar captions (same narration, no burn-in)
 │   ├── ppt/SmartGarbage_Presentation.pptx          20-slide deck (R24 chrome)
-│   ├── code/SmartGarbage_Source_Code.zip           409-file source archive (git-ignored)
+│   ├── code/SmartGarbage_Source_Code.zip           418-file source archive (git-ignored)
 │   ├── RUNBOOK.md                                  Submission-day runbook (print/bind, hand-in set, post-submission)
 │   └── _scratch/verify_submission.py               One gate for all five deliverables (see below)
 │
@@ -181,10 +183,12 @@ python report/report_figures.py                 # → report/_diagrams/report/fi
 python report/build_deck_v2.py                  # → report/DOCUMENT_FINAL.pptx
 # Demo video (records the local stack on 127.0.0.1:5057):
 python report/video/_make_video_live.py         # → submission/video/SmartGarbage_Demo_Video.mp4
+# Sidecar captions for that cut (English + Telugu, deterministic):
+python report/video/_make_subtitles.py          # → video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}
 # Source-code zip:
 python submission/_scratch/build_code_zip.py --write
 # Verify all five deliverables (geometry/numbering, DOCX+PPTX integrity,
-# video streams, zip manifest+hashes, and drift from the committed source):
+# video streams, sidecar captions, zip manifest+hashes, and drift from the committed source):
 python submission/_scratch/verify_submission.py
 ```
 

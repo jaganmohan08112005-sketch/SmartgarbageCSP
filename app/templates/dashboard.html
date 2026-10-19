@@ -518,11 +518,22 @@
             }
         });
     });
-    // Initialize Leaflet locator viewport
-    let map = L.map('locatorMap').setView([18.0675, 83.4094], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    // Initialize Leaflet locator viewport (guarded: a Leaflet CDN failure
+    // must not kill this inline script — SSE wiring below stays up).
+    let map = null;
+    if (typeof window.L !== 'undefined') {
+        try {
+            map = L.map('locatorMap').setView([18.0675, 83.4094], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        } catch (e) {
+            map = null;
+            console.warn('Map init failed (no Leaflet?):', e);
+        }
+    } else {
+        console.warn('Leaflet CDN unavailable — bin locator disabled');
+    }
     function getBinColor(level) {
         if (level >= 80) return '#E74C3C'; // Full Red
         if (level >= 50) return '#F1C40F'; // Warning Yellow
@@ -637,7 +648,7 @@
             if (!item || !item.dataset.lat) return;
             const lat = parseFloat(item.dataset.lat);
             const lon = parseFloat(item.dataset.lon);
-            map.setView([lat, lon], 17);
+            if (map) map.setView([lat, lon], 17);
             const marker = markers.find(m => m.hardware_id === item.dataset.hw);
             if (marker && marker.marker) marker.marker.openPopup();
             searchResults.classList.add('d-none');
@@ -656,8 +667,10 @@
         });
     }
     // Track circle markers so the search result can open the right popup.
+    // (Guarded: without Leaflet the script above already warned; never crash.)
     const markers = [];
     smartBins.forEach(bin => {
+        if (!map || typeof window.L === 'undefined') return;
         const circle = L.circleMarker([bin.latitude, bin.longitude], {
             radius: 8,
             fillColor: getBinColor(bin.level),

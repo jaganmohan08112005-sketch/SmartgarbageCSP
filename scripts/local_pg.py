@@ -19,6 +19,9 @@ and only it retired a failed directory instead of re-using it (a still-attached
 ``postgres.exe`` keeps files open inside the directory, which is exactly what
 makes ``initdb`` refuse it, so re-use is the retry path that keeps failing).
 This module is the single home for that logic so a fix lands everywhere at once.
+The cluster head is merged too: boot_cluster() plus the "export the URI into
+the environment" two-liner became boot_and_export(), so the runners cannot
+diverge on which variable they publish or forget the export altogether.
 
 Each caller deliberately keeps its own data directory:
 
@@ -173,6 +176,31 @@ def boot_cluster(data_dir_name, label="pg", fresh=False, attempts=3):
             continue
         print(f"[{label}] PostgreSQL up at {server.get_uri()} (attempt {attempt})")
         return server, pgdata
+
+
+def boot_and_export(data_dir_name, env_var, label="pg", fresh=False, attempts=3):
+    """Boot the cluster and publish its URI under ``env_var``; return
+    ``(server, pgdata, uri)``.
+
+    The cluster head every runner used to hand-write is exactly three lines —
+    boot_cluster(), ``server.get_uri()``, ``os.environ[env_var] = uri`` — and
+    it had already diverged between callers (different labels, an extra echo
+    line in one, and nothing stopping a third caller from exporting under a
+    different name or not exporting at all). One helper means the export
+    always happens, always under the caller's declared variable, and the URI
+    seen by the app is the same one boot_cluster logged.
+
+    Returns ``uri`` as well as the server so callers don't re-derive it (and
+    can't derive it differently). A failed boot propagates before anything is
+    exported: a half-booted run must never leave a stale URI in the
+    environment. ``env_var`` is exported verbatim; stack-specific extras
+    (e.g. blanking SENTRY_DSN) stay in the caller that owns them.
+    """
+    server, pgdata = boot_cluster(data_dir_name, label=label, fresh=fresh,
+                                  attempts=attempts)
+    uri = server.get_uri()
+    os.environ[env_var] = uri
+    return server, pgdata, uri
 
 
 def wait_until_connectable(uri, label="pg", attempts=20, delay=2.0):

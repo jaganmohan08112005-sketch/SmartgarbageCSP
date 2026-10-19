@@ -237,21 +237,30 @@
         .catch(e => console.error('Analytics load failed:', e));
     // 1. Heatmap + Peak/Waste charts (runs after data loads)
     function initAnalytics() {
-    // 1. Initialize Leaflet Map for Heatmap
-    let heatMap = L.map('heatmapContainer').setView([18.0675, 83.4094], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(heatMap);
-    // Map the bins data points to Leaflet Heat [lat, lon, intensity/weight]
-    const heatPoints = heatBins.map(b => [b.lat, b.lon, b.level / 100.0]);
-    // Create and add heatmap layer
-    let heatLayer = L.heatLayer(heatPoints, {
-        radius: 35,
-        blur: 15,
-        maxZoom: 17,
-        max: 1.0,
-        gradient: {0.4: 'blue', 0.6: 'cyan', 0.8: 'yellow', 1.0: 'red'}
-    }).addTo(heatMap);
+    // 1. Initialize Leaflet Map for Heatmap (guarded: a Leaflet CDN failure
+    // must not silently abort the chart renders below in the same function).
+    if (typeof window.L !== 'undefined') {
+        try {
+            const heatMap = L.map('heatmapContainer').setView([18.0675, 83.4094], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(heatMap);
+            // Map the bins data points to Leaflet Heat [lat, lon, intensity/weight]
+            const heatPoints = heatBins.map(b => [b.lat, b.lon, b.level / 100.0]);
+            // Create and add heatmap layer
+            L.heatLayer(heatPoints, {
+                radius: 35,
+                blur: 15,
+                maxZoom: 17,
+                max: 1.0,
+                gradient: {0.4: 'blue', 0.6: 'cyan', 0.8: 'yellow', 1.0: 'red'}
+            }).addTo(heatMap);
+        } catch (e) {
+            console.warn('Heatmap init failed (no Leaflet?):', e);
+        }
+    } else {
+        console.warn('Leaflet CDN unavailable — heatmap omitted, charts continue');
+    }
     // 2. Chart.js Peak Times Line Chart
     const timesCtx = document.getElementById('disposalTimesChart').getContext('2d');
     new Chart(timesCtx, {

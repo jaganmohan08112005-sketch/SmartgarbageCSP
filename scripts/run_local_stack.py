@@ -27,12 +27,9 @@ from scripts import local_pg  # noqa: E402
 # ── 1. Boot pgserver (persistent PGDATA — survives restarts with cached port,
 #       and holds the seeded demo rows the recorded walkthrough depends on, so
 #       it is never wiped implicitly)
-pg, PGDATA = local_pg.boot_cluster("sg_pgdata_v3", label="stack")
-
-DB_URL = pg.get_uri()
-os.environ["DATABASE_URL"] = DB_URL
+pg, PGDATA, DB_URL = local_pg.boot_and_export(
+    "sg_pgdata_v3", "DATABASE_URL", label="stack")
 os.environ["SENTRY_DSN"] = ""
-print(f"[stack] Postgres: {DB_URL}")
 
 # ── 2. Verify connectivity with a raw psycopg2 ping before going further.
 # NOTE this is a boot prerequisite, not the readiness verdict: "the stack is
