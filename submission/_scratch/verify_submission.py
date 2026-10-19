@@ -9,6 +9,8 @@ deliverable drifted:
   2. documentation/...Softcopy.docx              DOCX container + content integrity
   3. ppt/SmartGarbage_Presentation.pptx          PPTX container + deck integrity
   4. video/SmartGarbage_Demo_Video.mp4           container/stream facts
+     video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}
+                                                 sidecar captions (text, drift)
   5. code/SmartGarbage_Source_Code.zip           manifest + per-file hashes
 
 Two kinds of failure are reported, both fatal:
@@ -49,8 +51,16 @@ BOOK = SUB / "book" / "SmartGarbage_BOOK_R24.pdf"
 DOCX = SUB / "documentation" / "SmartGarbage_Documentation_Softcopy.docx"
 PPTX = SUB / "ppt" / "SmartGarbage_Presentation.pptx"
 VIDEO = SUB / "video" / "SmartGarbage_Demo_Video.mp4"
+EN_SRT = SUB / "video" / "SmartGarbage_Demo_Video.en.srt"
 ZIP = SUB / "code" / "SmartGarbage_Source_Code.zip"
 MANIFEST = SUB / "_scratch" / "code_list.txt"
+
+# The four sidecar caption files that ride with the video (same stem). They are
+# generated from committed narration facts only, so the verifier can rebuild
+# them and require byte-identical output.
+SIDECARS = tuple(
+    SUB / "video" / f"SmartGarbage_Demo_Video.{lang}.{ext}"
+    for lang in ("en", "te") for ext in ("srt", "vtt"))
 
 # ── The accepted contract (R24 template + submission/README.md) ──────────────
 # Update these only after reviewing an intentional regeneration.
@@ -82,6 +92,9 @@ SOURCES = {
     PPTX: ("report/build_deck_v2.py", "report/report_figures.py",
            "report/_inputs/ppt_template.pptx"),
     VIDEO: ("report/video/_make_video_live.py", "report/video/DEMO_VIDEO_SCRIPT.md"),
+    EN_SRT: ("report/video/_make_subtitles.py",
+             "report/video/_make_video_live.py",
+             "tests/test_make_subtitles.py"),
 }
 FORBIDDEN_ZIP = ("venv/", "node_modules/", "submission/", "audit/out/",
                  "report/DOCUMENTATION_UPDATED.docx", "report/DOCUMENTATION_UPDATED.pdf",
@@ -450,6 +463,112 @@ def check_video(c: Check, path: Path = VIDEO) -> None:
             c.fail(f"audio codec is {audio.group(1)}, not aac")
 
 
+# ── 4b. SIDECARS: caption tracks shipped next to the video ──────────────────
+SRT_TS_LINE = re.compile(
+    r"^(\d{2}):(\d{2}):(\d{2}),(\d{3}) --> (\d{2}):(\d{2}):(\d{2}),(\d{3})$")
+VTT_TS_LINE = re.compile(
+    r"^(\d{2}):(\d{2}):(\d{2})\.(\d{3}) --> (\d{2}):(\d{2}):(\d{2})\.(\d{3})$")
+
+
+def _hms(h: str, m: str, s: str, ms: str) -> float:
+    return int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
+
+
+def parse_sidecar(c: Check, path: Path) -> list[tuple[float, float, list[str]]]:
+    """Parse one SRT/WebVTT file into [(start_s, end_s, lines)] and fail loudly
+    on anything a player would reject."""
+    text = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    blocks = [b for b in text.split("\n\n") if b.strip()]
+    cues = []
+    if path.suffix == ".vtt":
+        if not blocks or not blocks[0].startswith("WEBVTT"):
+            c.fail(f"{path.name} does not start with a WEBVTT header")
+        else:
+            blocks = blocks[1:]
+            c.note(f"{path.name}: {len(blocks)} cues")
+    ts_re = VTT_TS_LINE if path.suffix == ".vtt" else SRT_TS_LINE
+    for i, block in enumerate(blocks, 1):
+        lines = block.splitlines()
+        ts_line = next((l for l in lines if "-->" in l), None)
+        m = ts_re.match(ts_line.strip()) if ts_line else None
+        if not m:
+            c.fail(f"{path.name}: cue {i} has a malformed timestamp line")
+            return cues
+        start = _hms(*m.groups()[:4])
+        end = _hms(*m.groups()[4:])
+        body = [l for l in lines[lines.index(ts_line) + 1:] if l.strip()]
+        if not body:
+            c.fail(f"{path.name}: cue {i} has no caption text")
+        if end <= start:
+            c.fail(f"{path.name}: cue {i} ends before it starts")
+        cues.append((start, end, body))
+    prev_end = 0.0
+    for i, (start, end, _) in enumerate(cues, 1):
+        if start < prev_end - 0.01:
+            c.fail(f"{path.name}: cue {i} starts before its predecessor ends "
+                   f"({start:.3f} < {prev_end:.3f})")
+        prev_end = end
+    return cues
+
+
+def check_sidecars(c: Check, artifact: Path = EN_SRT,
+                    paths=SIDECARS) -> None:
+    """Four caption files next to the MP4: they parse, they cover the same
+    narration (same scene span as the cut's speech), and a regenerator run is
+    byte-identical (the timing model is a pure function of committed facts)."""
+    for path in paths:
+        if not path.is_file():
+            c.fail(f"sidecar caption file is missing: {path.name}")
+    if c.problems:
+        return
+
+    cues_by_file = {}
+    for path in paths:
+        cues = parse_sidecar(c, path)
+        cues_by_file[path.name] = cues
+    c.note(f"{len(cues_by_file['SmartGarbage_Demo_Video.en.srt'])} en cues, "
+           f"{len(cues_by_file['SmartGarbage_Demo_Video.te.srt'])} te cues")
+    en_first, en_last = cues_by_file["SmartGarbage_Demo_Video.en.srt"][0], \
+        cues_by_file["SmartGarbage_Demo_Video.en.srt"][-1]
+    te_last = cues_by_file["SmartGarbage_Demo_Video.te.srt"][-1]
+    if abs(en_first[0]) > 1e-3:
+        c.fail("the en track's first cue does not start at 0:00.000")
+    # The narration speech ends ~589.1 s into the 590 s cut; the cut itself is
+    # 9:50 +/-5 s, so the last cue must land in that window too.
+    if not EXPECTED_VIDEO_SECONDS - 25 <= en_last[1] <= EXPECTED_VIDEO_SECONDS + 2:
+        c.fail(f"en track ends at {en_last[1]:.2f}s, outside the cut's "
+               f"{EXPECTED_VIDEO_SECONDS:.0f}s (±) narration window")
+    if abs(en_last[1] - te_last[1]) > 0.5:
+        c.fail(f"te track ends {te_last[1]:.2f}s, en ends {en_last[1]:.2f}s "
+               "- the two languages must caption the same narration")
+
+    # Determinism: the generator must rebuild all four files byte-identically.
+    tmp = Path(tempfile.mkdtemp(prefix="sg_verify_sidecar_"))
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "report" / "video" / "_make_subtitles.py"),
+             "--out", str(tmp), "--lang", "en,te"],
+            cwd=ROOT, capture_output=True, text=True)
+        if proc.returncode != 0:
+            c.fail("regenerating the sidecars failed: "
+                   + (proc.stderr.strip()[-300:] or f"exit {proc.returncode}"))
+        else:
+            mismatch = False
+            for path in paths:
+                fresh = tmp / path.name
+                if not fresh.is_file():
+                    c.fail(f"generator did not produce {path.name}")
+                elif fresh.read_bytes() != path.read_bytes():
+                    mismatch = True
+                    c.fail(f"{path.name} drifted from _make_subtitles.py output "
+                           "- re-run report/video/_make_subtitles.py")
+            if not mismatch:
+                c.note("all 4 sidecars rebuild byte-identically from "
+                       "report/video/_make_subtitles.py")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ── 5. ZIP: manifest and per-file hashes ─────────────────────────────────────
 def check_zip(c: Check, path: Path = ZIP, manifest: Path = MANIFEST) -> None:
     expected = [l.strip().replace("\r", "")
@@ -511,6 +630,7 @@ CHECKS = (
      check_docx, DOCX),
     ("PPTX", "submission/ppt/SmartGarbage_Presentation.pptx", check_pptx, PPTX),
     ("VIDEO", "submission/video/SmartGarbage_Demo_Video.mp4", check_video, VIDEO),
+    ("SIDECARS", "video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}", check_sidecars, EN_SRT),
     ("ZIP", "submission/code/SmartGarbage_Source_Code.zip", check_zip, ZIP),
 )
 
@@ -542,7 +662,7 @@ def run_one(index: int, label: str, rel: str, fn, artifact: Path) -> Check:
 
 def main() -> int:
     print("=" * 72)
-    print("  R24 SUBMISSION VERIFICATION - five deliverables")
+    print("  R24 SUBMISSION VERIFICATION - five deliverables (incl. captions)")
     print("=" * 72)
     results = [run_one(i, label, rel, fn, art)
                for i, (label, rel, fn, art) in enumerate(CHECKS, 1)]
@@ -618,6 +738,32 @@ def selftest() -> int:
                         str(VIDEO), "-t", "30", "-c", "copy", str(short), "-y"],
                        check=False)
         expect_fail("video: cut shortened to 30s", lambda c: check_video(c, short))
+
+        # Sidecar captions: doctor a throwaway copy of all four (an edited
+        # cue text breaks the byte-identity with the generator's output).
+        side_tmp = tmp / "sidecars"
+        side_tmp.mkdir()
+        doctored = []
+        for path in SIDECARS:
+            dst = side_tmp / path.name
+            dst.write_bytes(path.read_bytes())
+            doctored.append(dst)
+        blob = doctored[0].read_text(encoding="utf-8")
+        doctored[0].write_text(blob.replace("the live website,", "the LIVE site,"),
+                               encoding="utf-8")
+        expect_fail("sidecar: caption text edited",
+                    lambda c: check_sidecars(c, doctored[0], doctored))
+
+        # ... and a missing file must fail on its own.
+        side_tmp2 = tmp / "sidecars_missing"
+        side_tmp2.mkdir()
+        paths_but_only_srt_copied = [side_tmp2 / p.name for p in SIDECARS]
+        for shipped, shadow in zip(SIDECARS, paths_but_only_srt_copied):
+            if shipped.suffix == ".srt":          # the vtt copies stay un-written
+                shadow.write_bytes(shipped.read_bytes())
+        expect_fail("sidecar: vtt files missing",
+                    lambda c: check_sidecars(c, paths_but_only_srt_copied[0],
+                                             paths_but_only_srt_copied))
 
         # Numbering is a pure function of the page texts, so it can be falsified
         # directly instead of hand-editing a PDF's baked-in footers.

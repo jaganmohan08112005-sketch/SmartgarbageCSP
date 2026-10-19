@@ -17,9 +17,9 @@ commit / zip-refresh / workflow-secret steps.
 |---|---|---|
 | `book/` | `SmartGarbage_BOOK_R24.pdf` | **The BOOK** (print master). 89 pages, US Letter 8.5×11 in, 1" margins, TNR 16/14/12, page numbering starts at List of Abbreviations = 1. |
 | `documentation/` | `SmartGarbage_Documentation_Softcopy.docx` | Softcopy of the same report (Times New Roman throughout, 19 tables, 20 figures/diagrams). |
-| `video/` | `SmartGarbage_Demo_Video.mp4` | 9:50 live walkthrough — 31 scenes covering every page the app serves: the public site, all three portals page by page (citizen, worker, admin), and the writes performed on camera (waste declaration, preference change, complaint filing with its signed tracking page, issue report, offload). 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). |
+| `video/` | `SmartGarbage_Demo_Video.mp4` | 9:50 live walkthrough — 31 scenes covering every page the app serves: the public site, all three portals page by page (citizen, worker, admin), and the writes performed on camera (waste declaration, preference change, complaint filing with its signed tracking page, issue report, offload). 1280×720 H.264 + AAC (Playwright capture + TTS + ffmpeg). No text is burned into the picture; the same narration ships as **sidecar captions**: `SmartGarbage_Demo_Video.{en,te}.{srt,vtt}` (English + Telugu) right next to the MP4. An **optional reviewer copy** - `SmartGarbage_Demo_Video.en.burned.mp4` - burns the English captions into the picture (same encode settings, audio copied) for players that cannot load sidecars; the delivered MP4 itself stays caption-free. |
 | `ppt/` | `SmartGarbage_Presentation.pptx` | Final deck: 20 slides, R24 title/footer chrome, IEEE-numbered references (`[1] Author(s), "Title," …`). |
-| `code/` | `SmartGarbage_Source_Code.zip` | Full project source: 409 files — Flask app, IoT + ML modules, tests, CI, docs, and the committed narration generator (`report/video/_video_live/tts.ps1`). No venv/node_modules, no report binaries (the BOOK/softcopy/deck are delivered above, not inside the code archive). Git-ignored; rebuild with `build_code_zip.py`. |
+| `code/` | `SmartGarbage_Source_Code.zip` | Full project source: 411 files — Flask app, IoT + ML modules, tests, CI, docs, and the committed narration generator (`report/video/_video_live/tts.ps1`). No venv/node_modules, no report binaries (the BOOK/softcopy/deck are delivered above, not inside the code archive). Git-ignored; rebuild with `build_code_zip.py`. |
 | `_scratch/` | — | Working scripts (manifest, the verifier, builders). Not part of the submission. |
 | — | `RUNBOOK.md` | Submission-day runbook: gate, print/bind checklist, hand-in set, post-submission steps. |
 
@@ -66,6 +66,7 @@ venv/Scripts/python.exe submission/_scratch/verify_submission.py
 | 2 | `documentation/…Softcopy.docx` | OOXML container + XML parses, 19 tables, 20 figures, Times New Roman dominant, front-matter order, current facts |
 | 3 | `ppt/SmartGarbage_Presentation.pptx` | OOXML container + XML parses, 20 slides, 16:9, IEEE references `[1]…[n]` with author/year entries, closing Q&A slide |
 | 4 | `video/SmartGarbage_Demo_Video.mp4` | container readable, 9:50 ±5s, h264 1280×720, AAC audio |
+| 4a | `video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}` | all four parse (numbering, timestamps, ordering), en/te cover the same 9:49 narration span, and regenerate byte-identically from `_make_subtitles.py` |
 | 5 | `code/SmartGarbage_Source_Code.zip` | entry set/order == `code_list.txt`, no forbidden paths, no duplicates, and every entry's SHA-256 equals the source tree (byte-for-byte drift) |
 
 Two failure kinds are both fatal: **CONTRACT** (the artifact no longer meets the
@@ -97,6 +98,17 @@ cd report
 # Demo video (records the local stack on 127.0.0.1:5057; segments are resumable)
 ../venv/Scripts/python.exe report/video/_make_video_live.py
 #   → submission/video/SmartGarbage_Demo_Video.mp4
+
+# Sidecar captions (English + Telugu SRT/WebVTT next to the MP4; deterministic
+# - timed from the committed narration text + the measured scene WAV lengths)
+../venv/Scripts/python.exe report/video/_make_subtitles.py
+#   → submission/video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}
+
+# Optional burned-in reviewer copy (English captions in the picture; the
+# delivered MP4 is hashed and never rewritten). File is ~70 MB, still under
+# the 100 MB push limit. Rebuild refuses to overwrite an existing output.
+../venv/Scripts/python.exe report/video/_burn_subtitles.py
+#   → submission/video/SmartGarbage_Demo_Video.en.burned.mp4
 
 # Source-code zip (refreshes the curated manifest, then rebuilds)
 ../venv/Scripts/python.exe submission/_scratch/build_code_zip.py --write

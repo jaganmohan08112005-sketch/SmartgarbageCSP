@@ -54,14 +54,23 @@ stop and re-run step 1.
 ## 3. The exact set to hand in
 
 Five files, all under `submission/`. Nothing else in this repo is a deliverable.
+(The video carries its sidecar caption files — row 3a, English + Telugu, no
+text burned into the picture — so the walkthrough stays watchable muted. An
+optional aid rides in the same folder for reviewers whose player cannot load
+sidecars: `video/SmartGarbage_Demo_Video.en.burned.mp4`, the English captions
+burned into the picture of the identical cut. Rebuild it with
+`report/video/_burn_subtitles.py`; the delivered MP4 of row 3 is never rewritten
+by that script. It is an alternative, not a sixth deliverable — hand in the same
+five files unless the panel asks for the burned copy.)
 
 | # | Path | Form | Identity |
 |---|---|---|---|
 | 1 | `book/SmartGarbage_BOOK_R24.pdf` | **printed**, bound (above) | 89 pp, Letter, TNR 16/14/12, numbering from LoA = 1 |
 | 2 | `documentation/SmartGarbage_Documentation_Softcopy.docx` | digital | 19 tables, 20 figures, Times New Roman |
 | 3 | `video/SmartGarbage_Demo_Video.mp4` | digital | 9:50, 1280×720 h264 + AAC |
+| 3a | `video/SmartGarbage_Demo_Video.{en,te}.{srt,vtt}` | digital | sidecar captions (English + Telugu) for the same cut |
 | 4 | `ppt/SmartGarbage_Presentation.pptx` | digital | 20 slides, R24 chrome, IEEE refs |
-| 5 | `code/SmartGarbage_Source_Code.zip` | digital | 409-file source archive |
+| 5 | `code/SmartGarbage_Source_Code.zip` | digital | 411-file source archive |
 
 - [ ] Copy 2–5 to the submission media (and/or the shared drive).
 - [ ] Copy the **printed** book's PDF as well if the department accepts PDF for
@@ -120,11 +129,11 @@ venv/Scripts/python.exe submission/_scratch/build_code_zip.py --write
 It refreshes `submission/_scratch/code_list.txt` (drops files that no longer
 exist, adds new sources, never includes `venv/`, `node_modules/`, `.env`,
 `submission/`, or the separately-delivered report binaries) and rewrites
-`submission/code/SmartGarbage_Source_Code.zip`. Expect ~409 files; the script
+`submission/code/SmartGarbage_Source_Code.zip`. Expect ~411 files; the script
 asserts the count matches the manifest and that `csp-events.js` is present.
 
 - [ ] Re-run the gate (step 7) and confirm the ZIP lines read
-      `all 409 entries hash-match the source tree`.
+      `all 411 entries hash-match the source tree`.
 - [ ] The `N archived file(s) have uncommitted edits` warning should now be
       **gone** — it means the archive contains work that is still uncommitted.
 - [ ] Copy the fresh zip to the submission media (it is freshly built, so any
@@ -136,7 +145,8 @@ asserts the count matches the manifest and that `csp-events.js` is present.
 venv/Scripts/python.exe submission/_scratch/verify_submission.py
 ```
 
-Exit 0 and five `PASS` lines, or fix and repeat step 6. This is the last check
+Exit 0 and six `PASS` lines (the video's sidecar captions are checked as their
+own deliverable), or fix and repeat step 6. This is the last check
 before the files leave your machine.
 
 ## 8. Enable the workflows' secrets

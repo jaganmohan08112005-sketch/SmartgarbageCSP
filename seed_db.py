@@ -68,6 +68,18 @@ with app.app_context():
     admin_user = User.query.filter_by(username="24331A4441ADMIN").first()
     citizen_user = User.query.filter_by(username="24331A4441CITIZEN").first()
     worker_user = User.query.filter_by(username="24331A4441WORKER").first()
+    # Second demo worker for the CV-02 geofence-violation scenario (steps 5
+    # and 8 reference wp2). credentials mirror docs/DEMO_DATA.md; a dedicated
+    # account is required because worker_profile.user_id is UNIQUE (migration
+    # a7c9e1f3b5d7) — one profile per worker.
+    if not User.query.filter_by(username="worker_cv02").first():
+        db.session.add(User(username="worker_cv02",
+                            password_hash=generate_password_hash("worker_cv02"),
+                            role="worker", phone="+919876543230",
+                            is_approved=True,
+                            email="cv02.worker@gmail.com"))
+        db.session.commit()
+    cv02_worker = User.query.filter_by(username="worker_cv02").first()
 
     # Seed Worker Profiles
     print("🚛 Seeding worker profiles...")
@@ -80,6 +92,16 @@ with app.app_context():
         performance_rating=4.9
     )
     db.session.add(wp1)
+    # Sector CV-02 demo profile carrying the out-of-bounds scenario.
+    wp2 = WorkerProfile(
+        user_id=cv02_worker.id,
+        vehicle_id="CV-02",
+        latitude=18.0850,
+        longitude=83.4250,
+        status="Active",
+        performance_rating=4.4
+    )
+    db.session.add(wp2)
     db.session.commit()
 
     print("✅ Default users created:")
@@ -196,7 +218,7 @@ with app.app_context():
     wp1.current_lon = 83.4051
     wp1.geofence_violation = False  # Inside bounds!
 
-    # Sector CV-02
+    # Sector CV-02 (out-of-bounds demo scenario)
     wp2.sector_polygon = json.dumps([[18.0650,83.4060],[18.0650,83.4120],[18.0710,83.4120],[18.0710,83.4060]])
     wp2.current_lat = 18.0850       # Way out of bounds!
     wp2.current_lon = 83.4250
